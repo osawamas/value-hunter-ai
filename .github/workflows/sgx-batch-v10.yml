@@ -1,0 +1,29 @@
+name: SGX batch financial audit v10
+on:
+  workflow_dispatch:
+jobs:
+  batch-financial-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF dependency
+        run: python -m pip install pymupdf
+      - name: Test v9 and v10 code
+        run: |
+          python -m unittest discover -s SGX_PDF_connection_probe -p 'test_batch_probe.py' -v
+          python -m unittest discover -s SGX_PDF_connection_probe -p 'test_financial_audit_v10.py' -v
+      - name: Fetch and extract PDF candidates
+        run: python SGX_PDF_connection_probe/batch_probe.py
+      - name: Audit balance sheet and income candidates
+        run: python SGX_PDF_connection_probe/financial_audit_v10.py batch_results
+      - name: Upload audit evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-batch-v10-results
+          path: batch_results/
+          if-no-files-found: warn
