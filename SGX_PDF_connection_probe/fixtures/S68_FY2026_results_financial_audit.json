@@ -1,0 +1,152 @@
+{
+  "schema_version": "v10.0.0",
+  "document_id": "S68_FY2026_results",
+  "expected_fiscal_year": 2026,
+  "balance_sheet_tables": [
+    {
+      "page": 13,
+      "values": {
+        "assets": [
+          4547470,
+          4143988
+        ],
+        "liabilities": [
+          2184488,
+          1944067
+        ],
+        "equity": [
+          2362982,
+          2199921
+        ]
+      },
+      "checks": {
+        "year_column_1": true,
+        "year_column_2": true
+      },
+      "status": "arithmetic_consistent_unclassified",
+      "scope": "unclassified",
+      "source_lines": {
+        "assets": "Total assets 4,547,470 4,143,988",
+        "liabilities": "Total liabilities 2,184,488 1,944,067",
+        "equity": "Total equity 2,362,982 2,199,921"
+      }
+    },
+    {
+      "page": 19,
+      "values": {
+        "assets": [
+          2614554,
+          2349749
+        ],
+        "liabilities": [
+          864821,
+          901263
+        ],
+        "equity": [
+          1749733,
+          1448486
+        ]
+      },
+      "checks": {
+        "year_column_1": true,
+        "year_column_2": true
+      },
+      "status": "arithmetic_consistent_unclassified",
+      "scope": "unclassified",
+      "source_lines": {
+        "assets": "Total assets 2,614,554 2,349,749",
+        "liabilities": "Total liabilities 864,821 901,263",
+        "equity": "Total equity 1,749,733 1,448,486"
+      }
+    }
+  ],
+  "income_statement_candidates": [
+    {
+      "metric": "net_operating_revenue",
+      "page": 9,
+      "half_year_columns": [
+        782921,
+        651808
+      ],
+      "full_year_columns": [
+        1478321,
+        1298167
+      ],
+      "status": "layout_inferred_unverified",
+      "source_line": "782,921 651,808 20.1 Operating revenue less transaction-based expenses (net revenue) 1,478,321 1,298,167 13.9"
+    },
+    {
+      "metric": "operating_profit",
+      "page": 9,
+      "half_year_columns": [
+        462579,
+        359596
+      ],
+      "full_year_columns": [
+        887190,
+        742843
+      ],
+      "status": "layout_inferred_unverified",
+      "source_line": "462,579 359,596 28.6 Operating profit 887,190 742,843 19.4"
+    },
+    {
+      "metric": "operating_revenue",
+      "page": 9,
+      "half_year_columns": [
+        823286,
+        688398
+      ],
+      "full_year_columns": [
+        1559469,
+        1370625
+      ],
+      "status": "layout_inferred_unverified",
+      "source_line": "823,286 688,398 19.6 Operating revenue 1,559,469 1,370,625 13.8"
+    },
+    {
+      "metric": "net_operating_revenue",
+      "page": 10,
+      "half_year_columns": [
+        782921,
+        651808
+      ],
+      "full_year_columns": [
+        1478321,
+        1298167
+      ],
+      "status": "layout_inferred_unverified",
+      "source_line": "782,921 651,808 20.1 Operating revenue less transaction-based expenses (net revenue) 1,478,321 1,298,167 13.9"
+    },
+    {
+      "metric": "operating_revenue",
+      "page": 10,
+      "half_year_columns": [
+        823286,
+        688398
+      ],
+      "full_year_columns": [
+        1559469,
+        1370625
+      ],
+      "status": "layout_inferred_unverified",
+      "source_line": "823,286 688,398 19.6 Operating revenue 1,559,469 1,370,625 13.8"
+    },
+    {
+      "metric": "attributable_profit",
+      "page": 12,
+      "half_year_columns": [
+        355693,
+        307986
+      ],
+      "full_year_columns": [
+        698411,
+        647983
+      ],
+      "status": "layout_inferred_unverified",
+      "source_line": "355,693 307,986 Net profit after tax attributable to equity holders of the Company 698,411 647,983"
+    }
+  ],
+  "balance_consistent_tables": 2,
+  "financial_validation": "NOT_VERIFIED",
+  "warning": "Arithmetic consistency does not establish consolidated scope, units, year order or official financial validity."
+}

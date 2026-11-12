@@ -1,0 +1,555 @@
+{
+  "schema_version": "v12.0.0",
+  "financial_validation": "NOT_VERIFIED",
+  "page_scope_evidence": [
+    {
+      "page": 13,
+      "scope": "consolidated",
+      "status": "EXPLICIT_HEADING_FOUND",
+      "heading_evidence": [
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 1,
+          "text": "9. Statement of Financial Position - Group",
+          "scope": "consolidated"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 18,
+          "text": "- - - Gain on sale of interest of associated company - (7,801)",
+          "scope": null
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 26,
+          "text": "402,321 289,400 Adjusted net profit after tax attributable to equity holders of the Company 759,452 609,522",
+          "scope": null
+        }
+      ],
+      "page_start": [
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 1,
+          "text": "9. Statement of Financial Position - Group"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 2,
+          "text": "As at"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 3,
+          "text": "30 June 2026 30 June 2025"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 4,
+          "text": "S$'000 S$'000"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 5,
+          "text": "Assets"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 6,
+          "text": "Current assets"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 7,
+          "text": "Cash and cash equivalents 1,806,145 1,129,979"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 8,
+          "text": "Trade and other receivables 1,173,496 935,950"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 9,
+          "text": "Derivative financial instruments 590 5,628"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 10,
+          "text": "Financial assets, at FVOCI 423,917 377,585"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 11,
+          "text": "Financial assets, at FVPL 8,134 -"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 12,
+          "text": "3,412,282 2,449,142"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 13,
+          "text": "Non-current assets"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 14,
+          "text": "Financial assets, at FVOCI 120,811 183,514"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 15,
+          "text": "Financial assets, at FVPL 17,762 463,695"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 16,
+          "text": "Investment property 13,357 13,617"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 17,
+          "text": "Property, plant and equipment 82,674 62,582"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 18,
+          "text": "Software 152,932 134,205"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 19,
+          "text": "Right-of-use assets 46,260 64,306"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 20,
+          "text": "Intangible assets 48,783 56,411"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 21,
+          "text": "Goodwill 632,907 684,912"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 22,
+          "text": "Associated companies 14,753 17,961"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 23,
+          "text": "Joint ventures 4,949 13,643"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 24,
+          "text": "1,135,188 1,694,846"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 25,
+          "text": "Total assets 4,547,470 4,143,988"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 26,
+          "text": "Liabilities"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 27,
+          "text": "Current liabilities"
+        },
+        {
+          "page": 13,
+          "position": "page_start",
+          "line": 28,
+          "text": "Trade and other payables 1,269,091 1,029,440"
+        }
+      ],
+      "previous_page_end": [
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 16,
+          "text": "Adjusted for:"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 17,
+          "text": "(3,980) (29,482) - Net gains from long-term investments (9,924) (48,675)"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 18,
+          "text": "- - - Gain on sale of interest of associated company - (7,801)"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 19,
+          "text": "38,400 5,470 - Impairment losses 55,635 7,568"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 20,
+          "text": "- 310 - Fair value loss on forward liability to acquire non-controlling interests - 310"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 21,
+          "text": "3,605 4,157 - Amortisation of intangible assets 7,238 8,314"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 22,
+          "text": "5,464 2,580 - Other one-off adjustments 5,594 4,212"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 23,
+          "text": "5,696 - - Transformation-related costs 5,696 -"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 24,
+          "text": "- (11) - Non-controlling interests relating to the above - (43)"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 25,
+          "text": "(2,557) (1,610) - Income tax adjustment relating to the above (3,198) (2,346)"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 26,
+          "text": "402,321 289,400 Adjusted net profit after tax attributable to equity holders of the Company 759,452 609,522"
+        },
+        {
+          "page": 12,
+          "position": "previous_page_end",
+          "line": 27,
+          "text": "Page 11 of 23"
+        }
+      ],
+      "warning": "Scope is heading evidence only; period, unit, table alignment and numeric checks are still required."
+    },
+    {
+      "page": 19,
+      "scope": "company",
+      "status": "EXPLICIT_HEADING_FOUND",
+      "heading_evidence": [
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 1,
+          "text": "15. Statement of Financial Position - Company",
+          "scope": "company"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 20,
+          "text": "823,286 (40,365) 782,921 503,254 40,675 462,579 (20,256) (3,542) (83,088) 355,693 1,559,469 (81,148) 1,478,321 969,335 82,145 887,190 (18,428) (10,309) (160,042) 698,411 Group S$'000 Group S$'000",
+          "scope": null
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 30,
+          "text": "2H Income, 214,871 (17,526) 197,345 113,267 13,736 99,531 FY2026 Income, 411,986 (35,751) 376,235 219,809 27,088 192,721 corporate - - S$'000 S$'000 Fixed Commodities Fixed Commodities TheSegment Currencies Currencies Group Group *",
+          "scope": null
+        }
+      ],
+      "page_start": [
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 1,
+          "text": "15. Statement of Financial Position - Company"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 2,
+          "text": "As at"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 3,
+          "text": "30 June 2026 30 June 2025"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 4,
+          "text": "S$'000 S$'000"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 5,
+          "text": "Assets"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 6,
+          "text": "Current assets"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 7,
+          "text": "Cash and cash equivalents 721,780 260,731"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 8,
+          "text": "Trade and other receivables 241,986 178,927"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 9,
+          "text": "Financial assets, at FVOCI 202,171 94,026"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 10,
+          "text": "1,165,937 533,684"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 11,
+          "text": "Non-current assets"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 12,
+          "text": "Property, plant and equipment 53,834 39,657"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 13,
+          "text": "Software 51,259 49,139"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 14,
+          "text": "Right-of-use assets 42,862 61,267"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 15,
+          "text": "Subsidiaries 1,298,868 1,666,002"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 16,
+          "text": "Deferred tax assets 1,794 -"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 17,
+          "text": "1,448,617 1,816,065"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 18,
+          "text": "Total assets 2,614,554 2,349,749"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 19,
+          "text": "Liabilities"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 20,
+          "text": "Current liabilities"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 21,
+          "text": "Trade and other payables 166,337 195,519"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 22,
+          "text": "Loans and borrowings 628,247 -"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 23,
+          "text": "Lease liabilities 13,623 18,412"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 24,
+          "text": "Taxation 11,731 6,574"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 25,
+          "text": "Provisions 14,600 9,637"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 26,
+          "text": "834,538 230,142"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 27,
+          "text": "Non-current liabilities"
+        },
+        {
+          "page": 19,
+          "position": "page_start",
+          "line": 28,
+          "text": "Loans and borrowings - 622,904"
+        }
+      ],
+      "previous_page_end": [
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 20,
+          "text": "823,286 (40,365) 782,921 503,254 40,675 462,579 (20,256) (3,542) (83,088) 355,693 1,559,469 (81,148) 1,478,321 969,335 82,145 887,190 (18,428) (10,309) (160,042) 698,411 Group S$'000 Group S$'000"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 21,
+          "text": "* - - - - - - * - - - - - -"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 22,
+          "text": "(20,256) (3,542) (83,088) (18,428) (10,309) (160,042) S$'000 S$'000 Corporate Corporate"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 23,
+          "text": "- - - - - -"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 24,
+          "text": "and 134,116 (4,651) 129,465 64,173 10,323 53,850 and 264,703 (10,045) 254,658 138,326 19,368 118,958 Others S$'000 Others S$'000 Platform Platform"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 25,
+          "text": "FY2026 - - - - FY2026 - - - - 2H 7,177 segment 192,735 (15,632) 177,103 123,760 116,583 375,149 (30,661) 344,488 248,073 14,091 233,982 Equities S$'000 Equities S$'000 Derivatives Derivatives"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 26,
+          "text": "- - - - - - non-operating"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 27,
+          "text": "aGroup- FY2025 Cash- (2,556) 9,439 Cash- (4,691) 21,598 is 281,564 279,008 202,054 192,615 507,631 502,940 363,127 341,529"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 28,
+          "text": "2H S$'000 S$'000 FY2025 and Equities Equities segment and"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 29,
+          "text": "- - - - - - and andInformation FY2026"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 30,
+          "text": "2H Income, 214,871 (17,526) 197,345 113,267 13,736 99,531 FY2026 Income, 411,986 (35,751) 376,235 219,809 27,088 192,721 corporate - - S$'000 S$'000 Fixed Commodities Fixed Commodities TheSegment Currencies Currencies Group Group *"
+        },
+        {
+          "page": 18,
+          "position": "previous_page_end",
+          "line": 31,
+          "text": "14."
+        }
+      ],
+      "warning": "Scope is heading evidence only; period, unit, table alignment and numeric checks are still required."
+    }
+  ],
+  "document_id": "S68_FY2026_results",
+  "http_status": 200,
+  "pdf_page_count": 24
+}
