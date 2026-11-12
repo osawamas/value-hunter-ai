@@ -11,15 +11,32 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install pymupdf pytest
-      - name: Verify deployed source version
+      - name: Verify deployed source integrity
         shell: bash
         run: |
-          set -euo pipefail
-          grep -Fq "VERSION = 'v6.0.0'" SGX_PDF_connection_probe/probe.py
-          grep -Fq 'def extract_s68_fy2026' SGX_PDF_connection_probe/financial_extract.py
-          echo 'SGX PROBE VERSION: v6.0.0'
-          git rev-parse HEAD
-          sha256sum SGX_PDF_connection_probe/probe.py SGX_PDF_connection_probe/financial_extract.py
+          python - <<'PYCODE'
+          from pathlib import Path
+          import hashlib
+          import sys
+          root = Path('SGX_PDF_connection_probe')
+          checks = {
+              'probe.py': "VERSION = 'v7.0.0'",
+              'financial_extract.py': 'def extract_s68_fy2026',
+          }
+          for filename, marker in checks.items():
+              path = root / filename
+              if not path.is_file():
+                  sys.exit(f'MISSING FILE: {path}')
+              if marker not in path.read_text(encoding='utf-8'):
+                  sys.exit(f'INCORRECT SOURCE: {path} missing {marker!r}')
+          path = root / 'financial_extract.py'
+          actual = hashlib.sha256(path.read_bytes()).hexdigest()
+          expected = '7c8977573116ed208cdf357e8998cd3aa41664d7afc16f1ba888ff0006f8cb09'
+          print('DEPLOYED FINANCIAL EXTRACTOR SHA256:', actual, flush=True)
+          if actual != expected:
+              sys.exit(f'WRONG financial_extract.py: expected {expected}, got {actual}. Replace the file from the v7 ZIP and commit.')
+          print('SGX PROBE VERSION: v7.0.0', flush=True)
+          PYCODE
       - name: Unit tests
         run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py SGX_PDF_connection_probe/test_layout_probe.py -v
       - name: Download and verify live SGX PDF
