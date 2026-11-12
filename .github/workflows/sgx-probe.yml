@@ -1,25 +1,21 @@
 name: SGX PDF connection probe
-
 on:
   workflow_dispatch:
-
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install pymupdf pytest
-      - name: Test financial extraction
-        run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py -v
-      - name: Run SGX financial probe
+      - name: Unit tests
+        run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py SGX_PDF_connection_probe/test_layout_probe.py -v
+      - name: Download and inspect real SGX PDF
         run: python SGX_PDF_connection_probe/probe.py
-      - name: Upload results even on failure
+      - name: Upload report and layout diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
