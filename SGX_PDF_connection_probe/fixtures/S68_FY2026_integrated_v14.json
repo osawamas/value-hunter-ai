@@ -1,0 +1,71 @@
+{
+  "schema_version": "v14.0.0",
+  "ticker": "S68",
+  "fiscal_years": [
+    2026,
+    2025
+  ],
+  "currency": "SGD",
+  "unit": "SGD_thousands",
+  "validation": "VERIFIED_S68_INCOME_KNOWN_VALUES_AND_CONSOLIDATED_BALANCE",
+  "scope": "S68 FY2026 only; income verified against known issuer-specific amounts",
+  "balance_sheet": {
+    "assets": [
+      4547470,
+      4143988
+    ],
+    "liabilities": [
+      2184488,
+      1944067
+    ],
+    "equity": [
+      2362982,
+      2199921
+    ]
+  },
+  "income_statement": {
+    "operating_revenue": [
+      1559469,
+      1370625
+    ],
+    "net_revenue": [
+      1478321,
+      1298167
+    ],
+    "operating_profit": [
+      887190,
+      742843
+    ],
+    "profit_attributable": [
+      698411,
+      647983
+    ]
+  },
+  "derived": {
+    "revenue_growth_pct": 13.7779,
+    "operating_profit_growth_pct": 19.4317,
+    "profit_attributable_growth_pct": 7.7823,
+    "operating_margin_pct": 56.8905,
+    "equity_to_assets_pct": 51.9626,
+    "liabilities_to_assets_pct": 48.0374,
+    "roe_simple_end_year_pct": 29.5563
+  },
+  "screening": {
+    "eligible_for_growth_margin_equity_ratio": true,
+    "eligible_for_per_pbr": false
+  },
+  "limitations": [
+    "Not a general SGX issuer parser",
+    "No verified market price or shares outstanding",
+    "ROE uses end-of-year total equity, not average parent-attributable equity"
+  ],
+  "evidence": {
+    "balance_page": 13,
+    "income_pages": {
+      "operating_revenue": 9,
+      "net_revenue": 9,
+      "operating_profit": 9,
+      "profit_attributable": 9
+    }
+  }
+}
