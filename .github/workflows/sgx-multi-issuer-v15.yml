@@ -1,0 +1,25 @@
+name: SGX multi issuer reconnaissance v15
+on:
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install 'pymupdf>=1.24,<2'
+      - name: Unit tests
+        run: python -m unittest discover -s SGX_PDF_connection_probe -p test_multi_issuer_v15.py -v
+      - name: Audit three issuers
+        run: python SGX_PDF_connection_probe/multi_issuer_v15.py
+      - name: Upload results even on error
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-multi-issuer-v15-results
+          path: sgx_v15_results/
+          if-no-files-found: warn
