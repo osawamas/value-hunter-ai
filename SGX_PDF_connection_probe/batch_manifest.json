@@ -1,0 +1,6 @@
+{
+  "documents": [
+    {"ticker":"S68","document_id":"S68_FY2026_results","url":"https://investorrelations.sgx.com/static-files/dcbd5905-9373-4dc9-80f5-8dbff6b8d584","expected_fiscal_year":2026,"document_type":"results"},
+    {"ticker":"S68","document_id":"S68_FY2026_release","url":"https://links.sgx.com/FileOpen/1.%20SGX%20Group%20reports%20FY2026%20net%20profit%20of%20S%24759%20million.ashx?App=Announcement&FileID=898861","expected_fiscal_year":2026,"document_type":"release"}
+  ]
+}
