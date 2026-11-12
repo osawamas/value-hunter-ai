@@ -1,0 +1,29 @@
+name: SGX batch heading evidence v12
+on:
+  workflow_dispatch:
+jobs:
+  heading-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF dependency
+        run: python -m pip install pymupdf
+      - name: Test v12 heading logic
+        run: python -m unittest discover -s SGX_PDF_connection_probe -p 'test_scope_heading_v12.py' -v
+      - name: Collect v9 candidates
+        run: python SGX_PDF_connection_probe/batch_probe.py
+      - name: Run v10 financial arithmetic audit
+        run: python SGX_PDF_connection_probe/financial_audit_v10.py batch_results
+      - name: Extract page and preceding-page heading evidence
+        run: python SGX_PDF_connection_probe/scope_heading_v12.py
+      - name: Upload results even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-batch-v12-results
+          path: batch_results/
+          if-no-files-found: warn
