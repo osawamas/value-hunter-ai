@@ -1,0 +1,31 @@
+name: SGX consolidated financial audit v13
+on:
+  workflow_dispatch:
+jobs:
+  consolidated-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF dependency
+        run: python -m pip install pymupdf
+      - name: Test v13 merge and validation
+        run: python -m unittest discover -s SGX_PDF_connection_probe -p 'test_consolidated_audit_v13.py' -v
+      - name: Fetch and extract PDF candidates
+        run: python SGX_PDF_connection_probe/batch_probe.py
+      - name: Run v10 arithmetic audit
+        run: python SGX_PDF_connection_probe/financial_audit_v10.py batch_results
+      - name: Run v12 explicit heading audit
+        run: python SGX_PDF_connection_probe/scope_heading_v12.py
+      - name: Merge and verify consolidated balance sheets
+        run: python SGX_PDF_connection_probe/consolidated_audit_v13.py batch_results
+      - name: Upload evidence and verified data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-batch-v13-results
+          path: batch_results/
+          if-no-files-found: warn
