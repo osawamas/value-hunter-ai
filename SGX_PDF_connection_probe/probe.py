@@ -11,7 +11,7 @@ import pymupdf
 from financial_extract import extract_s68_fy2026
 from layout_probe import inspect_document
 
-VERSION = 'v6.0.0'
+VERSION = 'v7.0.0'
 ROOT = pathlib.Path(__file__).resolve().parent
 OUT = pathlib.Path('results')
 OUT.mkdir(parents=True, exist_ok=True)
@@ -25,7 +25,7 @@ def sha(path):
 
 def fetch(url):
     req = urllib.request.Request(url, headers={
-        'User-Agent': 'Mozilla/5.0 (compatible; ValueHunterProbe/6.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; ValueHunterProbe/7.0)',
         'Accept': 'application/pdf,*/*;q=0.5',
     })
     with urllib.request.urlopen(req, timeout=40) as response:
