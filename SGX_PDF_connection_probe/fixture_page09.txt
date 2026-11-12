@@ -1,0 +1,113 @@
+2.  Income Statement - Group
+                 2H
+       FY2026      FY2025     Change                                                                      FY2026      FY2025     Change
+        S$'000       S$'000      %                                                                               S$'000       S$'000      %
+
+                                            Operating revenue
+
+         214,871      177,150        21.3   Fixed Income, Currencies and Commodities                                  411,986      350,059        17.7
+
+         281,564      201,874        39.5   Equities - Cash                                                           507,631      396,422        28.1
+
+         192,735      183,022          5.3   Equities - Derivatives                                                     375,149      375,543          (0.1)
+
+         134,116      126,352          6.1  Platform and Others                                                      264,703      248,601          6.5
+
+         823,286      688,398        19.6  Operating revenue                                                        1,559,469     1,370,625        13.8
+
+          (40,365)      (36,590)        10.3   Less: Transaction-based expenses                                                (81,148)      (72,458)        12.0
+
+         782,921      651,808        20.1  Operating revenue less transaction-based expenses (net revenue)             1,478,321     1,298,167        13.9
+
+                                            Operating expenses
+
+         180,479      151,911        18.8   Staff                                                                   333,259      300,860        10.8
+
+          54,099       48,032        12.6  Technology                                                               99,405       92,452          7.5
+
+           5,351        5,291          1.1  Premises                                                                  10,345       10,255          0.9
+
+          16,720       11,562        44.6   Professional fees                                                           25,306       18,880        34.0
+
+          23,018       32,542         (29.3)  Others                                                                    40,671       47,961         (15.2)
+
+         279,667      249,338        12.2  Operating expenses                                                      508,986      470,408          8.2
+
+         503,254      402,470        25.0   Earnings before interest, tax, depreciation and amortisation                   969,335      827,759        17.1
+
+          40,675       42,874          (5.1)  Depreciation and amortisation                                              82,145       84,916          (3.3)
+
+         462,579      359,596        28.6  Operating profit                                                         887,190      742,843        19.4
+
+                                           Non-operating items
+           4,728       29,163         (83.8)     - Other income (net)                                                       10,743       56,485         (81.0)
+          21,448       17,531        22.3      - Interest income                                                          41,588       37,129        12.0
+            (8,205)        (8,583)          (4.4)     - Finance charges                                                              (16,565)      (17,338)          (4.5)
+           173         (9,182)     NM      - Net foreign exchange gains/(losses)                                          1,441         (8,962)     NM
+          (38,400)        (5,470)     NM      - Impairment losses                                                            (55,635)        (7,568)     NM
+
+          (20,256)       23,459     NM  Non-operating (losses)/gains                                                    (18,428)       59,746     NM
+
+         442,323      383,055        15.5   Profit before tax and share of results of associated companies                  868,762      802,589          8.2
+                                         and joint ventures
+
+            (3,542)      (11,712)        (69.8)  Share of results of associated companies and joint ventures, net of tax             (10,309)      (16,698)        (38.3)
+
+         438,781      371,343        18.2   Profit before tax                                                         858,453      785,891          9.2
+
+          (83,088)      (63,339)        31.2  Tax                                                                          (160,042)     (137,764)        16.2
+
+         355,693      308,004        15.5  Net profit after tax                                                       698,411      648,127          7.8
+
+                                               Attributable to:
+         355,693      307,986        15.5   Equity holders of the Company                                             698,411      647,983          7.8
+
+                    -            18     NM   Non-controlling interests                                                                                    -           144     NM
+
+
+3.  Statement of Comprehensive Income - Group
+                 2H
+       FY2026      FY2025     Change                                                                      FY2026      FY2025     Change
+        S$'000       S$'000      %                                                                               S$'000       S$'000      %
+
+         355,693      308,004        15.5   Net profit after tax                                                      698,411      648,127          7.8
+
+                                          Other comprehensive income:
+
+                                                  a) Items that may be reclassified subsequently to profit or loss:
+
+                                              Foreign exchange translation
+            (3,120)      (15,815)        (80.3)   - Exchange differences arising during the period/year                             1,369       (22,174)     NM
+                    -                   -       NM    - Transferred to profit or loss                                                                              -           2,668     NM
+
+                                          Cash flow hedges
+            (2,274)        4,650     NM    - Fair value (losses)/gains arising during the period/year                             (4,085)        3,245     NM
+           571        1,722         (66.8)   - Transferred to profit or loss                                                       (1,186)        549     NM
+
+                                                  Financial assets, at FVOCI
+           1,133        4,243         (73.3)   - Fair value gains arising during the period/year                                  3,303        6,463         (48.9)
+            (1,693)        (1,721)          (1.6)   - Transferred to profit or loss                                                       (5,731)        (2,618)     NM
+
+                                                b) Items that will not be reclassified subsequently to profit or loss:
+
+                                              Foreign exchange translation
+                    -           115     NM    - Exchange differences arising during the period/year                                              -                   -       NM
+
+                                                  Financial assets, at FVOCI
+            (9,174)      (23,402)        (60.8)   - Fair value (losses)/gains arising during the period/year                           (50,263)        (3,163)     NM
+
+          (14,557)      (30,208)        (51.8)   Other comprehensive income for the financial period/year, net of tax           (56,593)      (15,030)     NM
+
+         341,136      277,796        22.8    Total comprehensive income for the financial period/year                    641,818      633,097          1.4
+
+                                                 Total comprehensive income attributable to:
+
+         341,136      277,663        22.9    Equity holders of the Company                                            641,818      632,953          1.4
+
+                    -           133     NM    Non-controlling interests                                                                                   -           144     NM
+
+                                   NM: Not meaningful
+
+
+
+                                                                                                                                                 Page 8 of 23
