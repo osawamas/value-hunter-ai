@@ -11,31 +11,26 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install pymupdf pytest
-      - name: Verify deployed source integrity
-        shell: bash
+      - name: Verify complete v8 deployment
         run: |
           python - <<'PYCODE'
           from pathlib import Path
-          import hashlib
-          import sys
+          import hashlib, sys
           root = Path('SGX_PDF_connection_probe')
-          checks = {
-              'probe.py': "VERSION = 'v7.0.0'",
-              'financial_extract.py': 'def extract_s68_fy2026',
-          }
-          for filename, marker in checks.items():
+          expected = {'probe.py': 'b944bcc196627371c4dcfbd1ba5314e9987ef147e60cd2744d250ba19b0e6c3b', 'financial_extract.py': '7c8977573116ed208cdf357e8998cd3aa41664d7afc16f1ba888ff0006f8cb09', 'layout_probe.py': '975319f70cb158d409da2bed48739abff74495a830bf1e19e97dc492254c0558', 'test_financial_extract.py': '07336c14e8e00f844c1be7e6612c43786b4601e5807752f0420452e16c2e24f2', 'test_layout_probe.py': 'eb93603b84d7bfa70a4d5b4fc2468cb2aa21e2d495a079f7dba417bc0207fca1', 'fixture_page09.txt': '4d5b519eb3c34aec5dfe54b3425f59e86c113248d72df2d964d49a3e54c62d6b'}
+          errors = []
+          for filename, wanted in expected.items():
               path = root / filename
               if not path.is_file():
-                  sys.exit(f'MISSING FILE: {path}')
-              if marker not in path.read_text(encoding='utf-8'):
-                  sys.exit(f'INCORRECT SOURCE: {path} missing {marker!r}')
-          path = root / 'financial_extract.py'
-          actual = hashlib.sha256(path.read_bytes()).hexdigest()
-          expected = '7c8977573116ed208cdf357e8998cd3aa41664d7afc16f1ba888ff0006f8cb09'
-          print('DEPLOYED FINANCIAL EXTRACTOR SHA256:', actual, flush=True)
-          if actual != expected:
-              sys.exit(f'WRONG financial_extract.py: expected {expected}, got {actual}. Replace the file from the v7 ZIP and commit.')
-          print('SGX PROBE VERSION: v7.0.0', flush=True)
+                  errors.append(f'MISSING: {path}')
+                  continue
+              actual = hashlib.sha256(path.read_bytes()).hexdigest()
+              print(f'{filename}: {actual}', flush=True)
+              if actual != wanted:
+                  errors.append(f'OUTDATED: {path} expected {wanted} got {actual}')
+          if errors:
+              sys.exit('\n'.join(errors))
+          print('SGX SOURCE PACKAGE: v8.0.0 - ALL 6 FILES MATCH', flush=True)
           PYCODE
       - name: Unit tests
         run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py SGX_PDF_connection_probe/test_layout_probe.py -v
