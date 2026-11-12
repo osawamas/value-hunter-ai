@@ -11,11 +11,20 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install pymupdf pytest
+      - name: Verify deployed source version
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "VERSION = 'v6.0.0'" SGX_PDF_connection_probe/probe.py
+          grep -Fq 'def extract_s68_fy2026' SGX_PDF_connection_probe/financial_extract.py
+          echo 'SGX PROBE VERSION: v6.0.0'
+          git rev-parse HEAD
+          sha256sum SGX_PDF_connection_probe/probe.py SGX_PDF_connection_probe/financial_extract.py
       - name: Unit tests
         run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py SGX_PDF_connection_probe/test_layout_probe.py -v
-      - name: Download and inspect real SGX PDF
+      - name: Download and verify live SGX PDF
         run: python SGX_PDF_connection_probe/probe.py
-      - name: Upload report and layout diagnostics even on failure
+      - name: Upload diagnostics even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
