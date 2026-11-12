@@ -7,6 +7,7 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,9 +18,12 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pymupdf
+        run: pip install requests pymupdf pytest
 
-      - name: Run SGX probe
+      - name: Test financial extraction
+        run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py -v
+
+      - name: Run SGX financial probe
         run: python SGX_PDF_connection_probe/probe.py
 
       - name: Upload results
@@ -28,9 +32,7 @@ jobs:
         with:
           name: sgx-connection-results
           path: |
-            *.json
-            *.txt
-            *.csv
-            SGX_PDF_connection_probe/*.json
-            SGX_PDF_connection_probe/*.txt
-            SGX_PDF_connection_probe/*.csv
+            report.json
+            S68_verified_financials.json
+            SGX_PDF_connection_probe/report.json
+            SGX_PDF_connection_probe/S68_verified_financials.json
