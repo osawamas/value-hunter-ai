@@ -1,0 +1,36 @@
+
+name: SGX PDF connection probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pymupdf
+
+      - name: Run SGX probe
+        run: python SGX_PDF_connection_probe/probe.py
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-connection-results
+          path: |
+            *.json
+            *.txt
+            *.csv
+            SGX_PDF_connection_probe/*.json
+            SGX_PDF_connection_probe/*.txt
+            SGX_PDF_connection_probe/*.csv
