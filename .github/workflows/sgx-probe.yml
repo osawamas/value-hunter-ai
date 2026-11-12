@@ -1,4 +1,3 @@
-
 name: SGX PDF connection probe
 
 on:
@@ -7,32 +6,23 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dependencies
-        run: pip install requests pymupdf pytest
-
+        run: python -m pip install pymupdf pytest
       - name: Test financial extraction
         run: python -m pytest SGX_PDF_connection_probe/test_financial_extract.py -v
-
       - name: Run SGX financial probe
         run: python SGX_PDF_connection_probe/probe.py
-
-      - name: Upload results
+      - name: Upload results even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sgx-connection-results
-          path: |
-            report.json
-            S68_verified_financials.json
-            SGX_PDF_connection_probe/report.json
-            SGX_PDF_connection_probe/S68_verified_financials.json
+          path: results/
+          if-no-files-found: warn
