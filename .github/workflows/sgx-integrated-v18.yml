@@ -1,0 +1,27 @@
+name: SGX integrated financial extraction v18
+on:
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF parser
+        run: python -m pip install 'pymupdf>=1.24,<1.28'
+      - name: Unit tests
+        run: python -m unittest discover -s SGX_PDF_connection_probe -p test_sgx_integrated_v18.py -v
+      - name: Extract and validate statements
+        run: python SGX_PDF_connection_probe/sgx_integrated_v18.py
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-integrated-v18-results
+          path: sgx_v18_results/
+          if-no-files-found: warn
