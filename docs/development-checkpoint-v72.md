@@ -11,15 +11,15 @@
 
 ## 直近の実行（再開時要チェック）
 - v71公開フィードは既に成功（docs/data/latest.json にO39/U11 banking_audited.status=ISSUER_AUDITED_GROUP_STATEMENTS_MATCH_HIGHLIGHTS）。
-- v72統合更新 #43516575898 は本記録作成時点では pending、直前 #43516537730 は実行中。**最初に最新の成功/失敗状況を確認すること**。成功前にv72の実データ公開を断定しない。
+- v72統合更新 #43516575898 は全工程成功。docs/data/latest.json updated_at_utc=2026-11-13T22:09:04.652814+00:00。登録7社、株価未取得3、計算不整合0、ランキング対象0。銀行3社の banking_indicators は全て公開済み。
 - 対象7銘柄 S68/G13/S20/S63/D05/O39/U11。3銀行の市場株価・PER・PBRは未取得、ランキング対象は0、計算不整合0。
 
-## 残り課題・次回優先順位
-1. #43516575898 のv72定期更新が完了したかを確認し、失敗ならjob logsから安全に修正。docs/data/latest.json に銀行3社 banking_indicators が全て入ったか数値と期間を照合。
+- 銀行参考指標の2025年値：DBS簡易ROE 15.88%、経費率40.83%；OCBC簡易ROE12.26%、経費率40.25%；UOB簡易ROE9.27%、経費率44.59%。各社正式公表ROEとの同一視は禁止。\n\n## 残り課題・次回優先順位
+1. 次回の最初にGitHub Actionsと公開JSON最新版を確認。v72の実行 #43516575898 は成功済みなので繰り返さない。
 2. 現在は銀行3社の financial_source_kind=REGISTERED_SOURCE_NOT_PARSED と財務未解析除外理由が残り、銀行専用 audited 表示との表現のズレがある。銀行専用の監査済み財務は解析済み、ただし一般事業会社の財務項目とは別・投資判断は未検証、という区別をUIとJSONに明示する。
 3. D05/O39/U11の2026年最新時点の自己株式控除後株数・株価（時刻付き）を正規ソースから安全に自動取得する経路を検討。D05の2026-02-10時点株数は現行として使用禁止。
 4. 財務ハイライトと監査済み連結財務諸表は同じ発行体の同一報告書内照合。第三者独立数値照合は未完。ランキング有効化しない。
 5. 公式PDFで403は即時失敗、429/5xxの限定再試行のみ。GitHub Pagesはリポジトリ所有者の初回有効化が必要。
 
 ## 次スレッド用
-VALUE HUNTER AI（GitHub osawamas/value-hunter-ai）のv72の続きから。まずmain/Actions/docs/data/latest.jsonとdocs/development-checkpoint-v72.mdを確認。v70でOCBC・UOBの2025/2024監査済み連結損益と貸借（OCBC PDF125/127頁、UOB PDF137/139頁）を自動抽出し、v71で年次報告書の財務ハイライトと同一PDF SHA256・算術の照合に成功して公開JSONへ反映。v72で3銀行の簡易ROE・経費率を銀行専用参考指標として実装、ユニットCI成功。v72最新統合Actions #43516575898 の完了状況を必ず確認。株価・PER・PBRは未取得、ランキング0件。次は銀行財務解析済み状態のUI表示整理と最新株式数/株価の検証。完了した作業を繰り返さずGitHubに保存し、最後に短い引き継ぎ文を付ける。
+VALUE HUNTER AI（GitHub osawamas/value-hunter-ai）のv72の続きから。まずmain/Actions/docs/data/latest.jsonとdocs/development-checkpoint-v72.mdを確認。v70でOCBC・UOBの2025/2024監査済み連結損益と貸借（OCBC PDF125/127頁、UOB PDF137/139頁）を自動抽出し、v71で年次報告書の財務ハイライトと同一PDF SHA256・算術の照合に成功して公開JSONへ反映。v72で3銀行の簡易ROE・経費率を銀行専用参考指標として実装、ユニットCI成功。v72統合Actions #43516575898 成功、銀行3社 banking_indicators 公開済み。株価・PER・PBRは未取得、ランキング0件。次は銀行財務解析済み状態のUI表示整理と最新株式数/株価の検証。完了した作業を繰り返さずGitHubに保存し、最後に短い引き継ぎ文を付ける。
