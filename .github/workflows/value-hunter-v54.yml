@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'SGX_PDF_connection_probe/s68_parent_equity_probe_v54.py'
+      - 'SGX_PDF_connection_probe/s68_parent_equity_v54.py'
+      - 'SGX_PDF_connection_probe/test_s68_parent_equity_v54.py'
       - '.github/workflows/value-hunter-v54.yml'
   workflow_dispatch:
 permissions:
@@ -18,6 +20,11 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Test owner equity scope and cross-foot
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_s68_parent_equity_v54.py
+      - name: Reconcile real Group parent equity from audited S68 official PDF
+        run: python SGX_PDF_connection_probe/s68_parent_equity_v54.py --output v54-diagnostics/s68_parent_equity_verified.json
       - name: Locate owner equity / NCI in S68 official FY2026 results
         run: python SGX_PDF_connection_probe/s68_parent_equity_probe_v54.py --output v54-diagnostics/s68_parent_equity.json
       - uses: actions/upload-artifact@v4
