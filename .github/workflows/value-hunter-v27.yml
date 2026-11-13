@@ -5,6 +5,7 @@ on:
     paths:
       - 'SGX_PDF_connection_probe/value_hunter_v27.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_v27.py'
+      - 'SGX_PDF_connection_probe/value_hunter_v27_report.py'
       - '.github/workflows/value-hunter-v27.yml'
   pull_request:
     paths:
@@ -39,6 +40,18 @@ jobs:
       - name: Audit against live second issuer PDFs
         if: github.event_name != 'pull_request'
         run: python SGX_PDF_connection_probe/value_hunter_v27.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_v27_results
+      - name: Write audit summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f value_hunter_v27_results/audit_v27.json ]; then
+            python SGX_PDF_connection_probe/value_hunter_v27_report.py \
+              --audit value_hunter_v27_results/audit_v27.json \
+              --output value_hunter_v27_results/summary.md
+            cat value_hunter_v27_results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "v27: 財務照合結果が生成されなかった。前段のログを参照。" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
