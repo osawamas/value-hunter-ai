@@ -111,7 +111,7 @@ def parse_pdf(symbol,raw):
         for kind,page_number in (("income",income_page),("balance",balance_page)):
             lines=doc[page_number-1].get_text("text").splitlines()
             plain=" ".join(lines).lower()
-            if not ("the group" in plain and "the bank" in plain
+            if not ("group" in plain and "bank" in plain
                     and "2025" in plain and "2024" in plain
                     and "in $ million" in plain):
                 raise ValueError(f"Group/Bank columns and unit missing {kind}")
