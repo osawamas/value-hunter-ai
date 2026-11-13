@@ -31,7 +31,7 @@ def parse_pdf(symbol,raw):
   content=" ".join(doc[conf["page"]-1].get_text("text").split())
   date_label="25 February 2026" if symbol=="O39" else "23 February 2026"
   title="Shareholding Statistics" if symbol=="O39" else "Statistics of Shareholdings"
-  if not re.search(re.escape(title)+r"\\s+as at\\s+"+re.escape(date_label),content,re.I):
+  if not re.search(re.escape(title)+r"\s+as at\s+"+re.escape(date_label),content,re.I):
    raise ValueError("Dated annual-shareholding table heading missing")
   if symbol=="O39":
    gross_match=re.findall(r"Number of issued shares \(including treasury shares\):\s*([\d,]+)",content,re.I)
