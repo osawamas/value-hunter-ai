@@ -31,7 +31,9 @@ def probe(pdf_bytes):
                 if any(x in line.lower() for x in KEYS):
                     samples.append({"row":k,"context":" | ".join(lines[max(0,k-3):min(len(lines),k+9)])[:650]})
             output.append({"page_pdf_number":i+1,"matched":matched,"contexts":samples[:12]})
-        return {"candidate_pages":output[:25],"pages_with_matches":len(output)}
+        balance=doc[26].get_text("text").splitlines()
+        return {"candidate_pages":output[:12],"pages_with_matches":len(output),
+                "financial_position_page_27_tail":" | ".join(balance[-95:])[:8500]}
     finally:
         doc.close()
 
