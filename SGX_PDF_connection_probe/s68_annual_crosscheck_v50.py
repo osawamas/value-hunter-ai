@@ -64,7 +64,16 @@ def parse_pdf(raw):
                         "row":row["text"],"2026":spec["2026"],"2025":spec["2025"]})
         for metric,hits in matches.items():
             if len(hits)!=1:
-                raise ValueError(f"Annual report {metric} not unique on consolidated income statement: {len(hits)}")
+                needle=f'{TARGET[metric]["2026"]:,}'
+                probe=[]
+                for j,page in enumerate(doc):
+                    raw=page.get_text("text")
+                    if needle in raw and len(probe)<8:
+                        linez=raw.splitlines()
+                        indices=[k for k,line in enumerate(linez) if needle in line]
+                        probe.extend({"page":j+1,"nearby":" | ".join(linez[max(0,k-3):k+4])[:350]}
+                                     for k in indices[:2])
+                raise ValueError(f"Annual report {metric} candidates={len(hits)} nearby={probe}")
         return matches
     finally:
         doc.close()
