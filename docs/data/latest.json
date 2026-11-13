@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:14:05.929730+00:00",
-  "input_generated_at_utc": "2026-11-13T22:14:05.874735+00:00",
+  "updated_at_utc": "2026-11-13T22:20:16.274478+00:00",
+  "input_generated_at_utc": "2026-11-13T22:20:16.227299+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -700,6 +700,19 @@
         "current_quote_verified": false,
         "current_share_count_verified": false,
         "ranking_eligible": false
+      },
+      "bank_historical_shares": {
+        "status": "HISTORICAL_ISSUER_PDF_TREASURY_RECONCILED_NOT_CURRENT",
+        "as_of_date": "2026-02-25",
+        "issued_excluding_treasury": 4490912507,
+        "gross_issued_shares": 4501436229,
+        "treasury_shares": 10523722,
+        "source_url": "https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/investors/annual-reports/2025/2025-annual-report-en.pdf",
+        "source_pdf_sha256": "d10f4fc11fd5845c2e5e6c1ffbeccf0c66f33e1b71c02ae0b402f0ba104382ff",
+        "source_pdf_page": 256,
+        "historical_only": true,
+        "current_market_cap_usable": false,
+        "ranking_eligible": false
       }
     },
     {
@@ -938,10 +951,23 @@
         "current_quote_verified": false,
         "current_share_count_verified": false,
         "ranking_eligible": false
+      },
+      "bank_historical_shares": {
+        "status": "HISTORICAL_ISSUER_PDF_TREASURY_RECONCILED_NOT_CURRENT",
+        "as_of_date": "2026-02-23",
+        "issued_excluding_treasury": 1651589183,
+        "gross_issued_shares": 1666832191,
+        "treasury_shares": 15243008,
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/annual/uob-annual-report-2025.pdf",
+        "source_pdf_sha256": "8f16c545145df604ac0e29df5369f1620dfa0a6063bbcf5fd21f3f71dd4438c6",
+        "source_pdf_page": 237,
+        "historical_only": true,
+        "current_market_cap_usable": false,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:14:05.963633+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:20:16.303666+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
