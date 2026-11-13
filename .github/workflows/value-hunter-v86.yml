@@ -1,0 +1,23 @@
+name: VALUE HUNTER original SGX historical share publication v86
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_primary_publish_v86.py
+      - SGX_PDF_connection_probe/test_u11_primary_publish_v86.py
+      - .github/workflows/value-hunter-v86.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reject promotion of old SGX UOB shares to live valuations
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py
