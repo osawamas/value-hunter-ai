@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SOURCES = {
-    "G13": "https://gentingsingapore.listedcompany.com/newsroom/20260224_173326_G13_A7CVA3KL4JFGECGT.3.pdf",
+    "G13": "https://links.sgx.com/FileOpen/2.%20GENS%20FY2025%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=875733",
     "S20": "https://links.sgx.com/1.0.0/corporate-announcements/4MEGIOQF57KJ8YNB/876892_20260227%202H2025%20Condensed%20interim%20FS.pdf",
 }
 LABELS = {
