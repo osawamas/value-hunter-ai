@@ -9,6 +9,22 @@ def normalize_s68(path):
  d=json.loads(Path(path).read_text()); years=d['fiscal_years']; fields={'revenue':('income_statement','operating_revenue'),'operating_profit':('income_statement','operating_profit'),'attributable_profit':('income_statement','profit_attributable'),'assets':('balance_sheet','assets'),'liabilities':('balance_sheet','liabilities'),'equity':('balance_sheet','equity')}
  return {'symbol':'S68','issuer':'Singapore Exchange Limited','fiscal_year':years[0],'source_kind':'HISTORICAL_V14_ISSUER_SPECIFIC_FIXTURE','source_url':'https://investorrelations.sgx.com/static-files/dcbd5905-9373-4dc9-80f5-8dbff6b8d584','pdf_sha256':None,'metrics':{k:{str(y):{'value':v,'status':'ISSUER_SPECIFIC_REFERENCE_CHECK'} for y,v in zip(years,d[sec][key])} for k,(sec,key) in fields.items()}}
 
+def normalize_s68_official(path):
+    """Only replace the S68 fixture with a successful official FY2026 PDF parse."""
+    record=json.loads(Path(path).read_text(encoding='utf-8'))
+    if record.get('symbol')!='S68' or record.get('status')!='EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED':
+        raise ValueError('S68 official PDF evidence is not verified')
+    metrics=record.get('metrics') or {}
+    if not record.get('pdf_sha256') or not record.get('source_url'):
+        raise ValueError('S68 official PDF provenance missing')
+    for key in ('revenue','operating_profit','attributable_profit','assets','liabilities','equity'):
+        for year in ('2026','2025'):
+            entry=metrics.get(key,{}).get(year,{})
+            if (not isinstance(entry.get('value'),int) or entry.get('value')<=0
+                    or entry.get('status')!='EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED'):
+                raise ValueError('S68 PDF missing authenticated field '+key+'/'+year)
+    return {key:record[key] for key in ('symbol','issuer','fiscal_year','source_kind','source_url','pdf_sha256','metrics')}
+
 def normalize_v18(path,symbol):
  d=json.loads(Path(path).read_text()); assert d['symbol']==symbol
  fields={'revenue':('income','revenue'),'operating_profit':('income','operating_profit'),'attributable_profit':('income','attributable_profit'),'assets':('balance','assets'),'liabilities':('balance','liabilities'),'equity':('balance','equity')}
@@ -53,15 +69,15 @@ def get(r,key,year):return r['metrics'].get(key,{}).get(str(year),{}).get('value
 def derive(r):
  y=r['fiscal_year'];rev=get(r,'revenue',y);prior=get(r,'revenue',y-1);op=get(r,'operating_profit',y);p_op=get(r,'operating_profit',y-1);profit=get(r,'attributable_profit',y);p_profit=get(r,'attributable_profit',y-1);a=get(r,'assets',y);l=get(r,'liabilities',y);e=get(r,'equity',y)
  r['derived']={'revenue_growth_pct':ratio(rev-prior,prior) if rev is not None and prior is not None and prior>0 else None,'operating_profit_growth_pct':ratio(op-p_op,p_op) if op is not None and p_op is not None and p_op>0 else None,'attributable_profit_growth_pct':ratio(profit-p_profit,p_profit) if profit is not None and p_profit is not None and p_profit>0 else None,'operating_margin_pct':ratio(op,rev),'equity_to_assets_pct':ratio(e,a),'balance_equation_difference':a-l-e if None not in (a,l,e) else None,'per':None,'pbr':None,'market_cap':None}
- r['quality']={'eligible_for_investment_ranking':False,'reason':'Source data not independently validated; market price, shares and as-of date unavailable. S68 is a historical regression fixture.'}
+ r['quality']={'eligible_for_investment_ranking':False,'reason':'Source data not independently verified; market price/share-date checks remain required.'}
  return r
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s63');p.add_argument('--g13-balance');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
+ p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s68-official');p.add_argument('--s63');p.add_argument('--g13-balance');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
  records=[];errors=[]
  for sym in ['S68','G13','S20']:
   try:
-   rec = normalize_s68(args.s68) if sym=='S68' else normalize_v18(Path(args.v18_dir)/f'{sym}_financial_v18.json',sym)
+   rec = (normalize_s68_official(args.s68_official) if args.s68_official else normalize_s68(args.s68)) if sym=='S68' else normalize_v18(Path(args.v18_dir)/f'{sym}_financial_v18.json',sym)
    if sym=='G13' and args.g13_balance:
     rec=merge_g13_balance(rec,args.g13_balance)
    records.append(derive(rec))
