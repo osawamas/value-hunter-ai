@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:02:50.106357+00:00",
-  "input_generated_at_utc": "2026-11-13T22:02:50.055029+00:00",
+  "updated_at_utc": "2026-11-13T22:03:57.580591+00:00",
+  "input_generated_at_utc": "2026-11-13T22:03:57.528870+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -548,6 +548,96 @@
         },
         "independently_cross_checked": false,
         "ranking_eligible": false
+      },
+      "banking_audited": {
+        "status": "ISSUER_AUDITED_GROUP_STATEMENTS_MATCH_HIGHLIGHTS",
+        "scope": "GROUP_FINANCIALS_NOT_STANDALONE_BANK",
+        "period_end": "2025-12-31",
+        "unit": "SGD_millions",
+        "source_url": "https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/investors/annual-reports/2025/2025-annual-report-en.pdf",
+        "pdf_sha256": "d10f4fc11fd5845c2e5e6c1ffbeccf0c66f33e1b71c02ae0b402f0ba104382ff",
+        "source_pages": {
+          "income": 125,
+          "balance": 127
+        },
+        "income": {
+          "net_interest_income": {
+            "2025": 9150,
+            "2024": 9755
+          },
+          "non_interest_income": {
+            "2025": 5464,
+            "2024": 4718
+          },
+          "total_income": {
+            "2025": 14614,
+            "2024": 14473
+          },
+          "total_operating_expenses": {
+            "2025": -5882,
+            "2024": -5742
+          },
+          "parent_profit": {
+            "2025": 7422,
+            "2024": 7587
+          },
+          "non_controlling_profit": {
+            "2025": 138,
+            "2024": 161
+          },
+          "profit_for_year": {
+            "2025": 7560,
+            "2024": 7748
+          }
+        },
+        "balance": {
+          "share_capital": {
+            "2025": 17887,
+            "2024": 18096
+          },
+          "other_equity_instruments": {
+            "2025": 1698,
+            "2024": 1698
+          },
+          "capital_reserves": {
+            "2025": 765,
+            "2024": 830
+          },
+          "fair_value_reserves": {
+            "2025": 749,
+            "2024": 313
+          },
+          "revenue_reserves": {
+            "2025": 40669,
+            "2024": 38379
+          },
+          "subsidiary_equity": {
+            "2025": 676,
+            "2024": 0
+          },
+          "non_controlling_equity": {
+            "2025": 1126,
+            "2024": 1064
+          },
+          "total_equity": {
+            "2025": 63570,
+            "2024": 60380
+          },
+          "total_liabilities": {
+            "2025": 612118,
+            "2024": 564670
+          },
+          "total_assets": {
+            "2025": 675688,
+            "2024": 625050
+          },
+          "parent_equity": {
+            "2025": 61768,
+            "2024": 59316
+          }
+        },
+        "independent_cross_source_verification": false,
+        "ranking_eligible": false
       }
     },
     {
@@ -673,10 +763,92 @@
         },
         "independently_cross_checked": false,
         "ranking_eligible": false
+      },
+      "banking_audited": {
+        "status": "ISSUER_AUDITED_GROUP_STATEMENTS_MATCH_HIGHLIGHTS",
+        "scope": "GROUP_FINANCIALS_NOT_STANDALONE_BANK",
+        "period_end": "2025-12-31",
+        "unit": "SGD_millions",
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/annual/uob-annual-report-2025.pdf",
+        "pdf_sha256": "8f16c545145df604ac0e29df5369f1620dfa0a6063bbcf5fd21f3f71dd4438c6",
+        "source_pages": {
+          "income": 137,
+          "balance": 139
+        },
+        "income": {
+          "net_interest_income": {
+            "2025": 9355,
+            "2024": 9674
+          },
+          "non_interest_income": {
+            "2025": 4453,
+            "2024": 4620
+          },
+          "total_income": {
+            "2025": 13808,
+            "2024": 14294
+          },
+          "total_operating_expenses": {
+            "2025": 6157,
+            "2024": 6310
+          },
+          "profit_before_allowances": {
+            "2025": 7651,
+            "2024": 7984
+          },
+          "parent_profit": {
+            "2025": 4682,
+            "2024": 6045
+          },
+          "non_controlling_profit": {
+            "2025": 13,
+            "2024": 14
+          },
+          "profit_for_year": {
+            "2025": 4695,
+            "2024": 6059
+          }
+        },
+        "balance": {
+          "share_capital": {
+            "2025": 7600,
+            "2024": 7709
+          },
+          "retained_earnings": {
+            "2025": 35060,
+            "2024": 34834
+          },
+          "other_reserves": {
+            "2025": 8588,
+            "2024": 7190
+          },
+          "parent_equity": {
+            "2025": 51248,
+            "2024": 49733
+          },
+          "non_controlling_equity": {
+            "2025": 245,
+            "2024": 224
+          },
+          "total_equity": {
+            "2025": 51493,
+            "2024": 49957
+          },
+          "total_liabilities": {
+            "2025": 520568,
+            "2024": 487707
+          },
+          "total_assets": {
+            "2025": 572061,
+            "2024": 537664
+          }
+        },
+        "independent_cross_source_verification": false,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:02:50.139198+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:03:57.613100+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
