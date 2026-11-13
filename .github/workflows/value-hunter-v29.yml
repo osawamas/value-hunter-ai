@@ -6,7 +6,9 @@ on:
     paths:
       - 'SGX_PDF_connection_probe/value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/value_hunter_quality_v33.py'
-      - 'SGX_PDF_connection_probe/test_value_hunter_quality_v33.py'
+      - 'SGX_PDF_connection_probe/value_hunter_history_v34.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_history_v34.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_quality_v33.py test_value_hunter_history_v34.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
@@ -75,15 +77,16 @@ jobs:
         run: |
           python SGX_PDF_connection_probe/value_hunter_web_v29.py --source value_hunter_v28_results/comparison_v28.json --output docs/data/latest.json
           python SGX_PDF_connection_probe/value_hunter_quality_v33.py --input docs/data/latest.json --output docs/data/latest.json
+          python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          if ! git diff --quiet -- docs/data/latest.json; then
+          if ! git diff --quiet -- docs/data/latest.json || [ -n "$(git ls-files --others --exclude-standard docs/data/history)" ] || ! git diff --quiet -- docs/data/history; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add docs/data/latest.json
+            git add -A docs/data/latest.json docs/data/history
             git commit -m "data: refresh verified-status SGX dashboard feed"
             git push origin HEAD:main
           else
