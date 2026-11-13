@@ -1,0 +1,23 @@
+name: VALUE HUNTER recent bank share disclosure leads v83
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/bank_share_leads_v83.py
+      - SGX_PDF_connection_probe/test_bank_share_leads_v83.py
+      - .github/workflows/value-hunter-v83.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test no historical treasury lead is promoted to live valuation
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_bank_share_leads_v83.py
