@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - SGX_PDF_connection_probe/u11_primary_snapshot_v85.py
+      - SGX_PDF_connection_probe/sgx_primary_buyback_v84.py
       - .github/workflows/value-hunter-v85.yml
   workflow_dispatch:
 permissions:
