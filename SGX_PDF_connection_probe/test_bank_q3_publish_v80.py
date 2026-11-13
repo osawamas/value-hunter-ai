@@ -1,7 +1,8 @@
 """v80 safe public publisher tests for Q3 and nine months (not FY2025)."""
 import copy,unittest
 from bank_q3_publish_v80 import attach
-from bank_q3_financials_v79 import SCHEMAS,SOURCES,STATUS
+from bank_q3_financials_v79 import SCHEMAS,SOURCES
+from bank_q3_publish_v80 import STATUS
 
 def fixtures(symbol):
  source=SOURCES[symbol]
