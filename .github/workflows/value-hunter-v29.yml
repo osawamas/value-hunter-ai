@@ -24,6 +24,8 @@ on:
       - 'SGX_PDF_connection_probe/s68_parent_equity_v54.py'
       - 'SGX_PDF_connection_probe/test_s68_parent_equity_v54.py'
       - 'SGX_PDF_connection_probe/test_s68_parent_merge_v54.py'
+      - 'SGX_PDF_connection_probe/official_http_v57.py'
+      - 'SGX_PDF_connection_probe/test_official_http_v57.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
