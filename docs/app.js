@@ -309,6 +309,20 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const primarySnapshot = r.bank_primary_share_history;
+  if (primarySnapshot && primarySnapshot.status === "ORIGINAL_SGX_DAILY_BUYBACK_2026_09_07_RECONCILED") {
+    grid.append(field("SGX原本", "公式SGX通知で照合済みの過去株式数（現在値ではない）", [
+      ["SGX原本の基準日", primarySnapshot.as_of_date || "未登録"],
+      ["SGXNet開示番号", primarySnapshot.sgxnet_reference || "未登録"],
+      ["自己株式控除後の株数", fmt(primarySnapshot.issued_excluding_treasury,0) + " 株"],
+      ["自己株式の保有数", fmt(primarySnapshot.treasury_shares,0) + " 株"],
+      ["控除前発行済株数（計算値）", fmt(primarySnapshot.gross_issued_derived,0) + " 株"],
+      ["SGX公式原本", primarySnapshot.primary_source_url, true],
+      ["原本SHA256", primarySnapshot.primary_html_sha256 || "未登録"],
+      ["現在の株式数", "未確定。9月7日より後の株式数変動通知との突合が必要"],
+      ["時価総額・PER・PBR・ランキング", "採用しない"],
+    ]));
+  }
   const shareLead = r.bank_share_discovery;
   if (shareLead && shareLead.status === "SECONDARY_SGXNET_EVENT_LEAD_NOT_PRIMARY_VALIDATED") {
     grid.append(field("株式調査", "新しい株式数開示の候補（SGX原本の数値照合は未完）", [
