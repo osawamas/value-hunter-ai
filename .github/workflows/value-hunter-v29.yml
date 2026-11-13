@@ -84,6 +84,8 @@ on:
       - 'SGX_PDF_connection_probe/test_u11_pending_buyback_v92.py'
       - 'SGX_PDF_connection_probe/bank_market_readiness_v93.py'
       - 'SGX_PDF_connection_probe/test_bank_market_readiness_v93.py'
+      - 'SGX_PDF_connection_probe/bank_quote_research_v95.py'
+      - 'SGX_PDF_connection_probe/test_bank_quote_research_v95.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -179,7 +181,7 @@ jobs:
             test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py \
             test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py \
             test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py test_bank_share_leads_v87.py test_u11_nov12_publish_v89.py \
-            test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py test_u11_pending_buyback_v92.py test_bank_market_readiness_v93.py
+            test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py test_u11_pending_buyback_v92.py test_bank_market_readiness_v93.py test_bank_quote_research_v95.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -309,6 +311,7 @@ jobs:
           # 12-Nov original, but MUST remain without an SGX primary source.
           python SGX_PDF_connection_probe/u11_pending_buyback_v92.py --input docs/data/latest.json --output docs/data/latest.json
           python SGX_PDF_connection_probe/bank_market_readiness_v93.py --input docs/data/latest.json --output docs/data/latest.json
+          python SGX_PDF_connection_probe/bank_quote_research_v95.py --input docs/data/latest.json --output docs/data/latest.json
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
