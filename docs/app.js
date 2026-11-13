@@ -309,6 +309,25 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const shareLead = r.bank_share_discovery;
+  if (shareLead && shareLead.status === "SECONDARY_SGXNET_EVENT_LEAD_NOT_PRIMARY_VALIDATED") {
+    grid.append(field("株式調査", "新しい株式数開示の候補（SGX原本の数値照合は未完）", [
+      ["対象の開示日", shareLead.event_date || "未取得"],
+      ["開示の種類", shareLead.event_type || "未登録"],
+      ["SGXNetの開示番号", shareLead.sgx_announcement_reference || "未登録"],
+      ["控除後株式数（未検証の転載値）",
+        hasNum(shareLead.candidate_shares_excluding_treasury) ?
+          fmt(shareLead.candidate_shares_excluding_treasury, 0) + " 株（未検証）" : "未取得"],
+      ["自己株式数（未検証の転載値）",
+        hasNum(shareLead.candidate_treasury_shares) ?
+          fmt(shareLead.candidate_treasury_shares, 0) + " 株（未検証）" : "未取得"],
+      ["情報の性質", "SGXNet開示の転載。公式原本と照合できるまで未検証"],
+      ["原本のURL", "未特定"],
+      ["転載ページ", shareLead.secondary_source_url, true],
+      ["最新株式数としての利用", "不可。調査した開示が最新とも限らない"],
+      ["株価・時価総額・PER・PBR", "未採用。独立した価格・株数の公式照合が必要"],
+    ]));
+  }
   const historicShares = r.bank_historical_shares;
   if (historicShares && historicShares.status === "HISTORICAL_ISSUER_PDF_TREASURY_RECONCILED_NOT_CURRENT") {
     grid.append(field("過去株数", "公式年次報告書の過去時点の株数（現在の時価総額には使用しない）", [
