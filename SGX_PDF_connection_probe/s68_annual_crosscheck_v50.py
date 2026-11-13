@@ -52,12 +52,14 @@ def parse_pdf(raw):
                 continue
             if "group" not in full or "2025" not in full or "2026" not in full:
                 continue
-            for row in rows(page.get_text("words")):
-                label=" ".join(row["text"].lower().split())
+            page_rows=rows(page.get_text("words"))
+            for row_index,row in enumerate(page_rows):
+                label=" ".join(r["text"].lower() for r in page_rows[max(0,row_index-2):row_index+1])
                 for metric,spec in TARGET.items():
                     values=row["numbers"]
                     pair=[spec["2026"],spec["2025"]]
-                    if spec["label"] not in label:continue
+                    if (("revenue" not in label) if metric=="revenue" else (spec["label"] not in label)):
+                        continue
                     if not any(values[j:j+2]==pair for j in range(max(0,len(values)-1))):
                         continue
                     matches[metric].append({"page_pdf_number":idx+1,
