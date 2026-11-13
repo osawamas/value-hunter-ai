@@ -68,7 +68,7 @@ def parse(symbol,url,body,reference,as_of_date):
   raise ValueError("Section D missing/ambiguous")
  tail=tail[1]
  def extract(label):
-  matches=re.findall(re.escape(label)+r"\s+([0-9][0-9,]*)\b",tail,re.I)
+  matches=re.findall(re.escape(label)+r"\s*([0-9][0-9,]*)\b",tail,re.I)
   if len(matches)!=1:
    raise ValueError("Official Section D field absent or repeated: "+label)
   return int(matches[0].replace(",",""))
