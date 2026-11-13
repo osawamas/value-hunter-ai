@@ -13,6 +13,7 @@ on:
       - 'SGX_PDF_connection_probe/test_share_provenance_v45.py'
       - 'SGX_PDF_connection_probe/s68_shareholding_v46.py'
       - 'SGX_PDF_connection_probe/test_s68_shareholding_v46.py'
+      - 'SGX_PDF_connection_probe/test_public_shares_v47.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
