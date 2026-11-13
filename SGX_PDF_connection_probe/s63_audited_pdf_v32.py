@@ -30,8 +30,9 @@ FIELDS = {
     "assets": {"assets": "Total assets"},
     "liabilities": {
         "liabilities": "Total liabilities",
-        "equity": "Total equity",
+        "equity": "Net assets",
         "parent_equity": "Equity attributable to owners of the Company",
+        "minority_equity": "Non-controlling interests",
     },
 }
 CORE = ("revenue", "operating_profit", "attributable_profit", "assets",
@@ -119,12 +120,28 @@ def select_page(doc, kind):
                         "Equity attributable to owners of the Company", "Total liabilities"),
     }
     found = []
+    page_required_labels = {
+        "income": ["Revenue", "Profit from operations", "Shareholders of the Company"],
+        "assets": ["Total assets"],
+        "liabilities": ["Total liabilities", "Net assets",
+                        "Equity attributable to owners of the Company",
+                        "Non-controlling interests"],
+    }
     for n, page in enumerate(doc):
         text = " ".join(page.get_text("text").upper().split())
-        if all(pattern.upper() in text for pattern in patterns[kind]):
-            found.append(n)
+        if not all(pattern.upper() in text for pattern in patterns[kind]):
+            continue
+        # Annual-report TOC pages can contain all these words but no financial
+        # table. Require the exact row and 2025/2024 coordinate evidence.
+        rows = lines(page.get_text("words"))
+        try:
+            for label in page_required_labels[kind]:
+                extract_row(rows, label)
+        except ValueError:
+            continue
+        found.append(n)
     if len(found) != 1:
-        raise ValueError(f"Consolidated {kind} statement page ambiguous: {found}")
+        raise ValueError(f"Consolidated {kind} statement table pages ambiguous: {found}")
     return found[0]
 
 
@@ -164,6 +181,9 @@ def parse_document(data):
                 "profit_attribution_difference": (extracted["profit_after_tax"][yr] -
                                                   extracted["attributable_profit"][yr] -
                                                   extracted["minority_profit"][yr]),
+                "equity_attribution_difference": (extracted["equity"][yr] -
+                                                  extracted["parent_equity"][yr] -
+                                                  extracted["minority_equity"][yr]),
                 "gross_profit_difference": (extracted["revenue"][yr] +
                                             extracted["cost_of_sales"][yr] -
                                             extracted["gross_profit"][yr]),

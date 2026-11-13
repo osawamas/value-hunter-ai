@@ -17,8 +17,9 @@ DATA = {
   "assets": [("Total assets", "16,032,106", "16,221,299")],
   "liabilities": [
     ("Total liabilities", "13,110,861", "13,270,452"),
+    ("Net assets", "2,921,245", "2,950,847"),
     ("Equity attributable to owners of the Company", "2,573,638", "2,670,373"),
-    ("Total equity", "2,921,245", "2,950,847"),
+    ("Non-controlling interests", "347,607", "280,474"),
   ],
 }
 
@@ -38,7 +39,7 @@ def make_pdf(*, wrong_balance=False, omit_years=False):
             p.insert_text((440, 62), "2024", fontsize=10)
         y = 95
         for label, v25, v24 in DATA[kind]:
-            if label == "Total equity" and wrong_balance:
+            if label == "Net assets" and wrong_balance:
                 v25 = "2,921,246"
             p.insert_text((20, y), label, fontsize=9)
             if v25:
@@ -66,6 +67,19 @@ class S63Tests(unittest.TestCase):
         self.assertEqual(rec["metrics"]["equity"]["2024"]["value"], 2950847)
         self.assertEqual(result["financial_checks"]["2025"]["balance_difference"], 0)
         self.assertEqual(result["financial_checks"]["2024"]["profit_attribution_difference"], 0)
+        self.assertEqual(result["financial_checks"]["2025"]["equity_attribution_difference"], 0)
+
+    def test_toc_mentions_same_labels_but_is_not_a_statement(self):
+        pdf = fitz.open(stream=make_pdf(), filetype="pdf")
+        page = pdf.new_page(pno=0, width=600, height=800)
+        page.insert_text((20, 40), "CONSOLIDATED INCOME STATEMENT")
+        page.insert_text((20, 60), "Revenue")
+        page.insert_text((20, 80), "Profit from operations")
+        data = pdf.tobytes()
+        pdf.close()
+        result = parse_document(data)
+        self.assertEqual(result["page_indices"]["income"], 1)
+        self.assertEqual(result["record"]["metrics"]["revenue"]["2025"]["value"], 12346426)
 
     def test_arithmetic_mismatch_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "arithmetic"):
