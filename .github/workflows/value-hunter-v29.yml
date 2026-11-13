@@ -75,7 +75,7 @@ on:
       - 'SGX_PDF_connection_probe/test_bank_share_leads_v87.py'
       - 'SGX_PDF_connection_probe/u11_nov12_primary_v88.py'
       - 'SGX_PDF_connection_probe/u11_nov12_publish_v89.py'
-      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py test_u11_pending_buyback_v92.py test_bank_market_readiness_v93.py'
+      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py'
       - 'SGX_PDF_connection_probe/u11_buyback_chain_v90.py'
       - 'SGX_PDF_connection_probe/test_u11_buyback_chain_v90.py'
       - 'SGX_PDF_connection_probe/u11_buyback_chain_publish_v91.py'
