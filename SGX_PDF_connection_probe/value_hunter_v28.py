@@ -141,14 +141,28 @@ def evaluate(fin, valuation, audit, now):
     }
 
 
-def compare(financials, valuations, audits, now=None):
+def compare(financials, valuations, audits, now=None, universe=None):
     now = now or datetime.now(timezone.utc)
+    if universe is None:
+        issuers = [{"symbol": symbol, "issuer": {
+            "S68": "Singapore Exchange Limited",
+            "G13": "Genting Singapore Limited",
+            "S20": "The Straits Trading Company Limited"
+        }[symbol]} for symbol in SYMBOLS]
+    else:
+        from sgx_universe_v30 import validate_universe
+        issuers = validate_universe(universe)
     sources = [
         {item["symbol"]: item for item in feed.get("records", [])}
         for feed in (financials, valuations, audits)
     ]
-    records = [evaluate(*(source.get(symbol, {"symbol": symbol}) for source in sources), now) for symbol in SYMBOLS]
+    records = [evaluate(*(source.get(item["symbol"], {"symbol": item["symbol"]}) for source in sources), now)
+               for item in issuers]
     return {
+        "issuer_universe": [{"symbol": item["symbol"], "issuer": item["issuer"],
+                             "financial_pdf_url": item.get("financial_pdf_url")}
+                            for item in issuers],
+        "universe_status": "REGISTERED_ISSUERS_ONLY_NOT_FULL_SGX",
         "schema_version": "value_hunter_sgx_v28",
         "generated_at_utc": now.isoformat(),
         "records": records,
@@ -199,9 +213,11 @@ def main():
     parser.add_argument("--valuation", required=True)
     parser.add_argument("--audit", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--universe", help="Validated SGX issuer registry")
     args = parser.parse_args()
     load = lambda path: json.loads(Path(path).read_text(encoding="utf-8"))
-    result = compare(load(args.financials), load(args.valuation), load(args.audit))
+    result = compare(load(args.financials), load(args.valuation), load(args.audit),
+                     universe=load(args.universe) if args.universe else None)
     write(result, args.output)
     print(json.dumps({"ranking_eligible_count": result["ranking_eligible_count"], "excluded": result["excluded"]}, ensure_ascii=False))
 
