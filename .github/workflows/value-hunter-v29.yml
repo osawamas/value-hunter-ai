@@ -94,6 +94,20 @@ jobs:
         run: |
           python SGX_PDF_connection_probe/sgx_integrated_v18.py
           python SGX_PDF_connection_probe/g13_balance_v42.py --original sgx_v18_results/G13_financial_v18.json --output sgx_v18_results/G13_balance_v42.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          raw=json.loads(Path("sgx_v18_results/G13_balance_v42.json").read_text(encoding="utf-8"))
+          report={key:raw.get(key) for key in ("symbol","status","source_url","pdf_sha256","error","checks","page_pdf_number")}
+          report["parent_equity_candidate"] = raw.get("metrics",{}).get("parent_equity",{})
+          dest=Path("docs/data/g13_balance_status.json")
+          dest.parent.mkdir(parents=True,exist_ok=True)
+          dest.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"],"a",encoding="utf-8") as out:
+              out.write("\n### G13 balance audit\n")
+              out.write("- status: "+str(raw.get("status"))+"\n")
+              out.write("- error: "+str(raw.get("error"))+"\n")
+          PY
           python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
           python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --g13-balance sgx_v18_results/G13_balance_v42.json --s63 s63_v32_results/audited_report.json --output value_hunter_results
           python SGX_PDF_connection_probe/value_hunter_market_v20.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_market_results
@@ -112,10 +126,10 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          if ! git diff --quiet -- docs/data/latest.json || [ -n "$(git ls-files --others --exclude-standard docs/data/history)" ] || ! git diff --quiet -- docs/data/history; then
+          if ! git diff --quiet -- docs/data/latest.json docs/data/g13_balance_status.json || [ -n "$(git ls-files --others --exclude-standard docs/data/history docs/data/g13_balance_status.json)" ] || ! git diff --quiet -- docs/data/history; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -A docs/data/latest.json docs/data/history
+            git add -A docs/data/latest.json docs/data/history docs/data/g13_balance_status.json
             git commit -m "data: refresh verified-status SGX dashboard feed"
             git push origin HEAD:main
           else
