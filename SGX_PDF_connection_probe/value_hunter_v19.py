@@ -34,9 +34,11 @@ def merge_g13_balance(record, evidence_path):
         assets=items['assets'][year]['value']
         liabilities=items['liabilities'][year]['value']
         equity=record['metrics']['equity'][year]['value']
+        if balance['metrics']['parent_equity'][year]['value'] != equity:
+            raise ValueError('G13 parent equity does not match Group statement')
         if assets-liabilities != equity:
             raise ValueError('G13 balance equation failed')
-    for key in ('assets','liabilities'):
+    for key in ('assets','liabilities','parent_equity'):
         record['metrics'][key]=balance['metrics'][key]
     record['g13_balance_evidence']={
         'page_pdf_number':balance.get('page_pdf_number'),
