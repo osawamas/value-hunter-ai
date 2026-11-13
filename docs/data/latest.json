@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:07:12.804200+00:00",
-  "input_generated_at_utc": "2026-11-13T22:07:12.768411+00:00",
+  "updated_at_utc": "2026-11-13T22:09:04.652814+00:00",
+  "input_generated_at_utc": "2026-11-13T22:09:04.597234+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -427,6 +427,25 @@
         },
         "independent_cross_source_verification": false,
         "ranking_eligible": false
+      },
+      "banking_indicators": {
+        "status": "HISTORICAL_DERIVED_FROM_AUDITED_ISSUER_GROUP_FY2025",
+        "fiscal_year": 2025,
+        "currency": "SGD",
+        "source_pdf_sha256": "e7952ba9dff9e339070334ec5d67a71c81a8c618be7f34abad6f3118189b38ce",
+        "source_url": "https://www.dbs.com/iwov-resources/images/investors/annual-report/dbs-annual-report-2025.pdf",
+        "provenance": "D05_AUDITED_GROUP_ISSUER_PDF",
+        "values": {
+          "simple_roe_percent": 15.88,
+          "cost_to_income_proxy_percent": 40.83,
+          "parent_profit_growth_percent": -3.15,
+          "parent_equity_growth_percent": 0.12
+        },
+        "simple_roe_method": "2025 parent profit / ((2025 closing parent equity + 2024 closing parent equity)/2)",
+        "cost_income_method": "absolute 2025 Group operating expense / 2025 Group total income",
+        "not_bank_reported_roe": true,
+        "not_independently_cross_source_verified": true,
+        "ranking_eligible": false
       }
     },
     {
@@ -638,6 +657,25 @@
         },
         "independent_cross_source_verification": false,
         "ranking_eligible": false
+      },
+      "banking_indicators": {
+        "status": "HISTORICAL_DERIVED_FROM_AUDITED_ISSUER_GROUP_FY2025",
+        "fiscal_year": 2025,
+        "currency": "SGD",
+        "source_pdf_sha256": "d10f4fc11fd5845c2e5e6c1ffbeccf0c66f33e1b71c02ae0b402f0ba104382ff",
+        "source_url": "https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/investors/annual-reports/2025/2025-annual-report-en.pdf",
+        "provenance": "O39_AUDITED_GROUP_ISSUER_PDF_MATCHED_SUMMARY",
+        "values": {
+          "simple_roe_percent": 12.26,
+          "cost_to_income_proxy_percent": 40.25,
+          "parent_profit_growth_percent": -2.17,
+          "parent_equity_growth_percent": 4.13
+        },
+        "simple_roe_method": "2025 parent profit / ((2025 closing parent equity + 2024 closing parent equity)/2)",
+        "cost_income_method": "absolute 2025 Group operating expense / 2025 Group total income",
+        "not_bank_reported_roe": true,
+        "not_independently_cross_source_verified": true,
+        "ranking_eligible": false
       }
     },
     {
@@ -845,10 +883,29 @@
         },
         "independent_cross_source_verification": false,
         "ranking_eligible": false
+      },
+      "banking_indicators": {
+        "status": "HISTORICAL_DERIVED_FROM_AUDITED_ISSUER_GROUP_FY2025",
+        "fiscal_year": 2025,
+        "currency": "SGD",
+        "source_pdf_sha256": "8f16c545145df604ac0e29df5369f1620dfa0a6063bbcf5fd21f3f71dd4438c6",
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/annual/uob-annual-report-2025.pdf",
+        "provenance": "U11_AUDITED_GROUP_ISSUER_PDF_MATCHED_SUMMARY",
+        "values": {
+          "simple_roe_percent": 9.27,
+          "cost_to_income_proxy_percent": 44.59,
+          "parent_profit_growth_percent": -22.55,
+          "parent_equity_growth_percent": 3.05
+        },
+        "simple_roe_method": "2025 parent profit / ((2025 closing parent equity + 2024 closing parent equity)/2)",
+        "cost_income_method": "absolute 2025 Group operating expense / 2025 Group total income",
+        "not_bank_reported_roe": true,
+        "not_independently_cross_source_verified": true,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:07:12.825260+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:09:04.687687+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
