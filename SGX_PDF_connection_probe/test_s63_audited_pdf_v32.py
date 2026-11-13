@@ -67,6 +67,18 @@ class S63Tests(unittest.TestCase):
         self.assertEqual(result["financial_checks"]["2025"]["balance_difference"], 0)
         self.assertEqual(result["financial_checks"]["2024"]["profit_attribution_difference"], 0)
 
+    def test_toc_mentions_same_labels_but_is_not_a_statement(self):
+        pdf = fitz.open(stream=make_pdf(), filetype="pdf")
+        page = pdf.new_page(pno=0, width=600, height=800)
+        page.insert_text((20, 40), "CONSOLIDATED INCOME STATEMENT")
+        page.insert_text((20, 60), "Revenue")
+        page.insert_text((20, 80), "Profit from operations")
+        data = pdf.tobytes()
+        pdf.close()
+        result = parse_document(data)
+        self.assertEqual(result["page_indices"]["income"], 1)
+        self.assertEqual(result["record"]["metrics"]["revenue"]["2025"]["value"], 12346426)
+
     def test_arithmetic_mismatch_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "arithmetic"):
             parse_document(make_pdf(wrong_balance=True))
