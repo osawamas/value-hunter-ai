@@ -39,7 +39,11 @@ const reasons = {
   MARKET_CAP_ARITHMETIC_MISMATCH: "時価総額の計算が一致しないため非表示",
   PER_ARITHMETIC_MISMATCH_OR_INVALID: "PERの計算が不一致のため非表示",
   PBR_REFERENCE_INVALID_OR_CAP_MISMATCH: "PBRの根拠不足・計算不一致のため非表示",
-  VERIFIED_PBR_LABEL_UNSUPPORTED: "PBRの検証済み表記を保留"
+  VERIFIED_PBR_LABEL_UNSUPPORTED: "PBRの検証済み表記を保留",
+  TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH: "発行済株式数と自己株式控除の計算が不一致",
+  SHARE_SOURCE_PDF_SHA256_INVALID: "株式数のPDF識別子が不正",
+  PBR_DENOMINATOR_MISSING_OR_ARITHMETIC_MISMATCH: "親会社株主持分を使ったPBR計算が不一致",
+  VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE: "株価または株式数の日時が古い／不明のため評価値を非表示"
 };
 const $ = id => document.getElementById(id);
 const state = { feed: null, selected: null, visible: [] };
@@ -236,12 +240,17 @@ function showDetail(r) {
       ["株価基準時刻", dateJst(r.quote_timestamp_utc)],
       ["株価の鮮度", ({RECENT:"7日以内",STALE:"7日超または日付不正",MISSING:"不明"})[freshnessState(r.quote_timestamp_utc, 7)] || "未検証"],
       ["株価出典", r.quote_url, true],
-      ["発行済株式数（自己株式控除後）", fmt(r.shares_outstanding, 0)],
+      ["株式数（控除状態は下記）", fmt(r.shares_outstanding, 0)],
+      ["発行済株式数（自己株式を含む）", fmt(r.gross_issued_shares, 0)],
+      ["自己株式数", fmt(r.treasury_shares, 0)],
+      ["発行済−自己株式の一致", hasNum(r.gross_issued_shares) && hasNum(r.treasury_shares) && hasNum(r.shares_outstanding) ?
+        (r.gross_issued_shares - r.treasury_shares === r.shares_outstanding ? "一致" : "不一致") : "未照合"],
       ["株式数基準日", r.shares_as_of_date || "未取得"],
       ["株式数の鮮度", ({RECENT:"180日以内",STALE:"180日超または日付不正",MISSING:"不明"})[freshnessState(r.shares_as_of_date, 180)] || "未検証"],
       ["株式数の検証状態", r.shares_verification_status || "未検証"],
       ["自己株式の扱い", r.shares_count_basis || "未確認"],
       ["株式数出典", r.shares_source_url, true],
+      ["株式数のPDF識別子（SHA256）", r.shares_pdf_sha256 || "未取得"],
     ]),
     field("評価", "バリュエーション（参考）", [
       ["時価総額（SGD）", fmt(r.market_cap_sgd, 0)],
@@ -249,6 +258,7 @@ function showDetail(r) {
       ["PBR（未検証）", fmt(r.pbr_reference_unverified) + (hasNum(r.pbr_reference_unverified) ? " 倍" : "")],
       ["PBR分母：親会社株主持分（千SGD）", fmt(r.parent_equity_sgd_thousands, 0)],
       ["親会社株主持分の検証状態", r.parent_equity_status || "未検証"],
+      ["親会社株主持分の独立検証", "未完了（企業の監査済み資料による内訳照合とは別）"],
       ["親会社株主持分の出典", r.parent_equity_source_url, true],
       ["検証済みPBR", fmt(r.pbr_verified)],
     ]),
