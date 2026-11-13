@@ -1,0 +1,23 @@
+name: VALUE HUNTER bank market-readiness v93
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/bank_market_readiness_v93.py
+      - SGX_PDF_connection_probe/test_bank_market_readiness_v93.py
+      - .github/workflows/value-hunter-v93.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Block 3 banks without primary current shares and timestamped SGD quotes
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_u11_pending_buyback_v92.py test_bank_market_readiness_v93.py
