@@ -1,0 +1,31 @@
+name: VALUE HUNTER original SGX UOB three-day chain v90
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_buyback_chain_v90.py
+      - SGX_PDF_connection_probe/test_u11_buyback_chain_v90.py
+      - .github/workflows/value-hunter-v90.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reject wrong dates and daily share mismatch
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_u11_buyback_chain_v90.py
+      - name: Verify three original SGX bank buyback filings from site
+        run: python SGX_PDF_connection_probe/u11_buyback_chain_v90.py --output primary-u11-v90/chain.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sgx-u11-three-day-chain-v90
+          path: primary-u11-v90/
+          if-no-files-found: warn
