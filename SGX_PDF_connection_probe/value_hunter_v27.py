@@ -23,10 +23,10 @@ LABELS = {
     },
     "S20": {
         "revenue": [r"^revenue$"],
-        "attributable_profit": [r"^(?:profit|loss|profit/\\(loss\\)|\\(loss\\)/profit) attributable to (?:owners|equity holders|shareholders)(?: of the company)?$"],
+        "attributable_profit": [r"^(?:profit|loss|profit/\(loss\)|\(loss\)/profit) attributable to (?:owners|equity holders|shareholders)(?: of the company)?$"],
     },
 }
-NUMBER = re.compile(r"^\\(?-?\\d[\\d,]*\\)?$")
+NUMBER = re.compile(r"^\(?-?\d[\d,]*\)?$")
 
 
 def parse_amount(token):
@@ -66,7 +66,7 @@ def extract_from_rows(rows, symbol, metric):
         if len(numeric) < 2:
             continue
         label = " ".join(token for x, token in row["tokens"] if x < min(nx for nx, _ in numeric)).strip().lower()
-        label = re.sub(r"\\s+", " ", label)
+        label = re.sub(r"\s+", " ", label)
         if not any(re.fullmatch(pattern, label) for pattern in LABELS[symbol][metric]):
             continue
         header = find_year_columns(rows, index)
