@@ -309,6 +309,23 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const bankReady = r.bank_market_readiness;
+  if (bankReady && bankReady.status === "NOT_READY_PRIMARY_SHARES_AND_TIMED_QUOTES_MISSING") {
+    const blockerNames = {
+      "UP_TO_DATE_ISSUED_EX_TREASURY_SHARES_NOT_VERIFIED": "最新の自己株式控除後株式数が未確認",
+      "TIME_STAMPED_SGX_SGD_SHARE_QUOTE_MISSING": "SGD建て株価と取引日時が未検証",
+      "BANK_FINANCIALS_NO_INDEPENDENT_NUMERICAL_CROSSCHECK": "財務数値の第三者独立照合が未完了",
+      "OCBC_NOV12_TREASURY_TRANSFER_PRIMARY_PDF_NOT_VERIFIED": "OCBCの11月12日自己株式利用通知・添付PDF原本未照合",
+      "UOB_NOV13_BUYBACK_PRIMARY_SGX_NOTICE_NOT_VERIFIED": "UOBの11月13日買戻し通知のSGX原本未照合"
+    };
+    grid.append(field("評価準備", "銀行の投資評価に進めない理由（必須データ確認待ち）", [
+      ["財務資料", "2025年監査済み連結決算・2026年第3四半期決算は発行体資料から解析済み"],
+      ["不足している検証", (bankReady.required_checks || []).map(x=>blockerNames[x] || x).join(" / ")],
+      ["最新の正式な発行済株数", "未確認"],
+      ["日時と通貨を検証した市場株価", "未確認"],
+      ["時価総額・PER・PBR・投資ランキング", "検証が揃うまで対象外"],
+    ]));
+  }
   const pendingNov13 = r.bank_pending_buyback_consistency;
   if (pendingNov13 && pendingNov13.status === "SECONDARY_NOV13_ARITHMETICALLY_CONSISTENT_PRIMARY_NOT_VERIFIED") {
     grid.append(field("照合保留", "UOB 11月13日買戻し：算術は一致、SGX原本は未取得", [
