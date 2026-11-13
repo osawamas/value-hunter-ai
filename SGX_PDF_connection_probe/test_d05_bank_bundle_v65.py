@@ -93,6 +93,11 @@ class BundleTests(unittest.TestCase):
         feed=copy.deepcopy(self.feed);feed["records"][0]["price_sgd"]=10
         with self.assertRaises(ValueError):attach_bank_evidence(feed,self.bundle)
 
+    def test_negative_treasury_rejected(self):
+        b=copy.deepcopy(self.bundle)
+        b["evidence"]["shares"]["treasury_shares"]=-1
+        with self.assertRaises(ValueError):attach_bank_evidence(self.feed,b)
+
     def test_bad_report_scope_rejected(self):
         b=copy.deepcopy(self.bundle);b["evidence"]["shares_as_of_date"]="2025-02-10"
         with self.assertRaises(ValueError):attach_bank_evidence(self.feed,b)
