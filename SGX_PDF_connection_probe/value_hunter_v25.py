@@ -72,7 +72,25 @@ def parse_s20_shares(text, target_date='2026-06-30'):
             'share_count_basis':'issued_excluding_treasury','verification_status':audit['status']}
     return shares,audit
 
-def run(financials,market,output,pdf_text=None):
+def official_s68_share_snapshot(path):
+    record=json.loads(Path(path).read_text(encoding='utf-8'))
+    if record.get('symbol')!='S68' or record.get('status')!='OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED':
+        raise ValueError('S68 official annual shareholding evidence is not verified')
+    data=record.get('snapshot') or {}
+    if not record.get('pdf_sha256') or data.get('share_count_basis')!='issued_excluding_treasury':
+        raise ValueError('S68 official share count provenance missing')
+    if data.get('as_of_date')!='2026-09-01':
+        raise ValueError('S68 share snapshot wrong as-of date')
+    gross, treasury, net=(data.get(k) for k in ('issued_shares_including_treasury','treasury_shares','shares_outstanding'))
+    if (any(not isinstance(v,int) or isinstance(v,bool) for v in (gross,treasury,net))
+            or gross<=0 or not 0<=treasury<gross or gross-treasury!=net):
+        raise ValueError('S68 official treasury arithmetic failed')
+    return {**data, 'symbol':'S68', 'source_url':record['source_url'],
+            'source_detail':'FY2026 SGX annual report dated shareholding table',
+            'source_pdf_sha256':record['pdf_sha256'],
+            'verification_status':'LIVE_OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED'}
+
+def run(financials,market,output,pdf_text=None,s68_shares=None):
     fin=json.loads(Path(financials).read_text(encoding='utf-8'))
     quotes=json.loads(Path(market).read_text(encoding='utf-8'))
     lookup={r['symbol']:r for r in quotes.get('records',[])}
@@ -84,7 +102,7 @@ def run(financials,market,output,pdf_text=None):
         audit={'status':'FETCH_OR_PDF_PARSE_FAILED','error':f'{type(e).__name__}: {e}'}
     rows=[]
     for f in fin.get('records',[]):
-        sym=f['symbol']; sh=shares if sym=='S20' else (dict(SHARES[sym],symbol=sym) if sym in SHARES else None)
+        sym=f['symbol']; sh=shares if sym=='S20' else (official_s68_share_snapshot(s68_shares) if sym=='S68' and s68_shares else (dict(SHARES[sym],symbol=sym) if sym in SHARES else None))
         if sh and sh.get('share_count_basis') == 'issued_excluding_treasury':
             issued, treasury = sh.get('issued_shares_including_treasury'), sh.get('treasury_shares')
             if issued is not None or treasury is not None:
@@ -127,5 +145,5 @@ def run(financials,market,output,pdf_text=None):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--financials',required=True);p.add_argument('--market',required=True)
-    p.add_argument('--output',required=True);p.add_argument('--pdf-text');a=p.parse_args()
-    run(a.financials,a.market,a.output,a.pdf_text)
+    p.add_argument('--output',required=True);p.add_argument('--pdf-text');p.add_argument('--s68-shares');a=p.parse_args()
+    run(a.financials,a.market,a.output,a.pdf_text,a.s68_shares)
