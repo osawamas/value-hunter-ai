@@ -37,11 +37,13 @@ jobs:
           import fitz
           from s63_audited_pdf_v32 import fetch, lines, extract_row
           doc=fitz.open(stream=fetch(),filetype="pdf")
-          for n in range(max(0,125),min(len(doc),128)):
+          for n in range(max(0,125),min(len(doc),132)):
               page=doc[n];text=" ".join(page.get_text("text").split())
               rows=lines(page.get_text("words"))
               print("PDF_PAGE",n+1,"TEXT_START",text[:600])
-              for label in ("Revenue","Profit from operations","Shareholders of the Company"):
+              for label in ("Revenue","Profit from operations","Shareholders of the Company",
+                            "Total assets","Total liabilities","Total equity",
+                            "Equity attributable to owners of the Company"):
                   try:
                       r=extract_row(rows,label)
                       print("EXACT_ROW",label,r["periods"])
