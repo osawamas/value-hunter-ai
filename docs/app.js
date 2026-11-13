@@ -1,0 +1,249 @@
+/* VALUE HUNTER AI static, dependency-free SGX comparator.
+ * Financial values always come from the JSON feed, never demo fixtures.
+ * Render all external feed strings with textContent, not HTML.
+ */
+"use strict";
+const names = {
+  S68: "Singapore Exchange Limited",
+  G13: "Genting Singapore Limited",
+  S20: "The Straits Trading Company Limited"
+};
+const reasons = {
+  FINANCIAL_MISSING_REVENUE: "売上高が未取得",
+  FINANCIAL_MISSING_ATTRIBUTABLE_PROFIT: "親会社株主帰属損益が未取得",
+  FINANCIAL_MISSING_ASSETS: "総資産が未取得",
+  FINANCIAL_MISSING_LIABILITIES: "負債合計が未取得",
+  FINANCIAL_MISSING_EQUITY: "純資産が未取得",
+  FISCAL_YEAR_UNKNOWN: "決算年度が不明",
+  HISTORICAL_FIXED_FINANCIALS: "過去に固定登録した財務データ",
+  BALANCE_UNVERIFIED_OR_MISMATCH: "貸借対照表の検証不足または不一致",
+  SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE: "売上高が別の公式資料と未照合",
+  SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT: "帰属損益が別の公式資料と未照合",
+  INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE: "第三者による独立検証が未完了",
+  PRICE_MISSING: "株価が未取得",
+  QUOTE_OLD_OR_UNDATED: "株価が古い・取得日不明",
+  SHARES_MISSING: "発行済株式数が未取得",
+  SHARES_OLD_OR_UNDATED: "発行済株式数が古い・基準日不明",
+  SHARES_SOURCE_MISSING: "株式数の出典が未登録",
+  TREASURY_SHARE_BASIS_UNCONFIRMED: "自己株式控除後の株式数か未確認",
+  NEGATIVE_EARNINGS_PER_NOT_APPLICABLE: "赤字のためPER算出対象外",
+  PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED: "親会社株主持分が未検証"
+};
+const $ = id => document.getElementById(id);
+const state = { feed: null, selected: null, visible: [] };
+
+function el(tag, cls = "", text = null) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== null) node.textContent = String(text);
+  return node;
+}
+function hasNum(n) { return typeof n === "number" && Number.isFinite(n); }
+function fmt(n, digits = 2) {
+  return hasNum(n) ? new Intl.NumberFormat("ja-JP", {
+    minimumFractionDigits: digits, maximumFractionDigits: digits
+  }).format(n) : "—";
+}
+function dateJst(value) {
+  if (!value || Number.isNaN(Date.parse(value))) return "—";
+  return new Date(value).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit",
+    day: "2-digit", hour: "2-digit", minute: "2-digit" }) + " JST";
+}
+function addTextCell(tr, value, cls = "") { const td = el("td", cls, value); tr.append(td); return td; }
+function safeLink(url, label) {
+  if (typeof url !== "string" || !/^https:\/\//.test(url)) return el("span", "", "未登録");
+  const node = el("a", "", label);
+  node.href = url; node.target = "_blank"; node.rel = "noopener noreferrer";
+  return node;
+}
+function warn(message, error = false) {
+  $("statusMessage").textContent = message;
+  $("statusMessage").classList.toggle("error", error);
+}
+function validFeed(json) {
+  return json && json.schema_version === "value_hunter_web_v29" &&
+    Array.isArray(json.records) && json.records.every(r =>
+      r && ["S68", "G13", "S20"].includes(r.symbol) &&
+      r.ranking_eligible === false && Array.isArray(r.exclusion_reasons));
+}
+function setFeed(json, label) {
+  if (!validFeed(json)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
+  state.feed = json;
+  $("dataState").textContent = label;
+  $("updatedAt").textContent = "生成日時：" + dateJst(json.updated_at_utc);
+  $("totalCount").textContent = json.records.length;
+  $("eligibleCount").textContent = json.records.filter(r => r.ranking_eligible).length;
+  $("excludedCount").textContent = json.records.filter(r => !r.ranking_eligible).length;
+  $("pricedCount").textContent = json.records.filter(r => hasNum(r.price_sgd)).length;
+  warn(json.records.some(r => r.price_sgd !== null) ?
+    "財務と株価は参考値。検証済みランキングへの採用は保留中。" :
+    "現時点の公開データに株価は未収録。GitHub Actionsの取得結果が反映されると表示される。");
+  render();
+}
+function sortRows(items, key) {
+  if (key === "symbol") return items.sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const ascending = key === "per_reference" || key === "pbr_reference_unverified";
+  return items.sort((a, b) => {
+    const x = hasNum(a[key]) ? a[key] : null;
+    const y = hasNum(b[key]) ? b[key] : null;
+    if (x === null) return y === null ? a.symbol.localeCompare(b.symbol) : 1;
+    if (y === null) return -1;
+    return ascending ? x - y : y - x;
+  });
+}
+function render() {
+  const feed = state.feed;
+  if (!feed) return;
+  const term = $("search").value.trim().toLowerCase();
+  const flag = $("statusFilter").value;
+  const visible = sortRows(feed.records.filter(r => {
+    const text = [r.symbol, r.issuer || names[r.symbol] || ""].join(" ").toLowerCase();
+    return text.includes(term) &&
+      (flag === "all" || (flag === "eligible" ? r.ranking_eligible : !r.ranking_eligible));
+  }), $("sortBy").value);
+  state.visible = visible;
+  const tbody = $("stockRows");
+  tbody.replaceChildren();
+  if (!visible.length) {
+    const row = el("tr"); const td = addTextCell(row, "該当する銘柄がない。検索条件を変えてみて。", "empty");
+    td.colSpan = 10; tbody.append(row);
+  }
+  for (const r of visible) {
+    const tr = el("tr");
+    const id = el("td");
+    id.append(el("div", "ticker", r.symbol),
+      el("div", "issuer", r.issuer || names[r.symbol] || ""));
+    tr.append(id);
+    addTextCell(tr, fmt(r.price_sgd), "num");
+    addTextCell(tr, fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null), "num");
+    addTextCell(tr, fmt(r.per_reference), "num");
+    addTextCell(tr, fmt(r.pbr_verified ?? r.pbr_reference_unverified), "num caution");
+    for (const value of [r.revenue_growth_pct, r.operating_margin_pct, r.equity_ratio_pct]) {
+      const cls = hasNum(value) && value < 0 ? "num negative" : "num";
+      addTextCell(tr, hasNum(value) ? fmt(value) + "%" : "—", cls);
+    }
+    const statusTd = el("td");
+    statusTd.append(el("span", r.ranking_eligible ? "status good" : "status",
+      r.ranking_eligible ? "対象" : "検証不足・除外"));
+    tr.append(statusTd);
+    const btnTd = el("td");
+    const button = el("button", "detail-button", "詳細");
+    button.type = "button";
+    button.addEventListener("click", () => {
+      state.selected = r.symbol;
+      showDetail(r);
+      $("detailTitle").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    btnTd.append(button); tr.append(btnTd); tbody.append(tr);
+  }
+  $("tableCount").textContent = visible.length + "件を表示";
+  if (state.selected) {
+    const selected = feed.records.find(r => r.symbol === state.selected);
+    if (selected) showDetail(selected);
+  }
+}
+function field(box, title, rows) {
+  const section = el("section", "detailbox");
+  section.append(el("h4", "", title));
+  const dl = el("dl");
+  for (const [name, value, url] of rows) {
+    const entry = el("div");
+    entry.append(el("dt", "", name));
+    const dd = el("dd");
+    dd.append(url === true ? safeLink(value, value ? "出典を開く ↗" : "未登録") : el("span", "", value));
+    entry.append(dd); dl.append(entry);
+  }
+  section.append(dl); return section;
+}
+function showDetail(r) {
+  const parent = $("detailContent");
+  parent.replaceChildren();
+  const top = el("div", "detailtop");
+  const title = el("div");
+  title.append(el("h3", "", r.symbol + " / " + (r.issuer || names[r.symbol] || "")),
+    el("p", "", "決算年度 " + (r.fiscal_year || "不明") + " / 金額単位：千SGD（財務）・SGD（株価）"));
+  top.append(title, el("span", r.ranking_eligible ? "status good" : "status",
+    r.ranking_eligible ? "ランキング対象" : "ランキングから除外"));
+  parent.append(top);
+  const grid = el("div", "detailgrid");
+  grid.append(
+    field("財務", "財務資料と指標", [
+      ["売上高（千SGD）", fmt(r.revenue_sgd_thousands, 0)],
+      ["親会社株主帰属損益（千SGD）", fmt(r.attributable_profit_sgd_thousands, 0)],
+      ["資料の種類", r.financial_source_kind || "未取得"],
+      ["公式財務資料", r.financial_source_url, true],
+    ]),
+    field("市場", "株価と株式数", [
+      ["株価（SGD）", fmt(r.price_sgd)],
+      ["株価基準時刻", dateJst(r.quote_timestamp_utc)],
+      ["株価出典", r.quote_url, true],
+      ["発行済株式数（自己株式控除後）", fmt(r.shares_outstanding, 0)],
+      ["株式数基準日", r.shares_as_of_date || "未取得"],
+      ["株式数出典", r.shares_source_url, true],
+    ]),
+    field("評価", "バリュエーション（参考）", [
+      ["時価総額（SGD）", fmt(r.market_cap_sgd, 0)],
+      ["PER", fmt(r.per_reference) + (hasNum(r.per_reference) ? " 倍" : "")],
+      ["PBR（未検証）", fmt(r.pbr_reference_unverified) + (hasNum(r.pbr_reference_unverified) ? " 倍" : "")],
+      ["検証済みPBR", fmt(r.pbr_verified)],
+    ]),
+    field("照合", "公式資料間の照合状況", [
+      ["売上高", (r.audit_states || {}).revenue || "未検証"],
+      ["帰属損益", (r.audit_states || {}).attributable_profit || "未検証"],
+      ["更新情報", dateJst(state.feed.updated_at_utc)],
+    ])
+  );
+  parent.append(grid, el("div", "eyebrow", "ランキング除外理由"));
+  const list = el("ul", "reasons");
+  for (const reason of r.exclusion_reasons || []) {
+    const li = el("li", "", reasons[reason] || reason);
+    li.title = reason;
+    list.append(li);
+  }
+  if (!list.children.length) list.append(el("li", "", "理由なし"));
+  parent.append(list);
+}
+function exportCsv() {
+  if (!state.feed) return;
+  const keys = ["symbol", "issuer", "fiscal_year", "price_sgd", "market_cap_sgd",
+    "per_reference", "pbr_reference_unverified", "revenue_growth_pct", "operating_margin_pct",
+    "equity_ratio_pct", "ranking_eligible", "exclusion_reasons"];
+  const quote = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+  const lines = [keys.map(quote).join(",")];
+  for (const r of state.visible) lines.push(keys.map(k => quote(k === "exclusion_reasons" ?
+    (r[k] || []).join(";") : r[k])).join(","));
+  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "value-hunter-sgx-comparison.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+async function start() {
+  const link = document.createElement("button");
+  link.type = "button"; link.textContent = "JSONを読み込む";
+  link.className = "secondary-button";
+  link.addEventListener("click", () => $("fileInput").click());
+  document.querySelector(".toolbar").append(link);
+  $("search").addEventListener("input", render);
+  $("statusFilter").addEventListener("change", render);
+  $("sortBy").addEventListener("change", render);
+  $("exportCsv").addEventListener("click", exportCsv);
+  $("fileInput").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try { setFeed(JSON.parse(await file.text()), "手動読み込み：" + file.name); }
+    catch (error) { warn("JSONを読み込めなかった：" + error.message, true); }
+  });
+  try {
+    const response = await fetch("./data/latest.json", { cache: "no-store" });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    setFeed(await response.json(), "GitHub上の公開データ");
+  } catch (error) {
+    $("stockRows").replaceChildren();
+    $("totalCount").textContent = "0"; $("eligibleCount").textContent = "0";
+    $("excludedCount").textContent = "0"; $("pricedCount").textContent = "0";
+    warn("公開データを取得できなかった。GitHub Actionsの実行を待つか、「JSONを読み込む」を利用して。" +
+      "（" + error.message + "）", true);
+  }
+}
+document.addEventListener("DOMContentLoaded", start);
