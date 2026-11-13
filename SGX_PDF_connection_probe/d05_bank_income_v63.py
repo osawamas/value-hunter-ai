@@ -69,7 +69,9 @@ def parse_pdf(raw):
                 if line.strip().lower()!=label.lower():
                     continue
                 tail=[x.strip() for x in lines[i+1:i+5]]
-                if tail and re.fullmatch(r"\d{1,2}",tail[0]):
+                if (len(tail)>=3 and re.fullmatch(r"\d{1,2}",tail[0])
+                        and all(re.fullmatch(r"[0-9][0-9,]*",v) for v in tail[1:3])
+                        and tuple(int(v.replace(",","")) for v in tail[1:3])==EXPECTED[key]):
                     tail=tail[1:]
                 if len(tail)<2:
                     continue
