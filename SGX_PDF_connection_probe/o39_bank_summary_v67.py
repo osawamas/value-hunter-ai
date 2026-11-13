@@ -77,7 +77,7 @@ def parse_pdf(raw):
     finally:
         doc.close()
 
-def run(output,raw=None):
+def run(output,raw=None,verified_pdf_copy=None):
     out={"symbol":"O39","status":"NOT_VERIFIED",
          "source_url":SOURCE,"pdf_sha256":None,
          "record":None,"error":None}
@@ -86,6 +86,10 @@ def run(output,raw=None):
         out["pdf_sha256"]=hashlib.sha256(pdf).hexdigest()
         out["record"]=parse_pdf(pdf)
         out["status"]="O39_ISSUER_2025_GROUP_FINANCIAL_HIGHLIGHTS_MATCHED"
+        if verified_pdf_copy is not None:
+            target=Path(verified_pdf_copy)
+            target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_bytes(pdf)
     except Exception as exc:
         out["error"]=f"{type(exc).__name__}: {str(exc)[:300]}"
     p=Path(output);p.parent.mkdir(parents=True,exist_ok=True)
@@ -96,7 +100,8 @@ if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--output",required=True)
     p.add_argument("--offline-pdf")
+    p.add_argument("--verified-pdf-copy")
     a=p.parse_args()
-    r=run(a.output,Path(a.offline_pdf).read_bytes() if a.offline_pdf else None)
+    r=run(a.output,Path(a.offline_pdf).read_bytes() if a.offline_pdf else None,a.verified_pdf_copy)
     print(r["status"],r["error"])
     raise SystemExit(0 if r["status"]=="O39_ISSUER_2025_GROUP_FINANCIAL_HIGHLIGHTS_MATCHED" else 1)
