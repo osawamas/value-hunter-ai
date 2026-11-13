@@ -1,0 +1,33 @@
+name: VALUE HUNTER OCBC Group highlights v67
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/o39_bank_summary_v67.py
+      - SGX_PDF_connection_probe/test_o39_bank_summary_v67.py
+      - .github/workflows/value-hunter-v67.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: OCBC bank highlights synthetic fail-closed tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_o39_bank_summary_v67.py
+      - name: Read real OCBC FY2025 issuer annual report
+        run: python SGX_PDF_connection_probe/o39_bank_summary_v67.py --output o39-v67/group_bank_highlights.json
+      - name: Save issuer financial evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: o39-issuer-highlights-v67
+          path: o39-v67/
+          if-no-files-found: warn
