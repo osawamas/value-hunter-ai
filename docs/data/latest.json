@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T23:11:32.873971+00:00",
-  "input_generated_at_utc": "2026-11-13T23:11:32.818078+00:00",
+  "updated_at_utc": "2026-11-13T23:37:09.157113+00:00",
+  "input_generated_at_utc": "2026-11-13T23:37:09.117978+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -1374,10 +1374,33 @@
         "not_current_share_count": true,
         "market_cap_eligible": false,
         "ranking_eligible": false
+      },
+      "bank_pending_buyback_consistency": {
+        "status": "SECONDARY_NOV13_ARITHMETICALLY_CONSISTENT_PRIMARY_NOT_VERIFIED",
+        "primary_as_of_date": "2026-11-12",
+        "secondary_as_of_date": "2026-11-13",
+        "primary_after_purchase_shares": 1646711591,
+        "secondary_claim_after_purchase_shares": 1646677591,
+        "implied_share_decrease": 34000,
+        "secondary_claim_purchased_shares": 34000,
+        "secondary_claim_cancelled_shares": 34000,
+        "secondary_claim_held_as_treasury_shares": 0,
+        "secondary_claim_treasury_balance": 14548000,
+        "secondary_sgxnet_reference": "SG261113OTHRHOAF",
+        "secondary_source_url": "https://classic.shareinvestor.com/news/news.html?nid=515671689&source=regional_sgxnet",
+        "primary_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/MTW96I6ZXZBTQZK8/7c3dc707a598dc02da057fc772c1ba67abe1b9b3ceb4fe9d2b92fd00b510d97d",
+        "secondary_primary_url": null,
+        "secondary_primary_hash": null,
+        "check_scope": "ARITHMETIC_ONLY_NOT_ORIGINAL_ISSUER_VERIFICATION",
+        "later_events_not_ruled_out": true,
+        "latest_current_shares_verified": false,
+        "current_share_count_usable": false,
+        "market_cap_per_pbr_usable": false,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T23:11:32.905792+00:00",
+  "quality_checked_at_utc": "2026-11-13T23:37:09.179459+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
