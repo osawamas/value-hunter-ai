@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T21:37:31.619987+00:00",
-  "input_generated_at_utc": "2026-11-13T21:37:31.578977+00:00",
+  "updated_at_utc": "2026-11-13T21:38:36.834928+00:00",
+  "input_generated_at_utc": "2026-11-13T21:38:36.789896+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -369,7 +369,65 @@
         "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
       ],
       "quote_freshness": "MISSING",
-      "share_freshness": "MISSING"
+      "share_freshness": "MISSING",
+      "banking_evidence": {
+        "status": "BANK_ISSUER_FY2025_GROUP_STATEMENTS_RECONCILED",
+        "scope": "GROUP_BANKING_NOT_INDUSTRIAL_FINANCIALS",
+        "fiscal_year": 2025,
+        "unit": "SGD_millions",
+        "source_url": "https://www.dbs.com/iwov-resources/images/investors/annual-report/dbs-annual-report-2025.pdf",
+        "pdf_sha256": "e7952ba9dff9e339070334ec5d67a71c81a8c618be7f34abad6f3118189b38ce",
+        "income": {
+          "2025": {
+            "net_interest_income": 14500,
+            "non_interest_income": 8400,
+            "total_income": 22900,
+            "total_expenses": 9349,
+            "allowances_for_credit_losses": 791,
+            "net_profit": 10934,
+            "profit_attributable_to_parent": 10933,
+            "non_controlling_profit": 1
+          },
+          "2024": {
+            "net_interest_income": 14424,
+            "non_interest_income": 7873,
+            "total_income": 22297,
+            "total_expenses": 9018,
+            "allowances_for_credit_losses": 622,
+            "net_profit": 11290,
+            "profit_attributable_to_parent": 11289,
+            "non_controlling_profit": 1
+          }
+        },
+        "balance": {
+          "2025": {
+            "total_assets": 897488,
+            "total_liabilities": 828572,
+            "net_assets": 68916,
+            "parent_shareholders_funds": 68867,
+            "non_controlling_interests": 49,
+            "total_equity": 68916,
+            "customer_loans": 445011
+          },
+          "2024": {
+            "total_assets": 827219,
+            "total_liabilities": 758386,
+            "net_assets": 68833,
+            "parent_shareholders_funds": 68786,
+            "non_controlling_interests": 47,
+            "total_equity": 68833,
+            "customer_loans": 430594
+          }
+        },
+        "historical_shareholding": {
+          "as_of_date": "2026-02-10",
+          "shares_outstanding": 2837558046,
+          "treasury_shares": 113424,
+          "issued_shares_including_treasury_derived": 2837671470
+        },
+        "independent_cross_source_verification": false,
+        "ranking_eligible": false
+      }
     },
     {
       "symbol": "O39",
@@ -548,7 +606,7 @@
       "share_freshness": "MISSING"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T21:37:31.644720+00:00",
+  "quality_checked_at_utc": "2026-11-13T21:38:36.862087+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
