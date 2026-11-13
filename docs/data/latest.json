@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T13:52:43.365532+00:00",
-  "input_generated_at_utc": "2026-11-13T13:52:43.316133+00:00",
+  "updated_at_utc": "2026-11-13T14:25:22.083497+00:00",
+  "input_generated_at_utc": "2026-11-13T14:25:22.031326+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -65,7 +65,10 @@
         "TREASURY_SHARE_BASIS_UNCONFIRMED",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
-      "data_state": "PARTIAL_UNVERIFIED"
+      "data_state": "PARTIAL_UNVERIFIED",
+      "quality_flags": [],
+      "quote_freshness": "RECENT",
+      "share_freshness": "RECENT"
     },
     {
       "symbol": "G13",
@@ -117,7 +120,10 @@
         "TREASURY_SHARE_BASIS_UNCONFIRMED",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
-      "data_state": "PARTIAL_UNVERIFIED"
+      "data_state": "PARTIAL_UNVERIFIED",
+      "quality_flags": [],
+      "quote_freshness": "RECENT",
+      "share_freshness": "RECENT"
     },
     {
       "symbol": "S20",
@@ -166,7 +172,10 @@
         "NEGATIVE_EARNINGS_PER_NOT_APPLICABLE",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
-      "data_state": "PARTIAL_UNVERIFIED"
+      "data_state": "PARTIAL_UNVERIFIED",
+      "quality_flags": [],
+      "quote_freshness": "RECENT",
+      "share_freshness": "RECENT"
     },
     {
       "symbol": "S63",
@@ -211,9 +220,25 @@
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
         "SHARES_OLD_OR_UNDATED",
-        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
+        "SHARES_STALE"
       ],
-      "data_state": "PARTIAL_UNVERIFIED"
+      "data_state": "PARTIAL_UNVERIFIED",
+      "quality_flags": [
+        "SHARES_STALE"
+      ],
+      "quote_freshness": "RECENT",
+      "share_freshness": "STALE"
     }
-  ]
+  ],
+  "quality_checked_at_utc": "2026-11-13T14:25:22.117315+00:00",
+  "quality_schema_version": "value_hunter_quality_v33",
+  "quality_counts": {
+    "issuers": 4,
+    "quote_stale": 0,
+    "quote_missing": 0,
+    "shares_stale": 1,
+    "arithmetically_inconsistent": 0,
+    "ranking_eligible": 0
+  }
 }
