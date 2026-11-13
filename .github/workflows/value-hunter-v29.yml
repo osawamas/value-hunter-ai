@@ -150,7 +150,9 @@ jobs:
             git commit -m "data: refresh verified-status SGX dashboard feed"
             # Remote main may advance while PDF parsing runs. Never force-push.
             for attempt in 1 2 3; do
-              git pull --rebase origin main
+              # This commit contains generated docs/data only. Resolve competing
+              # generated history JSON in favor of this more recently built run.
+              git -c rebase.backend=merge pull --rebase -X theirs origin main
               if git push origin HEAD:main; then
                 echo "Feed pushed on attempt $attempt."
                 break
