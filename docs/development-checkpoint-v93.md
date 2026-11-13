@@ -22,7 +22,7 @@
 - `.github/workflows/value-hunter-v29.yml` にv92/v93の検証・発行を連結。GitHub Actionsの paths に以前混入していたテスト名連結の不正行を修正、v90-v93テストを本体へ追加。
 
 ## 検証状況
-- v93統合 #43528718261 は全工程成功。`docs/data/latest.json` updated_at_utc=2026-11-13T23:40:14.331685+00:00（JST 2026-11-14 08:40）。3銀行すべて `bank_market_readiness` が公開済み、UOBの `bank_pending_buyback_consistency` も算術一致・原本未確認の状態で公開済み。さらにUI変更後の #43528750367 は本記録更新時点でpending。次回は後者の最終結果を確認する。
+- v93統合 #43528718261 は全工程成功。`docs/data/latest.json` updated_at_utc=2026-11-13T23:40:14.331685+00:00（JST 2026-11-14 08:40）。3銀行すべて `bank_market_readiness` が公開済み、UOBの `bank_pending_buyback_consistency` も算術一致・原本未確認の状態で公開済み。UI変更後の最終統合 #43528750367 も全工程成功。2回の統合実行でテスト・財務構築・JSON公開・コミット成功を確認。
 - 本体データ最終確認は7銘柄、算術不整合0、ランキング対象0。銀行3社のprice_sgd、shares_outstanding、market_cap_sgd、PER/PBRは全てNULLのままが正しい。
 
 ## 次の開発：v94以降
@@ -32,4 +32,4 @@
 4. v93統合Actionsを確認し、問題があればfail-closedのまま修正。SGX全銘柄への拡張を継続。
 
 ## 次スレッド用コピペ
-VALUE HUNTER AI（GitHub osawamas/value-hunter-ai）のv93の続きから開発。まずmain・最新Actions・docs/data/latest.json・docs/development-checkpoint-v93.mdを確認。v91までにUOBの11/10〜12 SGX原本買戻し株数を3日分直接照合し公開。v92で11/13のSGXNet転載株数1,646,677,591株と11/12公式原本1,646,711,591株の差34,000株が転載の34,000株買戻し・取消しと算術一致することを確認。ただし11/13のSGX原本未取得のため `bank_pending_buyback_consistency` は未検証として扱い、時価総額に採用しない。v93でDBS/OCBC/UOBの不足する原本株式数・株価時刻・独立検証を表示するbank_market_readinessを実装。v92 CI #43528352368、v93 CI #43528596565 は成功。v93統合 #43528718261 成功、公開JSONで3銀行のreadinessとUOBのpending照合を実測。UI変更後の #43528750367 の終了結果は次回確認。次はUOB 11/13 SG261113OTHRHOAF原本とOCBC 11/12 SG261112OTHRXH64の原本添付PDF探索、そして時間付きSGD株価ソースの検証。7社・不整合0・投資ランキング0、銀行市場指標はnullを維持。GitHubへ実装・テスト・原本照合し、最後に次スレッド用引き継ぎ文を付ける。
+VALUE HUNTER AI（GitHub osawamas/value-hunter-ai）のv93の続きから開発。まずmain・最新Actions・docs/data/latest.json・docs/development-checkpoint-v93.mdを確認。v91までにUOBの11/10〜12 SGX原本買戻し株数を3日分直接照合し公開。v92で11/13のSGXNet転載株数1,646,677,591株と11/12公式原本1,646,711,591株の差34,000株が転載の34,000株買戻し・取消しと算術一致することを確認。ただし11/13のSGX原本未取得のため `bank_pending_buyback_consistency` は未検証として扱い、時価総額に採用しない。v93でDBS/OCBC/UOBの不足する原本株式数・株価時刻・独立検証を表示するbank_market_readinessを実装。v92 CI #43528352368、v93 CI #43528596565 は成功。v93統合 #43528718261 成功、公開JSONで3銀行のreadinessとUOBのpending照合を実測。UI変更後 #43528750367 も成功済み。次はUOB 11/13 SG261113OTHRHOAF原本とOCBC 11/12 SG261112OTHRXH64の原本添付PDF探索、そして時間付きSGD株価ソースの検証。7社・不整合0・投資ランキング0、銀行市場指標はnullを維持。GitHubへ実装・テスト・原本照合し、最後に次スレッド用引き継ぎ文を付ける。
