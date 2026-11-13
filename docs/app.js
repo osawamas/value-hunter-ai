@@ -245,9 +245,11 @@ function showDetail(r) {
     ]),
     field("照合", "公式資料間の照合状況", [
       ["売上高", (r.audit_states || {}).revenue || "未検証"],
+      ["営業利益", (r.audit_states || {}).operating_profit || "未検証"],
       ["帰属損益", (r.audit_states || {}).attributable_profit || "未検証"],
       ["照合先の公式PDF", r.audit_source_url, true],
       ["売上高の根拠ページ", ((r.audit_pages_by_metric || {}).revenue || []).join(", ") || "未取得"],
+      ["営業利益の根拠ページ", ((r.audit_pages_by_metric || {}).operating_profit || []).join(", ") || "未取得"],
       ["帰属損益の根拠ページ", ((r.audit_pages_by_metric || {}).attributable_profit || []).join(", ") || "未取得"],
       ["照合の性質", "同一企業の別資料との一致（第三者独立監査ではない）"],
       ["更新情報", dateJst(state.feed.updated_at_utc)],
