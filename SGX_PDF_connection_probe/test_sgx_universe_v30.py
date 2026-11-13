@@ -21,10 +21,27 @@ def universe(symbols=("S68", "G13", "S20")):
             "issuers": [issuer(s) for s in symbols]}
 
 class UniverseTests(unittest.TestCase):
-    def test_catalog_has_four_source_backed_issuers(self):
+    def test_catalog_has_seven_source_backed_issuers(self):
         path = Path(__file__).with_name("sgx_universe_v30.json")
         rows = read_universe(path)
-        self.assertEqual([r["symbol"] for r in rows], ["S68", "G13", "S20", "S63"])
+        self.assertEqual([r["symbol"] for r in rows], ["S68", "G13", "S20", "S63", "D05", "O39", "U11"])
+
+    def test_new_banks_have_no_parsed_metrics_or_auto_ranking(self):
+        catalog=json.loads(Path(__file__).with_name("sgx_universe_v30.json").read_text(encoding="utf-8"))
+        result=compare({"records":[]},{"records":[]},{"records":[]},
+                       now=datetime(2026,11,14,tzinfo=timezone.utc),universe=catalog)
+        banks=[r for r in result["records"] if r["symbol"] in {"D05","O39","U11"}]
+        self.assertEqual(len(banks),3)
+        for record in banks:
+            self.assertIsNone(record["price_sgd"])
+            self.assertIsNone(record["per_reference"])
+            self.assertIsNone(record["pbr_reference_unverified"])
+            self.assertIsNone(record["market_cap_sgd"])
+            self.assertFalse(record["ranking_eligible"])
+            self.assertIn("FINANCIAL_MISSING_REVENUE",record["exclusion_reasons"])
+        published=build(result,datetime(2026,11,14,tzinfo=timezone.utc))
+        self.assertEqual(published["coverage"]["registered_count"],7)
+        self.assertFalse(published["coverage"]["all_sgx_listed"])
 
     def test_duplicate_rejected(self):
         u = universe(("S68", "S68"))
