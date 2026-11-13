@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T13:06:21.062356+00:00",
-  "input_generated_at_utc": "2026-11-13T13:06:21.028172+00:00",
+  "updated_at_utc": "2026-11-13T13:45:32.332853+00:00",
+  "input_generated_at_utc": "2026-11-13T13:45:32.299910+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -12,8 +12,10 @@
     "tested_symbols": [
       "S68",
       "G13",
-      "S20"
+      "S20",
+      "S63"
     ],
+    "registered_count": 4,
     "all_sgx_listed": false
   },
   "records": [
@@ -162,6 +164,65 @@
       "exclusion_reasons": [
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
         "NEGATIVE_EARNINGS_PER_NOT_APPLICABLE",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
+      ],
+      "data_state": "PARTIAL_UNVERIFIED"
+    },
+    {
+      "symbol": "S63",
+      "issuer": "Singapore Technologies Engineering Ltd",
+      "fiscal_year": null,
+      "revenue_sgd_thousands": null,
+      "revenue_growth_pct": null,
+      "operating_margin_pct": null,
+      "equity_ratio_pct": null,
+      "attributable_profit_sgd_thousands": null,
+      "price_sgd": null,
+      "shares_outstanding": null,
+      "market_cap_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "pbr_verified": null,
+      "financial_source_url": null,
+      "financial_source_kind": null,
+      "financial_pdf_sha256": null,
+      "audit_source_url": null,
+      "audit_pdf_sha256": null,
+      "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
+      "audit_pages_by_metric": {
+        "revenue": [],
+        "attributable_profit": []
+      },
+      "shares_verification_status": null,
+      "shares_count_basis": null,
+      "quote_source_type": null,
+      "quote_url": null,
+      "quote_timestamp_utc": null,
+      "shares_source_url": null,
+      "shares_as_of_date": null,
+      "audit_states": {
+        "revenue": "NOT_VERIFIED",
+        "attributable_profit": "NOT_VERIFIED"
+      },
+      "ranking_eligible": false,
+      "ranking_score": null,
+      "exclusion_reasons": [
+        "FINANCIAL_MISSING_REVENUE",
+        "FINANCIAL_MISSING_ATTRIBUTABLE_PROFIT",
+        "FINANCIAL_MISSING_ASSETS",
+        "FINANCIAL_MISSING_LIABILITIES",
+        "FINANCIAL_MISSING_EQUITY",
+        "FISCAL_YEAR_UNKNOWN",
+        "BALANCE_UNVERIFIED_OR_MISMATCH",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PRICE_MISSING",
+        "QUOTE_OLD_OR_UNDATED",
+        "SHARES_MISSING",
+        "SHARES_OLD_OR_UNDATED",
+        "SHARES_SOURCE_MISSING",
+        "TREASURY_SHARE_BASIS_UNCONFIRMED",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
       "data_state": "PARTIAL_UNVERIFIED"
