@@ -109,6 +109,17 @@ def evaluate(fin, valuation, audit, now):
         "revenue_growth_pct": round(100 * (revenue - previous) / previous, 2) if revenue is not None and previous is not None and previous > 0 else None,
         "operating_margin_pct": round(100 * operating / revenue, 2) if operating is not None and revenue is not None and revenue > 0 else None,
         "equity_ratio_pct": round(100 * equity / assets, 2) if equity is not None and assets is not None and assets > 0 else None,
+        "assets_sgd_thousands": assets,
+        "liabilities_sgd_thousands": liabilities,
+        "equity_sgd_thousands": equity,
+        "balance_difference_sgd_thousands": assets - liabilities - equity if None not in (assets, liabilities, equity) else None,
+        "balance_source_status": fin.get("g13_balance_evidence", {}).get("status") or (
+            fin.get("metrics", {}).get("assets", {}).get(str(year), {}).get("status")
+        ),
+        "balance_source_page": fin.get("g13_balance_evidence", {}).get("page_pdf_number"),
+        "parent_equity_sgd_thousands": owner_equity,
+        "parent_equity_status": valuation.get("parent_equity_status"),
+        "parent_equity_source_url": valuation.get("parent_equity_source"),
         "attributable_profit_sgd_thousands": profit,
         "price_sgd": price,
         "shares_outstanding": shares_count,
