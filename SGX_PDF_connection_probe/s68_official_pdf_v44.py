@@ -107,7 +107,7 @@ def parse_pdf(raw):
         pdf.close()
 
 
-def run(output, raw=None):
+def run(output, raw=None, verified_pdf_copy=None):
     record = {"symbol": "S68", "issuer": "Singapore Exchange Limited",
               "fiscal_year": 2026, "status": "NOT_VERIFIED",
               "source_kind": "LIVE_ISSUER_FY2026_PDF",
@@ -119,6 +119,9 @@ def run(output, raw=None):
         record["pdf_sha256"] = hashlib.sha256(data).hexdigest()
         record["metrics"] = parse_pdf(data)
         record["status"] = "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED"
+        if verified_pdf_copy is not None:
+            Path(verified_pdf_copy).parent.mkdir(parents=True, exist_ok=True)
+            Path(verified_pdf_copy).write_bytes(data)
     except Exception as exc:
         record["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
     target = Path(output)
@@ -132,8 +135,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
     parser.add_argument("--offline-pdf")
+    parser.add_argument("--verified-pdf-copy")
     options = parser.parse_args()
     result = run(options.output, Path(options.offline_pdf).read_bytes()
-                 if options.offline_pdf else None)
+                 if options.offline_pdf else None, options.verified_pdf_copy)
     print(result["status"], result["error"])
     raise SystemExit(0 if result["status"] == "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED" else 1)
