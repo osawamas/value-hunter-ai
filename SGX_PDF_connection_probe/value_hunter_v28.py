@@ -118,10 +118,22 @@ def evaluate(fin, valuation, audit, now):
         "pbr_verified": pbr_reference if valuation.get("parent_equity_status") == "PARENT_EQUITY_INDEPENDENTLY_VERIFIED" else None,
         "financial_source_url": fin.get("source_url"),
         "financial_source_kind": fin.get("source_kind"),
+        "financial_pdf_sha256": fin.get("pdf_sha256"),
+        "audit_source_url": audit.get("url"),
+        "audit_pdf_sha256": audit.get("pdf_sha256"),
+        "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
+        "audit_pages_by_metric": {
+            key: [ev.get("page") for ev in checks.get(key, {}).get("reference_extraction", {}).get("evidence", [])
+                  if isinstance(ev, dict) and isinstance(ev.get("page"), int)]
+            for key in ("revenue", "attributable_profit")
+        },
         "quote_url": quote.get("source_url"),
         "quote_timestamp_utc": quote.get("market_timestamp_utc"),
         "shares_source_url": shares.get("source_url"),
         "shares_as_of_date": shares.get("as_of_date"),
+        "shares_verification_status": shares.get("verification_status"),
+        "shares_count_basis": shares.get("share_count_basis"),
+        "quote_source_type": quote.get("source"),
         "audit_states": {key: checks.get(key, {}).get("status", "NOT_VERIFIED") for key in ("revenue", "attributable_profit")},
         "ranking_eligible": not reasons,
         "ranking_score": None,
