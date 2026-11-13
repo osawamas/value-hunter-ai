@@ -164,7 +164,7 @@ def download_pdf(url, timeout=35):
     return pdf
 
 
-def validate_s68_crosscheck(financials_by_symbol, path):
+def validate_s68_crosscheck(financials_by_symbol, path, annual_shares_path=None):
     """Cross-check one distinct SGX issuer annual PDF, not third-party validation."""
     evidence=json.loads(Path(path).read_text(encoding="utf-8"))
     if (evidence.get("symbol")!="S68" or
@@ -174,6 +174,15 @@ def validate_s68_crosscheck(financials_by_symbol, path):
     source=financials_by_symbol.get("S68") or {}
     if source.get("source_url")==evidence["source_url"] or source.get("pdf_sha256")==evidence["pdf_sha256"]:
         raise ValueError("S68 crosscheck is not a distinct document")
+    if annual_shares_path:
+        shares=json.loads(Path(annual_shares_path).read_text(encoding="utf-8"))
+        if (shares.get("symbol")!="S68"
+                or shares.get("status")!="OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED"
+                or shares.get("source_url")!=evidence["source_url"]
+                or shares.get("pdf_sha256")!=evidence["pdf_sha256"]
+                or not shares.get("snapshot")
+                or shares["snapshot"].get("as_of_date")!="2026-09-01"):
+            raise ValueError("S68 annual shareholding document and crosscheck SHA/date mismatch")
     checks=[]
     seen=set()
     for item in evidence.get("checks",[]):
@@ -197,7 +206,7 @@ def validate_s68_crosscheck(financials_by_symbol, path):
             "checks":checks,"investment_ranking_eligible":False}
 
 
-def run(financials, output, fetch=download_pdf, s68_crosscheck_path=None):
+def run(financials, output, fetch=download_pdf, s68_crosscheck_path=None, annual_shares_path=None):
     records = {record["symbol"]: record for record in financials.get("records", [])}
     result = {
         "schema_version": "v27_live_issuer_document_audit",
@@ -233,7 +242,7 @@ def run(financials, output, fetch=download_pdf, s68_crosscheck_path=None):
             record["error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
         result["records"].append(record)
     if s68_crosscheck_path:
-        result["records"].append(validate_s68_crosscheck(records,s68_crosscheck_path))
+        result["records"].append(validate_s68_crosscheck(records,s68_crosscheck_path,annual_shares_path))
     else:
         result["records"].append({
             "symbol":"S68","status":"SECOND_ISSUER_DOCUMENT_NOT_VERIFIED",
@@ -276,9 +285,10 @@ def main():
     parser.add_argument("--financials", required=True)
     parser.add_argument("--output", default="value_hunter_v27_results")
     parser.add_argument("--s68-crosscheck")
+    parser.add_argument("--s68-annual-shares")
     args = parser.parse_args()
     financials = json.loads(Path(args.financials).read_text(encoding="utf-8"))
-    run(financials, args.output, s68_crosscheck_path=args.s68_crosscheck)
+    run(financials, args.output, s68_crosscheck_path=args.s68_crosscheck, annual_shares_path=args.s68_annual_shares)
 
 
 if __name__ == "__main__":
