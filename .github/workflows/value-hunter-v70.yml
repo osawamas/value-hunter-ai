@@ -1,0 +1,33 @@
+name: VALUE HUNTER bank audited statement pages v70
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/bank_audited_page_probe_v70.py'
+      - '.github/workflows/value-hunter-v70.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [O39, U11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Extract official audited statement rows for parser design
+        run: python SGX_PDF_connection_probe/bank_audited_page_probe_v70.py --symbol ${{ matrix.symbol }} --output v70-audited/${{ matrix.symbol }}.json
+      - name: Save evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audited-statement-v70-${{ matrix.symbol }}
+          path: v70-audited/
+          if-no-files-found: warn
