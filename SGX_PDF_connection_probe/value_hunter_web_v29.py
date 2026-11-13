@@ -20,7 +20,10 @@ ALLOWED_KEYS = {
     "attributable_profit_sgd_thousands", "price_sgd",
     "shares_outstanding", "market_cap_sgd", "per_reference",
     "pbr_reference_unverified", "pbr_verified", "financial_source_url",
-    "financial_source_kind", "quote_url", "quote_timestamp_utc",
+    "financial_source_kind", "financial_pdf_sha256", "audit_source_url",
+    "audit_pdf_sha256", "audit_reference_type", "audit_pages_by_metric",
+    "shares_verification_status", "shares_count_basis", "quote_source_type",
+    "quote_url", "quote_timestamp_utc",
     "shares_source_url", "shares_as_of_date", "audit_states",
     "ranking_eligible", "ranking_score", "exclusion_reasons",
 }
@@ -30,7 +33,10 @@ PUBLIC_KEYS = (
     "attributable_profit_sgd_thousands", "price_sgd",
     "shares_outstanding", "market_cap_sgd", "per_reference",
     "pbr_reference_unverified", "pbr_verified", "financial_source_url",
-    "financial_source_kind", "quote_url", "quote_timestamp_utc",
+    "financial_source_kind", "financial_pdf_sha256", "audit_source_url",
+    "audit_pdf_sha256", "audit_reference_type", "audit_pages_by_metric",
+    "shares_verification_status", "shares_count_basis", "quote_source_type",
+    "quote_url", "quote_timestamp_utc",
     "shares_source_url", "shares_as_of_date", "audit_states",
     "ranking_eligible", "ranking_score", "exclusion_reasons",
 )
@@ -70,7 +76,7 @@ def build(source, now=None):
             raise ValueError("Missing exclusion evidence")
         row = {"symbol": symbol, "issuer": NAMES[symbol]}
         for key in PUBLIC_KEYS:
-            if key in ("financial_source_url", "quote_url", "shares_source_url"):
+            if key in ("financial_source_url", "audit_source_url", "quote_url", "shares_source_url"):
                 row[key] = https_url(item.get(key))
             elif key == "ranking_eligible":
                 row[key] = False
