@@ -119,12 +119,27 @@ def select_page(doc, kind):
                         "Equity attributable to owners of the Company", "Total liabilities"),
     }
     found = []
+    page_required_labels = {
+        "income": ["Revenue", "Profit from operations", "Shareholders of the Company"],
+        "assets": ["Total assets"],
+        "liabilities": ["Total liabilities", "Total equity",
+                        "Equity attributable to owners of the Company"],
+    }
     for n, page in enumerate(doc):
         text = " ".join(page.get_text("text").upper().split())
-        if all(pattern.upper() in text for pattern in patterns[kind]):
-            found.append(n)
+        if not all(pattern.upper() in text for pattern in patterns[kind]):
+            continue
+        # Annual-report TOC pages can contain all these words but no financial
+        # table. Require the exact row and 2025/2024 coordinate evidence.
+        rows = lines(page.get_text("words"))
+        try:
+            for label in page_required_labels[kind]:
+                extract_row(rows, label)
+        except ValueError:
+            continue
+        found.append(n)
     if len(found) != 1:
-        raise ValueError(f"Consolidated {kind} statement page ambiguous: {found}")
+        raise ValueError(f"Consolidated {kind} statement table pages ambiguous: {found}")
     return found[0]
 
 
