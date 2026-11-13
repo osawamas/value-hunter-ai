@@ -88,3 +88,42 @@ jobs:
             value_hunter_v27_results/
             value_hunter_v28_results/
           if-no-files-found: warn
+
+  deploy-dashboard:
+    if: github.event_name != 'pull_request'
+    needs: refresh-dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Enable GitHub Pages for workflow deployments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' > /tmp/pages-build-type 2>/dev/null; then
+            mode="$(cat /tmp/pages-build-type)"
+            if [ "$mode" != "workflow" ]; then
+              gh api -X PUT "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
+            fi
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Print published URL
+        run: echo "公開サイト: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
