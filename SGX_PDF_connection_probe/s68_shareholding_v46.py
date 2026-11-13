@@ -1,3 +1,4 @@
+from official_http_v57 import get_pdf
 """S68 annual-report shareholding statistics, exact 1 September 2026.
 
 Derived from official SGX 2026 Annual Report; never treat income-statement
@@ -18,12 +19,7 @@ EXPECTED = {"issued_shares_including_treasury": 1071642400,
 
 
 def fetch(timeout=75):
-    request = urllib.request.Request(SOURCE, headers={"User-Agent": "Mozilla/5.0 (VALUE-HUNTER-AI researcher)"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        data = response.read(45_000_001)
-    if not data.startswith(b"%PDF") or len(data) > 45_000_000:
-        raise ValueError("Not a supported size-limited PDF")
-    return data
+    return get_pdf(SOURCE,max_bytes=45_000_000,timeout=timeout)
 
 
 def parse_pdf(data):
