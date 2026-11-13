@@ -106,12 +106,20 @@ def audit_record(record, now):
     if not isinstance(record.get("exclusion_reasons"), list) or not record["exclusion_reasons"]:
         raise ValueError("Missing explicit exclusion reasons")
 
+    freshness_problem = any(flag in flags for flag in (
+        "QUOTE_NOT_AVAILABLE", "QUOTE_TIMESTAMP_MISSING",
+        "QUOTE_STALE", "QUOTE_DATE_IN_FUTURE",
+        "SHARES_NOT_AVAILABLE", "SHARES_DATE_MISSING",
+        "SHARES_STALE", "SHARES_DATE_IN_FUTURE"))
+    if freshness_problem:
+        add("VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE")
+
     cap_valid = (
-        numeric(price) and price > 0 and numeric(shares) and shares > 0
+        not freshness_problem and numeric(price) and price > 0 and numeric(shares) and shares > 0
         and shares_reconciled and numeric(cap) and cap >= 0 and near(cap, price * shares, 0.005)
     )
     if numeric(cap) and not cap_valid:
-        if shares_reconciled:
+        if shares_reconciled and not freshness_problem:
             add("MARKET_CAP_ARITHMETIC_MISMATCH")
         record["market_cap_sgd"] = None
         cap = None
@@ -126,6 +134,10 @@ def audit_record(record, now):
                 or not near(pbr, cap / (owner_equity * 1000), 0.01)):
             add("PBR_DENOMINATOR_MISSING_OR_ARITHMETIC_MISMATCH")
             record["pbr_reference_unverified"] = None
+    if freshness_problem or not shares_reconciled:
+        record["market_cap_sgd"] = None
+        record["per_reference"] = None
+        record["pbr_reference_unverified"] = None
     if record.get("pbr_verified") is not None and record.get("ranking_eligible") is False:
         # v29 is an unverified research feed: suppress a verified-label field
         # until there is a separate, explicit audited validation schema.
