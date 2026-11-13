@@ -1,0 +1,49 @@
+name: VALUE HUNTER automated dated bank quote discovery v96
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/bank_quote_http_probe_v96.py
+      - SGX_PDF_connection_probe/test_bank_quote_http_probe_v96.py
+      - .github/workflows/value-hunter-v96.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [D05, O39, U11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate bank secondary quote source and date parsing
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_bank_quote_http_probe_v96.py
+      - name: Probe real site, report missing source without inventing current price
+        shell: bash
+        run: |
+          if python SGX_PDF_connection_probe/bank_quote_http_probe_v96.py --symbol ${{ matrix.symbol }} --output quote-probe-v96/${{ matrix.symbol }}.json; then
+            echo "${{ matrix.symbol }} secondary quote extracted as research-only. Not approved for market cap." >> "$GITHUB_STEP_SUMMARY"
+          else
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          symbol="${{ matrix.symbol }}"
+          data=json.loads((Path("quote-probe-v96")/(symbol+".json")).read_text())
+          assert data["status"]=="NOT_VERIFIED" and data["record"] is None
+          print(symbol,"source cannot currently provide a safe machine-verifiable quote")
+          PY
+            echo "${{ matrix.symbol }} source unavailable/ambiguous. All investment prices stay null." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bank-quote-v96-${{ matrix.symbol }}
+          path: quote-probe-v96/
+          if-no-files-found: warn
