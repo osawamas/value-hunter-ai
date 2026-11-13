@@ -1,0 +1,27 @@
+name: VALUE HUNTER original UOB SGX 07-Sep buyback v85
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_primary_snapshot_v85.py
+      - .github/workflows/value-hunter-v85.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch and parse actual SGX origin announcement
+        run: python SGX_PDF_connection_probe/u11_primary_snapshot_v85.py --output evidence-v85/u11-sep07.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: primary-sgx-u11-v85
+          path: evidence-v85/
+          if-no-files-found: warn
