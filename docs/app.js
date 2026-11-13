@@ -309,6 +309,22 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const sourceChain = r.bank_primary_three_day_chain;
+  if (sourceChain && sourceChain.status === "ORIGINAL_SGX_U11_THREE_DAY_BUYBACK_CHAIN_2026_11_10_TO_12_VERIFIED") {
+    const days = sourceChain.records || [];
+    grid.append(field("SGX照合", "UOB：連続3営業日の買戻し通知をSGX原本で照合", [
+      ["SGX原本で照合した期間", "2026年11月10日〜12日"],
+      ["11月10日・自己株式控除後", fmt(days[0]?.issued_excluding_treasury,0) + " 株"],
+      ["11月11日・自己株式控除後", fmt(days[1]?.issued_excluding_treasury,0) + " 株"],
+      ["11月12日・自己株式控除後", fmt(days[2]?.issued_excluding_treasury,0) + " 株"],
+      ["連続日ごとの株数減少", fmt(sourceChain.net_decrease_each_consecutive_day,0) + " 株"],
+      ["11月10日のSGX原本", days[0]?.official_source_url || "未取得", true],
+      ["11月11日のSGX原本", days[1]?.official_source_url || "未取得", true],
+      ["11月12日のSGX原本", days[2]?.official_source_url || "未取得", true],
+      ["11月13日分のSGX原本", "未照合。転載情報とは区別"],
+      ["株価・時価総額・PER・PBR", "未採用。取引時刻付き株価・最新株数の別途検証が必要"],
+    ]));
+  }
   const primaryRecent = r.bank_primary_recent_share_event;
   if (primaryRecent && primaryRecent.status === "ORIGINAL_SGX_DAILY_BUYBACK_2026_11_12_RECONCILED") {
     grid.append(field("SGX原本", "UOB公式SGX通知・2026年11月12日（現在値ではない）", [
