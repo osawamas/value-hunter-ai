@@ -6,7 +6,7 @@
   "entries": [
     {
       "date_utc": "2026-11-13",
-      "source_updated_at_utc": "2026-11-13T21:17:20.313268+00:00",
+      "source_updated_at_utc": "2026-11-13T21:19:00.831843+00:00",
       "records": [
         {
           "symbol": "S68",
@@ -51,6 +51,57 @@
           "quote_freshness": "RECENT",
           "shares_as_of_date": "2026-06-30",
           "quality_flags": []
+        },
+        {
+          "symbol": "D05",
+          "price_sgd": null,
+          "per_reference": null,
+          "pbr_reference_unverified": null,
+          "market_cap_sgd": null,
+          "quote_timestamp_utc": null,
+          "quote_freshness": "MISSING",
+          "shares_as_of_date": null,
+          "quality_flags": [
+            "QUOTE_NOT_AVAILABLE",
+            "QUOTE_TIMESTAMP_MISSING",
+            "SHARES_NOT_AVAILABLE",
+            "SHARES_DATE_MISSING",
+            "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+          ]
+        },
+        {
+          "symbol": "O39",
+          "price_sgd": null,
+          "per_reference": null,
+          "pbr_reference_unverified": null,
+          "market_cap_sgd": null,
+          "quote_timestamp_utc": null,
+          "quote_freshness": "MISSING",
+          "shares_as_of_date": null,
+          "quality_flags": [
+            "QUOTE_NOT_AVAILABLE",
+            "QUOTE_TIMESTAMP_MISSING",
+            "SHARES_NOT_AVAILABLE",
+            "SHARES_DATE_MISSING",
+            "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+          ]
+        },
+        {
+          "symbol": "U11",
+          "price_sgd": null,
+          "per_reference": null,
+          "pbr_reference_unverified": null,
+          "market_cap_sgd": null,
+          "quote_timestamp_utc": null,
+          "quote_freshness": "MISSING",
+          "shares_as_of_date": null,
+          "quality_flags": [
+            "QUOTE_NOT_AVAILABLE",
+            "QUOTE_TIMESTAMP_MISSING",
+            "SHARES_NOT_AVAILABLE",
+            "SHARES_DATE_MISSING",
+            "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+          ]
         }
       ],
       "quote_count": 4,
