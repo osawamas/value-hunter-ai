@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T20:54:15.105219+00:00",
-  "input_generated_at_utc": "2026-11-13T20:54:15.063272+00:00",
+  "updated_at_utc": "2026-11-13T20:54:58.412613+00:00",
+  "input_generated_at_utc": "2026-11-13T20:54:58.370247+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -33,15 +33,15 @@
       "balance_difference_sgd_thousands": 0,
       "balance_source_status": "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED",
       "balance_source_page": null,
-      "parent_equity_sgd_thousands": null,
-      "parent_equity_status": null,
-      "parent_equity_source_url": null,
+      "parent_equity_sgd_thousands": 2362982,
+      "parent_equity_status": "AUDITED_ISSUER_GROUP_OWNER_COMPONENTS_RECONCILED",
+      "parent_equity_source_url": "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5",
       "attributable_profit_sgd_thousands": 698411,
       "price_sgd": 20.69,
       "shares_outstanding": 1070843484,
       "market_cap_sgd": 22155751683.96,
       "per_reference": 31.7231,
-      "pbr_reference_unverified": null,
+      "pbr_reference_unverified": 9.3762,
       "pbr_verified": null,
       "financial_source_url": "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5",
       "financial_source_kind": "LIVE_ISSUER_FY2026_PDF",
@@ -281,7 +281,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T20:54:15.132175+00:00",
+  "quality_checked_at_utc": "2026-11-13T20:54:58.439547+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,

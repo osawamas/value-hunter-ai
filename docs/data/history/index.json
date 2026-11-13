@@ -6,13 +6,13 @@
   "entries": [
     {
       "date_utc": "2026-11-13",
-      "source_updated_at_utc": "2026-11-13T20:54:15.105219+00:00",
+      "source_updated_at_utc": "2026-11-13T20:54:58.412613+00:00",
       "records": [
         {
           "symbol": "S68",
           "price_sgd": 20.69,
           "per_reference": 31.7231,
-          "pbr_reference_unverified": null,
+          "pbr_reference_unverified": 9.3762,
           "market_cap_sgd": 22155751683.96,
           "quote_timestamp_utc": "2026-11-13T09:08:04+00:00",
           "quote_freshness": "RECENT",
