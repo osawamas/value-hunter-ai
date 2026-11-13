@@ -15,8 +15,8 @@
 Actionsの実行結果だけでなく、`docs/data/latest.json` の `updated_at_utc` と各株価・株式数の基準日時を必ず区別すること。
 
 ## GitHub Pagesで公開する
-GitHubリポジトリの **Settings → Pages → Build and deployment → Deploy from a branch → main → /docs → Save**。
-これは最初の一度のみ。GitHub Pagesが未設定の場合、コードの反映だけでサイト公開は始まらない。
+GitHubリポジトリの **Settings → Pages → Build and deployment → Source: GitHub Actions → Save**。
+これは最初の一度のみ。GitHub Pagesが未設定の場合、コードの反映だけでサイト公開は始まらない。公開処理は `.github/workflows/value-hunter-pages.yml` へ独立させてある。設定後は次のデータ更新成功時に自動デプロイされる。
 
 ローカルではリポジトリのルートから `python -m http.server 8000 --directory docs` を実行し、`http://localhost:8000/` を開く。
 
