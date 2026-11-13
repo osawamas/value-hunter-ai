@@ -85,7 +85,7 @@ def parse_pdf(symbol,raw):
    lines=doc[page-1].get_text("text").splitlines()
    headings=" ".join(lines[:85]).lower()
    if symbol=="D05":
-    if not ("3rd qtr" in headings and "9 mths" in headings and "2026" in headings):
+    if not (re.search(r"3rd\\s+qtr\\s+2026",headings) and re.search(r"9\\s+mths\\s+2026",headings)):
      raise ValueError("DBS period headers not confirmed")
    elif symbol=="O39":
     if period=="Q3" and not ("third quarter 2026 performance" in headings and "3q26" in headings):
