@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:12:57.412528+00:00",
-  "input_generated_at_utc": "2026-11-13T22:12:57.366145+00:00",
+  "updated_at_utc": "2026-11-13T22:14:05.929730+00:00",
+  "input_generated_at_utc": "2026-11-13T22:14:05.874735+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -446,6 +446,18 @@
         "not_bank_reported_roe": true,
         "not_independently_cross_source_verified": true,
         "ranking_eligible": false
+      },
+      "bank_financial_state": {
+        "status": "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED",
+        "fiscal_year": 2025,
+        "source_url": "https://www.dbs.com/iwov-resources/images/investors/annual-report/dbs-annual-report-2025.pdf",
+        "pdf_sha256": "e7952ba9dff9e339070334ec5d67a71c81a8c618be7f34abad6f3118189b38ce",
+        "banking_metrics_parsed": true,
+        "generic_industrial_metrics_not_applicable": true,
+        "third_party_numerical_verification": false,
+        "current_quote_verified": false,
+        "current_share_count_verified": false,
+        "ranking_eligible": false
       }
     },
     {
@@ -676,6 +688,18 @@
         "not_bank_reported_roe": true,
         "not_independently_cross_source_verified": true,
         "ranking_eligible": false
+      },
+      "bank_financial_state": {
+        "status": "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED",
+        "fiscal_year": 2025,
+        "source_url": "https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/investors/annual-reports/2025/2025-annual-report-en.pdf",
+        "pdf_sha256": "d10f4fc11fd5845c2e5e6c1ffbeccf0c66f33e1b71c02ae0b402f0ba104382ff",
+        "banking_metrics_parsed": true,
+        "generic_industrial_metrics_not_applicable": true,
+        "third_party_numerical_verification": false,
+        "current_quote_verified": false,
+        "current_share_count_verified": false,
+        "ranking_eligible": false
       }
     },
     {
@@ -902,10 +926,22 @@
         "not_bank_reported_roe": true,
         "not_independently_cross_source_verified": true,
         "ranking_eligible": false
+      },
+      "bank_financial_state": {
+        "status": "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED",
+        "fiscal_year": 2025,
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/annual/uob-annual-report-2025.pdf",
+        "pdf_sha256": "8f16c545145df604ac0e29df5369f1620dfa0a6063bbcf5fd21f3f71dd4438c6",
+        "banking_metrics_parsed": true,
+        "generic_industrial_metrics_not_applicable": true,
+        "third_party_numerical_verification": false,
+        "current_quote_verified": false,
+        "current_share_count_verified": false,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:12:57.441252+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:14:05.963633+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
