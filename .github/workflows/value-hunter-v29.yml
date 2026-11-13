@@ -49,6 +49,8 @@ on:
       - 'SGX_PDF_connection_probe/test_bank_audited_publish_v71.py'
       - 'SGX_PDF_connection_probe/bank_indicators_v72.py'
       - 'SGX_PDF_connection_probe/test_bank_indicators_v72.py'
+      - 'SGX_PDF_connection_probe/bank_financial_state_v73.py'
+      - 'SGX_PDF_connection_probe/test_bank_financial_state_v73.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -140,7 +142,7 @@ jobs:
                       test_s68_parent_merge_v54.py test_official_http_v57.py test_pdf_reuse_v58.py test_annual_identity_v59.py test_d05_shareholding_v62.py \
             test_d05_bank_income_v63.py test_d05_bank_balance_v64.py test_d05_bank_bundle_v65.py \
             test_o39_bank_summary_v67.py test_u11_bank_summary_v68.py test_bank_summary_publish_v69.py \
-            test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py
+            test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py test_bank_financial_state_v73.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -214,6 +216,7 @@ jobs:
             echo "UOB issuer summary unavailable; no U11 bank metrics promoted." >> "$GITHUB_STEP_SUMMARY"
           fi
           python SGX_PDF_connection_probe/bank_indicators_v72.py --input docs/data/latest.json --output docs/data/latest.json
+          python SGX_PDF_connection_probe/bank_financial_state_v73.py --input docs/data/latest.json --output docs/data/latest.json
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
