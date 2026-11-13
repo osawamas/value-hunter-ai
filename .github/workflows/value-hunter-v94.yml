@@ -1,0 +1,29 @@
+name: VALUE HUNTER issuer IR dated UOB quote probe v94
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py
+      - .github/workflows/value-hunter-v94.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax check UOB IR quote parser
+        run: python -m py_compile SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py
+      - name: Inspect issuer IR quoted-price timestamp without enabling valuation
+        run: python SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py --output evidence-v94/u11-ir.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uob-ir-quote-probe-v94
+          path: evidence-v94/
+          if-no-files-found: warn
