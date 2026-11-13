@@ -1,0 +1,28 @@
+name: VALUE HUNTER S68 parent equity diagnostic v54
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/s68_parent_equity_probe_v54.py'
+      - '.github/workflows/value-hunter-v54.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Locate owner equity / NCI in S68 official FY2026 results
+        run: python SGX_PDF_connection_probe/s68_parent_equity_probe_v54.py --output v54-diagnostics/s68_parent_equity.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: s68-parent-equity-diagnostic-v54
+          path: v54-diagnostics/
+          if-no-files-found: warn
