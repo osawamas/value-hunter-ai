@@ -6,8 +6,10 @@ on:
     paths:
       - 'SGX_PDF_connection_probe/value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/value_hunter_quality_v33.py'
+      - 'SGX_PDF_connection_probe/test_s63_share_snapshot_v36.py'
+      - 'SGX_PDF_connection_probe/value_hunter_shares_v21.py'
       - 'SGX_PDF_connection_probe/value_hunter_history_v34.py'
-      - 'SGX_PDF_connection_probe/test_value_hunter_history_v34.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_history_v34.py test_s63_share_snapshot_v36.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_quality_v33.py test_value_hunter_history_v34.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
