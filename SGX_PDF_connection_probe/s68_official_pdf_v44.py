@@ -81,7 +81,7 @@ def parse_pdf(raw):
                     continue
                 for row in ordered_rows(page):
                     vals = row["numbers"]
-                    if len(vals) < 2 or tuple(vals[:2]) != expected:
+                    if len(vals) < 2 or not any(tuple(vals[pos:pos+2]) == expected for pos in (0, 1)):
                         continue
                     label = ROW_LABELS[key]
                     # Some labels are wrapped on the preceding visual row.
