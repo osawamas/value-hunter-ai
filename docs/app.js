@@ -404,6 +404,34 @@ function showDetail(r) {
       ["投資評価", "2025年通期やPER・PBRの計算に自動流用しない"],
     ]));
   }
+  const bankYoY = r.banking_yoy_2026;
+  if (bankYoY && bankYoY.status === "BANK_GROUP_LIKE_FOR_LIKE_Q3_AND_9M_PDF_VERIFIED") {
+    const q = bankYoY.Q3 || {};
+    const y = bankYoY.nine_months || {};
+    const netKey = r.symbol === "O39" ? "group_net_profit" : "net_profit";
+    const pct = value => hasNum(value) ? fmt(value, 2) + "％" : "未取得";
+    grid.append(field("銀行前年比", "2026年第3四半期の前年同期比（7〜9月の3か月）", [
+      ["2025年7〜9月の総収益（百万SGD）", fmt(q.prior_year?.total_income,0)],
+      ["2026年7〜9月の総収益（百万SGD）", fmt(q.current_year?.total_income,0)],
+      ["総収益の前年同期比", pct(q.growth_pct?.total_income)],
+      ["2025年7〜9月の連結最終利益（百万SGD）", fmt(q.prior_year?.[netKey],0)],
+      ["2026年7〜9月の連結最終利益（百万SGD）", fmt(q.current_year?.[netKey],0)],
+      ["連結最終利益の前年同期比", pct(q.growth_pct?.[netKey])],
+    ]));
+    grid.append(field("銀行累計前年比", "2026年1〜9月累計の前年同期比（9か月同士）", [
+      ["2025年1〜9月の総収益（百万SGD）", fmt(y.prior_year?.total_income,0)],
+      ["2026年1〜9月の総収益（百万SGD）", fmt(y.current_year?.total_income,0)],
+      ["総収益の前年同期比", pct(y.growth_pct?.total_income)],
+      ["2025年1〜9月の連結最終利益（百万SGD）", fmt(y.prior_year?.[netKey],0)],
+      ["2026年1〜9月の連結最終利益（百万SGD）", fmt(y.current_year?.[netKey],0)],
+      ["連結最終利益の前年同期比", pct(y.growth_pct?.[netKey])],
+      ["比較の定義", "同じ期間の前年と比較。2025年の年間決算とは比較しない"],
+      ["公式資料", bankYoY.source_url, true],
+      ["PDF識別子（SHA256）", bankYoY.pdf_sha256 || "未登録"],
+      ["データ検証区分", "同一発行体の四半期開示PDF内で照合。第三者独立検証は未完了"],
+      ["投資評価", "PER・PBR・ランキングには使用しない"],
+    ]));
+  }
   const bankingIndicators = r.banking_indicators;
   if (bankingIndicators &&
       bankingIndicators.status === "HISTORICAL_DERIVED_FROM_AUDITED_ISSUER_GROUP_FY2025") {
