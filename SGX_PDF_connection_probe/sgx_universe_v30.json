@@ -1,6 +1,6 @@
 {
   "schema_version": "sgx_issuer_universe_v30",
-  "as_of_date": "2026-11-13",
+  "as_of_date": "2026-11-14",
   "scope": "EXPLICITLY_REGISTERED_ONLY_NOT_FULL_SGX",
   "sources": [
     "https://www.sgx.com/securities/equities"
@@ -45,6 +45,42 @@
       "financial_pdf_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
       "financial_reference_year": 2025,
       "financial_data_status": "LIVE_PARSE_IMPLEMENTING_V32"
+    },
+    {
+      "symbol": "D05",
+      "issuer": "DBS Group Holdings Ltd",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://www.dbs.com/iwov-resources/images/investors/annual-report/dbs-annual-report-2025.pdf",
+      "financial_reference_year": 2025,
+      "financial_data_status": "OFFICIAL_ANNUAL_SOURCE_REGISTERED_NOT_PARSED",
+      "source_document_kind": "ISSUER_ANNUAL_REPORT",
+      "note": "Registry only. Bank-specific statements require dedicated metrics parser; all prices and ratios remain unverified."
+    },
+    {
+      "symbol": "O39",
+      "issuer": "Oversea-Chinese Banking Corporation Limited",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/investors/annual-reports/2025/2025-annual-report-en.pdf",
+      "financial_reference_year": 2025,
+      "financial_data_status": "OFFICIAL_ANNUAL_SOURCE_REGISTERED_NOT_PARSED",
+      "source_document_kind": "ISSUER_ANNUAL_REPORT",
+      "note": "Registry only; do not infer industrial operating margins for a bank."
+    },
+    {
+      "symbol": "U11",
+      "issuer": "United Overseas Bank Limited",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/annual/uob-annual-report-2025.pdf",
+      "financial_reference_year": 2025,
+      "financial_data_status": "OFFICIAL_ANNUAL_SOURCE_REGISTERED_NOT_PARSED",
+      "source_document_kind": "ISSUER_ANNUAL_REPORT",
+      "note": "Registry only; separate banking financial validation needed."
     }
   ]
 }
