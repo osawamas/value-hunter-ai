@@ -9,7 +9,7 @@ import re
 import urllib.request
 from pathlib import Path
 
-SOURCE = "https://gentingsingapore.listedcompany.com/newsroom/20260224_173326_G13_A7CVA3KL4JFGECGT.2.pdf"
+SOURCE = "https://links.sgx.com/FileOpen/2.%20GENS%20FY2025%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=875733"
 EXPECTED = {
     "2025": {"issued": 12094026824, "treasury": 8121350, "outstanding": 12085905474},
     "2024": {"issued": 12094026824, "treasury": 21494350, "outstanding": 12072532474},
