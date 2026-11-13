@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c1424">
+  <meta name="description" content="VALUE HUNTER AI — SGX上場銘柄の財務・株価・データ検証状況を日本語で比較。">
+  <title>安物で割安 | VALUE HUNTER AI</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <div class="brand"><div class="brandmark" aria-hidden="true">V<span>H</span></div><div>
+        <div class="eyebrow">VALUE HUNTER AI / SGX</div>
+        <div class="brandname">安物で割安</div>
+      </div></div>
+      <div class="headright"><span class="signal"><i></i>財務分析ワークスペース</span>
+        <a class="github" href="https://github.com/osawamas/value-hunter-ai" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      </div>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="title">
+        <div class="hero-copy">
+          <span class="section-tag">SGX EQUITY INTELLIGENCE</span>
+          <h1 id="title">数字だけじゃ、<br><em>割安</em>とは言えない。</h1>
+          <p>財務・株価・発行済株式数をひとつに結合。<br>元資料と取得日、検証不足まで見える銘柄比較。</p>
+          <div class="hero-meta"><span id="dataState">データ読み込み中</span><span id="updatedAt">更新日時：—</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orb orb1"></div><div class="orb orb2"></div>
+          <div class="chartlines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="hero-art-label">ANALYSIS / NOT ADVICE</div>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="データ概要">
+        <div class="metric"><span>比較銘柄</span><strong id="totalCount">—</strong><small>SGX / テスト対象</small></div>
+        <div class="metric"><span>ランキング対象</span><strong id="eligibleCount">—</strong><small>必要データ・検証済みに限定</small></div>
+        <div class="metric"><span>データ不足・除外</span><strong id="excludedCount">—</strong><small>除外理由を個別表示</small></div>
+        <div class="metric"><span>市場データ取得済み</span><strong id="pricedCount">—</strong><small>株価の取得日を個別に表示</small></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="listTitle">
+        <div class="section-heading"><div><div class="eyebrow">STOCK SCREENER</div><h2 id="listTitle">銘柄スクリーナー</h2></div>
+          <p class="aside">数値は参考値。検証状況を必ず確認。</p>
+        </div>
+        <div class="toolbar">
+          <label class="search">
+            <span aria-hidden="true">⌕</span>
+            <input id="search" type="search" placeholder="銘柄コード・企業名で検索" autocomplete="off" aria-label="銘柄コード・企業名で検索">
+          </label>
+          <label class="control">判定
+            <select id="statusFilter" aria-label="判定フィルター">
+              <option value="all">すべて</option><option value="eligible">ランキング対象のみ</option><option value="excluded">除外銘柄のみ</option>
+            </select>
+          </label>
+          <label class="control">並び替え
+            <select id="sortBy" aria-label="並び替え">
+              <option value="symbol">銘柄コード</option><option value="market_cap_sgd">時価総額（大きい順）</option>
+              <option value="revenue_growth_pct">売上成長率（高い順）</option>
+              <option value="per_reference">PER（低い順）</option><option value="pbr_reference_unverified">PBR（低い順・参考）</option>
+            </select>
+          </label>
+          <button id="exportCsv" class="secondary-button" type="button">CSV出力 ↓</button>
+        </div>
+        <div id="statusMessage" class="status-message" role="status">公式データを読み込んでる...</div>
+        <div class="tablewrap">
+          <table><thead><tr>
+            <th>銘柄</th><th class="num">株価 <small>SGD</small></th><th class="num">時価総額 <small>億SGD</small></th>
+            <th class="num">PER <small>倍</small></th><th class="num">PBR <small>倍</small></th>
+            <th class="num">売上成長率</th><th class="num">営業利益率</th><th class="num">自己資本比率</th><th>検証状況</th><th></th>
+          </tr></thead><tbody id="stockRows"><tr><td colspan="10" class="empty">データ読み込み中…</td></tr></tbody></table>
+        </div>
+        <div class="tablefoot"><span id="tableCount">0件を表示</span><span>— は未取得または計算対象外</span></div>
+      </section>
+
+      <section class="details" aria-labelledby="detailTitle">
+        <div class="section-heading"><div><div class="eyebrow">EVIDENCE & PROVENANCE</div><h2 id="detailTitle">銘柄の詳細と検証根拠</h2></div><p>表の「詳細」から銘柄を選択</p></div>
+        <div id="detailContent" class="detail-content"><p class="placeholder">銘柄を選ぶと、財務データの出典・取得日・除外理由がここに表示される。</p></div>
+      </section>
+
+      <section class="disclaimer">
+        <div class="eyebrow">DATA QUALITY POLICY</div>
+        <h3>「わからない」は、わからないまま表示する。</h3>
+        <p>企業の年次報告書と決算発表の照合は、第三者機関による独立した検証ではない。株価には非公式提供元を利用する場合があり、遅延・欠損の可能性がある。期間の異なる財務データと現在株価の組合せにも注意。ランキングは必要な指標と信頼性が揃った銘柄のみ有効になる。この画面は投資助言ではない。</p>
+      </section>
+    </main>
+    <footer><span>© VALUE HUNTER AI / 安物で割安</span><span>SGX / 3-ISSUER PROOF OF CONCEPT</span></footer>
+  </div>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</body>
+</html>
