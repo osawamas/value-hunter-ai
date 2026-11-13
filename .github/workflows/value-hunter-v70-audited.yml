@@ -1,0 +1,37 @@
+name: VALUE HUNTER audited Group bank statements v70
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/bank_audited_group_v70.py'
+      - 'SGX_PDF_connection_probe/test_bank_audited_group_v70.py'
+      - '.github/workflows/value-hunter-v70-audited.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [O39, U11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Verify bank Group/NCI/precision rejection tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_bank_audited_group_v70.py
+      - name: Extract audited Group statements from actual issuer FY2025 annual PDF
+        run: python SGX_PDF_connection_probe/bank_audited_group_v70.py --symbol ${{ matrix.symbol }} --output audited-v70/${{ matrix.symbol }}.json
+      - name: Save source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audited-issuer-group-v70-${{ matrix.symbol }}
+          path: audited-v70/
+          if-no-files-found: warn
