@@ -71,6 +71,8 @@ on:
       - 'SGX_PDF_connection_probe/u11_primary_snapshot_v85.py'
       - 'SGX_PDF_connection_probe/u11_primary_publish_v86.py'
       - 'SGX_PDF_connection_probe/test_u11_primary_publish_v86.py'
+      - 'SGX_PDF_connection_probe/bank_share_leads_v87.py'
+      - 'SGX_PDF_connection_probe/test_bank_share_leads_v87.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -165,7 +167,7 @@ jobs:
             test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py test_bank_financial_state_v73.py \
             test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py \
             test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py \
-            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py
+            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py test_bank_share_leads_v87.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -268,6 +270,7 @@ jobs:
             fi
           done
           python SGX_PDF_connection_probe/bank_share_leads_v83.py --input docs/data/latest.json --output docs/data/latest.json
+          python SGX_PDF_connection_probe/bank_share_leads_v87.py --input docs/data/latest.json --output docs/data/latest.json
           # Only an actual directly fetched SGX September filing can be
           # published, and only as historical evidence; later share events
           # remain unverified, without affecting price or PER/PBR.
