@@ -309,6 +309,24 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const historicShares = r.bank_historical_shares;
+  if (historicShares && historicShares.status === "HISTORICAL_ISSUER_PDF_TREASURY_RECONCILED_NOT_CURRENT") {
+    grid.append(field("過去株数", "公式年次報告書の過去時点の株数（現在の時価総額には使用しない）", [
+      ["基準日", historicShares.as_of_date || "未登録"],
+      ["控除前発行済株式数（株）", fmt(historicShares.gross_issued_shares, 0)],
+      ["自己株式数（株）", fmt(historicShares.treasury_shares, 0)],
+      ["自己株式控除後株式数（株）", fmt(historicShares.issued_excluding_treasury, 0)],
+      ["控除の一致", hasNum(historicShares.gross_issued_shares) &&
+        hasNum(historicShares.treasury_shares) && hasNum(historicShares.issued_excluding_treasury) &&
+        historicShares.gross_issued_shares - historicShares.treasury_shares === historicShares.issued_excluding_treasury
+        ? "一致" : "未照合"],
+      ["現在の株数としての扱い", "過去資料のため不採用。最新の公式開示と照合待ち"],
+      ["時価総額・PER・PBR", "未計算（株価・最新株数が未検証）"],
+      ["公式年次報告書", historicShares.source_url, true],
+      ["PDF識別子（SHA256）", historicShares.source_pdf_sha256 || "未登録"],
+      ["出典PDFのページ", historicShares.source_pdf_page || "未登録"],
+    ]));
+  }
   const bankSummary = r.banking_summary;
   if (bankSummary && bankSummary.status === "ISSUER_ANNUAL_GROUP_HIGHLIGHTS_2025_2024") {
     const bankVals = bankSummary.values || {};
