@@ -309,6 +309,20 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const primaryRecent = r.bank_primary_recent_share_event;
+  if (primaryRecent && primaryRecent.status === "ORIGINAL_SGX_DAILY_BUYBACK_2026_11_12_RECONCILED") {
+    grid.append(field("SGX原本", "UOB公式SGX通知・2026年11月12日（現在値ではない）", [
+      ["公式開示日", primaryRecent.as_of_date || "未取得"],
+      ["SGXNet開示番号", primaryRecent.sgxnet_reference || "未登録"],
+      ["自己株式控除後", fmt(primaryRecent.issued_excluding_treasury,0) + " 株"],
+      ["自己株式残高", fmt(primaryRecent.treasury_shares,0) + " 株"],
+      ["控除前発行済株数（計算値）", fmt(primaryRecent.gross_issued_derived,0) + " 株"],
+      ["SGX公式原本", primaryRecent.primary_source_url, true],
+      ["原本SHA256", primaryRecent.primary_html_sha256 || "未登録"],
+      ["11月13日の通知", "転載は確認済み、SGX原本との照合は未完了"],
+      ["現在株数・時価総額・PER・PBR", "未採用。後続の開示と取引時刻付き株価の検証が必要"],
+    ]));
+  }
   const primarySnapshot = r.bank_primary_share_history;
   if (primarySnapshot && primarySnapshot.status === "ORIGINAL_SGX_DAILY_BUYBACK_2026_09_07_RECONCILED") {
     grid.append(field("SGX原本", "公式SGX通知で照合済みの過去株式数（現在値ではない）", [
