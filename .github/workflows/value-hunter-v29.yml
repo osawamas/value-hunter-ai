@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
     environment:
@@ -127,3 +127,30 @@ jobs:
         uses: actions/deploy-pages@v4
       - name: Print published URL
         run: echo "公開サイト: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Record confirmed GitHub Pages deployment
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          url = os.environ.get("PAGE_URL", "")
+          if not url.startswith("https://"):
+              raise RuntimeError("Pages did not report a public HTTPS URL")
+          target = Path("docs/data/deployment.json")
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(json.dumps({
+              "status": "DEPLOY_PAGES_ACTION_SUCCESS",
+              "deployed_at_utc": datetime.now(timezone.utc).isoformat(),
+              "url": url,
+              "commit_sha": os.environ.get("GITHUB_SHA"),
+          }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/deployment.json
+          if ! git diff --cached --quiet; then
+            git commit -m "status: record successful GitHub Pages deployment"
+            git push origin HEAD:main
+          fi
