@@ -50,7 +50,6 @@ jobs:
           doc.close()
           PY
       - name: Parse actual official S63 SGX annual report
-        if: github.event_name != 'pull_request'
         run: |
           python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
           python - <<'PY'
@@ -59,6 +58,9 @@ jobs:
           print("S63 LIVE PDF STATUS:", x['status'])
           if x.get('error'):
               print("DIAGNOSTIC:", x['error'])
+          assert x["status"] == "EXTRACTED_AUDITED_ISSUER_PDF_ARITHMETIC_MATCHED", "S63 real PDF extraction not verified"
+          assert x["record"]["metrics"]["revenue"]["2025"]["value"] == 12346426, "S63 FY2025 audited revenue regression"
+          assert x["record"]["metrics"]["attributable_profit"]["2025"]["value"] == 462770, "S63 shareholder profit regression"
           PY
       - name: Upload actual-PDF extraction diagnostics
         if: always()
