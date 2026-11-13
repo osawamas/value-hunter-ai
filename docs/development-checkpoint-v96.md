@@ -19,9 +19,9 @@
 - CI #43530080046 成功、統合 #43530122789 と後続 #43530160916 成功。docs/data/latest.json 更新日 2026-11-13T23:51:36.615880+00:00 を確認、銀行3社の参考値が掲載され、price_sgd/shares_outstanding/market_cap_sgdはnull、7社・不整合0・ランキング0。
 
 ## v96 — 3銀行の日時付きページから自動取得可能性を検証
-- `bank_quote_http_probe_v96.py` にSGinvestorsのD05/O39/U11 stock-infoページを実HTTP GETする機能と、Issuer identity・銘柄コード・ISIN・SGD価格・`Share Price as of`のSingapore時刻をすべて照合する厳格な読み取り器を実装。`test_bank_quote_http_probe_v96.py` で合成HTMLによる正常系と、偽銘柄/ISIN、未来日付、誤時刻、重複、不達をテスト。
+- `bank_quote_http_probe_v96.py` にSGinvestorsのD05/O39/U11 stock-infoページを実HTTP GETする機能と、Issuer identity・銘柄コード・ISIN・SGD価格・`Share Price as of`のSingapore時刻をすべて照合する厳格な読み取り器を実装。`test_bank_quote_http_probe_v96.py` で合成HTMLによる正常系と、偽銘柄/ISIN、未来日付、誤時刻、重複、不達をテスト。今後の実行日の変化で将来日付判定を誤らないよう、2026-11-14固定値を廃止し`Asia/Singapore`現地日付の翌日を拒否する方式へ修正。
 - Actions #43530480266 はD05/O39/U11の3つ全ジョブ完了・成功。**ただし実サイト3件ともSGXの株価欄を含む発行体/ISIN表示が取得HTMLから確認できず `NOT_VERIFIED` となった。** 合成HTMLの検証成功と、実サイトの株価取得成功を混同しない。取得不達を診断アーティファクトに残した。
-- 本体 `.github/workflows/value-hunter-v29.yml` にv96の合成HTMLユニット回帰テストを追加。実外部株価取得を本番の価格として採用する処理は意図的に追加していない。v96変更による本体Actions #43530563069 は記録時点で実行中。最初に結果を確認。
+- 本体 `.github/workflows/value-hunter-v29.yml` にv96の合成HTMLユニット回帰テストを追加。実外部株価取得を本番の価格として採用する処理は意図的に追加していない。v96回帰テストを含む本体Actions #43530563069 は全工程成功。日時検証の追加修正後 #43530810735 はこの記録更新時点で進行中。次回まず最後の結果を確認。
 
 ## 優先タスク（v97以降）
 1. #43530563069 の本体統合結果・main状態と docs/data/latest.json を確認し失敗なら修正。必要な情報が足りない時はfail closed。
@@ -31,4 +31,4 @@
 5. 株価と最新自己株式控除後株数が検証されるまで時価総額・PER/PBR・投資ランキングを無理に有効化しない。SGX全銘柄への拡張は未完。
 
 ## 新しいスレッドへの引き継ぎ文章
-VALUE HUNTER AI（GitHub osawamas/value-hunter-ai）のv96の続きから再開して。main、最新Actions、docs/data/latest.json、docs/development-checkpoint-v96.mdを最初に読む。v94でUOB issuer IRに2026-11-13 17:14 SGTで37.750SGDの表示を見つけたがActionsの取得HTMLには株価が無くNOT_VERIFIED。v95で3銀行の2026-11-13研究用終値DBS69.90/OCBC28.53/UOB37.75 SGDをそれぞれ2つの第三者履歴サイトで照合し `bank_dated_quote_research` に公開、DBS別サイト70.14の矛盾も記録。単独CI #43530080046、統合 #43530122789/#43530160916 成功。v96で3銀行のSGinvestors株価ページの自動HTML抽出器と負例テスト追加。CI #43530480266 のユニットテストは成功だが実3サイトの機械読み取りはすべてNOT_VERIFIEDのため、ライブ株価は未取得。本体Actions #43530563069 の結果を確認。UOB11/13のSGX原本、OCBC11/12の原本PDFを引き続き探す。登録7社、算術不整合0、ランキング0。現在株価・最新株式数・時価総額・PER/PBRはNULLを維持。GitHubへ継続実装/検証し、最後に短い引き継ぎ文を添えて。
+VALUE HUNTER AI（GitHub osawamas/value-hunter-ai）のv96の続きから再開して。main、最新Actions、docs/data/latest.json、docs/development-checkpoint-v96.mdを最初に読む。v94でUOB issuer IRに2026-11-13 17:14 SGTで37.750SGDの表示を見つけたがActionsの取得HTMLには株価が無くNOT_VERIFIED。v95で3銀行の2026-11-13研究用終値DBS69.90/OCBC28.53/UOB37.75 SGDをそれぞれ2つの第三者履歴サイトで照合し `bank_dated_quote_research` に公開、DBS別サイト70.14の矛盾も記録。単独CI #43530080046、統合 #43530122789/#43530160916 成功。v96で3銀行のSGinvestors株価ページの自動HTML抽出器と負例テスト追加。CI #43530480266 のユニットテストは成功だが実3サイトの機械読み取りはすべてNOT_VERIFIEDのため、ライブ株価は未取得。本体 #43530563069 は成功、v96にSingapore現地の日付に応じた未来日付拒否を追加済み。後続 #43530810735 / #43530810813 の結果を確認。UOB11/13のSGX原本、OCBC11/12の原本PDFを引き続き探す。登録7社、算術不整合0、ランキング0。現在株価・最新株式数・時価総額・PER/PBRはNULLを維持。GitHubへ継続実装/検証し、最後に短い引き継ぎ文を添えて。
