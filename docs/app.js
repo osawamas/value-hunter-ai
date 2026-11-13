@@ -218,7 +218,7 @@ function exportCsv() {
   const quote = value => {
     const raw = String(value ?? "");
     // Prevent spreadsheet formula execution when exporting imported JSON.
-    const safe = /^[=+@-]/.test(raw.trimStart()) ? "'" + raw : raw;
+    const safe = typeof value === "string" && /^[=+@-]/.test(raw.trimStart()) ? "'" + raw : raw;
     return '"' + safe.replace(/"/g, '""') + '"';
   };
   const lines = [keys.map(quote).join(",")];
