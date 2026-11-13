@@ -1,0 +1,23 @@
+name: VALUE HUNTER SGXNet source event history v87
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/bank_share_leads_v87.py
+      - SGX_PDF_connection_probe/test_bank_share_leads_v87.py
+      - .github/workflows/value-hunter-v87.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify source-event history, 13-Nov secondary status and valuation isolation
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_bank_share_leads_v83.py test_bank_share_leads_v87.py
