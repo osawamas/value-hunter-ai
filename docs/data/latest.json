@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T13:02:27.888332+00:00",
-  "input_generated_at_utc": "2026-11-13T13:02:27.847978+00:00",
+  "updated_at_utc": "2026-11-13T13:06:21.062356+00:00",
+  "input_generated_at_utc": "2026-11-13T13:06:21.028172+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -34,6 +34,17 @@
       "pbr_verified": null,
       "financial_source_url": "https://investorrelations.sgx.com/static-files/dcbd5905-9373-4dc9-80f5-8dbff6b8d584",
       "financial_source_kind": "HISTORICAL_V14_ISSUER_SPECIFIC_FIXTURE",
+      "financial_pdf_sha256": null,
+      "audit_source_url": null,
+      "audit_pdf_sha256": null,
+      "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
+      "audit_pages_by_metric": {
+        "revenue": [],
+        "attributable_profit": []
+      },
+      "shares_verification_status": "DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED",
+      "shares_count_basis": null,
+      "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S68.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T09:08:04+00:00",
       "shares_source_url": "https://investorrelations.sgx.com/financial-information/annual-reports",
@@ -71,6 +82,21 @@
       "pbr_verified": null,
       "financial_source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160",
       "financial_source_kind": "LIVE_V18_PDF_EXTRACT",
+      "financial_pdf_sha256": "fe6856502967711f79b73d0c01f5a3b10dfd772900495c73f9d166ee5b32622c",
+      "audit_source_url": "https://links.sgx.com/FileOpen/2.%20GENS%20FY2025%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=875733",
+      "audit_pdf_sha256": "8cd408f63b9723ea8836cb463c2407954ee51e49d59333e2264060da4e8b1c2a",
+      "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
+      "audit_pages_by_metric": {
+        "revenue": [
+          1
+        ],
+        "attributable_profit": [
+          1
+        ]
+      },
+      "shares_verification_status": "DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED",
+      "shares_count_basis": null,
+      "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/G13.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T09:13:51+00:00",
       "shares_source_url": "https://gentingsingapore.listedcompany.com/share-quote-and-chart.html",
@@ -108,6 +134,21 @@
       "pbr_verified": null,
       "financial_source_url": "https://links.sgx.com/FileOpen/Annual%20Report%20FY2025.ashx?App=Announcement&FileID=881971",
       "financial_source_kind": "LIVE_V18_PDF_EXTRACT",
+      "financial_pdf_sha256": "8c05b6dcc0ec03963dddff9d8dc238cfc62dcdd6f867eabee93c0856b34d1c22",
+      "audit_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/4MEGIOQF57KJ8YNB/876892_20260227%202H2025%20Condensed%20interim%20FS.pdf",
+      "audit_pdf_sha256": "d01e3688619c359b8a6392b96e8d16f26e1a1c8bb3a7bc91ff19186da7d65a41",
+      "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
+      "audit_pages_by_metric": {
+        "revenue": [
+          3
+        ],
+        "attributable_profit": [
+          3
+        ]
+      },
+      "shares_verification_status": "DATE_ANCHORED_RECONCILED",
+      "shares_count_basis": "issued_excluding_treasury",
+      "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S20.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T08:59:30+00:00",
       "shares_source_url": "https://links.sgx.com/FileOpen/20260814-1H%202026%20Results%20Announcement.ashx?App=Announcement&FileID=901265",
