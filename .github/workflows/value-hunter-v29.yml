@@ -43,6 +43,10 @@ on:
       - 'SGX_PDF_connection_probe/test_u11_bank_summary_v68.py'
       - 'SGX_PDF_connection_probe/bank_summary_publish_v69.py'
       - 'SGX_PDF_connection_probe/test_bank_summary_publish_v69.py'
+      - 'SGX_PDF_connection_probe/bank_audited_group_v70.py'
+      - 'SGX_PDF_connection_probe/test_bank_audited_group_v70.py'
+      - 'SGX_PDF_connection_probe/bank_audited_publish_v71.py'
+      - 'SGX_PDF_connection_probe/test_bank_audited_publish_v71.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -133,7 +137,8 @@ jobs:
                       test_s68_annual_crosscheck_v50.py test_s68_crosscheck_merge_v50.py test_public_quality_v52.py test_public_freshness_v53.py test_s68_parent_equity_v54.py \
                       test_s68_parent_merge_v54.py test_official_http_v57.py test_pdf_reuse_v58.py test_annual_identity_v59.py test_d05_shareholding_v62.py \
             test_d05_bank_income_v63.py test_d05_bank_balance_v64.py test_d05_bank_bundle_v65.py \
-            test_o39_bank_summary_v67.py test_u11_bank_summary_v68.py test_bank_summary_publish_v69.py
+            test_o39_bank_summary_v67.py test_u11_bank_summary_v68.py test_bank_summary_publish_v69.py \
+            test_bank_audited_group_v70.py test_bank_audited_publish_v71.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -186,13 +191,23 @@ jobs:
           fi
           # More banks stay in separate Group summary fields. Failed issuer
           # retrieval is nonblocking and NEVER produces invented valuations.
-          if python SGX_PDF_connection_probe/o39_bank_summary_v67.py --output o39-v67/report.json; then
+          if python SGX_PDF_connection_probe/o39_bank_summary_v67.py --verified-pdf-copy "$RUNNER_TEMP/o39_verified_2025.pdf" --output o39-v67/report.json; then
             python SGX_PDF_connection_probe/bank_summary_publish_v69.py --input docs/data/latest.json --source o39-v67/report.json --output docs/data/latest.json
+            if python SGX_PDF_connection_probe/bank_audited_group_v70.py --symbol O39 --offline-pdf "$RUNNER_TEMP/o39_verified_2025.pdf" --output o39-v70/audited.json; then
+              python SGX_PDF_connection_probe/bank_audited_publish_v71.py --feed docs/data/latest.json --audit o39-v70/audited.json --output docs/data/latest.json
+            else
+              echo "O39 audited Group crosscheck unavailable; annual summary remains separate." >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
             echo "OCBC issuer summary unavailable; no O39 bank metrics promoted." >> "$GITHUB_STEP_SUMMARY"
           fi
-          if python SGX_PDF_connection_probe/u11_bank_summary_v68.py --output u11-v68/report.json; then
+          if python SGX_PDF_connection_probe/u11_bank_summary_v68.py --verified-pdf-copy "$RUNNER_TEMP/u11_verified_2025.pdf" --output u11-v68/report.json; then
             python SGX_PDF_connection_probe/bank_summary_publish_v69.py --input docs/data/latest.json --source u11-v68/report.json --output docs/data/latest.json
+            if python SGX_PDF_connection_probe/bank_audited_group_v70.py --symbol U11 --offline-pdf "$RUNNER_TEMP/u11_verified_2025.pdf" --output u11-v70/audited.json; then
+              python SGX_PDF_connection_probe/bank_audited_publish_v71.py --feed docs/data/latest.json --audit u11-v70/audited.json --output docs/data/latest.json
+            else
+              echo "U11 audited Group crosscheck unavailable; annual summary remains separate." >> "$GITHUB_STEP_SUMMARY"
+            fi
           else
             echo "UOB issuer summary unavailable; no U11 bank metrics promoted." >> "$GITHUB_STEP_SUMMARY"
           fi
