@@ -172,6 +172,7 @@ function showDetail(r) {
       ["親会社株主帰属損益（千SGD）", fmt(r.attributable_profit_sgd_thousands, 0)],
       ["資料の種類", r.financial_source_kind || "未取得"],
       ["公式財務資料", r.financial_source_url, true],
+      ["資料のファイル識別子", r.financial_pdf_sha256 || "未登録"],
     ]),
     field("市場", "株価と株式数", [
       ["株価（SGD）", fmt(r.price_sgd)],
@@ -179,6 +180,8 @@ function showDetail(r) {
       ["株価出典", r.quote_url, true],
       ["発行済株式数（自己株式控除後）", fmt(r.shares_outstanding, 0)],
       ["株式数基準日", r.shares_as_of_date || "未取得"],
+      ["株式数の検証状態", r.shares_verification_status || "未検証"],
+      ["自己株式の扱い", r.shares_count_basis || "未確認"],
       ["株式数出典", r.shares_source_url, true],
     ]),
     field("評価", "バリュエーション（参考）", [
@@ -190,6 +193,10 @@ function showDetail(r) {
     field("照合", "公式資料間の照合状況", [
       ["売上高", (r.audit_states || {}).revenue || "未検証"],
       ["帰属損益", (r.audit_states || {}).attributable_profit || "未検証"],
+      ["照合先の公式PDF", r.audit_source_url, true],
+      ["売上高の根拠ページ", ((r.audit_pages_by_metric || {}).revenue || []).join(", ") || "未取得"],
+      ["帰属損益の根拠ページ", ((r.audit_pages_by_metric || {}).attributable_profit || []).join(", ") || "未取得"],
+      ["照合の性質", "同一企業の別資料との一致（第三者独立監査ではない）"],
       ["更新情報", dateJst(state.feed.updated_at_utc)],
     ])
   );
@@ -208,7 +215,12 @@ function exportCsv() {
   const keys = ["symbol", "issuer", "fiscal_year", "price_sgd", "market_cap_sgd",
     "per_reference", "pbr_reference_unverified", "revenue_growth_pct", "operating_margin_pct",
     "equity_ratio_pct", "ranking_eligible", "exclusion_reasons"];
-  const quote = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+  const quote = value => {
+    const raw = String(value ?? "");
+    // Prevent spreadsheet formula execution when exporting imported JSON.
+    const safe = /^[=+@-]/.test(raw.trimStart()) ? "'" + raw : raw;
+    return '"' + safe.replace(/"/g, '""') + '"';
+  };
   const lines = [keys.map(quote).join(",")];
   for (const r of state.visible) lines.push(keys.map(k => quote(k === "exclusion_reasons" ?
     (r[k] || []).join(";") : r[k])).join(","));

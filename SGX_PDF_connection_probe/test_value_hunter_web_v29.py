@@ -55,8 +55,12 @@ class TestPublisher(unittest.TestCase):
     def test_url_sanitization(self):
         sample = fixture()
         sample["records"][0]["quote_url"] = "javascript:alert(1)"
+        sample["records"][0]["audit_source_url"] = "https://example.org/fy2025.pdf"
+        sample["records"][0]["audit_pages_by_metric"] = {"revenue": [4]}
         out = build(sample)
         self.assertIsNone(out["records"][0]["quote_url"])
+        self.assertEqual(out["records"][0]["audit_source_url"], "https://example.org/fy2025.pdf")
+        self.assertEqual(out["records"][0]["audit_pages_by_metric"], {"revenue": [4]})
         self.assertEqual(out["records"][0]["financial_source_url"], "https://example.org/docs.pdf")
 
 
