@@ -63,7 +63,7 @@ def evaluate(fin, valuation, audit, now):
             deny("FINANCIAL_MISSING_" + key.upper())
     if not isinstance(year, int):
         deny("FISCAL_YEAR_UNKNOWN")
-    if symbol == "S68" or fin.get("source_kind") == "HISTORICAL_V14_ISSUER_SPECIFIC_FIXTURE":
+    if fin.get("source_kind") == "HISTORICAL_V14_ISSUER_SPECIFIC_FIXTURE":
         deny("HISTORICAL_FIXED_FINANCIALS")
     if assets is None or liabilities is None or equity is None or abs(assets - liabilities - equity) > 1:
         deny("BALANCE_UNVERIFIED_OR_MISMATCH")
