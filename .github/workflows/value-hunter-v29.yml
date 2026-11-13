@@ -25,6 +25,7 @@ on:
       - 'SGX_PDF_connection_probe/test_sgx_universe_v30.py'
       - 'docs/index.html'
       - 'docs/app.js'
+      - 'tests/history-v38.test.js'
       - 'docs/style.css'
       - '.github/workflows/value-hunter-v29.yml'
   workflow_dispatch:
@@ -40,6 +41,7 @@ on:
       - 'SGX_PDF_connection_probe/test_s63_audited_pdf_v32.py'
       - 'SGX_PDF_connection_probe/test_sgx_universe_v30.py'
       - 'docs/**'
+      - 'tests/history-v38.test.js'
       - '.github/workflows/value-hunter-v29.yml'
 
 permissions:
@@ -68,6 +70,7 @@ jobs:
           python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py test_value_hunter_quality_v33.py test_value_hunter_history_v34.py test_s63_share_snapshot_v36.py
           cd ..
           node --check docs/app.js
+          node tests/history-v38.test.js
       - name: Build live financial comparison
         if: github.event_name != 'pull_request'
         env:
