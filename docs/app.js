@@ -86,6 +86,25 @@ function validFeed(json) {
   }
   return true;
 }
+function freshnessState(value, maxDays, nowMs = Date.now()) {
+  if (typeof value !== "string" || !value.length) return "MISSING";
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return "MISSING";
+  const days = (nowMs - parsed) / 86400000;
+  return days > maxDays || days < -1 ? "STALE" : "RECENT";
+}
+function liveQuality(feed, nowMs = Date.now()) {
+  const rows = feed.records || [];
+  return {
+    feed: freshnessState(feed.updated_at_utc, 4, nowMs),
+    staleQuotes: rows.filter(r => freshnessState(r.quote_timestamp_utc, 7, nowMs) === "STALE").length,
+    missingQuotes: rows.filter(r => !hasNum(r.price_sgd) ||
+      freshnessState(r.quote_timestamp_utc, 7, nowMs) === "MISSING").length,
+    staleShares: rows.filter(r => freshnessState(r.shares_as_of_date, 180, nowMs) === "STALE").length,
+    arithmeticIssues: rows.filter(r => (r.quality_flags || []).some(flag =>
+      typeof flag === "string" && flag.includes("MISMATCH"))).length
+  };
+}
 function setFeed(json, label) {
   if (!validFeed(json)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
   state.feed = json;
@@ -97,14 +116,14 @@ function setFeed(json, label) {
   $("eligibleCount").textContent = json.records.filter(r => r.ranking_eligible).length;
   $("excludedCount").textContent = json.records.filter(r => !r.ranking_eligible).length;
   $("pricedCount").textContent = json.records.filter(r => hasNum(r.price_sgd)).length;
-  const quality = json.quality_counts || {};
-  const issueCount = (quality.quote_stale || 0) + (quality.quote_missing || 0) +
-    (quality.arithmetically_inconsistent || 0);
-  warn(issueCount ?
-    "データ品質警告：" + issueCount + "件の株価未取得・期限切れ・計算不一致あり。詳細の除外理由を参照。" :
-    json.records.some(r => hasNum(r.price_sgd)) ?
-      "財務・株価は参考値。第三者独立検証が完了するまでランキング対象外。" :
-      "株価未取得。Actionsの取得状況と元資料を参照。");
+  const quality = liveQuality(json);
+  const issueCount = quality.staleQuotes + quality.missingQuotes + quality.arithmeticIssues;
+  const notes = [];
+  if (quality.feed !== "RECENT") notes.push("公開データの最終更新が4日より古い／不明");
+  if (issueCount) notes.push("株価の鮮度・計算に問題：" + issueCount + "件");
+  if (quality.staleShares) notes.push("株式数の基準日が180日より古い：" + quality.staleShares + "件");
+  warn(notes.length ? "データ品質警告：" + notes.join("。") + "。銘柄詳細を参照。" :
+    "株価・財務は参考値。第三者独立検証が完了するまでランキング対象外。");
   render();
 }
 function sortRows(items, key) {
@@ -209,11 +228,11 @@ function showDetail(r) {
     field("市場", "株価と株式数", [
       ["株価（SGD）", fmt(r.price_sgd)],
       ["株価基準時刻", dateJst(r.quote_timestamp_utc)],
-      ["株価の鮮度", ({RECENT:"7日以内",STALE:"7日超または日付不正",MISSING:"不明"})[r.quote_freshness] || "未検証"],
+      ["株価の鮮度", ({RECENT:"7日以内",STALE:"7日超または日付不正",MISSING:"不明"})[freshnessState(r.quote_timestamp_utc, 7)] || "未検証"],
       ["株価出典", r.quote_url, true],
       ["発行済株式数（自己株式控除後）", fmt(r.shares_outstanding, 0)],
       ["株式数基準日", r.shares_as_of_date || "未取得"],
-      ["株式数の鮮度", ({RECENT:"180日以内",STALE:"180日超または日付不正",MISSING:"不明"})[r.share_freshness] || "未検証"],
+      ["株式数の鮮度", ({RECENT:"180日以内",STALE:"180日超または日付不正",MISSING:"不明"})[freshnessState(r.shares_as_of_date, 180)] || "未検証"],
       ["株式数の検証状態", r.shares_verification_status || "未検証"],
       ["自己株式の扱い", r.shares_count_basis || "未確認"],
       ["株式数出典", r.shares_source_url, true],
@@ -407,7 +426,7 @@ async function loadHistory() {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {historicalObservations};
+  module.exports = {historicalObservations, freshnessState, liveQuality};
 }
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded",()=>{
   $("historySymbol").addEventListener("change",renderHistory);
