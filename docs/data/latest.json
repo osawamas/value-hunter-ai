@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T23:03:54.813583+00:00",
-  "input_generated_at_utc": "2026-11-13T23:03:54.777058+00:00",
+  "updated_at_utc": "2026-11-13T23:06:20.239257+00:00",
+  "input_generated_at_utc": "2026-11-13T23:06:20.182334+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -1323,10 +1323,24 @@
         "current_shares_not_verified": true,
         "subsequent_corporate_actions_not_reconciled": true,
         "ranking_eligible": false
+      },
+      "bank_primary_recent_share_event": {
+        "status": "ORIGINAL_SGX_DAILY_BUYBACK_2026_11_12_RECONCILED",
+        "as_of_date": "2026-11-12",
+        "sgxnet_reference": "SG261112OTHRSYPK",
+        "issued_excluding_treasury": 1646711591,
+        "treasury_shares": 14548000,
+        "gross_issued_derived": 1661259591,
+        "primary_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/MTW96I6ZXZBTQZK8/7c3dc707a598dc02da057fc772c1ba67abe1b9b3ceb4fe9d2b92fd00b510d97d",
+        "primary_html_sha256": "02722c970c4200e6507d60fbaa5458a2bcf43d96686f5111853bffb800e6e8e2",
+        "historical_only": true,
+        "later_2026_11_13_notification_primary_unverified": true,
+        "not_proof_of_current_shares": true,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T23:03:54.833673+00:00",
+  "quality_checked_at_utc": "2026-11-13T23:06:20.272607+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
