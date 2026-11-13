@@ -6,7 +6,7 @@
   "entries": [
     {
       "date_utc": "2026-11-13",
-      "source_updated_at_utc": "2026-11-13T14:30:58.828098+00:00",
+      "source_updated_at_utc": "2026-11-13T14:37:32.390404+00:00",
       "records": [
         {
           "symbol": "S68",
@@ -44,15 +44,13 @@
         {
           "symbol": "S63",
           "price_sgd": 9.67,
-          "per_reference": 65.0897,
-          "pbr_reference_unverified": 11.7039,
-          "market_cap_sgd": 30121581488.5,
+          "per_reference": 65.1807,
+          "pbr_reference_unverified": 11.7202,
+          "market_cap_sgd": 30163679233.96,
           "quote_timestamp_utc": "2026-11-13T09:11:27+00:00",
           "quote_freshness": "RECENT",
-          "shares_as_of_date": "2026-02-27",
-          "quality_flags": [
-            "SHARES_STALE"
-          ]
+          "shares_as_of_date": "2026-06-30",
+          "quality_flags": []
         }
       ],
       "quote_count": 4,

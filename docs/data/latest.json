@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T14:30:58.828098+00:00",
-  "input_generated_at_utc": "2026-11-13T14:30:58.778234+00:00",
+  "updated_at_utc": "2026-11-13T14:37:32.390404+00:00",
+  "input_generated_at_utc": "2026-11-13T14:37:32.347831+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -187,10 +187,10 @@
       "equity_ratio_pct": 18.22,
       "attributable_profit_sgd_thousands": 462770,
       "price_sgd": 9.67,
-      "shares_outstanding": 3114951550,
-      "market_cap_sgd": 30121581488.5,
-      "per_reference": 65.0897,
-      "pbr_reference_unverified": 11.7039,
+      "shares_outstanding": 3119304988,
+      "market_cap_sgd": 30163679233.96,
+      "per_reference": 65.1807,
+      "pbr_reference_unverified": 11.7202,
       "pbr_verified": null,
       "financial_source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
       "financial_source_kind": "LIVE_S63_AUDITED_ANNUAL_REPORT_V32",
@@ -207,8 +207,8 @@
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S63.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T09:11:27+00:00",
-      "shares_source_url": "https://www.stengg.com/en/investor-relations/share-information/",
-      "shares_as_of_date": "2026-02-27",
+      "shares_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/C8BD8IFF6BB243DP/0a8a417f60e150a464d73fc1b700be52d55bfaee8642d5e1641d90a447e95c7c",
+      "shares_as_of_date": "2026-06-30",
       "audit_states": {
         "revenue": "NOT_VERIFIED",
         "attributable_profit": "NOT_VERIFIED"
@@ -219,25 +219,21 @@
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
-        "SHARES_OLD_OR_UNDATED",
-        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
-        "SHARES_STALE"
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
       "data_state": "PARTIAL_UNVERIFIED",
-      "quality_flags": [
-        "SHARES_STALE"
-      ],
+      "quality_flags": [],
       "quote_freshness": "RECENT",
-      "share_freshness": "STALE"
+      "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T14:30:58.860211+00:00",
+  "quality_checked_at_utc": "2026-11-13T14:37:32.417905+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
     "quote_stale": 0,
     "quote_missing": 0,
-    "shares_stale": 1,
+    "shares_stale": 0,
     "arithmetically_inconsistent": 0,
     "ranking_eligible": 0
   }
