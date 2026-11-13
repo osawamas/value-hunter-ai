@@ -329,6 +329,31 @@ function showDetail(r) {
       ["評価指標", "株価・最新株式数を未取得。PER・PBR・ランキングへの使用なし"],
     ]));
   }
+  const auditedBank = r.banking_audited;
+  if (auditedBank && auditedBank.status === "ISSUER_AUDITED_GROUP_STATEMENTS_MATCH_HIGHLIGHTS") {
+    const inc = auditedBank.income || {};
+    const bal = auditedBank.balance || {};
+    const exact = (metrics, key, year = "2025") => fmt(metrics[key]?.[year], 0);
+    grid.append(field("銀行監査", "監査済み連結決算の数値照合（単位：百万SGD）", [
+      ["決算期間", auditedBank.period_end || "未取得"],
+      ["連結総収益 2025年", exact(inc, "total_income")],
+      ["連結総収益 2024年", exact(inc, "total_income", "2024")],
+      ["親会社株主帰属利益 2025年", exact(inc, "parent_profit")],
+      ["親会社株主帰属利益 2024年", exact(inc, "parent_profit", "2024")],
+      ["総資産 2025年（正確な百万SGD）", exact(bal, "total_assets")],
+      ["総資産 2024年（正確な百万SGD）", exact(bal, "total_assets", "2024")],
+      ["負債合計 2025年", exact(bal, "total_liabilities")],
+      ["親会社株主持分 2025年", exact(bal, "parent_equity")],
+      ["親会社株主持分 2024年", exact(bal, "parent_equity", "2024")],
+      ["非支配持分 2025年", exact(bal, "non_controlling_equity")],
+      ["連結損益PDFページ", auditedBank.source_pages?.income ?? "未取得"],
+      ["連結貸借PDFページ", auditedBank.source_pages?.balance ?? "未取得"],
+      ["公式年次報告書", auditedBank.source_url, true],
+      ["PDFのSHA256", auditedBank.pdf_sha256 || "未取得"],
+      ["検証内容", "連結財務諸表の算術と同一発行体の財務ハイライト一致。第三者の独立検証は未実施"],
+      ["株価・PER・PBR", "別途検証が済むまで未取得・未採用"],
+    ]));
+  }
   parent.append(grid, el("div", "eyebrow", "ランキング除外理由・品質チェック"));
   const list = el("ul", "reasons");
   for (const reason of r.exclusion_reasons || []) {
