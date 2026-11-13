@@ -1,3 +1,4 @@
+from official_http_v57 import get_pdf
 """S68 FY2026/2025 annual report cross-check against issuer results PDF.
 
 Evidence from a second issuer document is not independent third-party verification.
@@ -18,11 +19,7 @@ NUM=re.compile(r"^[0-9][0-9,]*$")
 
 
 def download(timeout=75):
-    req=urllib.request.Request(SOURCE,headers={"User-Agent":"Mozilla/5.0 (VALUE-HUNTER-AI cross-doc audit)"})
-    with urllib.request.urlopen(req,timeout=timeout) as resp:
-        b=resp.read(45_000_001)
-    if not b.startswith(b"%PDF") or len(b)>45_000_000:raise ValueError("Invalid annual PDF")
-    return b
+    return get_pdf(SOURCE,max_bytes=45_000_000,timeout=timeout)
 
 
 def rows(words):
