@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T23:38:49.078113+00:00",
-  "input_generated_at_utc": "2026-11-13T23:38:49.038895+00:00",
+  "updated_at_utc": "2026-11-13T23:40:14.331685+00:00",
+  "input_generated_at_utc": "2026-11-13T23:40:14.274697+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -550,6 +550,23 @@
         "not_annual_or_investment_valuation": true,
         "third_party_independent_verification": false,
         "ranking_eligible": false
+      },
+      "bank_market_readiness": {
+        "status": "NOT_READY_PRIMARY_SHARES_AND_TIMED_QUOTES_MISSING",
+        "required_checks": [
+          "UP_TO_DATE_ISSUED_EX_TREASURY_SHARES_NOT_VERIFIED",
+          "TIME_STAMPED_SGX_SGD_SHARE_QUOTE_MISSING",
+          "BANK_FINANCIALS_NO_INDEPENDENT_NUMERICAL_CROSSCHECK"
+        ],
+        "2025_audited_issuer_group_available": true,
+        "2026_q3_and_9m_issuer_financials_available": true,
+        "2026_historical_share_records_not_current": true,
+        "newest_discovered_event_primary_verified": null,
+        "official_current_share_count_verified": false,
+        "current_quote_timestamp_verified": false,
+        "sgd_quote_source_verified": false,
+        "bank_valuation_eligible": false,
+        "investment_ranking_eligible": false
       }
     },
     {
@@ -918,6 +935,24 @@
         "market_cap_per_pbr_usable": false,
         "ranking_eligible": false,
         "discovered_event_not_proof_of_latest": true
+      },
+      "bank_market_readiness": {
+        "status": "NOT_READY_PRIMARY_SHARES_AND_TIMED_QUOTES_MISSING",
+        "required_checks": [
+          "OCBC_NOV12_TREASURY_TRANSFER_PRIMARY_PDF_NOT_VERIFIED",
+          "UP_TO_DATE_ISSUED_EX_TREASURY_SHARES_NOT_VERIFIED",
+          "TIME_STAMPED_SGX_SGD_SHARE_QUOTE_MISSING",
+          "BANK_FINANCIALS_NO_INDEPENDENT_NUMERICAL_CROSSCHECK"
+        ],
+        "2025_audited_issuer_group_available": true,
+        "2026_q3_and_9m_issuer_financials_available": true,
+        "2026_historical_share_records_not_current": true,
+        "newest_discovered_event_primary_verified": false,
+        "official_current_share_count_verified": false,
+        "current_quote_timestamp_verified": false,
+        "sgd_quote_source_verified": false,
+        "bank_valuation_eligible": false,
+        "investment_ranking_eligible": false
       }
     },
     {
@@ -1397,10 +1432,28 @@
         "current_share_count_usable": false,
         "market_cap_per_pbr_usable": false,
         "ranking_eligible": false
+      },
+      "bank_market_readiness": {
+        "status": "NOT_READY_PRIMARY_SHARES_AND_TIMED_QUOTES_MISSING",
+        "required_checks": [
+          "UOB_NOV13_BUYBACK_PRIMARY_SGX_NOTICE_NOT_VERIFIED",
+          "UP_TO_DATE_ISSUED_EX_TREASURY_SHARES_NOT_VERIFIED",
+          "TIME_STAMPED_SGX_SGD_SHARE_QUOTE_MISSING",
+          "BANK_FINANCIALS_NO_INDEPENDENT_NUMERICAL_CROSSCHECK"
+        ],
+        "2025_audited_issuer_group_available": true,
+        "2026_q3_and_9m_issuer_financials_available": true,
+        "2026_historical_share_records_not_current": true,
+        "newest_discovered_event_primary_verified": false,
+        "official_current_share_count_verified": false,
+        "current_quote_timestamp_verified": false,
+        "sgd_quote_source_verified": false,
+        "bank_valuation_eligible": false,
+        "investment_ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T23:38:49.099712+00:00",
+  "quality_checked_at_utc": "2026-11-13T23:40:14.365735+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
