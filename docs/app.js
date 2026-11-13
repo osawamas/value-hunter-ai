@@ -89,6 +89,8 @@ function validFeed(json) {
 function setFeed(json, label) {
   if (!validFeed(json)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
   state.feed = json;
+  populateHistorySymbols();
+  renderHistory();
   $("dataState").textContent = label;
   $("updatedAt").textContent = "生成日時：" + dateJst(json.updated_at_utc);
   $("totalCount").textContent = json.records.length;
@@ -156,6 +158,11 @@ function render() {
     button.type = "button";
     button.addEventListener("click", () => {
       state.selected = r.symbol;
+      const select = $("historySymbol");
+      if ([...select.options].some(option=>option.value===r.symbol)){
+        select.value=r.symbol;
+        renderHistory();
+      }
       showDetail(r);
       $("detailTitle").scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -285,4 +292,115 @@ async function start() {
       "（" + error.message + "）", true);
   }
 }
-document.addEventListener("DOMContentLoaded", start);
+
+const HISTORY_NS = "http://www.w3.org/2000/svg";
+const historyState = {data: null};
+function histSvg(name, attributes = {}) {
+  const node = document.createElementNS(HISTORY_NS, name);
+  for (const [key, val] of Object.entries(attributes)) node.setAttribute(key, String(val));
+  return node;
+}
+function populateHistorySymbols() {
+  const select = $("historySymbol");
+  if (!select) return;
+  const current = select.value;
+  const currentRecords = state.feed?.records || [];
+  const historicRecords = historyState.data?.entries?.flatMap(e => e.records || []) || [];
+  const symbols = [...new Set([...currentRecords, ...historicRecords]
+    .map(r => r.symbol).filter(s => typeof s === "string" && /^[A-Z0-9]{1,8}$/.test(s)))];
+  select.replaceChildren();
+  for (const symbol of symbols) {
+    const item = document.createElement("option");
+    item.value = symbol;
+    item.textContent = symbol + " / " +
+      (currentRecords.find(r => r.symbol === symbol)?.issuer || names[symbol] || "");
+    select.append(item);
+  }
+  if (symbols.includes(current)) select.value = current;
+  else if (symbols.includes(state.selected)) select.value = state.selected;
+  else if (symbols.length) select.value = symbols[0];
+}
+function renderHistory() {
+  const chart = $("historyChart");
+  if (!chart) return;
+  chart.replaceChildren();
+  const index = historyState.data;
+  if (!index || !Array.isArray(index.entries) || !index.entries.length) {
+    $("historyStatus").textContent = "更新履歴はまだない。初回の正常なデータ更新から記録される。";
+    chart.append(el("div", "empty-history", "記録データなし"));
+    return;
+  }
+  const symbol = $("historySymbol").value;
+  const metric = $("historyMetric").value;
+  const values = [];
+  for (const entry of index.entries) {
+    if (typeof entry.date_utc !== "string") continue;
+    const found = (entry.records || []).find(r => r.symbol === symbol);
+    const value = found ? found[metric] : null;
+    if (hasNum(value) && value >= 0) values.push({
+      date: entry.date_utc, value: value,
+      actualQuoteDate: found.quote_timestamp_utc
+    });
+  }
+  $("historyStatus").textContent = symbol + " / " +
+    $("historyMetric").selectedOptions[0].textContent +
+    " — " + values.length + "回の記録。非取引日・欠損値は補完しない。";
+  if (!values.length) {
+    chart.append(el("div", "empty-history", "この指標はまだ記録されてない。"));
+    return;
+  }
+  const W=840, H=236, L=66, R=24, T=20, B=38, plotW=W-L-R, plotH=H-T-B;
+  const numbers=values.map(v=>v.value);
+  const low=Math.min(...numbers), high=Math.max(...numbers);
+  const range=high-low || Math.max(Math.abs(high)*0.08, 0.01);
+  const ymin=Math.max(0, low-range*0.2), ymax=high+range*0.2;
+  const span=Math.max(ymax-ymin,0.01);
+  const svg=histSvg("svg", {viewBox:"0 0 "+W+" "+H,role:"img",
+    "aria-label":symbol+"："+values.length+"回の記録値の推移"});
+  for (let i=0;i<4;i++) {
+    const y=T+plotH*i/3;
+    svg.append(histSvg("line",{x1:L,y1:y,x2:W-R,y2:y,class:"gridline"}));
+    const tick=histSvg("text",{x:L-10,y:y+4,"text-anchor":"end",class:"tick-label"});
+    tick.textContent=fmt(ymax-span*i/3,2);
+    svg.append(tick);
+  }
+  const coords=values.map((v,i)=>Object.assign({
+    x:L+(values.length===1?plotW/2:i*plotW/(values.length-1)),
+    y:T+(ymax-v.value)/span*plotH
+  },v));
+  if (coords.length>=2) {
+    svg.append(histSvg("polyline",{points:coords.map(c=>c.x+","+c.y).join(" "),class:"price-line"}));
+  }
+  for (const p of coords) {
+    const circle=histSvg("circle",{cx:p.x,cy:p.y,r:5,class:"price-point"});
+    const title=histSvg("title");
+    title.textContent=p.date+" / "+fmt(p.value)+"（元の株価時刻："+(p.actualQuoteDate||"不明")+"）";
+    circle.append(title);svg.append(circle);
+  }
+  for (const i of [...new Set([0,Math.floor((coords.length-1)/2),coords.length-1])]) {
+    const p=coords[i];
+    const txt=histSvg("text",{x:p.x,y:H-12,class:"axis",
+      "text-anchor":i===0?"start":i===coords.length-1?"end":"middle"});
+    txt.textContent=p.date.slice(5);svg.append(txt);
+  }
+  chart.append(svg);
+}
+async function loadHistory() {
+  try {
+    const response=await fetch("./data/history/index.json",{cache:"no-store"});
+    if (!response.ok) throw new Error("HTTP "+response.status);
+    const data=await response.json();
+    if (data.schema_version!=="value_hunter_history_v34"||!Array.isArray(data.entries)) {
+      throw new Error("Unknown history version");
+    }
+    historyState.data=data;
+  } catch (error) {historyState.data=null;}
+  populateHistorySymbols();renderHistory();
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  $("historySymbol").addEventListener("change",renderHistory);
+  $("historyMetric").addEventListener("change",renderHistory);
+  start();
+  loadHistory();
+});
