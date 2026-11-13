@@ -26,7 +26,7 @@ LABELS = {
         "attributable_profit": [r"^(?:profit|loss|profit/\(loss\)|\(loss\)/profit) attributable to (?:owners|equity holders|shareholders)(?: of the company)?$"],
     },
 }
-NUMBER = re.compile(r"^\(?-?\d[\d,]*\)?$")
+NUMBER = re.compile(r"^(?:\d[\d,]*|-\d[\d,]*|\(\d[\d,]*\))$")
 
 
 def parse_amount(token):
