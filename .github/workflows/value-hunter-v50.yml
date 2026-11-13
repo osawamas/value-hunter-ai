@@ -1,0 +1,33 @@
+name: VALUE HUNTER S68 issuer annual crosscheck v50
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/s68_annual_crosscheck_v50.py
+      - SGX_PDF_connection_probe/test_s68_annual_crosscheck_v50.py
+      - .github/workflows/value-hunter-v50.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: S68 annual cross-document negative tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_s68_annual_crosscheck_v50.py
+      - name: Extract actual S68 annual report consolidated income rows
+        run: python SGX_PDF_connection_probe/s68_annual_crosscheck_v50.py --output s68_v50/crosscheck.json
+      - name: Upload actual issuer-document diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s68-annual-crosscheck-v50
+          path: s68_v50/
+          if-no-files-found: warn
