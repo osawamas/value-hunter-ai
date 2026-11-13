@@ -1,0 +1,32 @@
+name: VALUE HUNTER 3Q26 bank source discovery v77
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/bank_q3_2026_probe_v77.py'
+      - '.github/workflows/value-hunter-v77.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [D05, O39, U11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Inspect official 3Q26 PDF without extracting valuations
+        run: python SGX_PDF_connection_probe/bank_q3_2026_probe_v77.py --symbol ${{ matrix.symbol }} --output v77-quarterly/${{ matrix.symbol }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bank-3q26-v77-${{ matrix.symbol }}
+          path: v77-quarterly/
+          if-no-files-found: warn
