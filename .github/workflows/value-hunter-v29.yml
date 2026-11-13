@@ -8,6 +8,8 @@ on:
       - 'SGX_PDF_connection_probe/test_value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
+      - 'SGX_PDF_connection_probe/s63_audited_pdf_v32.py'
+      - 'SGX_PDF_connection_probe/test_s63_audited_pdf_v32.py'
       - 'SGX_PDF_connection_probe/test_sgx_universe_v30.py'
       - 'docs/index.html'
       - 'docs/app.js'
@@ -22,6 +24,8 @@ on:
       - 'SGX_PDF_connection_probe/test_value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
+      - 'SGX_PDF_connection_probe/s63_audited_pdf_v32.py'
+      - 'SGX_PDF_connection_probe/test_s63_audited_pdf_v32.py'
       - 'SGX_PDF_connection_probe/test_sgx_universe_v30.py'
       - 'docs/**'
       - '.github/workflows/value-hunter-v29.yml'
@@ -49,7 +53,7 @@ jobs:
       - name: Run unit tests and JavaScript syntax check
         run: |
           cd SGX_PDF_connection_probe
-          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_value_hunter_web_v29.py test_sgx_universe_v30.py
+          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py
           cd ..
           node --check docs/app.js
       - name: Build live financial comparison
@@ -58,7 +62,8 @@ jobs:
           SGX_V18_OUTPUT: ${{ github.workspace }}/sgx_v18_results
         run: |
           python SGX_PDF_connection_probe/sgx_integrated_v18.py
-          python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --output value_hunter_results
+          python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
+          python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --s63 s63_v32_results/audited_report.json --output value_hunter_results
           python SGX_PDF_connection_probe/value_hunter_market_v20.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_market_results
           python SGX_PDF_connection_probe/value_hunter_v25.py --financials value_hunter_results/value_hunter_financials.json --market value_hunter_market_results/market_valuation_v20.json --output value_hunter_v25_results
           python SGX_PDF_connection_probe/value_hunter_v27.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_v27_results
@@ -88,6 +93,7 @@ jobs:
           name: value-hunter-v29-diagnostics
           path: |
             sgx_v18_results/
+            s63_v32_results/
             value_hunter_results/
             value_hunter_market_results/
             value_hunter_v25_results/
