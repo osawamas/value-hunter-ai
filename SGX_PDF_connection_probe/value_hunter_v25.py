@@ -85,6 +85,14 @@ def run(financials,market,output,pdf_text=None):
     rows=[]
     for f in fin.get('records',[]):
         sym=f['symbol']; sh=shares if sym=='S20' else (dict(SHARES[sym],symbol=sym) if sym in SHARES else None)
+        if sh and sh.get('share_count_basis') == 'issued_excluding_treasury':
+            issued, treasury = sh.get('issued_shares_including_treasury'), sh.get('treasury_shares')
+            if issued is not None or treasury is not None:
+                if (not isinstance(issued, int) or not isinstance(treasury, int)
+                        or isinstance(issued, bool) or isinstance(treasury, bool)
+                        or issued <= treasury or treasury < 0
+                        or issued - treasury != sh.get('shares_outstanding')):
+                    raise ValueError(f'{sym} treasury subtraction invalid')
         r=calc(f,lookup.get(sym),sh)
         r['pbr_estimate']=None
         eq,eq_status,eq_source=owner_equity(f)
