@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T23:02:20.655746+00:00",
-  "input_generated_at_utc": "2026-11-13T23:02:20.608958+00:00",
+  "updated_at_utc": "2026-11-13T23:03:54.813583+00:00",
+  "input_generated_at_utc": "2026-11-13T23:03:54.777058+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -1267,16 +1267,16 @@
         "ranking_eligible": false
       },
       "bank_share_discovery": {
+        "status": "SECONDARY_SGXNET_EVENT_LEAD_NOT_PRIMARY_VALIDATED",
         "event_type": "SHARE_BUYBACK_DAILY_NOTICE",
-        "event_date": "2026-09-30",
-        "published_date": "2026-09-30",
-        "sgx_announcement_reference": "SG260930OTHRNN9Y",
-        "secondary_source_url": "https://a.siasset.com/news/news.html?nid=515665417&source=regional_sgxnet",
-        "candidate_shares_excluding_treasury": 1647838591,
+        "event_date": "2026-11-13",
+        "published_date": "2026-11-13",
+        "sgx_announcement_reference": "SG261113OTHRHOAF",
+        "secondary_source_url": "https://classic.shareinvestor.com/news/news.html?nid=515671689&source=regional_sgxnet",
+        "candidate_shares_excluding_treasury": 1646677591,
         "candidate_treasury_shares": 14548000,
         "source_excerpts_are_secondhand": true,
-        "reason": "secondary SGXNet syndication displays post-purchase Section D shares; no primary filing URL validated",
-        "status": "SECONDARY_SGXNET_EVENT_LEAD_NOT_PRIMARY_VALIDATED",
+        "reason": "13-Nov SGXNet syndication has Section D but original links.sgx.com notice not yet verified",
         "primary_sgx_announcement_url": null,
         "primary_document_sha256": null,
         "primary_issuer_count_reconciled": false,
@@ -1287,6 +1287,29 @@
         "ranking_eligible": false,
         "discovered_event_not_proof_of_latest": true
       },
+      "bank_share_discovery_history": [
+        {
+          "event_type": "SHARE_BUYBACK_DAILY_NOTICE",
+          "event_date": "2026-09-30",
+          "published_date": "2026-09-30",
+          "sgx_announcement_reference": "SG260930OTHRNN9Y",
+          "secondary_source_url": "https://a.siasset.com/news/news.html?nid=515665417&source=regional_sgxnet",
+          "candidate_shares_excluding_treasury": 1647838591,
+          "candidate_treasury_shares": 14548000,
+          "source_excerpts_are_secondhand": true,
+          "reason": "secondary SGXNet syndication displays post-purchase Section D shares; no primary filing URL validated",
+          "status": "SECONDARY_SGXNET_EVENT_LEAD_NOT_PRIMARY_VALIDATED",
+          "primary_sgx_announcement_url": null,
+          "primary_document_sha256": null,
+          "primary_issuer_count_reconciled": false,
+          "claim_source_class": "SECONDARY_SGXNET_SYNDICATION",
+          "independent_verification": false,
+          "current_share_count_usable": false,
+          "market_cap_per_pbr_usable": false,
+          "ranking_eligible": false,
+          "discovered_event_not_proof_of_latest": true
+        }
+      ],
       "bank_primary_share_history": {
         "status": "ORIGINAL_SGX_DAILY_BUYBACK_2026_09_07_RECONCILED",
         "as_of_date": "2026-09-07",
@@ -1303,7 +1326,7 @@
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T23:02:20.683918+00:00",
+  "quality_checked_at_utc": "2026-11-13T23:03:54.833673+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
