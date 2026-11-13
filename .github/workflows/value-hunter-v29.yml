@@ -127,8 +127,10 @@ jobs:
         uses: actions/deploy-pages@v4
       - name: Print published URL
         run: echo "公開サイト: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
-      - name: Record confirmed GitHub Pages deployment
+      - name: Record GitHub Pages deployment outcome
+        if: always()
         env:
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           python - <<'PY'
@@ -136,14 +138,15 @@ jobs:
           from datetime import datetime, timezone
           from pathlib import Path
           url = os.environ.get("PAGE_URL", "")
-          if not url.startswith("https://"):
-              raise RuntimeError("Pages did not report a public HTTPS URL")
+          outcome = os.environ.get("DEPLOY_OUTCOME", "unknown")
+          passed = outcome == "success" and url.startswith("https://")
           target = Path("docs/data/deployment.json")
           target.parent.mkdir(parents=True, exist_ok=True)
           target.write_text(json.dumps({
-              "status": "DEPLOY_PAGES_ACTION_SUCCESS",
-              "deployed_at_utc": datetime.now(timezone.utc).isoformat(),
-              "url": url,
+              "status": "DEPLOY_PAGES_ACTION_SUCCESS" if passed else "PAGES_NOT_DEPLOYED",
+              "checked_at_utc": datetime.now(timezone.utc).isoformat(),
+              "deployment_action_outcome": outcome,
+              "url": url if passed else None,
               "commit_sha": os.environ.get("GITHUB_SHA"),
           }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
@@ -151,6 +154,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/data/deployment.json
           if ! git diff --cached --quiet; then
-            git commit -m "status: record successful GitHub Pages deployment"
+            git commit -m "status: record GitHub Pages deployment outcome"
             git push origin HEAD:main
           fi
