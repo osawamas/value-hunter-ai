@@ -1,0 +1,120 @@
+{
+  "schema_version": "value_hunter_web_v29",
+  "updated_at_utc": null,
+  "input_generated_at_utc": null,
+  "source_type": "INITIAL_NO_DATA_NOT_AN_ANALYSIS",
+  "ranking_eligible_count": 0,
+  "ranking_enabled": false,
+  "currency": "SGD",
+  "financial_unit": "SGD_thousands",
+  "coverage": {
+    "listed_universe": "SGX",
+    "tested_symbols": [
+      "S68",
+      "G13",
+      "S20"
+    ],
+    "all_sgx_listed": false
+  },
+  "records": [
+    {
+      "symbol": "S68",
+      "issuer": "Singapore Exchange Limited",
+      "fiscal_year": null,
+      "revenue_sgd_thousands": null,
+      "revenue_growth_pct": null,
+      "operating_margin_pct": null,
+      "equity_ratio_pct": null,
+      "attributable_profit_sgd_thousands": null,
+      "price_sgd": null,
+      "shares_outstanding": null,
+      "market_cap_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "pbr_verified": null,
+      "financial_source_url": null,
+      "financial_source_kind": "NO_PUBLISHED_SNAPSHOT",
+      "quote_url": null,
+      "quote_timestamp_utc": null,
+      "shares_source_url": null,
+      "shares_as_of_date": null,
+      "audit_states": {
+        "revenue": "NOT_VERIFIED",
+        "attributable_profit": "NOT_VERIFIED"
+      },
+      "ranking_eligible": false,
+      "ranking_score": null,
+      "exclusion_reasons": [
+        "NO_PUBLISHED_SNAPSHOT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE"
+      ],
+      "data_state": "NO_PUBLISHED_SNAPSHOT"
+    },
+    {
+      "symbol": "G13",
+      "issuer": "Genting Singapore Limited",
+      "fiscal_year": null,
+      "revenue_sgd_thousands": null,
+      "revenue_growth_pct": null,
+      "operating_margin_pct": null,
+      "equity_ratio_pct": null,
+      "attributable_profit_sgd_thousands": null,
+      "price_sgd": null,
+      "shares_outstanding": null,
+      "market_cap_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "pbr_verified": null,
+      "financial_source_url": null,
+      "financial_source_kind": "NO_PUBLISHED_SNAPSHOT",
+      "quote_url": null,
+      "quote_timestamp_utc": null,
+      "shares_source_url": null,
+      "shares_as_of_date": null,
+      "audit_states": {
+        "revenue": "NOT_VERIFIED",
+        "attributable_profit": "NOT_VERIFIED"
+      },
+      "ranking_eligible": false,
+      "ranking_score": null,
+      "exclusion_reasons": [
+        "NO_PUBLISHED_SNAPSHOT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE"
+      ],
+      "data_state": "NO_PUBLISHED_SNAPSHOT"
+    },
+    {
+      "symbol": "S20",
+      "issuer": "The Straits Trading Company Limited",
+      "fiscal_year": null,
+      "revenue_sgd_thousands": null,
+      "revenue_growth_pct": null,
+      "operating_margin_pct": null,
+      "equity_ratio_pct": null,
+      "attributable_profit_sgd_thousands": null,
+      "price_sgd": null,
+      "shares_outstanding": null,
+      "market_cap_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "pbr_verified": null,
+      "financial_source_url": null,
+      "financial_source_kind": "NO_PUBLISHED_SNAPSHOT",
+      "quote_url": null,
+      "quote_timestamp_utc": null,
+      "shares_source_url": null,
+      "shares_as_of_date": null,
+      "audit_states": {
+        "revenue": "NOT_VERIFIED",
+        "attributable_profit": "NOT_VERIFIED"
+      },
+      "ranking_eligible": false,
+      "ranking_score": null,
+      "exclusion_reasons": [
+        "NO_PUBLISHED_SNAPSHOT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE"
+      ],
+      "data_state": "NO_PUBLISHED_SNAPSHOT"
+    }
+  ]
+}
