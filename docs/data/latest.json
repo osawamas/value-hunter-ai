@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T19:35:24.555814+00:00",
-  "input_generated_at_utc": "2026-11-13T19:35:24.518613+00:00",
+  "updated_at_utc": "2026-11-13T19:42:16.048620+00:00",
+  "input_generated_at_utc": "2026-11-13T19:42:16.005559+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -54,8 +54,8 @@
         "operating_profit": [],
         "attributable_profit": []
       },
-      "shares_verification_status": "DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED",
-      "shares_count_basis": null,
+      "shares_verification_status": "ISSUER_ANNUAL_REPORT_TREASURY_RECONCILED_NOT_LIVE_VERIFIED",
+      "shares_count_basis": "issued_excluding_treasury",
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S68.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T09:08:04+00:00",
@@ -72,7 +72,6 @@
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
-        "TREASURY_SHARE_BASIS_UNCONFIRMED",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
       "data_state": "PARTIAL_UNVERIFIED",
@@ -273,7 +272,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T19:35:24.577614+00:00",
+  "quality_checked_at_utc": "2026-11-13T19:42:16.076104+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
