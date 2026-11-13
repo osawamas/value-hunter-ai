@@ -73,7 +73,7 @@ def parse_pdf(data):
         doc.close()
 
 
-def run(output, raw=None):
+def run(output, raw=None, verified_pdf_copy=None):
     record = {"symbol": "S68", "source_url": SOURCE,
               "status": "NOT_VERIFIED", "pdf_sha256": None,
               "snapshot": None, "error": None}
@@ -82,6 +82,10 @@ def run(output, raw=None):
         record["pdf_sha256"] = hashlib.sha256(data).hexdigest()
         record["snapshot"] = parse_pdf(data)
         record["status"] = "OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED"
+        if verified_pdf_copy is not None:
+            target_pdf = Path(verified_pdf_copy)
+            target_pdf.parent.mkdir(parents=True, exist_ok=True)
+            target_pdf.write_bytes(data)
     except Exception as exc:
         record["error"] = f"{type(exc).__name__}: {str(exc)[:350]}"
     target = Path(output)
@@ -94,7 +98,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", required=True)
     ap.add_argument("--offline-pdf")
+    ap.add_argument("--verified-pdf-copy")
     args = ap.parse_args()
-    result = run(args.output, Path(args.offline_pdf).read_bytes() if args.offline_pdf else None)
+    result = run(args.output, Path(args.offline_pdf).read_bytes() if args.offline_pdf else None, args.verified_pdf_copy)
     print(result["status"], result["error"])
     raise SystemExit(0 if result["status"] == "OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED" else 1)
