@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'SGX_PDF_connection_probe/value_hunter_web_v29.py'
+      - 'SGX_PDF_connection_probe/value_hunter_quality_v33.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_quality_v33.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_web_v29.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
       - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
@@ -53,7 +55,7 @@ jobs:
       - name: Run unit tests and JavaScript syntax check
         run: |
           cd SGX_PDF_connection_probe
-          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py
+          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py test_value_hunter_quality_v33.py
           cd ..
           node --check docs/app.js
       - name: Build live financial comparison
@@ -72,6 +74,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           python SGX_PDF_connection_probe/value_hunter_web_v29.py --source value_hunter_v28_results/comparison_v28.json --output docs/data/latest.json
+          python SGX_PDF_connection_probe/value_hunter_quality_v33.py --input docs/data/latest.json --output docs/data/latest.json
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
