@@ -21,7 +21,7 @@ VALUES={
         "net_interest_income":("Net interest income",(9150,9755)),
         "non_interest_income":("Non-interest income",(5464,4718)),
         "total_income":("Total income",(14614,14473)),
-        "total_operating_expenses":("Total operating expenses",(5882,5742)),
+        "total_operating_expenses":("Total operating expenses",(-5882,-5742)),
         "parent_profit":("Equity holders of the Bank",(7422,7587)),
         "non_controlling_profit":("Non-controlling interests",(138,161)),
         "profit_for_year":("Profit for the year",(7560,7748)),
