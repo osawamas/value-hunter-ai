@@ -7,7 +7,7 @@ from pathlib import Path
 SHARES = {
  'S68': {'shares_outstanding': 1070843484, 'as_of_date': '2026-09-01', 'source_url': 'https://investorrelations.sgx.com/financial-information/annual-reports', 'source_detail': 'FY2026 annual report, shareholding statistics: 1,071,642,400 issued less 798,916 treasury', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
  'G13': {'shares_outstanding': 12063642274, 'as_of_date': '2026-08-14', 'source_url': 'https://gentingsingapore.listedcompany.com/share-quote-and-chart.html', 'source_detail': 'Issuer IR quote page, issued and paid-up shares, updated 14 Aug 2026', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
- 'S63': {'shares_outstanding': 3114951550, 'as_of_date': '2026-02-27', 'source_url': 'https://www.stengg.com/en/investor-relations/share-information/', 'source_detail': 'Issuer IR: issued shares excluding treasury shares as of 27 Feb 2026', 'share_count_basis': 'issued_excluding_treasury', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
+ 'S63': {'shares_outstanding': 3119304988, 'as_of_date': '2026-06-30', 'source_url': 'https://links.sgx.com/1.0.0/corporate-announcements/C8BD8IFF6BB243DP/0a8a417f60e150a464d73fc1b700be52d55bfaee8642d5e1641d90a447e95c7c', 'source_detail': 'ST Engineering SGX 1H2026 results announcement (13 Aug 2026), share capital 3,122,495,197 issued minus 3,190,209 treasury = 3,119,304,988 as at 30 Jun 2026. Dated source snapshot; later share repurchases may change the count.', 'share_count_basis': 'issued_excluding_treasury', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
 }
 
 def positive(x):
