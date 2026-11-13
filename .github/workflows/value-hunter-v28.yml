@@ -1,0 +1,64 @@
+name: VALUE HUNTER SGX comparison and ranking readiness v28
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/value_hunter_v28.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_v28.py'
+      - '.github/workflows/value-hunter-v28.yml'
+  pull_request:
+    paths:
+      - 'SGX_PDF_connection_probe/value_hunter_v28.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_v28.py'
+      - '.github/workflows/value-hunter-v28.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF extraction dependency
+        run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Unit tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py
+      - name: Extract and normalize financials
+        if: github.event_name != 'pull_request'
+        env:
+          SGX_V18_OUTPUT: ${{ github.workspace }}/sgx_v18_results
+        run: |
+          python SGX_PDF_connection_probe/sgx_integrated_v18.py
+          python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --output value_hunter_results
+      - name: Get market quotes
+        if: github.event_name != 'pull_request'
+        run: python SGX_PDF_connection_probe/value_hunter_market_v20.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_market_results
+      - name: Run v25 valuation
+        if: github.event_name != 'pull_request'
+        run: python SGX_PDF_connection_probe/value_hunter_v25.py --financials value_hunter_results/value_hunter_financials.json --market value_hunter_market_results/market_valuation_v20.json --output value_hunter_v25_results
+      - name: Run v27 live document audit
+        if: github.event_name != 'pull_request'
+        run: python SGX_PDF_connection_probe/value_hunter_v27.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_v27_results
+      - name: Build comparison and eligibility report
+        if: github.event_name != 'pull_request'
+        run: |
+          python SGX_PDF_connection_probe/value_hunter_v28.py --financials value_hunter_results/value_hunter_financials.json --valuation value_hunter_v25_results/valuation_v25.json --audit value_hunter_v27_results/audit_v27.json --output value_hunter_v28_results
+          cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload results and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-v28-results
+          path: |
+            sgx_v18_results/
+            value_hunter_results/
+            value_hunter_market_results/
+            value_hunter_v25_results/
+            value_hunter_v27_results/
+            value_hunter_v28_results/
+          if-no-files-found: warn
