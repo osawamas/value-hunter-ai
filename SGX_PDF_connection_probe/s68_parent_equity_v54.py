@@ -53,8 +53,8 @@ def parse_pdf(raw):
         matched={}
         for label,expected in COMPONENTS.items():
             # Values immediately after the label, with optional numbered note.
-            pattern=(re.escape(label)+r"\\s+(?:\\d{1,2}\\s+)?"
-                     +re.escape(fmt(expected[0]))+r"\\s+"+re.escape(fmt(expected[1])))
+            pattern=(re.escape(label)+r"\s+(?:\d{1,2}\s+)?"
+                     +re.escape(fmt(expected[0]))+r"\s+"+re.escape(fmt(expected[1])))
             hits=list(re.finditer(pattern,section,re.I))
             if len(hits)!=1:
                 raise ValueError(f"S68 Group parent-equity row missing/ambiguous: {label}, count={len(hits)}")
@@ -63,8 +63,8 @@ def parse_pdf(raw):
             total=sum(row[year] for row in matched.values())
             if total!=TOTALS[year]:
                 raise ValueError(f"Owner components do not cross-foot {year}: {total}")
-        if len(re.findall(r"Total equity\\s+"+re.escape(fmt(TOTALS["2026"]))
-                          +r"\\s+"+re.escape(fmt(TOTALS["2025"])), section, re.I))!=1:
+        if len(re.findall(r"Total equity\s+"+re.escape(fmt(TOTALS["2026"]))
+                          +r"\s+"+re.escape(fmt(TOTALS["2025"])), section, re.I))!=1:
             raise ValueError("Group equity statement total missing/ambiguous")
         return {"symbol":"S68","fiscal_year":2026,
                 "statement":"audited Group financial position",
@@ -89,7 +89,7 @@ def run(output, raw=None):
     except Exception as exc:
         result["error"]=f"{type(exc).__name__}: {str(exc)[:300]}"
     dest=Path(output);dest.parent.mkdir(parents=True,exist_ok=True)
-    dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\\n",encoding="utf-8")
+    dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     return result
 
 
