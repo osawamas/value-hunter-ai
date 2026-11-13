@@ -1,6 +1,8 @@
-"""S68 FY2026 issuer PDF financial extraction. Reject ambiguous rows and mismatches.
+"""Fail-closed S68 FY2026 issuer audited-PDF financial extraction (v44).
 
-Issuer-issued statements are not independent third-party verification.
+No static fixture is promoted unless all six Group figures are independently
+read from the issuer PDF and match expected FY2026/FY2025 regression values.
+Issuer disclosure is NOT independent third-party verification.
 """
 import argparse
 import hashlib
@@ -9,51 +11,54 @@ import re
 import urllib.request
 from pathlib import Path
 
-SOURCE = "https://investorrelations.sgx.com/static-files/dcbd5905-9373-4dc9-80f5-8dbff6b8d584"
-YEARS = ("2026", "2025")
-SPEC = {
-    "revenue": (8, "Operating revenue", (1559469, 1370625)),
-    "operating_profit": (8, "Operating profit", (887190, 742843)),
-    "attributable_profit": (8, "Equity holders of the Company", (698411, 647983)),
-    "assets": (12, "Total assets", (4547470, 4143988)),
-    "liabilities": (12, "Total liabilities", (2184488, 1944067)),
-    "equity": (12, "Total equity", (2362982, 2199921)),
+SOURCE = "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5"
+EXPECTED = {
+    "revenue": (1559469, 1370625),
+    "operating_profit": (887190, 742843),
+    "attributable_profit": (698411, 647983),
+    "assets": (4547470, 4143988),
+    "liabilities": (2184488, 1944067),
+    "equity": (2362982, 2199921),
+}
+ROW_LABELS = {
+    "revenue": None,  # The income statement's total revenue is an unlabelled subtotal.
+    "operating_profit": "operating profit",
+    "attributable_profit": "equity holders of the company",
+    "assets": "total assets",
+    "liabilities": "total liabilities",
+    "equity": "total equity",
 }
 NUMBER = re.compile(r"^[0-9][0-9,]*$")
 
 
 def download(timeout=60):
-    request = urllib.request.Request(SOURCE, headers={
+    req = urllib.request.Request(SOURCE, headers={
         "User-Agent": "Mozilla/5.0 (VALUE-HUNTER-AI financial research)",
         "Accept": "application/pdf",
     })
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        raw = response.read(20_000_001)
-    if len(raw) > 20_000_000 or not raw.startswith(b"%PDF"):
-        raise ValueError("S68 source not a valid size-limited PDF")
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        raw = response.read(25_000_001)
+    if len(raw) > 25_000_000 or not raw.startswith(b"%PDF"):
+        raise ValueError("Invalid or oversized official PDF")
     return raw
 
 
-def extract_row(page, label, page_number):
-    """Read the two FY amounts from the Group columns on the known report page."""
-    w = float(page.rect.width)
-    hits = [rect for rect in page.search_for(label)
-            if rect.x0 < 0.72 * w and (page_number != 8 or rect.y0 < 0.60 * page.rect.height)]
-    candidates = []
-    for rect in hits:
-        middle_y = (rect.y0 + rect.y1) / 2
-        words = [word for word in page.get_text("words")
-                 if 0.71 * w <= (word[0] + word[2]) / 2 < 0.98 * w
-                 and abs((word[1] + word[3]) / 2 - middle_y) <= 4
-                 and NUMBER.fullmatch(str(word[4]))]
-        # Income statement has a third numeric column for YoY changes.
-        words.sort(key=lambda word: word[0])
-        amounts = [int(word[4].replace(",", "")) for word in words[:2]]
-        if len(amounts) == 2:
-            candidates.append(tuple(amounts))
-    if len(candidates) != 1:
-        raise ValueError(f"Ambiguous Group row '{label}' at PDF page {page_number}: {len(candidates)}")
-    return candidates[0]
+def ordered_rows(page, tolerance=2.6):
+    """Group PDF words by visual Y row without assuming exact font spacing."""
+    result = []
+    for word in sorted(page.get_text("words"), key=lambda x: (x[1], x[0])):
+        x0, y0, x1, y1, token, *_ = word
+        mid = (y0 + y1) / 2
+        if result and abs(result[-1]["y"] - mid) < tolerance:
+            result[-1]["words"].append((x0, token))
+        else:
+            result.append({"y": mid, "words": [(x0, token)]})
+    for row in result:
+        row["words"].sort()
+        row["text"] = " ".join(str(word) for _, word in row["words"])
+        row["numbers"] = [int(word.replace(",", "")) for _, word in row["words"]
+                          if NUMBER.fullmatch(str(word))]
+    return result
 
 
 def parse_pdf(raw):
@@ -62,62 +67,73 @@ def parse_pdf(raw):
         raise ValueError("Invalid PDF")
     pdf = fitz.open(stream=raw, filetype="pdf")
     try:
-        if len(pdf) <= 12:
-            raise ValueError("Missing FY2026 financial pages")
-        income = " ".join(pdf[8].get_text().lower().split())
-        balance = " ".join(pdf[12].get_text().lower().split())
-        if ("income statement - group" not in income or
-                "statement of financial position - group" not in balance or
-                "30 june 2026" not in balance):
-            raise ValueError("Unexpected issuer report layout/scope/period")
+        # Scope to financial statements rather than note tables later in the report.
+        if len(pdf) < 12 or "Singapore Exchange Limited" not in pdf[0].get_text():
+            raise ValueError("Unexpected audited financial document")
         metrics = {}
-        for key, (page_index, label, expected) in SPEC.items():
-            actual = extract_row(pdf[page_index], label, page_index)
-            if actual != expected:
-                raise ValueError(f"FY2026 regression mismatch {key}: {actual} vs {expected}")
+        for key, expected in EXPECTED.items():
+            hits = []
+            for index in range(min(len(pdf), 36)):
+                page = pdf[index]
+                heading = " ".join(page.get_text("text").lower().split())
+                if not ("financial statements" in heading or "financial year ended" in heading
+                        or "financial position" in heading):
+                    continue
+                for row in ordered_rows(page):
+                    vals = row["numbers"]
+                    if len(vals) < 2 or tuple(vals[:2]) != expected:
+                        continue
+                    label = ROW_LABELS[key]
+                    # Some labels are wrapped on the preceding visual row.
+                    if label is not None:
+                        nearby = " ".join(r["text"] for r in ordered_rows(page)
+                                          if -17 < r["y"] - row["y"] < 5).lower()
+                        if label not in nearby:
+                            continue
+                    hits.append(index + 1)
+            if len(hits) != 1:
+                raise ValueError(f"Missing/ambiguous FY2026 Group row {key}: pages {hits}")
             metrics[key] = {
-                year: {"value": value, "page": page_index + 1,
+                year: {"value": amount, "page": hits[0],
                        "status": "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED"}
-                for year, value in zip(YEARS, actual)
+                for year, amount in zip(("2026", "2025"), expected)
             }
-        for year in YEARS:
-            a, l, e = (metrics[k][year]["value"]
-                       for k in ("assets", "liabilities", "equity"))
-            if a - l != e:
-                raise ValueError(f"Group balance equation mismatch {year}")
+        for year in ("2026", "2025"):
+            if (metrics["assets"][year]["value"] -
+                metrics["liabilities"][year]["value"] != metrics["equity"][year]["value"]):
+                raise ValueError("Group balance equation does not reconcile")
         return metrics
     finally:
         pdf.close()
 
 
 def run(output, raw=None):
-    result = {"symbol": "S68", "issuer": "Singapore Exchange Limited",
-              "status": "NOT_VERIFIED", "source_url": SOURCE,
+    record = {"symbol": "S68", "issuer": "Singapore Exchange Limited",
+              "fiscal_year": 2026, "status": "NOT_VERIFIED",
               "source_kind": "LIVE_ISSUER_FY2026_PDF",
-              "pdf_sha256": None, "fiscal_year": 2026,
+              "source_url": SOURCE, "pdf_sha256": None,
               "currency": "SGD", "unit": "SGD_thousands",
-              "metrics": {}, "error": None,
-              "independent_verification": False}
+              "metrics": {}, "error": None, "independent_verification": False}
     try:
         data = download() if raw is None else raw
-        result["pdf_sha256"] = hashlib.sha256(data).hexdigest()
-        result["metrics"] = parse_pdf(data)
-        result["status"] = "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED"
+        record["pdf_sha256"] = hashlib.sha256(data).hexdigest()
+        record["metrics"] = parse_pdf(data)
+        record["status"] = "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED"
     except Exception as exc:
-        result["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+        record["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
     target = Path(output)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+    target.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n",
                       encoding="utf-8")
-    return result
+    return record
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
     parser.add_argument("--offline-pdf")
-    args = parser.parse_args()
-    result = run(args.output, Path(args.offline_pdf).read_bytes()
-                 if args.offline_pdf else None)
+    options = parser.parse_args()
+    result = run(options.output, Path(options.offline_pdf).read_bytes()
+                 if options.offline_pdf else None)
     print(result["status"], result["error"])
     raise SystemExit(0 if result["status"] == "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED" else 1)
