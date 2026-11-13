@@ -47,7 +47,7 @@ def parse_pdf(raw):
     try:
         evidence=[]
         for i,page in enumerate(doc):
-            t=" ".join(page.get_text("text").split())
+            t=" ".join(page.get_text("text").split()).replace("’", "'")
             if "SHARE CAPITAL AND TREASURY SHARES" in t and (
                     "As at 30 June 2026, the number of ordinary shares in issue" in t or
                     "The movement in the Company's treasury shares" in t):
