@@ -26,6 +26,7 @@ on:
       - 'docs/index.html'
       - 'docs/app.js'
       - 'tests/history-v38.test.js'
+      - 'tests/freshness-v39.test.js'
       - 'docs/style.css'
       - '.github/workflows/value-hunter-v29.yml'
   workflow_dispatch:
@@ -71,6 +72,7 @@ jobs:
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
+          node tests/freshness-v39.test.js
       - name: Build live financial comparison
         if: github.event_name != 'pull_request'
         env:
