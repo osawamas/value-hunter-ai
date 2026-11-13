@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:39:51.989001+00:00",
-  "input_generated_at_utc": "2026-11-13T22:39:51.944242+00:00",
+  "updated_at_utc": "2026-11-13T22:43:13.258822+00:00",
+  "input_generated_at_utc": "2026-11-13T22:43:13.221141+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -499,6 +499,57 @@
         "not_annual_2025": true,
         "not_independently_verified": true,
         "ranking_eligible": false
+      },
+      "banking_yoy_2026": {
+        "status": "BANK_GROUP_LIKE_FOR_LIKE_Q3_AND_9M_PDF_VERIFIED",
+        "source_url": "https://links.sgx.com/FileOpen/3Q26_trading_update.ashx?App=Announcement&FileID=910439",
+        "pdf_sha256": "c8d55126a0ad0702771ac74ab2f2b79a0f7721223de53faae1197974eca617d6",
+        "issuer_release_date": "2026-11-05",
+        "Q3": {
+          "period_start_2026": "2026-07-01",
+          "period_start_2025": "2025-07-01",
+          "period_end_2026": "2026-09-30",
+          "period_end_2025": "2025-09-30",
+          "duration": "THREE_MONTHS",
+          "unit": "SGD_millions",
+          "current_year": {
+            "total_income": 5845,
+            "net_profit": 2813
+          },
+          "prior_year": {
+            "total_income": 5932,
+            "net_profit": 2954
+          },
+          "growth_pct": {
+            "total_income": -1.47,
+            "net_profit": -4.77
+          },
+          "source_pdf_page": 7
+        },
+        "nine_months": {
+          "period_start_2026": "2026-01-01",
+          "period_start_2025": "2025-01-01",
+          "period_end_2026": "2026-09-30",
+          "period_end_2025": "2025-09-30",
+          "duration": "NINE_MONTHS_YTD",
+          "unit": "SGD_millions",
+          "current_year": {
+            "total_income": 17886,
+            "net_profit": 8822
+          },
+          "prior_year": {
+            "total_income": 17569,
+            "net_profit": 8675
+          },
+          "growth_pct": {
+            "total_income": 1.8,
+            "net_profit": 1.69
+          },
+          "source_pdf_page": 7
+        },
+        "not_annual_or_investment_valuation": true,
+        "third_party_independent_verification": false,
+        "ranking_eligible": false
       }
     },
     {
@@ -794,6 +845,57 @@
         },
         "not_annual_2025": true,
         "not_independently_verified": true,
+        "ranking_eligible": false
+      },
+      "banking_yoy_2026": {
+        "status": "BANK_GROUP_LIKE_FOR_LIKE_Q3_AND_9M_PDF_VERIFIED",
+        "source_url": "https://links.sgx.com/FileOpen/OCBC_3Q26_Results_Press_Release.ashx?App=Announcement&FileID=910569",
+        "pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+        "issuer_release_date": "2026-11-06",
+        "Q3": {
+          "period_start_2026": "2026-07-01",
+          "period_start_2025": "2025-07-01",
+          "period_end_2026": "2026-09-30",
+          "period_end_2025": "2025-09-30",
+          "duration": "THREE_MONTHS",
+          "unit": "SGD_millions",
+          "current_year": {
+            "total_income": 3733,
+            "group_net_profit": 2042
+          },
+          "prior_year": {
+            "total_income": 3796,
+            "group_net_profit": 1978
+          },
+          "growth_pct": {
+            "total_income": -1.66,
+            "group_net_profit": 3.24
+          },
+          "source_pdf_page": 2
+        },
+        "nine_months": {
+          "period_start_2026": "2026-01-01",
+          "period_start_2025": "2025-01-01",
+          "period_end_2026": "2026-09-30",
+          "period_end_2025": "2025-09-30",
+          "duration": "NINE_MONTHS_YTD",
+          "unit": "SGD_millions",
+          "current_year": {
+            "total_income": 11731,
+            "group_net_profit": 6237
+          },
+          "prior_year": {
+            "total_income": 10998,
+            "group_net_profit": 5677
+          },
+          "growth_pct": {
+            "total_income": 6.66,
+            "group_net_profit": 9.86
+          },
+          "source_pdf_page": 4
+        },
+        "not_annual_or_investment_valuation": true,
+        "third_party_independent_verification": false,
         "ranking_eligible": false
       }
     },
@@ -1091,10 +1193,61 @@
         "not_annual_2025": true,
         "not_independently_verified": true,
         "ranking_eligible": false
+      },
+      "banking_yoy_2026": {
+        "status": "BANK_GROUP_LIKE_FOR_LIKE_Q3_AND_9M_PDF_VERIFIED",
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/financial/2026/cfo-slides-3q-2026.pdf",
+        "pdf_sha256": "47d3c789216d14c8d5a79050b06dcf25198e0dc54c4c0846b49f3ffb98ce139d",
+        "issuer_release_date": "2026-11-04",
+        "Q3": {
+          "period_start_2026": "2026-07-01",
+          "period_start_2025": "2025-07-01",
+          "period_end_2026": "2026-09-30",
+          "period_end_2025": "2025-09-30",
+          "duration": "THREE_MONTHS",
+          "unit": "SGD_millions",
+          "current_year": {
+            "total_income": 3381,
+            "net_profit": 1250
+          },
+          "prior_year": {
+            "total_income": 3398,
+            "net_profit": 443
+          },
+          "growth_pct": {
+            "total_income": -0.5,
+            "net_profit": 182.17
+          },
+          "source_pdf_page": 3
+        },
+        "nine_months": {
+          "period_start_2026": "2026-01-01",
+          "period_start_2025": "2025-01-01",
+          "period_end_2026": "2026-09-30",
+          "period_end_2025": "2025-09-30",
+          "duration": "NINE_MONTHS_YTD",
+          "unit": "SGD_millions",
+          "current_year": {
+            "total_income": 10398,
+            "net_profit": 4165
+          },
+          "prior_year": {
+            "total_income": 10519,
+            "net_profit": 3271
+          },
+          "growth_pct": {
+            "total_income": -1.15,
+            "net_profit": 27.33
+          },
+          "source_pdf_page": 3
+        },
+        "not_annual_or_investment_valuation": true,
+        "third_party_independent_verification": false,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:39:52.015622+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:43:13.280101+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
