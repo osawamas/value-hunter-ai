@@ -1,0 +1,56 @@
+name: VALUE HUNTER dashboard publish (independent)
+on:
+  workflow_run:
+    workflows: ["VALUE HUNTER SGX dashboard data refresh v29"]
+    types: [completed]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/value-hunter-pages.yml'
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: value-hunter-pages-deploy
+  cancel-in-progress: false
+jobs:
+  pages:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Check GitHub Pages setup without modifying repo settings
+        id: setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/tmp/pages.json 2>/tmp/pages.error; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages settings found." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages is not enabled. One-time: Settings → Pages → Source: GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Configure Pages
+        if: steps.setup.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+      - name: Package dashboard
+        if: steps.setup.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
+      - name: Publish web dashboard
+        id: deployment
+        if: steps.setup.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        uses: actions/deploy-pages@v4
+      - name: Print confirmed site URL
+        if: steps.deployment.outcome == 'success'
+        run: echo "Published: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
