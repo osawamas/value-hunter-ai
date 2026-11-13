@@ -15,6 +15,16 @@ def run(path,raw=None):
  out={"symbol":"U11","status":"NOT_VERIFIED","source_url":URL,"record":None,"error":None}
  try:
   content=fetch(URL) if raw is None else raw
+  # Bounded text diagnostic: official SGX tables can differ from fixtures.
+  from sgx_primary_buyback_v84 import VisibleText
+  from html import unescape
+  view=VisibleText();view.feed(content.decode("utf-8","replace"))
+  flat=" ".join(unescape("".join(view.parts)).split())
+  for term in ("Section D","Number of issued shares excluding treasury shares after purchase",
+               "Number of treasury shares held after purchase"):
+   pos=flat.lower().find(term.lower())
+   print("PRIMARY_HTML_FIELD",term,"PRESENT" if pos>=0 else "ABSENT",
+         flat[max(0,pos-40):pos+185] if pos>=0 else "")
   row=parse("U11",URL,content,REF,DATE)
   if (row["issued_excluding_treasury"]!=1648956591
       or row["treasury_shares"]!=14160900
