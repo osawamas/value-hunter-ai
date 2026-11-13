@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'SGX_PDF_connection_probe/test_operating_evidence_v41.py'
+      - 'SGX_PDF_connection_probe/g13_balance_v42.py'
+      - 'SGX_PDF_connection_probe/test_g13_balance_v42.py'
+      - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
       - 'SGX_PDF_connection_probe/value_hunter_s63_crosscheck_v40.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_s63_crosscheck_v40.py'
@@ -39,6 +42,9 @@ on:
   pull_request:
     paths:
       - 'SGX_PDF_connection_probe/test_operating_evidence_v41.py'
+      - 'SGX_PDF_connection_probe/g13_balance_v42.py'
+      - 'SGX_PDF_connection_probe/test_g13_balance_v42.py'
+      - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
       - 'SGX_PDF_connection_probe/value_hunter_s63_crosscheck_v40.py'
       - 'SGX_PDF_connection_probe/test_value_hunter_s63_crosscheck_v40.py'
@@ -76,7 +82,7 @@ jobs:
       - name: Run unit tests and JavaScript syntax check
         run: |
           cd SGX_PDF_connection_probe
-          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_operating_evidence_v41.py test_value_hunter_s63_crosscheck_v40.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py test_value_hunter_quality_v33.py test_value_hunter_history_v34.py test_s63_share_snapshot_v36.py
+          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_g13_balance_v42.py test_operating_evidence_v41.py test_value_hunter_s63_crosscheck_v40.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py test_value_hunter_quality_v33.py test_value_hunter_history_v34.py test_s63_share_snapshot_v36.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -87,8 +93,9 @@ jobs:
           SGX_V18_OUTPUT: ${{ github.workspace }}/sgx_v18_results
         run: |
           python SGX_PDF_connection_probe/sgx_integrated_v18.py
+          python SGX_PDF_connection_probe/g13_balance_v42.py --original sgx_v18_results/G13_financial_v18.json --output sgx_v18_results/G13_balance_v42.json
           python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
-          python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --s63 s63_v32_results/audited_report.json --output value_hunter_results
+          python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --g13-balance sgx_v18_results/G13_balance_v42.json --s63 s63_v32_results/audited_report.json --output value_hunter_results
           python SGX_PDF_connection_probe/value_hunter_market_v20.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_market_results
           python SGX_PDF_connection_probe/value_hunter_v25.py --financials value_hunter_results/value_hunter_financials.json --market value_hunter_market_results/market_valuation_v20.json --output value_hunter_v25_results
           python SGX_PDF_connection_probe/value_hunter_v27.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_v27_results
