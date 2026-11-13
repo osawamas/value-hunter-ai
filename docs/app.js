@@ -304,6 +304,31 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const bankSummary = r.banking_summary;
+  if (bankSummary && bankSummary.status === "ISSUER_ANNUAL_GROUP_HIGHLIGHTS_2025_2024") {
+    const bankVals = bankSummary.values || {};
+    const val = (key, year = "2025") => fmt(bankVals[key]?.[year], 0);
+    const uob = r.symbol === "U11";
+    grid.append(field("銀行概要", "銀行の公式年次報告書・連結財務サマリー", [
+      ["決算期間", "2025年12月期（比較対象：2024年）"],
+      ["総収益 2025年（百万SGD）", val("total_income")],
+      ["総収益 2024年（百万SGD）", val("total_income", "2024")],
+      ["純金利収益 2025年（百万SGD）", uob ? "未抽出" : val("net_interest_income")],
+      ["親会社株主帰属利益 2025年（百万SGD）",
+        val(uob ? "parent_net_profit" : "parent_attributable_profit")],
+      ["親会社株主帰属利益 2024年（百万SGD）",
+        val(uob ? "parent_net_profit" : "parent_attributable_profit", "2024")],
+      ["総資産 2025年", uob ? val("total_assets_rounded_billions") + " 十億SGD（丸め値）" :
+        val("total_assets") + " 百万SGD"],
+      ["親会社株主持分 2025年", uob ? val("parent_equity_rounded_billions") + " 十億SGD（丸め値）" :
+        val("parent_equity") + " 百万SGD"],
+      ["資産・株主持分の精度", uob ? "概数・PBR計算には使用しない" : "年次報告書の財務サマリー"],
+      ["公式年次報告書", bankSummary.source_url, true],
+      ["PDF識別子（SHA256）", bankSummary.pdf_sha256 || "未登録"],
+      ["資料の検証段階", "発行体の財務ハイライト。監査済み諸表との行ごとの照合は未実施"],
+      ["評価指標", "株価・最新株式数を未取得。PER・PBR・ランキングへの使用なし"],
+    ]));
+  }
   parent.append(grid, el("div", "eyebrow", "ランキング除外理由・品質チェック"));
   const list = el("ul", "reasons");
   for (const reason of r.exclusion_reasons || []) {
