@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T19:12:13.220270+00:00",
-  "input_generated_at_utc": "2026-11-13T19:12:13.178137+00:00",
+  "updated_at_utc": "2026-11-13T19:35:24.555814+00:00",
+  "input_generated_at_utc": "2026-11-13T19:35:24.518613+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -31,7 +31,7 @@
       "liabilities_sgd_thousands": 2184488,
       "equity_sgd_thousands": 2362982,
       "balance_difference_sgd_thousands": 0,
-      "balance_source_status": "ISSUER_SPECIFIC_REFERENCE_CHECK",
+      "balance_source_status": "EXTRACTED_ISSUER_PDF_REGRESSION_MATCHED",
       "balance_source_page": null,
       "parent_equity_sgd_thousands": null,
       "parent_equity_status": null,
@@ -43,9 +43,9 @@
       "per_reference": 31.7231,
       "pbr_reference_unverified": null,
       "pbr_verified": null,
-      "financial_source_url": "https://investorrelations.sgx.com/static-files/dcbd5905-9373-4dc9-80f5-8dbff6b8d584",
-      "financial_source_kind": "HISTORICAL_V14_ISSUER_SPECIFIC_FIXTURE",
-      "financial_pdf_sha256": null,
+      "financial_source_url": "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5",
+      "financial_source_kind": "LIVE_ISSUER_FY2026_PDF",
+      "financial_pdf_sha256": "79debbbb255c2a4ef0ea2d6b2f6a9651e954ea4fc9bba7925186e486b9c1d80e",
       "audit_source_url": null,
       "audit_pdf_sha256": null,
       "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
@@ -69,7 +69,6 @@
       "ranking_eligible": false,
       "ranking_score": null,
       "exclusion_reasons": [
-        "HISTORICAL_FIXED_FINANCIALS",
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
         "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
@@ -274,7 +273,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T19:12:13.246292+00:00",
+  "quality_checked_at_utc": "2026-11-13T19:35:24.577614+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
