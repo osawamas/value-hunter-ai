@@ -27,7 +27,19 @@ const reasons = {
   SHARES_SOURCE_MISSING: "株式数の出典が未登録",
   TREASURY_SHARE_BASIS_UNCONFIRMED: "自己株式控除後の株式数か未確認",
   NEGATIVE_EARNINGS_PER_NOT_APPLICABLE: "赤字のためPER算出対象外",
-  PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED: "親会社株主持分が未検証"
+  PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED: "親会社株主持分が未検証",
+  QUOTE_NOT_AVAILABLE: "株価データなし",
+  QUOTE_TIMESTAMP_MISSING: "株価の基準時刻が不明",
+  QUOTE_STALE: "株価が7日より古い",
+  QUOTE_DATE_IN_FUTURE: "株価の時刻が未来",
+  SHARES_NOT_AVAILABLE: "株式数データなし",
+  SHARES_DATE_MISSING: "株式数の基準日が不明",
+  SHARES_STALE: "株式数が180日より古い",
+  SHARES_DATE_IN_FUTURE: "株式数の基準日が未来",
+  MARKET_CAP_ARITHMETIC_MISMATCH: "時価総額の計算が一致しないため非表示",
+  PER_ARITHMETIC_MISMATCH_OR_INVALID: "PERの計算が不一致のため非表示",
+  PBR_REFERENCE_INVALID_OR_CAP_MISMATCH: "PBRの根拠不足・計算不一致のため非表示",
+  VERIFIED_PBR_LABEL_UNSUPPORTED: "PBRの検証済み表記を保留"
 };
 const $ = id => document.getElementById(id);
 const state = { feed: null, selected: null, visible: [] };
@@ -83,9 +95,14 @@ function setFeed(json, label) {
   $("eligibleCount").textContent = json.records.filter(r => r.ranking_eligible).length;
   $("excludedCount").textContent = json.records.filter(r => !r.ranking_eligible).length;
   $("pricedCount").textContent = json.records.filter(r => hasNum(r.price_sgd)).length;
-  warn(json.records.some(r => r.price_sgd !== null) ?
-    "財務と株価は参考値。検証済みランキングへの採用は保留中。" :
-    "現時点の公開データに株価は未収録。GitHub Actionsの取得結果が反映されると表示される。");
+  const quality = json.quality_counts || {};
+  const issueCount = (quality.quote_stale || 0) + (quality.quote_missing || 0) +
+    (quality.arithmetically_inconsistent || 0);
+  warn(issueCount ?
+    "データ品質警告：" + issueCount + "件の株価未取得・期限切れ・計算不一致あり。詳細の除外理由を参照。" :
+    json.records.some(r => hasNum(r.price_sgd)) ?
+      "財務・株価は参考値。第三者独立検証が完了するまでランキング対象外。" :
+      "株価未取得。Actionsの取得状況と元資料を参照。");
   render();
 }
 function sortRows(items, key) {
@@ -185,9 +202,11 @@ function showDetail(r) {
     field("市場", "株価と株式数", [
       ["株価（SGD）", fmt(r.price_sgd)],
       ["株価基準時刻", dateJst(r.quote_timestamp_utc)],
+      ["株価の鮮度", ({RECENT:"7日以内",STALE:"7日超または日付不正",MISSING:"不明"})[r.quote_freshness] || "未検証"],
       ["株価出典", r.quote_url, true],
       ["発行済株式数（自己株式控除後）", fmt(r.shares_outstanding, 0)],
       ["株式数基準日", r.shares_as_of_date || "未取得"],
+      ["株式数の鮮度", ({RECENT:"180日以内",STALE:"180日超または日付不正",MISSING:"不明"})[r.share_freshness] || "未検証"],
       ["株式数の検証状態", r.shares_verification_status || "未検証"],
       ["自己株式の扱い", r.shares_count_basis || "未確認"],
       ["株式数出典", r.shares_source_url, true],
@@ -208,7 +227,7 @@ function showDetail(r) {
       ["更新情報", dateJst(state.feed.updated_at_utc)],
     ])
   );
-  parent.append(grid, el("div", "eyebrow", "ランキング除外理由"));
+  parent.append(grid, el("div", "eyebrow", "ランキング除外理由・品質チェック"));
   const list = el("ul", "reasons");
   for (const reason of r.exclusion_reasons || []) {
     const li = el("li", "", reasons[reason] || reason);
