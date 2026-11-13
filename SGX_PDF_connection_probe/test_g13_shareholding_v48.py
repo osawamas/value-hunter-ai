@@ -8,8 +8,6 @@ from g13_shareholding_v48 import parse_pdf,run
 
 def document(*, wrong_treasury=False, wrong_net=False, wrong_period=False):
     doc=fitz.open()
-    a=doc.new_page(width=1100,height=950)
-    b=doc.new_page(width=1100,height=950)
     lines_a=[
        "11. SHARE CAPITAL AND TREASURY SHARES",
        "As at 30 June 2025, the number of ordinary shares in issue was 12,094,026,824 of which 30,384,550 were held by the Company as treasury shares" if wrong_period else
@@ -27,7 +25,8 @@ def document(*, wrong_treasury=False, wrong_net=False, wrong_period=False):
       "Repurchase of shares 29,830,200",
       "As at 30 June 2026 30,384,550",
     ]
-    for page, lines in [(a,lines_a),(b,lines_b)]:
+    for lines in (lines_a, lines_b):
+        page=doc.new_page(width=1100,height=950)
         for i,line in enumerate(lines):
             page.insert_text((20,35+i*45),line,fontsize=9)
     raw=doc.tobytes()
