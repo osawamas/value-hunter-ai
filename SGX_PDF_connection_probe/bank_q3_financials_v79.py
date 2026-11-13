@@ -39,7 +39,7 @@ SCHEMAS={
 # PDF tables: DBS columns Q3, Q3-prev, pct, Q2, pct, 9M, 9M-prev, pct;
 # OCBC Q3 table Q3, last-Q3, YoY, Q2, QoQ; 9M table 9M, 9M-prev, YoY;
 # UOB columns 9M, previous 9M, YoY, Q3, Q2, QoQ, previous Q3, YoY.
-VALUE=re.compile(r"^[-+]?[0-9][0-9,]*$|^\\([0-9][0-9,]*\\)$")
+VALUE=re.compile(r"^[-+]?[0-9][0-9,]*$|^\([0-9][0-9,]*\)$")
 def amount(token):
  token=token.strip()
  if not VALUE.fullmatch(token):
