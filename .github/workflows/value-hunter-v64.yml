@@ -1,0 +1,33 @@
+name: VALUE HUNTER DBS banking balance v64
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/d05_bank_balance_v64.py
+      - SGX_PDF_connection_probe/test_d05_bank_balance_v64.py
+      - .github/workflows/value-hunter-v64.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Test banking Group balance and NCI arithmetic
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_d05_bank_balance_v64.py
+      - name: Verify DBS 2025 consolidated bank balance from official PDF
+        run: python SGX_PDF_connection_probe/d05_bank_balance_v64.py --output d05-v64/balance.json
+      - name: Preserve source diagnostic artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d05-audited-bank-balance-v64
+          path: d05-v64/
+          if-no-files-found: warn
