@@ -54,7 +54,7 @@ def parse_pdf(raw):
                 continue
             page_rows=rows(page.get_text("words"))
             for row_index,row in enumerate(page_rows):
-                label=" ".join(r["text"].lower() for r in page_rows[max(0,row_index-2):row_index+1])
+                label=" ".join(r["text"].lower() for r in page_rows[max(0,row_index-14):row_index+1])
                 for metric,spec in TARGET.items():
                     values=row["numbers"]
                     pair=[spec["2026"],spec["2025"]]
