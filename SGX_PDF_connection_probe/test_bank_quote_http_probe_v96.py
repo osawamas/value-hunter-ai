@@ -1,5 +1,7 @@
 """v96 secondary quote HTML is diagnostic; refuses missing ticker/date/multiple blocks."""
 import unittest
+from datetime import datetime,timedelta
+from zoneinfo import ZoneInfo
 from bank_quote_http_probe_v96 import parse,SOURCES,STATUS
 
 def html(symbol,*,price="37.750",day="2026-11-13",time="17:16",duplicate=False,wrong_isin=False):
@@ -26,7 +28,8 @@ class QuoteTests(unittest.TestCase):
  def test_wrong_isin_rejected(self):
   with self.assertRaises(ValueError):parse("U11",html("U11",wrong_isin=True))
  def test_future_date_rejected(self):
-  with self.assertRaises(ValueError):parse("U11",html("U11",day="2026-11-15"))
+  future=(datetime.now(ZoneInfo("Asia/Singapore")).date()+timedelta(days=1)).isoformat()
+  with self.assertRaises(ValueError):parse("U11",html("U11",day=future))
  def test_malformed_timestamp_rejected(self):
   with self.assertRaises(ValueError):parse("U11",html("U11",time="bad"))
  def test_multiple_header_prices_rejected(self):
