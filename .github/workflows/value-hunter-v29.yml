@@ -75,7 +75,11 @@ on:
       - 'SGX_PDF_connection_probe/test_bank_share_leads_v87.py'
       - 'SGX_PDF_connection_probe/u11_nov12_primary_v88.py'
       - 'SGX_PDF_connection_probe/u11_nov12_publish_v89.py'
-      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py'
+      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py'
+      - 'SGX_PDF_connection_probe/u11_buyback_chain_v90.py'
+      - 'SGX_PDF_connection_probe/test_u11_buyback_chain_v90.py'
+      - 'SGX_PDF_connection_probe/u11_buyback_chain_publish_v91.py'
+      - 'SGX_PDF_connection_probe/test_u11_buyback_chain_publish_v91.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -288,6 +292,13 @@ jobs:
             python SGX_PDF_connection_probe/u11_nov12_publish_v89.py --feed docs/data/latest.json --source primary-sgx-v88/u11-nov12.json --output docs/data/latest.json
           else
             echo "SGX UOB 12-Nov source unavailable; keep dated official history absent." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # Verifying each link directly against SGX rather than deriving
+          # missing daily filings from a newer syndication quote.
+          if python SGX_PDF_connection_probe/u11_buyback_chain_v90.py --output primary-sgx-v90/u11-chain.json && python SGX_PDF_connection_probe/u11_buyback_chain_publish_v91.py --feed docs/data/latest.json --source primary-sgx-v90/u11-chain.json --output docs/data/latest.json; then
+            echo "UOB Nov 10/11/12 original SGX buyback chain verified." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "UOB original SGX 3-day chain not promoted: missing primary page or mismatch." >> "$GITHUB_STEP_SUMMARY"
           fi
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
