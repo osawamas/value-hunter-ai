@@ -15,7 +15,7 @@ from urllib.request import Request,urlopen
 ISSUER_NAMES={"U11":"UNITED OVERSEAS BANK LIMITED",
               "O39":"OVERSEA-CHINESE BANKING CORPORATION LIMITED",
               "D05":"DBS GROUP HOLDINGS LTD"}
-OFFICIAL=re.compile(r"^/1\.0\.0/corporate-announcements/[A-Za-z0-9]+/?$")
+OFFICIAL=re.compile(r"^/1\.0\.0/corporate-announcements/[A-Za-z0-9]+/(?:[a-f0-9]{64}/?)?$")
 REF=re.compile(r"SG\d{6}OTHR[A-Z0-9]+")
 
 class VisibleText(HTMLParser):
