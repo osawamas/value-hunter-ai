@@ -275,6 +275,32 @@ function showDetail(r) {
       ["更新情報", dateJst(state.feed.updated_at_utc)],
     ])
   );
+  // Bank income is separate from industrial revenue / operating margin.
+  // The nested record is audited issuer evidence, not a current quote or ranking.
+  const bank = r.banking_evidence;
+  if (bank && bank.status === "BANK_ISSUER_FY2025_GROUP_STATEMENTS_RECONCILED" &&
+      bank.scope === "GROUP_BANKING_NOT_INDUSTRIAL_FINANCIALS") {
+    const inc = bank.income?.["2025"] || {};
+    const bal = bank.balance?.["2025"] || {};
+    const previous = bank.income?.["2024"] || {};
+    grid.append(field("銀行", "銀行専用の連結決算（2025年・2024年比較）", [
+      ["銀行の財務年度", "2025年12月期"],
+      ["総収益（2025年・百万SGD）", fmt(inc.total_income, 0)],
+      ["総収益（2024年・百万SGD）", fmt(previous.total_income, 0)],
+      ["純金利収益（2025年・百万SGD）", fmt(inc.net_interest_income, 0)],
+      ["非金利収益（2025年・百万SGD）", fmt(inc.non_interest_income, 0)],
+      ["貸倒・その他損失引当（百万SGD）", fmt(inc.allowances_for_credit_losses, 0)],
+      ["親会社株主帰属利益（百万SGD）", fmt(inc.profit_attributable_to_parent, 0)],
+      ["総資産（百万SGD）", fmt(bal.total_assets, 0)],
+      ["負債合計（百万SGD）", fmt(bal.total_liabilities, 0)],
+      ["親会社株主持分（百万SGD）", fmt(bal.parent_shareholders_funds, 0)],
+      ["非支配持分（百万SGD）", fmt(bal.non_controlling_interests, 0)],
+      ["PDFのSHA256", bank.pdf_sha256 || "未登録"],
+      ["公式年次報告書", bank.source_url, true],
+      ["検証区分", "発行会社の監査済み連結資料内で照合。第三者との数値突合は未実施"],
+      ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
+    ]));
+  }
   parent.append(grid, el("div", "eyebrow", "ランキング除外理由・品質チェック"));
   const list = el("ul", "reasons");
   for (const reason of r.exclusion_reasons || []) {
