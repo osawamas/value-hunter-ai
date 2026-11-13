@@ -1,0 +1,33 @@
+name: VALUE HUNTER DBS D05 annual shareholding v62
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/d05_shareholding_v62.py'
+      - 'SGX_PDF_connection_probe/test_d05_shareholding_v62.py'
+      - '.github/workflows/value-hunter-v62.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: D05 synthetic shareholding and rejection tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_d05_shareholding_v62.py
+      - name: Extract DBS FY2025 official annual shareholding PDF
+        run: python SGX_PDF_connection_probe/d05_shareholding_v62.py --output d05_v62_results/shares.json
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d05-official-shareholding-v62
+          path: d05_v62_results/
+          if-no-files-found: warn
