@@ -55,6 +55,11 @@ on:
       - 'SGX_PDF_connection_probe/test_bank_historical_shares_v75.py'
       - 'SGX_PDF_connection_probe/bank_historical_share_publish_v76.py'
       - 'SGX_PDF_connection_probe/test_bank_historical_share_publish_v76.py'
+      - 'SGX_PDF_connection_probe/bank_q3_2026_probe_v77.py'
+      - 'SGX_PDF_connection_probe/bank_q3_financials_v79.py'
+      - 'SGX_PDF_connection_probe/test_bank_q3_financials_v79.py'
+      - 'SGX_PDF_connection_probe/bank_q3_publish_v80.py'
+      - 'SGX_PDF_connection_probe/test_bank_q3_publish_v80.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -147,7 +152,8 @@ jobs:
             test_d05_bank_income_v63.py test_d05_bank_balance_v64.py test_d05_bank_bundle_v65.py \
             test_o39_bank_summary_v67.py test_u11_bank_summary_v68.py test_bank_summary_publish_v69.py \
             test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py test_bank_financial_state_v73.py \
-            test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py
+            test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py \
+            test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -234,6 +240,15 @@ jobs:
           else
             echo "U11 dated treasury share evidence not available; current shares stay unknown." >> "$GITHUB_STEP_SUMMARY"
           fi
+          # Q3 is a three-month result; 9M is cumulative. Preserve FY2025
+          # audited Group figures and all market/valuation nulls separately.
+          for symbol in D05 O39 U11; do
+            if python SGX_PDF_connection_probe/bank_q3_financials_v79.py --symbol "$symbol" --output "bank-quarter-v79/$symbol.json"; then
+              python SGX_PDF_connection_probe/bank_q3_publish_v80.py --feed docs/data/latest.json --issuer-result "bank-quarter-v79/$symbol.json" --output docs/data/latest.json
+            else
+              echo "$symbol 3Q26 source unavailable or regression changed; no Q3 data promoted." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
