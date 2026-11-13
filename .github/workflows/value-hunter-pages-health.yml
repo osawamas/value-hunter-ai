@@ -41,6 +41,25 @@ jobs:
           echo "URL=$URL" | tee -a site_health/status.txt
           echo "HTTP_STATUS=$STATUS" | tee -a site_health/status.txt
           cat site_health/status.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: List recent financial and website update runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          for workflow in ("value-hunter-v32.yml", "value-hunter-v29.yml"):
+              url = f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/workflows/{workflow}/runs?per_page=6"
+              done = subprocess.run(["gh", "api", url], capture_output=True, text=True)
+              if done.returncode:
+                  print("WORKFLOW", workflow, "UNAVAILABLE", done.stderr[:150])
+                  continue
+              data = json.loads(done.stdout)
+              for run in data.get("workflow_runs", []):
+                  print("WORKFLOW", workflow, "RUN", run["id"],
+                        "STATUS", run["status"], "RESULT", run.get("conclusion"),
+                        "COMMIT", run["head_sha"][:10])
+          PY
       - name: Upload diagnostic only (no secrets)
         if: always()
         uses: actions/upload-artifact@v4
