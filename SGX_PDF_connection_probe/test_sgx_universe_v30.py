@@ -39,9 +39,18 @@ class UniverseTests(unittest.TestCase):
             self.assertIsNone(record["market_cap_sgd"])
             self.assertFalse(record["ranking_eligible"])
             self.assertIn("FINANCIAL_MISSING_REVENUE",record["exclusion_reasons"])
+            self.assertIn("FINANCIAL_SOURCE_REGISTERED_NOT_PARSED",record["exclusion_reasons"])
+            self.assertEqual(record["financial_source_kind"], "REGISTERED_SOURCE_NOT_PARSED")
+            self.assertTrue(record["financial_source_url"].startswith("https://"))
         published=build(result,datetime(2026,11,14,tzinfo=timezone.utc))
         self.assertEqual(published["coverage"]["registered_count"],7)
         self.assertFalse(published["coverage"]["all_sgx_listed"])
+        for row in published["records"]:
+            if row["symbol"] in {"D05","O39","U11"}:
+                self.assertEqual(row["financial_source_kind"], "REGISTERED_SOURCE_NOT_PARSED")
+                self.assertTrue(row["financial_source_url"].startswith("https://"))
+                self.assertIsNone(row["financial_pdf_sha256"])
+                self.assertIsNone(row["revenue_sgd_thousands"])
 
     def test_duplicate_rejected(self):
         u = universe(("S68", "S68"))
