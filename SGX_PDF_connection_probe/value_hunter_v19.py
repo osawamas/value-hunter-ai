@@ -27,16 +27,27 @@ def derive(r):
  return r
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
+ p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s63');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
  records=[];errors=[]
  for sym in ['S68','G13','S20']:
   try:records.append(derive(normalize_s68(args.s68) if sym=='S68' else normalize_v18(Path(args.v18_dir)/f'{sym}_financial_v18.json',sym)))
   except (OSError,KeyError,ValueError,AssertionError,TypeError) as ex:errors.append({'symbol':sym,'error':str(ex)})
+
+ s63_status=None
+ if args.s63:
+  try:
+   source=json.loads(Path(args.s63).read_text(encoding='utf-8'))
+   s63_status=source.get('status')
+   if s63_status=='EXTRACTED_AUDITED_ISSUER_PDF_ARITHMETIC_MATCHED' and source.get('record'):
+    records.append(derive(source['record']))
+  except (OSError,ValueError,KeyError,TypeError) as ex:
+   s63_status='NOT_VERIFIED: '+str(ex)[:180]
+ 
  (out/'value_hunter_financials.json').write_text(json.dumps({'schema_version':'value_hunter_financials_v1','generated_at_utc':datetime.now(timezone.utc).isoformat(),'records':records,'errors':errors},indent=2)+'\n')
  with (out/'value_hunter_summary.csv').open('w',newline='') as f:
   columns=['symbol','year','revenue','revenue_growth_pct','operating_profit','operating_margin_pct','attributable_profit','assets','liabilities','equity','equity_to_assets_pct','balance_equation_difference','ranking_eligible'];w=csv.DictWriter(f,fieldnames=columns);w.writeheader()
   for r in records:
    y=r['fiscal_year'];w.writerow({'symbol':r['symbol'],'year':y,**{k:get(r,k,y) for k in ['revenue','operating_profit','attributable_profit','assets','liabilities','equity']},**{k:r['derived'][k] for k in ['revenue_growth_pct','operating_margin_pct','equity_to_assets_pct','balance_equation_difference']},'ranking_eligible':False})
- (out/'integration_report.json').write_text(json.dumps({'processed':len(records),'errors':errors},indent=2)+'\n');print('Processed:',len(records),'errors:',errors)
+ (out/'integration_report.json').write_text(json.dumps({'processed':len(records),'errors':errors,'s63_status':s63_status},indent=2)+'\n');print('Processed:',len(records),'errors:',errors)
  return bool(errors)
 if __name__=='__main__':raise SystemExit(main())

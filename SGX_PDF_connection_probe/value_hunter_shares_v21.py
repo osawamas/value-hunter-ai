@@ -7,6 +7,7 @@ from pathlib import Path
 SHARES = {
  'S68': {'shares_outstanding': 1070843484, 'as_of_date': '2026-09-01', 'source_url': 'https://investorrelations.sgx.com/financial-information/annual-reports', 'source_detail': 'FY2026 annual report, shareholding statistics: 1,071,642,400 issued less 798,916 treasury', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
  'G13': {'shares_outstanding': 12063642274, 'as_of_date': '2026-08-14', 'source_url': 'https://gentingsingapore.listedcompany.com/share-quote-and-chart.html', 'source_detail': 'Issuer IR quote page, issued and paid-up shares, updated 14 Aug 2026', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
+ 'S63': {'shares_outstanding': 3114951550, 'as_of_date': '2026-02-27', 'source_url': 'https://www.stengg.com/en/investor-relations/share-information/', 'source_detail': 'Issuer IR: issued shares excluding treasury shares as of 27 Feb 2026', 'share_count_basis': 'issued_excluding_treasury', 'verification_status': 'DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED'},
 }
 
 def positive(x):

@@ -21,10 +21,10 @@ def universe(symbols=("S68", "G13", "S20")):
             "issuers": [issuer(s) for s in symbols]}
 
 class UniverseTests(unittest.TestCase):
-    def test_current_catalog_has_three_source_backed_issuers(self):
+    def test_catalog_has_four_source_backed_issuers(self):
         path = Path(__file__).with_name("sgx_universe_v30.json")
         rows = read_universe(path)
-        self.assertEqual([r["symbol"] for r in rows], ["S68", "G13", "S20"])
+        self.assertEqual([r["symbol"] for r in rows], ["S68", "G13", "S20", "S63"])
 
     def test_duplicate_rejected(self):
         u = universe(("S68", "S68"))
