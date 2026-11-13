@@ -81,13 +81,36 @@
         <div id="detailContent" class="detail-content"><p class="placeholder">銘柄を選ぶと、財務データの出典・取得日・除外理由がここに表示される。</p></div>
       </section>
 
+      <section class="history" aria-labelledby="historyTitle">
+        <div class="section-heading">
+          <div><div class="eyebrow">PRICE HISTORY / RECORDED SNAPSHOTS</div><h2 id="historyTitle">株価・評価指標の更新履歴</h2></div>
+          <p>取得済みの値のみ表示。欠損日を推測で補完しない。</p>
+        </div>
+        <div class="toolbar">
+          <label class="control">銘柄
+            <select id="historySymbol" aria-label="履歴を表示する銘柄"><option value="">銘柄を選択</option></select>
+          </label>
+          <label class="control">指標
+            <select id="historyMetric" aria-label="履歴を表示する指標">
+              <option value="price_sgd">株価（SGD）</option>
+              <option value="per_reference">PER参考（倍）</option>
+              <option value="pbr_reference_unverified">PBR参考（倍・未検証）</option>
+            </select>
+          </label>
+        </div>
+        <div class="history-panel">
+          <p id="historyStatus" class="history-note" role="status">履歴を読み込み中…</p>
+          <div id="historyChart" class="history-chart" aria-label="記録された取得日の時系列チャート"></div>
+        </div>
+      </section>
+
       <section class="disclaimer">
         <div class="eyebrow">DATA QUALITY POLICY</div>
         <h3>「わからない」は、わからないまま表示する。</h3>
         <p>企業の年次報告書と決算発表の照合は、第三者機関による独立した検証ではない。株価には非公式提供元を利用する場合があり、遅延・欠損の可能性がある。期間の異なる財務データと現在株価の組合せにも注意。ランキングは必要な指標と信頼性が揃った銘柄のみ有効になる。この画面は投資助言ではない。</p>
       </section>
     </main>
-    <footer><span>© VALUE HUNTER AI / 安物で割安</span><span>SGX / 3-ISSUER PROOF OF CONCEPT</span></footer>
+    <footer><span>© VALUE HUNTER AI / 安物で割安</span><span>SGX / REGISTERED ISSUERS ONLY</span></footer>
   </div>
   <input type="file" id="fileInput" accept=".json,application/json" hidden>
 </body>
