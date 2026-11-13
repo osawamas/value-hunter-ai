@@ -73,7 +73,8 @@ def parse_pdf(raw):
                     if needle in raw and len(probe)<8:
                         linez=raw.splitlines()
                         indices=[k for k,line in enumerate(linez) if needle in line]
-                        probe.extend({"page":j+1,"nearby":" | ".join(linez[max(0,k-3):k+4])[:350]}
+                        probe.extend({"page":j+1,"nearby":" | ".join(linez[max(0,k-3):k+4])[:350],
+                           "visual_rows":[r["text"][:230] for r in rows(page.get_text("words")) if TARGET[metric]["2026"] in r["numbers"]][:4]}
                                      for k in indices[:2])
                 raise ValueError(f"Annual report {metric} candidates={len(hits)} nearby={probe}")
         return matches
