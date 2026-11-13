@@ -178,7 +178,8 @@ jobs:
             test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py test_bank_financial_state_v73.py \
             test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py \
             test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py \
-            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py test_bank_share_leads_v87.py test_u11_nov12_publish_v89.py
+            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py test_bank_share_leads_v87.py test_u11_nov12_publish_v89.py \
+            test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py test_u11_pending_buyback_v92.py test_bank_market_readiness_v93.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
