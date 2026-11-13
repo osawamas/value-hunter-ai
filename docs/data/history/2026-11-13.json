@@ -1,6 +1,6 @@
 {
   "date_utc": "2026-11-13",
-  "source_updated_at_utc": "2026-11-13T20:05:53.576903+00:00",
+  "source_updated_at_utc": "2026-11-13T20:07:54.389622+00:00",
   "records": [
     {
       "symbol": "S68",
@@ -21,7 +21,7 @@
       "market_cap_sgd": 6936594307.55,
       "quote_timestamp_utc": "2026-11-13T09:13:51+00:00",
       "quote_freshness": "RECENT",
-      "shares_as_of_date": "2026-08-14",
+      "shares_as_of_date": "2026-06-30",
       "quality_flags": []
     },
     {

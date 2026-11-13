@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T20:05:53.576903+00:00",
-  "input_generated_at_utc": "2026-11-13T20:05:53.534663+00:00",
+  "updated_at_utc": "2026-11-13T20:07:54.389622+00:00",
+  "input_generated_at_utc": "2026-11-13T20:07:54.348397+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -123,16 +123,16 @@
           1
         ]
       },
-      "shares_verification_status": "DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED",
-      "shares_count_basis": null,
-      "shares_pdf_sha256": null,
-      "gross_issued_shares": null,
-      "treasury_shares": null,
+      "shares_verification_status": "LIVE_1H2026_TREASURY_ROLLFORWARD_RECONCILED",
+      "shares_count_basis": "issued_excluding_treasury",
+      "shares_pdf_sha256": "3b7f3ce3ebc648f419b5077c85386673cfa8d10d6025dfc8e6c437fad6144a77",
+      "gross_issued_shares": 12094026824,
+      "treasury_shares": 30384550,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/G13.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T09:13:51+00:00",
-      "shares_source_url": "https://gentingsingapore.listedcompany.com/share-quote-and-chart.html",
-      "shares_as_of_date": "2026-08-14",
+      "shares_source_url": "https://links.sgx.com/FileOpen/2.%20GENS%201H2026%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=900902",
+      "shares_as_of_date": "2026-06-30",
       "audit_states": {
         "revenue": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
         "operating_profit": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
@@ -142,7 +142,6 @@
       "ranking_score": null,
       "exclusion_reasons": [
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
-        "TREASURY_SHARE_BASIS_UNCONFIRMED",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
       ],
       "data_state": "PARTIAL_UNVERIFIED",
@@ -284,7 +283,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T20:05:53.603426+00:00",
+  "quality_checked_at_utc": "2026-11-13T20:07:54.415540+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
