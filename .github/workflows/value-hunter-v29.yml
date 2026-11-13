@@ -73,6 +73,9 @@ on:
       - 'SGX_PDF_connection_probe/test_u11_primary_publish_v86.py'
       - 'SGX_PDF_connection_probe/bank_share_leads_v87.py'
       - 'SGX_PDF_connection_probe/test_bank_share_leads_v87.py'
+      - 'SGX_PDF_connection_probe/u11_nov12_primary_v88.py'
+      - 'SGX_PDF_connection_probe/u11_nov12_publish_v89.py'
+      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -167,7 +170,7 @@ jobs:
             test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py test_bank_financial_state_v73.py \
             test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py \
             test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py \
-            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py test_bank_share_leads_v87.py
+            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py test_bank_share_leads_v83.py test_sgx_primary_buyback_v84.py test_u11_primary_publish_v86.py test_bank_share_leads_v87.py test_u11_nov12_publish_v89.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -278,6 +281,13 @@ jobs:
             python SGX_PDF_connection_probe/u11_primary_publish_v86.py --feed docs/data/latest.json --source primary-sgx-v85/u11.json --output docs/data/latest.json
           else
             echo "Primary SGX Sep-2026 UOB announcement unavailable; keep previous provenance state." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # UOB 12-Nov has a direct SGX original. Preserve it as dated
+          # history and leave the 13-Nov SGXNet secondary lead unverified.
+          if python SGX_PDF_connection_probe/u11_nov12_primary_v88.py --output primary-sgx-v88/u11-nov12.json; then
+            python SGX_PDF_connection_probe/u11_nov12_publish_v89.py --feed docs/data/latest.json --source primary-sgx-v88/u11-nov12.json --output docs/data/latest.json
+          else
+            echo "SGX UOB 12-Nov source unavailable; keep dated official history absent." >> "$GITHUB_STEP_SUMMARY"
           fi
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
