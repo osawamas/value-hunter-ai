@@ -1,10 +1,36 @@
 {
   "symbol": "G13",
-  "status": "NOT_VERIFIED",
+  "status": "EXTRACTED_GROUP_BALANCE_ARITHMETIC_MATCHED",
   "source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160",
   "pdf_sha256": "fe6856502967711f79b73d0c01f5a3b10dfd772900495c73f9d166ee5b32622c",
-  "error": "ValueError: Group 2025 heading missing",
-  "checks": null,
-  "page_pdf_number": null,
-  "parent_equity_candidate": {}
+  "error": null,
+  "checks": {
+    "2025": {
+      "assets_minus_liabilities_minus_equity": 0,
+      "assets_row": "Consolidated total assets 9,185,799",
+      "liabilities_row": "Consolidated total liabilities 980,383",
+      "matched": true
+    },
+    "2024": {
+      "assets_minus_liabilities_minus_equity": 0,
+      "assets_row": "Consolidated total assets 9,230,564",
+      "liabilities_row": "Consolidated total liabilities 932,987",
+      "matched": true
+    }
+  },
+  "page_pdf_number": 62,
+  "parent_equity_candidate": {
+    "2025": {
+      "value": 8205416,
+      "status": "GROUP_ORDINARY_SHAREHOLDER_EQUITY_SAME_ISSUER_PDF",
+      "page": 36,
+      "source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160"
+    },
+    "2024": {
+      "value": 8297577,
+      "status": "GROUP_ORDINARY_SHAREHOLDER_EQUITY_SAME_ISSUER_PDF",
+      "page": 36,
+      "source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160"
+    }
+  }
 }

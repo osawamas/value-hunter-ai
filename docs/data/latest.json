@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T19:02:21.546226+00:00",
-  "input_generated_at_utc": "2026-11-13T19:02:21.501620+00:00",
+  "updated_at_utc": "2026-11-13T19:04:48.183386+00:00",
+  "input_generated_at_utc": "2026-11-13T19:04:48.141310+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -79,13 +79,13 @@
       "revenue_sgd_thousands": 2452053,
       "revenue_growth_pct": -3.08,
       "operating_margin_pct": 20.66,
-      "equity_ratio_pct": null,
+      "equity_ratio_pct": 89.33,
       "attributable_profit_sgd_thousands": 390346,
       "price_sgd": 0.575,
       "shares_outstanding": 12063642274,
       "market_cap_sgd": 6936594307.55,
       "per_reference": 17.7704,
-      "pbr_reference_unverified": null,
+      "pbr_reference_unverified": 0.8454,
       "pbr_verified": null,
       "financial_source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160",
       "financial_source_kind": "LIVE_V18_PDF_EXTRACT",
@@ -119,9 +119,6 @@
       "ranking_eligible": false,
       "ranking_score": null,
       "exclusion_reasons": [
-        "FINANCIAL_MISSING_ASSETS",
-        "FINANCIAL_MISSING_LIABILITIES",
-        "BALANCE_UNVERIFIED_OR_MISMATCH",
         "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
         "TREASURY_SHARE_BASIS_UNCONFIRMED",
         "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
@@ -241,7 +238,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T19:02:21.575004+00:00",
+  "quality_checked_at_utc": "2026-11-13T19:04:48.209965+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
