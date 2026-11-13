@@ -26,8 +26,13 @@ def parse_pdf(raw):
         raise ValueError("DBS official annual source is not a PDF")
     doc = fitz.open(stream=raw, filetype="pdf")
     try:
-        if len(doc) < 50 or "DBS" not in doc[0].get_text("text"):
-            raise ValueError("Issuer/year/report identity not established")
+        if len(doc) < 50:
+            raise ValueError("Issuer annual PDF unexpectedly short")
+        # Cover may contain graphical text only; require issuer in introductory
+        # extracted text rather than assuming the cover is selectable.
+        intro=" ".join(doc[i].get_text("text") for i in range(min(len(doc),35)))
+        if "DBS" not in intro:
+            raise ValueError("DBS annual PDF issuer identity not established")
         found = []
         for i, page in enumerate(doc):
             text = " ".join(page.get_text("text").split())
