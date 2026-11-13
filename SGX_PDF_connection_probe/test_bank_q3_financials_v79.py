@@ -10,6 +10,8 @@ def fixture(symbol,*,bad_q3=False,bad_9m=False,wrong_year=False,duplicate=False)
  for _ in range(max(schema["pages"].values())):pdf.new_page(width=1200,height=1500)
  pdf[0].insert_text((20,30),("DBS" if symbol=="D05" else "OCBC" if symbol=="O39" else "UOB")+" 3Q 2026 report")
  for period,page_num in schema["pages"].items():
+  if period=="9M" and schema["pages"]["Q3"]==schema["pages"]["9M"]:
+   continue
   page=pdf[page_num-1]
   if symbol=="D05":
    header=["3rd Qtr","2025" if wrong_year else "2026","9 Mths","2026"]
@@ -28,8 +30,6 @@ def fixture(symbol,*,bad_q3=False,bad_9m=False,wrong_year=False,duplicate=False)
     values=[q3value,q3value,0,q3value,0] if period=="Q3" else [mvalue,mvalue,0]
    else:values=[mvalue,mvalue,0,q3value,q3value,0,q3value,0]
    def fmt(v):return f"({abs(v):,})" if v<0 else f"{v:,}"
-   if symbol=="D05" or symbol=="U11":
-    if period=="9M" and schema["pages"]["Q3"]==schema["pages"]["9M"]:continue
    data.extend([label,*[fmt(v) for v in values]])
    if duplicate and key=="total_income":data.extend([label,*[fmt(v) for v in values]])
   for i,line in enumerate(data):page.insert_text((20,35+i*19),line,fontsize=9)
