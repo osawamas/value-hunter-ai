@@ -54,18 +54,38 @@ def build(source, now=None):
     entries = source.get("records")
     if not isinstance(entries, list):
         raise ValueError("No records array")
+    declared = source.get("issuer_universe")
+    if declared is None:
+        symbols = list(SYMBOLS)
+        names = NAMES
+    else:
+        if not isinstance(declared, list) or not declared:
+            raise ValueError("Invalid declared universe")
+        names = {}
+        for issuer in declared:
+            if not isinstance(issuer, dict):
+                raise ValueError("Bad universe registration")
+            symbol, name, url = issuer.get("symbol"), issuer.get("issuer"), issuer.get("financial_pdf_url")
+            if not isinstance(symbol, str) or not symbol.isalnum() or len(symbol) > 8 or symbol in names:
+                raise ValueError("Duplicate/invalid universe symbol")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Issuer name missing")
+            if not https_url(url):
+                raise ValueError("Unproven issuer document URL")
+            names[symbol] = name
+        symbols = list(names)
     by_symbol = {}
     for item in entries:
-        if not isinstance(item, dict) or item.get("symbol") not in SYMBOLS:
+        if not isinstance(item, dict) or item.get("symbol") not in symbols:
             raise ValueError("Invalid symbol record")
         symbol = item["symbol"]
         if symbol in by_symbol:
             raise ValueError("Duplicate symbol record")
         by_symbol[symbol] = item
-    if set(by_symbol) != set(SYMBOLS):
-        raise ValueError("Incomplete three-issuer snapshot")
+    if set(by_symbol) != set(symbols):
+        raise ValueError("Incomplete declared issuer snapshot")
     records = []
-    for symbol in SYMBOLS:
+    for symbol in symbols:
         item = by_symbol[symbol]
         if item.get("ranking_eligible") is not False:
             # v28 is not yet independent verification; never silently publish
@@ -74,7 +94,7 @@ def build(source, now=None):
         reasons = item.get("exclusion_reasons")
         if not isinstance(reasons, list) or not reasons or any(not isinstance(x, str) for x in reasons):
             raise ValueError("Missing exclusion evidence")
-        row = {"symbol": symbol, "issuer": NAMES[symbol]}
+        row = {"symbol": symbol, "issuer": names[symbol]}
         for key in PUBLIC_KEYS:
             if key in ("financial_source_url", "audit_source_url", "quote_url", "shares_source_url"):
                 row[key] = https_url(item.get(key))
@@ -95,7 +115,8 @@ def build(source, now=None):
         "ranking_enabled": False,
         "currency": "SGD",
         "financial_unit": "SGD_thousands",
-        "coverage": {"listed_universe": "SGX", "tested_symbols": list(SYMBOLS), "all_sgx_listed": False},
+        "coverage": {"listed_universe": "SGX", "tested_symbols": list(symbols),
+                     "registered_count": len(symbols), "all_sgx_listed": False},
         "records": records,
     }
 
