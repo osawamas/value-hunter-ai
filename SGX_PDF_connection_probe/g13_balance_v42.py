@@ -47,7 +47,10 @@ def extract_half(page, left, right, year):
              if left <= (float(word[0]) + float(word[2])) / 2 < right]
     all_rows = rows(words)
     normalized = [" ".join(row.split()).lower() for row in all_rows]
-    if "group" not in normalized or str(year) not in normalized:
+    # A PDF row may contain Group plus other column headings (not an exact
+    # single-token row). Test exact word tokens within the correct page half.
+    tokens = [str(word[4]).strip().lower() for word in words]
+    if "group" not in tokens or str(year) not in tokens:
         raise ValueError(f"Group {year} heading missing")
     text = " ".join(normalized)
     if "segment information" not in text:
