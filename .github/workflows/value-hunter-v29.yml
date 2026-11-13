@@ -18,6 +18,7 @@ on:
       - 'SGX_PDF_connection_probe/test_g13_shareholding_v48.py'
       - 'SGX_PDF_connection_probe/s68_annual_crosscheck_v50.py'
       - 'SGX_PDF_connection_probe/test_s68_annual_crosscheck_v50.py'
+      - 'SGX_PDF_connection_probe/test_s68_crosscheck_merge_v50.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
