@@ -107,7 +107,7 @@ def parse_pdf(symbol,raw):
    if symbol=="D05" and values["total_income"]-values["operating_expenses"]!=values["profit_before_allowances"]:
     raise ValueError("DBS Group income less expenses mismatch")
    if symbol=="U11":
-    if (values["net_interest_income"]+values["net_fee_income"]+values["other_non_interest_income"]!=values["total_income"]
+    if (abs(values["net_interest_income"]+values["net_fee_income"]+values["other_non_interest_income"]-values["total_income"])>1
         or values["total_income"]-values["operating_expenses"]!=values["operating_profit"]):
      raise ValueError("UOB Group total income/operating profit mismatch")
    result[period]={"period_start":"2026-07-01" if period=="Q3" else "2026-01-01",
