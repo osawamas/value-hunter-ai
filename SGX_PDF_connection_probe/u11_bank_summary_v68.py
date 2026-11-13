@@ -81,7 +81,7 @@ def parse_pdf(raw):
     finally:doc.close()
 
 
-def run(output,raw=None):
+def run(output,raw=None,verified_pdf_copy=None):
     result={"symbol":"U11","status":"NOT_VERIFIED","source_url":SOURCE,
             "pdf_sha256":None,"record":None,"error":None}
     try:
@@ -89,6 +89,10 @@ def run(output,raw=None):
         result["pdf_sha256"]=hashlib.sha256(data).hexdigest()
         result["record"]=parse_pdf(data)
         result["status"]="U11_FY2025_ISSUER_FIVE_YEAR_BANK_SUMMARY_MATCHED"
+        if verified_pdf_copy is not None:
+            target=Path(verified_pdf_copy)
+            target.parent.mkdir(parents=True,exist_ok=True)
+            target.write_bytes(data)
     except Exception as exc:
         result["error"]=f"{type(exc).__name__}: {str(exc)[:300]}"
     p=Path(output);p.parent.mkdir(parents=True,exist_ok=True)
@@ -98,7 +102,8 @@ def run(output,raw=None):
 if __name__=="__main__":
     p=argparse.ArgumentParser();p.add_argument("--output",required=True)
     p.add_argument("--offline-pdf")
+    p.add_argument("--verified-pdf-copy")
     a=p.parse_args()
-    result=run(a.output,Path(a.offline_pdf).read_bytes() if a.offline_pdf else None)
+    result=run(a.output,Path(a.offline_pdf).read_bytes() if a.offline_pdf else None,a.verified_pdf_copy)
     print(result["status"],result["error"])
     raise SystemExit(0 if result["status"]=="U11_FY2025_ISSUER_FIVE_YEAR_BANK_SUMMARY_MATCHED" else 1)
