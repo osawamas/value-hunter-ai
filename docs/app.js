@@ -221,6 +221,12 @@ function showDetail(r) {
     field("財務", "財務資料と指標", [
       ["売上高（千SGD）", fmt(r.revenue_sgd_thousands, 0)],
       ["親会社株主帰属損益（千SGD）", fmt(r.attributable_profit_sgd_thousands, 0)],
+      ["連結総資産（千SGD）", fmt(r.assets_sgd_thousands, 0)],
+      ["連結総負債（千SGD）", fmt(r.liabilities_sgd_thousands, 0)],
+      ["連結純資産（千SGD）", fmt(r.equity_sgd_thousands, 0)],
+      ["貸借差額（千SGD）", fmt(r.balance_difference_sgd_thousands, 0)],
+      ["連結貸借の取得状態", r.balance_source_status || "未検証"],
+      ["連結貸借の根拠ページ", r.balance_source_page || "未登録"],
       ["資料の種類", r.financial_source_kind || "未取得"],
       ["公式財務資料", r.financial_source_url, true],
       ["資料のファイル識別子", r.financial_pdf_sha256 || "未登録"],
@@ -241,6 +247,9 @@ function showDetail(r) {
       ["時価総額（SGD）", fmt(r.market_cap_sgd, 0)],
       ["PER", fmt(r.per_reference) + (hasNum(r.per_reference) ? " 倍" : "")],
       ["PBR（未検証）", fmt(r.pbr_reference_unverified) + (hasNum(r.pbr_reference_unverified) ? " 倍" : "")],
+      ["PBR分母：親会社株主持分（千SGD）", fmt(r.parent_equity_sgd_thousands, 0)],
+      ["親会社株主持分の検証状態", r.parent_equity_status || "未検証"],
+      ["親会社株主持分の出典", r.parent_equity_source_url, true],
       ["検証済みPBR", fmt(r.pbr_verified)],
     ]),
     field("照合", "公式資料間の照合状況", [
