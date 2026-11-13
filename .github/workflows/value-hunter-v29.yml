@@ -10,6 +10,8 @@ on:
       - 'SGX_PDF_connection_probe/s68_official_pdf_v44.py'
       - 'SGX_PDF_connection_probe/g13_treasury_v44.py'
       - 'SGX_PDF_connection_probe/test_official_sources_v44.py'
+      - 'SGX_PDF_connection_probe/test_share_provenance_v45.py'
+      - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
       - 'SGX_PDF_connection_probe/value_hunter_s63_crosscheck_v40.py'
