@@ -377,6 +377,33 @@ function showDetail(r) {
       ["株価・PER・PBR", "別途検証が済むまで未取得・未採用"],
     ]));
   }
+  const bankInterim = r.banking_interim_2026;
+  if (bankInterim && bankInterim.status === "ISSUER_3Q_AND_NINE_MONTH_TRADING_UPDATE_REGRESSION_MATCHED") {
+    const q = bankInterim.Q3?.metrics || {};
+    const m = bankInterim.nine_months?.metrics || {};
+    const netKey = r.symbol === "O39" ? "group_net_profit" : "net_profit";
+    grid.append(field("銀行速報", "2026年第3四半期（7〜9月の3か月、百万SGD）", [
+      ["対象期間", "2026年7月1日〜9月30日"],
+      ["連結総収益", fmt(q.total_income, 0)],
+      ["連結純金利収益", fmt(q.net_interest_income, 0)],
+      ["連結最終利益", fmt(q[netKey], 0)],
+      ["営業費用（符号は報告書準拠）", fmt(q.operating_expenses, 0)],
+      ["資料中のPDFページ", bankInterim.Q3?.source_pdf_page || "未登録"],
+    ]));
+    grid.append(field("銀行累計", "2026年1〜9月の9か月累計（百万SGD）", [
+      ["対象期間", "2026年1月1日〜9月30日"],
+      ["連結総収益", fmt(m.total_income, 0)],
+      ["連結純金利収益", fmt(m.net_interest_income, 0)],
+      ["連結最終利益", fmt(m[netKey], 0)],
+      ["営業費用（符号は報告書準拠）", fmt(m.operating_expenses, 0)],
+      ["資料中のPDFページ", bankInterim.nine_months?.source_pdf_page || "未登録"],
+      ["公式発表日", bankInterim.issuer_release_date || "未登録"],
+      ["出典PDF", bankInterim.source_url, true],
+      ["ファイル識別子 SHA256", bankInterim.pdf_sha256 || "未登録"],
+      ["検証範囲", "発行体の四半期開示との数値照合。監査済み年次決算・第三者独立検証とは別"],
+      ["投資評価", "2025年通期やPER・PBRの計算に自動流用しない"],
+    ]));
+  }
   const bankingIndicators = r.banking_indicators;
   if (bankingIndicators &&
       bankingIndicators.status === "HISTORICAL_DERIVED_FROM_AUDITED_ISSUER_GROUP_FY2025") {
