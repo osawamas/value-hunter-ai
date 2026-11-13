@@ -16,8 +16,8 @@ def pdf(*, wrong_net=False, wrong_date=False, duplicate=False):
         lines=[
             "Shareholding statistics",
             "as at 10 February 2025" if wrong_date else "as at 10 February 2026",
-            "Total number of issued ordinary shares – "+("2,837,558,045" if wrong_net else "2,837,558,046")+" (excluding treasury shares)",
-            "Treasury Shares – 113,424 (representing 0.004%)",
+            "Total number of issued ordinary shares - "+("2,837,558,045" if wrong_net else "2,837,558,046")+" (excluding treasury shares)",
+            "Treasury Shares - 113,424 (representing 0.004%)",
         ]
         for i,line in enumerate(lines):
             page.insert_text((30,60+i*48),line,fontsize=12)
