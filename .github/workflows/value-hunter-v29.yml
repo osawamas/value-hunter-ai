@@ -75,13 +75,15 @@ on:
       - 'SGX_PDF_connection_probe/test_bank_share_leads_v87.py'
       - 'SGX_PDF_connection_probe/u11_nov12_primary_v88.py'
       - 'SGX_PDF_connection_probe/u11_nov12_publish_v89.py'
-      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py test_u11_pending_buyback_v92.py'
+      - 'SGX_PDF_connection_probe/test_u11_nov12_publish_v89.py test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py test_u11_pending_buyback_v92.py test_bank_market_readiness_v93.py'
       - 'SGX_PDF_connection_probe/u11_buyback_chain_v90.py'
       - 'SGX_PDF_connection_probe/test_u11_buyback_chain_v90.py'
       - 'SGX_PDF_connection_probe/u11_buyback_chain_publish_v91.py'
       - 'SGX_PDF_connection_probe/test_u11_buyback_chain_publish_v91.py'
       - 'SGX_PDF_connection_probe/u11_pending_buyback_v92.py'
       - 'SGX_PDF_connection_probe/test_u11_pending_buyback_v92.py'
+      - 'SGX_PDF_connection_probe/bank_market_readiness_v93.py'
+      - 'SGX_PDF_connection_probe/test_bank_market_readiness_v93.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -305,6 +307,7 @@ jobs:
           # A secondhand 13-Nov UOB filing may reconcile arithmetically to
           # 12-Nov original, but MUST remain without an SGX primary source.
           python SGX_PDF_connection_probe/u11_pending_buyback_v92.py --input docs/data/latest.json --output docs/data/latest.json
+          python SGX_PDF_connection_probe/bank_market_readiness_v93.py --input docs/data/latest.json --output docs/data/latest.json
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
