@@ -80,6 +80,27 @@ def audit_record(record, now):
             add("SHARES_STALE")
         elif share_age < -1:
             add("SHARES_DATE_IN_FUTURE")
+    gross = record.get("gross_issued_shares")
+    treasury = record.get("treasury_shares")
+    shares_hash = record.get("shares_pdf_sha256")
+    share_evidence_present = gross is not None or treasury is not None or shares_hash is not None
+    shares_reconciled = True
+    if share_evidence_present:
+        shares_reconciled = (
+            all(isinstance(x, int) and not isinstance(x, bool)
+                for x in (gross, treasury, shares))
+            and gross > 0 and 0 <= treasury < gross
+            and gross - treasury == shares
+            and record.get("shares_count_basis") == "issued_excluding_treasury"
+        )
+        if not shares_reconciled:
+            add("TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH")
+        if shares_hash is not None and (
+                not isinstance(shares_hash, str)
+                or len(shares_hash) != 64
+                or any(ch not in "0123456789abcdef" for ch in shares_hash.lower())):
+            add("SHARE_SOURCE_PDF_SHA256_INVALID")
+            shares_reconciled = False
     if record.get("ranking_eligible") is not False:
         raise ValueError("Unexpected ranking eligibility")
     if not isinstance(record.get("exclusion_reasons"), list) or not record["exclusion_reasons"]:
@@ -87,10 +108,11 @@ def audit_record(record, now):
 
     cap_valid = (
         numeric(price) and price > 0 and numeric(shares) and shares > 0
-        and numeric(cap) and cap >= 0 and near(cap, price * shares, 0.005)
+        and shares_reconciled and numeric(cap) and cap >= 0 and near(cap, price * shares, 0.005)
     )
     if numeric(cap) and not cap_valid:
-        add("MARKET_CAP_ARITHMETIC_MISMATCH")
+        if shares_reconciled:
+            add("MARKET_CAP_ARITHMETIC_MISMATCH")
         record["market_cap_sgd"] = None
         cap = None
     if per is not None:
@@ -98,8 +120,11 @@ def audit_record(record, now):
             add("PER_ARITHMETIC_MISMATCH_OR_INVALID")
             record["per_reference"] = None
     if pbr is not None:
-        if not cap_valid or not numeric(pbr) or pbr <= 0:
-            add("PBR_REFERENCE_INVALID_OR_CAP_MISMATCH")
+        owner_equity = record.get("parent_equity_sgd_thousands")
+        if (not cap_valid or not numeric(pbr) or pbr <= 0
+                or not numeric(owner_equity) or owner_equity <= 0
+                or not near(pbr, cap / (owner_equity * 1000), 0.01)):
+            add("PBR_DENOMINATOR_MISSING_OR_ARITHMETIC_MISMATCH")
             record["pbr_reference_unverified"] = None
     if record.get("pbr_verified") is not None and record.get("ranking_eligible") is False:
         # v29 is an unverified research feed: suppress a verified-label field
@@ -151,6 +176,7 @@ def inspect_feed(feed, now=None):
         "quote_missing": sum(r["quote_freshness"] == "MISSING" for r in checked),
         "shares_stale": sum(r["share_freshness"] == "STALE" for r in checked),
         "arithmetically_inconsistent": sum(any("MISMATCH" in flag for flag in r["quality_flags"]) for r in checked),
+        "treasury_share_inconsistent": sum("TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH" in r["quality_flags"] for r in checked),
         "ranking_eligible": 0,
     }
     return copy
