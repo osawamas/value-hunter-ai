@@ -309,6 +309,21 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const bankQuoteResearch = r.bank_dated_quote_research;
+  if (bankQuoteResearch && bankQuoteResearch.status === "DATED_2026_11_13_THIRD_PARTY_PRICE_RESEARCH_NOT_LIVE") {
+    grid.append(field("株価調査", "銀行の2026年11月13日・過去終値（転載履歴・現在の評価には使わない）", [
+      ["対象取引日", bankQuoteResearch.historical_trade_date || "未取得"],
+      ["2つの履歴資料が一致した参考終値",
+        hasNum(bankQuoteResearch.reference_close_sgd) ? fmt(bankQuoteResearch.reference_close_sgd,3) + " SGD" : "未取得"],
+      ["価格の意味", "過去日の終値。SGX公式の約定記録ではなく第三者サイトによる情報"],
+      ["参考資料1", bankQuoteResearch.sources?.[0]?.url || "未取得", true],
+      ["参考資料2", bankQuoteResearch.sources?.[1]?.url || "未取得", true],
+      ["DBSの別資料との相違", bankQuoteResearch.price_source_disagreement?.displayed
+        ? bankQuoteResearch.price_source_disagreement.displayed + " SGDという不一致もあり。自動採用しない" : "今回調べた2資料間では一致"],
+      ["価格取得の自動更新", "未実装。資料に基づく固定日付の調査結果"],
+      ["現在の株価・PER・PBR・ランキング", "未検証のため従来どおり空欄・対象外"],
+    ]));
+  }
   const bankReady = r.bank_market_readiness;
   if (bankReady && bankReady.status === "NOT_READY_PRIMARY_SHARES_AND_TIMED_QUOTES_MISSING") {
     const blockerNames = {
