@@ -1,6 +1,15 @@
 name: VALUE HUNTER SGX dashboard data refresh v29
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/value_hunter_web_v29.py'
+      - 'SGX_PDF_connection_probe/test_value_hunter_web_v29.py'
+      - 'docs/index.html'
+      - 'docs/app.js'
+      - 'docs/style.css'
+      - '.github/workflows/value-hunter-v29.yml'
   workflow_dispatch:
   schedule:
     - cron: '30 11 * * 1-5'
