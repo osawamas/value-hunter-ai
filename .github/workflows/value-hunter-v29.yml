@@ -30,6 +30,13 @@ on:
       - 'SGX_PDF_connection_probe/test_annual_identity_v59.py'
       - 'SGX_PDF_connection_probe/d05_shareholding_v62.py'
       - 'SGX_PDF_connection_probe/test_d05_shareholding_v62.py'
+      - 'SGX_PDF_connection_probe/d05_bank_income_v63.py'
+      - 'SGX_PDF_connection_probe/test_d05_bank_income_v63.py'
+      - 'SGX_PDF_connection_probe/d05_bank_balance_v64.py'
+      - 'SGX_PDF_connection_probe/test_d05_bank_balance_v64.py'
+      - 'SGX_PDF_connection_probe/d05_bank_bundle_v65.py'
+      - 'SGX_PDF_connection_probe/d05_bank_publish_v65.py'
+      - 'SGX_PDF_connection_probe/test_d05_bank_bundle_v65.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -118,7 +125,8 @@ jobs:
                       test_s63_share_snapshot_v36.py \
                       test_official_sources_v44.py test_share_provenance_v45.py test_s68_shareholding_v46.py test_public_shares_v47.py test_g13_shareholding_v48.py \
                       test_s68_annual_crosscheck_v50.py test_s68_crosscheck_merge_v50.py test_public_quality_v52.py test_public_freshness_v53.py test_s68_parent_equity_v54.py \
-                      test_s68_parent_merge_v54.py test_official_http_v57.py test_pdf_reuse_v58.py test_annual_identity_v59.py test_d05_shareholding_v62.py
+                      test_s68_parent_merge_v54.py test_official_http_v57.py test_pdf_reuse_v58.py test_annual_identity_v59.py test_d05_shareholding_v62.py \
+            test_d05_bank_income_v63.py test_d05_bank_balance_v64.py test_d05_bank_bundle_v65.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -162,6 +170,13 @@ jobs:
         run: |
           python SGX_PDF_connection_probe/value_hunter_web_v29.py --source value_hunter_v28_results/comparison_v28.json --output docs/data/latest.json
           python SGX_PDF_connection_probe/value_hunter_quality_v33.py --input docs/data/latest.json --output docs/data/latest.json
+          # Banking source is optional: an issuer PDF denial must not break
+          # the existing SGX data or fabricate bank valuations.
+          if python SGX_PDF_connection_probe/d05_bank_bundle_v65.py --output d05-v65/bundle.json; then
+            python SGX_PDF_connection_probe/d05_bank_publish_v65.py --feed docs/data/latest.json --bundle d05-v65/bundle.json --output docs/data/latest.json
+          else
+            echo "DBS banking report unavailable; keeping D05 banking evidence absent." >> "$GITHUB_STEP_SUMMARY"
+          fi
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
