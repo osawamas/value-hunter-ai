@@ -164,7 +164,40 @@ def download_pdf(url, timeout=35):
     return pdf
 
 
-def run(financials, output, fetch=download_pdf):
+def validate_s68_crosscheck(financials_by_symbol, path):
+    """Cross-check one distinct SGX issuer annual PDF, not third-party validation."""
+    evidence=json.loads(Path(path).read_text(encoding="utf-8"))
+    if (evidence.get("symbol")!="S68" or
+            evidence.get("status")!="SECOND_ISSUER_ANNUAL_REPORT_MATCHED" or
+            not evidence.get("pdf_sha256") or not evidence.get("source_url")):
+        raise ValueError("S68 second issuer PDF not verified")
+    source=financials_by_symbol.get("S68") or {}
+    if source.get("source_url")==evidence["source_url"] or source.get("pdf_sha256")==evidence["pdf_sha256"]:
+        raise ValueError("S68 crosscheck is not a distinct document")
+    checks=[]
+    seen=set()
+    for item in evidence.get("checks",[]):
+        metric=item.get("metric")
+        if metric not in ("revenue","attributable_profit") or metric in seen or item.get("year")!=2026:
+            raise ValueError("Wrong/duplicated S68 reference metric")
+        seen.add(metric)
+        fin=(source.get("metrics",{}).get(metric,{}).get("2026") or {}).get("value")
+        ref=item.get("reference_value")
+        if not isinstance(ref,int) or fin!=ref or item.get("status")!="MATCH_LIVE_SECOND_ISSUER_DOCUMENT":
+            raise ValueError(f"S68 issuer annual/reference mismatch {metric}")
+        checks.append({"metric":metric,"year":2026,
+                       "financial_value":fin,"reference_value":ref,
+                       "status":"MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
+                       "reference_extraction":item.get("reference_extraction")})
+    if seen!={"revenue","attributable_profit"}:
+        raise ValueError("S68 issuer reference metrics incomplete")
+    return {"symbol":"S68","url":evidence["source_url"],"pdf_sha256":evidence["pdf_sha256"],
+            "reference_type":"SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
+            "status":"S68_ANNUAL_ISSUER_CROSSCHECK_MATCHED",
+            "checks":checks,"investment_ranking_eligible":False}
+
+
+def run(financials, output, fetch=download_pdf, s68_crosscheck_path=None):
     records = {record["symbol"]: record for record in financials.get("records", [])}
     result = {
         "schema_version": "v27_live_issuer_document_audit",
@@ -199,10 +232,13 @@ def run(financials, output, fetch=download_pdf):
         except Exception as exc:
             record["error"] = f"{type(exc).__name__}: {str(exc)[:250]}"
         result["records"].append(record)
-    result["records"].append({
-        "symbol": "S68", "status": "HISTORICAL_FIXED_FIXTURE_NOT_VERIFIED",
-        "investment_ranking_eligible": False, "checks": [],
-    })
+    if s68_crosscheck_path:
+        result["records"].append(validate_s68_crosscheck(records,s68_crosscheck_path))
+    else:
+        result["records"].append({
+            "symbol":"S68","status":"SECOND_ISSUER_DOCUMENT_NOT_VERIFIED",
+            "investment_ranking_eligible":False,"checks":[],
+        })
     directory = Path(output)
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "audit_v27.json").write_text(
@@ -239,9 +275,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--financials", required=True)
     parser.add_argument("--output", default="value_hunter_v27_results")
+    parser.add_argument("--s68-crosscheck")
     args = parser.parse_args()
     financials = json.loads(Path(args.financials).read_text(encoding="utf-8"))
-    run(financials, args.output)
+    run(financials, args.output, s68_crosscheck_path=args.s68_crosscheck)
 
 
 if __name__ == "__main__":
