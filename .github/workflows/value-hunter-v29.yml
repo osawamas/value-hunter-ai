@@ -60,6 +60,10 @@ on:
       - 'SGX_PDF_connection_probe/test_bank_q3_financials_v79.py'
       - 'SGX_PDF_connection_probe/bank_q3_publish_v80.py'
       - 'SGX_PDF_connection_probe/test_bank_q3_publish_v80.py'
+      - 'SGX_PDF_connection_probe/bank_q3_yoy_v81.py'
+      - 'SGX_PDF_connection_probe/test_bank_q3_yoy_v81.py'
+      - 'SGX_PDF_connection_probe/bank_q3_yoy_publish_v82.py'
+      - 'SGX_PDF_connection_probe/test_bank_q3_yoy_publish_v82.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -153,7 +157,8 @@ jobs:
             test_o39_bank_summary_v67.py test_u11_bank_summary_v68.py test_bank_summary_publish_v69.py \
             test_bank_audited_group_v70.py test_bank_audited_publish_v71.py test_bank_indicators_v72.py test_bank_financial_state_v73.py \
             test_bank_historical_shares_v75.py test_bank_historical_share_publish_v76.py \
-            test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py
+            test_bank_q3_financials_v79.py test_bank_q3_publish_v80.py \
+            test_bank_q3_yoy_v81.py test_bank_q3_yoy_publish_v82.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js
@@ -243,8 +248,14 @@ jobs:
           # Q3 is a three-month result; 9M is cumulative. Preserve FY2025
           # audited Group figures and all market/valuation nulls separately.
           for symbol in D05 O39 U11; do
-            if python SGX_PDF_connection_probe/bank_q3_financials_v79.py --symbol "$symbol" --output "bank-quarter-v79/$symbol.json"; then
+            if python SGX_PDF_connection_probe/bank_q3_financials_v79.py --symbol "$symbol" --verified-pdf-copy "$RUNNER_TEMP/$symbol-q3-2026.pdf" --output "bank-quarter-v79/$symbol.json"; then
               python SGX_PDF_connection_probe/bank_q3_publish_v80.py --feed docs/data/latest.json --issuer-result "bank-quarter-v79/$symbol.json" --output docs/data/latest.json
+              # Extract comparable prior-year values from the same verified issuer PDF bytes.
+              if python SGX_PDF_connection_probe/bank_q3_yoy_v81.py --symbol "$symbol" --offline-pdf "$RUNNER_TEMP/$symbol-q3-2026.pdf" --output "bank-yoy-v81/$symbol.json"; then
+                python SGX_PDF_connection_probe/bank_q3_yoy_publish_v82.py --feed docs/data/latest.json --source "bank-yoy-v81/$symbol.json" --output docs/data/latest.json
+              else
+                echo "$symbol same-period YoY comparison unavailable, current Q3/9M remains independently labelled." >> "$GITHUB_STEP_SUMMARY"
+              fi
             else
               echo "$symbol 3Q26 source unavailable or regression changed; no Q3 data promoted." >> "$GITHUB_STEP_SUMMARY"
             fi
