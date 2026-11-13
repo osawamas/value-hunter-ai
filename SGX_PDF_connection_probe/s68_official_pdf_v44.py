@@ -38,7 +38,7 @@ def extract_row(page, label, page_number):
     """Read the two FY amounts from the Group columns on the known report page."""
     w = float(page.rect.width)
     hits = [rect for rect in page.search_for(label)
-            if rect.x0 < 0.72 * w]
+            if rect.x0 < 0.72 * w and (page_number != 8 or rect.y0 < 0.60 * page.rect.height)]
     candidates = []
     for rect in hits:
         middle_y = (rect.y0 + rect.y1) / 2
