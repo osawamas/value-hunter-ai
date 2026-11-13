@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T21:47:27.859648+00:00",
-  "input_generated_at_utc": "2026-11-13T21:47:27.806534+00:00",
+  "updated_at_utc": "2026-11-13T21:48:08.324061+00:00",
+  "input_generated_at_utc": "2026-11-13T21:48:08.271976+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -515,7 +515,40 @@
         "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
       ],
       "quote_freshness": "MISSING",
-      "share_freshness": "MISSING"
+      "share_freshness": "MISSING",
+      "banking_summary": {
+        "status": "ISSUER_ANNUAL_GROUP_HIGHLIGHTS_2025_2024",
+        "scope": "ISSUER_SELECTED_GROUP_FINANCIAL_HIGHLIGHTS",
+        "source_url": "https://www.ocbc.com/iwov-resources/sg/ocbc/gbc/pdf/investors/annual-reports/2025/2025-annual-report-en.pdf",
+        "pdf_sha256": "d10f4fc11fd5845c2e5e6c1ffbeccf0c66f33e1b71c02ae0b402f0ba104382ff",
+        "fiscal_year": 2025,
+        "financial_unit": "SGD_millions",
+        "rounded_balance_unit": null,
+        "values": {
+          "net_interest_income": {
+            "2025": 9150,
+            "2024": 9755
+          },
+          "total_income": {
+            "2025": 14614,
+            "2024": 14473
+          },
+          "parent_attributable_profit": {
+            "2025": 7422,
+            "2024": 7587
+          },
+          "parent_equity": {
+            "2025": 61768,
+            "2024": 59316
+          },
+          "total_assets": {
+            "2025": 675688,
+            "2024": 625050
+          }
+        },
+        "independently_cross_checked": false,
+        "ranking_eligible": false
+      }
     },
     {
       "symbol": "U11",
@@ -603,10 +636,47 @@
         "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
       ],
       "quote_freshness": "MISSING",
-      "share_freshness": "MISSING"
+      "share_freshness": "MISSING",
+      "banking_summary": {
+        "status": "ISSUER_ANNUAL_GROUP_HIGHLIGHTS_2025_2024",
+        "scope": "ISSUER_FIVE_YEAR_GROUP_SUMMARY_NOT_DIRECT_AUDITED_STATEMENTS",
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/annual/uob-annual-report-2025.pdf",
+        "pdf_sha256": "8f16c545145df604ac0e29df5369f1620dfa0a6063bbcf5fd21f3f71dd4438c6",
+        "fiscal_year": 2025,
+        "financial_unit": "SGD_millions",
+        "rounded_balance_unit": "SGD_billions_rounded",
+        "values": {
+          "total_income": {
+            "2025": 13808,
+            "2024": 14294
+          },
+          "total_expenses": {
+            "2025": 6157,
+            "2024": 6310
+          },
+          "operating_profit": {
+            "2025": 7651,
+            "2024": 7984
+          },
+          "parent_net_profit": {
+            "2025": 4682,
+            "2024": 6045
+          },
+          "total_assets_rounded_billions": {
+            "2025": 572,
+            "2024": 538
+          },
+          "parent_equity_rounded_billions": {
+            "2025": 51,
+            "2024": 50
+          }
+        },
+        "independently_cross_checked": false,
+        "ranking_eligible": false
+      }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T21:47:27.891844+00:00",
+  "quality_checked_at_utc": "2026-11-13T21:48:08.357153+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
