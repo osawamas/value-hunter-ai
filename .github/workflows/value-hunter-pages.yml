@@ -15,8 +15,15 @@ concurrency:
   group: value-hunter-pages-deploy
   cancel-in-progress: false
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check docs/app.js
   pages:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request')
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     environment:
@@ -40,16 +47,16 @@ jobs:
             echo "GitHub Pages is not enabled. One-time: Settings → Pages → Source: GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Configure Pages
-        if: steps.setup.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        if: steps.setup.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
       - name: Package dashboard
-        if: steps.setup.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        if: steps.setup.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./docs
       - name: Publish web dashboard
         id: deployment
-        if: steps.setup.outputs.enabled == 'true' && github.event_name != 'pull_request'
+        if: steps.setup.outputs.enabled == 'true'
         uses: actions/deploy-pages@v4
       - name: Print confirmed site URL
         if: steps.deployment.outcome == 'success'
