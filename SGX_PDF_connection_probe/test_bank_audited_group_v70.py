@@ -25,7 +25,7 @@ def make_pdf(symbol,*,bad_income=False,bad_balance=False,
             if bad_income and kind=="income" and key=="total_income":a+=1
             if bad_balance and kind=="balance" and key=="total_assets":a+=1
             def fmt(v):
-                return f"({-v:,})" if v<0 else ("–" if v==0 else f"{v:,}")
+                return f"({-v:,})" if v<0 else ("-" if v==0 else f"{v:,}")
             lines.extend((label,fmt(a),fmt(b)))
             if duplicate and kind=="income" and key=="total_income":
                 lines.extend((label,fmt(a),fmt(b)))
