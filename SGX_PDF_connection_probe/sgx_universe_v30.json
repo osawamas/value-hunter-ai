@@ -1,0 +1,40 @@
+{
+  "schema_version": "sgx_issuer_universe_v30",
+  "as_of_date": "2026-11-13",
+  "scope": "EXPLICITLY_REGISTERED_ONLY_NOT_FULL_SGX",
+  "sources": [
+    "https://www.sgx.com/securities/equities"
+  ],
+  "issuers": [
+    {
+      "symbol": "S68",
+      "issuer": "Singapore Exchange Limited",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://investorrelations.sgx.com/static-files/dcbd5905-9373-4dc9-80f5-8dbff6b8d584",
+      "financial_reference_year": 2026,
+      "financial_data_status": "FIXED_REFERENCE_REQUIRES_LIVE_PARSE"
+    },
+    {
+      "symbol": "G13",
+      "issuer": "Genting Singapore Limited",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160",
+      "financial_reference_year": 2025,
+      "financial_data_status": "LIVE_EXTRACT_PARTIAL"
+    },
+    {
+      "symbol": "S20",
+      "issuer": "The Straits Trading Company Limited",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://links.sgx.com/FileOpen/Annual%20Report%20FY2025.ashx?App=Announcement&FileID=881971",
+      "financial_reference_year": 2025,
+      "financial_data_status": "LIVE_EXTRACT_PARTIAL"
+    }
+  ]
+}
