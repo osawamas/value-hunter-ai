@@ -1,3 +1,4 @@
+from official_http_v57 import get_pdf
 """Fail-closed S68 FY2026 issuer audited-PDF financial extraction (v44).
 
 No static fixture is promoted unless all six Group figures are independently
@@ -32,15 +33,7 @@ NUMBER = re.compile(r"^[0-9][0-9,]*$")
 
 
 def download(timeout=60):
-    req = urllib.request.Request(SOURCE, headers={
-        "User-Agent": "Mozilla/5.0 (VALUE-HUNTER-AI financial research)",
-        "Accept": "application/pdf",
-    })
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        raw = response.read(25_000_001)
-    if len(raw) > 25_000_000 or not raw.startswith(b"%PDF"):
-        raise ValueError("Invalid or oversized official PDF")
-    return raw
+    return get_pdf(SOURCE,max_bytes=25_000_000,timeout=timeout)
 
 
 def ordered_rows(page, tolerance=2.6):
