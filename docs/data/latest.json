@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T18:31:20.137732+00:00",
-  "input_generated_at_utc": "2026-11-13T18:31:20.082636+00:00",
+  "updated_at_utc": "2026-11-13T18:35:16.152331+00:00",
+  "input_generated_at_utc": "2026-11-13T18:35:16.114361+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -42,6 +42,7 @@
       "audit_reference_type": "SECOND_ISSUER_DOCUMENT_NOT_THIRD_PARTY",
       "audit_pages_by_metric": {
         "revenue": [],
+        "operating_profit": [],
         "attributable_profit": []
       },
       "shares_verification_status": "DOCUMENTED_SNAPSHOT_NOT_LIVE_VERIFIED",
@@ -53,6 +54,7 @@
       "shares_as_of_date": "2026-09-01",
       "audit_states": {
         "revenue": "NOT_VERIFIED",
+        "operating_profit": "NOT_VERIFIED",
         "attributable_profit": "NOT_VERIFIED"
       },
       "ranking_eligible": false,
@@ -95,6 +97,9 @@
         "revenue": [
           1
         ],
+        "operating_profit": [
+          1
+        ],
         "attributable_profit": [
           1
         ]
@@ -108,6 +113,7 @@
       "shares_as_of_date": "2026-08-14",
       "audit_states": {
         "revenue": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
+        "operating_profit": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
         "attributable_profit": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT"
       },
       "ranking_eligible": false,
@@ -150,6 +156,7 @@
         "revenue": [
           3
         ],
+        "operating_profit": [],
         "attributable_profit": [
           3
         ]
@@ -163,6 +170,7 @@
       "shares_as_of_date": "2026-06-30",
       "audit_states": {
         "revenue": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
+        "operating_profit": "NOT_VERIFIED",
         "attributable_profit": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT"
       },
       "ranking_eligible": false,
@@ -202,6 +210,9 @@
         "revenue": [
           2
         ],
+        "operating_profit": [
+          2
+        ],
         "attributable_profit": [
           2
         ]
@@ -215,6 +226,7 @@
       "shares_as_of_date": "2026-06-30",
       "audit_states": {
         "revenue": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
+        "operating_profit": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT",
         "attributable_profit": "MATCH_LIVE_SECOND_ISSUER_DOCUMENT"
       },
       "ranking_eligible": false,
@@ -229,7 +241,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T18:31:20.173765+00:00",
+  "quality_checked_at_utc": "2026-11-13T18:35:16.175727+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
