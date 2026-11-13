@@ -7,6 +7,7 @@ results: fail closed, never populate price_sgd or market-cap/PE/PB.
 """
 import argparse,hashlib,json,re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -53,7 +54,7 @@ def parse(symbol,raw):
   raise ValueError("Secondary SGX quote block missing or ambiguous")
  rawprice,day,time=hits[0]
  dt=datetime.strptime(day+" "+time,"%Y-%m-%d %H:%M")
- if dt.strftime("%Y-%m-%d")!=day or day>"2026-11-14":
+ if dt.strftime("%Y-%m-%d")!=day or dt.date()>datetime.now(ZoneInfo("Asia/Singapore")).date():
   raise ValueError("SGX quote as-of day invalid or in future")
  price=float(rawprice)
  if not (0.01<=price<=10000):
