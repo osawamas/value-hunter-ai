@@ -1,0 +1,23 @@
+name: VALUE HUNTER original SGX buyback Section D parser v84
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_primary_buyback_v84.py'
+      - 'SGX_PDF_connection_probe/test_sgx_primary_buyback_v84.py'
+      - '.github/workflows/value-hunter-v84.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify the original SGX URL and purchase date, reject secondhand claims
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_sgx_primary_buyback_v84.py
