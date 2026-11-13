@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:03:57.580591+00:00",
-  "input_generated_at_utc": "2026-11-13T22:03:57.528870+00:00",
+  "updated_at_utc": "2026-11-13T22:04:59.945855+00:00",
+  "input_generated_at_utc": "2026-11-13T22:04:59.901527+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -848,7 +848,7 @@
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:03:57.613100+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:04:59.972537+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
