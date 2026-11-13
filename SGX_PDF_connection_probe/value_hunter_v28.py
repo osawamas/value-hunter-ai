@@ -170,8 +170,19 @@ def compare(financials, valuations, audits, now=None, universe=None):
         {item["symbol"]: item for item in feed.get("records", [])}
         for feed in (financials, valuations, audits)
     ]
-    records = [evaluate(*(source.get(item["symbol"], {"symbol": item["symbol"]}) for source in sources), now)
-               for item in issuers]
+    records = []
+    for item in issuers:
+        inputs = [source.get(item["symbol"], {"symbol": item["symbol"]}) for source in sources]
+        record = evaluate(*inputs, now)
+        if item.get("financial_pdf_url") and item["symbol"] not in sources[0]:
+            # Registration is NOT extraction. Show the discoverable official
+            # issuer filing URL while leaving every financial value unknown.
+            record["financial_source_url"] = item["financial_pdf_url"]
+            record["financial_source_kind"] = "REGISTERED_SOURCE_NOT_PARSED"
+            if "FINANCIAL_SOURCE_REGISTERED_NOT_PARSED" not in record["exclusion_reasons"]:
+                record["exclusion_reasons"].append("FINANCIAL_SOURCE_REGISTERED_NOT_PARSED")
+            record["ranking_eligible"] = False
+        records.append(record)
     return {
         "issuer_universe": [{"symbol": item["symbol"], "issuer": item["issuer"],
                              "financial_pdf_url": item.get("financial_pdf_url")}
