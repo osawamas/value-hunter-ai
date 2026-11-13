@@ -30,8 +30,9 @@ def parse_pdf(symbol,raw):
    raise ValueError("Wrong listed issuer identity")
   content=" ".join(doc[conf["page"]-1].get_text("text").split())
   date_label="25 February 2026" if symbol=="O39" else "23 February 2026"
-  if date_label.lower() not in content.lower():
-   raise ValueError("Annual shareholding as-of date missing")
+  title="Shareholding Statistics" if symbol=="O39" else "Statistics of Shareholdings"
+  if not re.search(re.escape(title)+r"\\s+as at\\s+"+re.escape(date_label),content,re.I):
+   raise ValueError("Dated annual-shareholding table heading missing")
   if symbol=="O39":
    gross_match=re.findall(r"Number of issued shares \(including treasury shares\):\s*([\d,]+)",content,re.I)
    treasury_match=re.findall(r"Number of treasury shares held:\s*([\d,]+)",content,re.I)
