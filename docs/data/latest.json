@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T19:42:16.048620+00:00",
-  "input_generated_at_utc": "2026-11-13T19:42:16.005559+00:00",
+  "updated_at_utc": "2026-11-13T19:59:07.110272+00:00",
+  "input_generated_at_utc": "2026-11-13T19:59:07.074421+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -54,12 +54,12 @@
         "operating_profit": [],
         "attributable_profit": []
       },
-      "shares_verification_status": "ISSUER_ANNUAL_REPORT_TREASURY_RECONCILED_NOT_LIVE_VERIFIED",
+      "shares_verification_status": "LIVE_OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED",
       "shares_count_basis": "issued_excluding_treasury",
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S68.SI?interval=1d&range=5d",
       "quote_timestamp_utc": "2026-11-13T09:08:04+00:00",
-      "shares_source_url": "https://investorrelations.sgx.com/financial-information/annual-reports",
+      "shares_source_url": "https://links.sgx.com/FileOpen/2026%20SGX%20Annual%20Report.ashx?App=Announcement&FileID=905317",
       "shares_as_of_date": "2026-09-01",
       "audit_states": {
         "revenue": "NOT_VERIFIED",
@@ -272,7 +272,7 @@
       "share_freshness": "RECENT"
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T19:42:16.076104+00:00",
+  "quality_checked_at_utc": "2026-11-13T19:59:07.131922+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 4,
