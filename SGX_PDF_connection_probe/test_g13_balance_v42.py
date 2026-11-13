@@ -24,7 +24,7 @@ def synthetic_pdf(*, break_balance=False, company_header=False, missing_liabilit
             continue
         for year, x in [(2025, 18), (2024, 468)]:
             page.insert_text((x, 34), "27. SEGMENT INFORMATION (CONTINUED)", fontsize=10)
-            page.insert_text((x, 58), "Company" if company_header and year == 2025 else "Group", fontsize=10)
+            page.insert_text((x, 58), "Company" if company_header and year == 2025 else "Group Additional", fontsize=10)
             page.insert_text((x, 73), str(year), fontsize=10)
             page.insert_text((x + 4, 190), "Assets", fontsize=9)
             page.insert_text((x + 4, 228), "Consolidated total assets", fontsize=9)
