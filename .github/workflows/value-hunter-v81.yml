@@ -1,0 +1,36 @@
+name: VALUE HUNTER bank same-period growth v81
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/bank_q3_yoy_v81.py'
+      - 'SGX_PDF_connection_probe/test_bank_q3_yoy_v81.py'
+      - '.github/workflows/value-hunter-v81.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [D05, O39, U11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Validate same-period 2025 vs 2026 growth tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_bank_q3_yoy_v81.py
+      - name: Extract actual bank 3Q26 issuer PDF prior-year columns
+        run: python SGX_PDF_connection_probe/bank_q3_yoy_v81.py --symbol ${{ matrix.symbol }} --output bank-yoy-v81/${{ matrix.symbol }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bank-yoy-v81-${{ matrix.symbol }}
+          path: bank-yoy-v81/
+          if-no-files-found: warn
