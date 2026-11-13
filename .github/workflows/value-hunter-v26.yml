@@ -1,0 +1,43 @@
+name: VALUE HUNTER SGX cross-document audit v26
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF parser
+        run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Unit tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_value_hunter_v25.py test_value_hunter_v26.py
+      - name: Extract financials
+        env:
+          SGX_V18_OUTPUT: ${{ github.workspace }}/sgx_v18_results
+        run: python SGX_PDF_connection_probe/sgx_integrated_v18.py
+      - name: Integrate financials
+        run: python SGX_PDF_connection_probe/value_hunter_v19.py --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --output value_hunter_results
+      - name: Get market prices
+        run: python SGX_PDF_connection_probe/value_hunter_market_v20.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_market_results
+      - name: Reconcile share counts
+        run: python SGX_PDF_connection_probe/value_hunter_v25.py --financials value_hunter_results/value_hunter_financials.json --market value_hunter_market_results/market_valuation_v20.json --output value_hunter_v25_results
+      - name: Cross-document audit
+        run: python SGX_PDF_connection_probe/value_hunter_v26.py --financials value_hunter_results/value_hunter_financials.json --valuation value_hunter_v25_results/valuation_v25.json --output value_hunter_v26_results
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-v26-results
+          path: |
+            sgx_v18_results/
+            value_hunter_results/
+            value_hunter_market_results/
+            value_hunter_v25_results/
+            value_hunter_v26_results/
+          if-no-files-found: warn
