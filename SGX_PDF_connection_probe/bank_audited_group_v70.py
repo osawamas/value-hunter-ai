@@ -67,7 +67,7 @@ VALUES={
 def parse_group_row(lines,label,expected):
     """Extract Group pair, ignoring optional standalone note number."""
     hits=[]
-    pattern=re.compile(r"^[-+]?[0-9][0-9,]*$|^\\([0-9][0-9,]*\\)$|^[–—−-]$")
+    pattern=re.compile(r"^[-+]?[0-9][0-9,]*$|^\([0-9][0-9,]*\)$|^[–—−-]$")
     for idx,line in enumerate(lines):
         if " ".join(line.lower().split())!=" ".join(label.lower().split()):
             continue
