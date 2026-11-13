@@ -41,6 +41,10 @@ jobs:
               page=doc[n];text=" ".join(page.get_text("text").split())
               rows=lines(page.get_text("words"))
               print("PDF_PAGE",n+1,"TEXT_START",text[:600])
+              if n == 130:
+                  for row in rows:
+                      if "equity" in row["text"].lower() or "2,921,245" in row["text"]:
+                          print("EQUITY_ROW", repr(row["text"]), "Y", row["y"], "TOKENS", row["tokens"])
               for label in ("Revenue","Profit from operations","Shareholders of the Company",
                             "Total assets","Total liabilities","Total equity",
                             "Equity attributable to owners of the Company"):
