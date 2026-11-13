@@ -1,16 +1,9 @@
-name: VALUE HUNTER dashboard publish (independent)
+name: VALUE HUNTER dashboard publish v46
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["VALUE HUNTER SGX dashboard data refresh v29"]
     types: [completed]
-  workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/value-hunter-pages.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/value-hunter-pages.yml'
 permissions:
   contents: read
   pages: write
@@ -21,15 +14,16 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - run: node --check docs/app.js
+        with:
+          ref: main
+      - name: Validate dashboard JavaScript
+        run: node --check docs/app.js
   pages:
     needs: validate
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event != 'pull_request')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 12
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -37,39 +31,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Check GitHub Pages setup without modifying repo settings
-        id: setup
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/tmp/pages.json 2>/tmp/pages.error; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "GitHub Pages settings found." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "GitHub Pages is not enabled. Attempting automatic setup."
-            if gh api -X POST "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow >/tmp/pages-bootstrap.json 2>/tmp/pages-bootstrap.error; then
-              echo "enabled=true" >> "$GITHUB_OUTPUT"
-              echo "GitHub Pages initialized automatically." >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "enabled=false" >> "$GITHUB_OUTPUT"
-              echo "GitHub Pages could not be initialized with Actions token." >> "$GITHUB_STEP_SUMMARY"
-              echo "One-time: Settings → Pages → Source: GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
-              sed -E 's/[A-Za-z0-9_-]{30,}/[REDACTED]/g' /tmp/pages-bootstrap.error | head -c 800 >> "$GITHUB_STEP_SUMMARY" || true
-            fi
-          fi
       - name: Configure Pages
-        if: steps.setup.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
       - name: Package dashboard
-        if: steps.setup.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./docs
-      - name: Publish web dashboard
+      - name: Publish dashboard
         id: deployment
-        if: steps.setup.outputs.enabled == 'true'
         uses: actions/deploy-pages@v4
-      - name: Print confirmed site URL
-        if: steps.deployment.outcome == 'success'
-        run: echo "Published: ${{ steps.deployment.outputs.page_url }}" >> "$GITHUB_STEP_SUMMARY"
