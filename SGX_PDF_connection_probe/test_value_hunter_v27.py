@@ -9,6 +9,9 @@ class V27Tests(unittest.TestCase):
     def test_amount(self):
         self.assertEqual(parse_amount("(249,133)"), -249133)
         self.assertIsNone(parse_amount("2025a"))
+        self.assertIsNone(parse_amount("(123"))
+        self.assertIsNone(parse_amount("123)"))
+        self.assertEqual(parse_amount("-123"), -123)
 
     def test_year_column_not_value_order(self):
         rows = group_lines([
