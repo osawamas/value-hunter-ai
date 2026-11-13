@@ -125,7 +125,7 @@ def evaluate(fin, valuation, audit, now):
         "audit_pages_by_metric": {
             key: [ev.get("page") for ev in checks.get(key, {}).get("reference_extraction", {}).get("evidence", [])
                   if isinstance(ev, dict) and isinstance(ev.get("page"), int)]
-            for key in ("revenue", "attributable_profit")
+            for key in ("revenue", "operating_profit", "attributable_profit")
         },
         "quote_url": quote.get("source_url"),
         "quote_timestamp_utc": quote.get("market_timestamp_utc"),
@@ -134,7 +134,7 @@ def evaluate(fin, valuation, audit, now):
         "shares_verification_status": shares.get("verification_status"),
         "shares_count_basis": shares.get("share_count_basis"),
         "quote_source_type": quote.get("source"),
-        "audit_states": {key: checks.get(key, {}).get("status", "NOT_VERIFIED") for key in ("revenue", "attributable_profit")},
+        "audit_states": {key: checks.get(key, {}).get("status", "NOT_VERIFIED") for key in ("revenue", "operating_profit", "attributable_profit")},
         "ranking_eligible": not reasons,
         "ranking_score": None,
         "exclusion_reasons": reasons,
