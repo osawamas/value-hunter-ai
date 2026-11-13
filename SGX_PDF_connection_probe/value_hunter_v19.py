@@ -25,6 +25,38 @@ def normalize_s68_official(path):
                 raise ValueError('S68 PDF missing authenticated field '+key+'/'+year)
     return {key:record[key] for key in ('symbol','issuer','fiscal_year','source_kind','source_url','pdf_sha256','metrics')}
 
+def merge_s68_parent_equity(record, evidence_path):
+    """Import only exact same audited issuer PDF, Group owners equity, two years."""
+    proof=json.loads(Path(evidence_path).read_text(encoding='utf-8'))
+    if record.get('symbol')!='S68' or proof.get('symbol')!='S68':
+        raise ValueError('S68 issuer mismatch')
+    if proof.get('status')!='AUDITED_ISSUER_GROUP_OWNER_COMPONENTS_RECONCILED':
+        raise ValueError('S68 owner equity evidence not reconciled')
+    if proof.get('pdf_sha256')!=record.get('pdf_sha256') or not proof.get('pdf_sha256'):
+        raise ValueError('S68 parent equity document hash mismatch')
+    payload=proof.get('record') or {}
+    if (payload.get('statement')!='audited Group financial position' or
+        payload.get('attributable_to')!='Company equity holders' or
+        payload.get('unit')!='SGD_thousands' or
+        payload.get('page_pdf_number')!=27 or
+        payload.get('reconciliation')!='OWNER_COMPONENTS_EQUAL_GROUP_TOTAL_EQUITY'):
+        raise ValueError('S68 Group owner attribution not established')
+    components=payload.get('components') or {}
+    if len(components)!=11:
+        raise ValueError('Incomplete owner-equity breakdown')
+    for year in ('2026','2025'):
+        total=payload.get('parent_equity',{}).get(year)
+        group=(record.get('metrics',{}).get('equity',{}).get(year) or {}).get('value')
+        if (not isinstance(total,int) or isinstance(total,bool)
+                or total!=group or
+                sum((part or {}).get(year,0) for part in components.values())!=total):
+            raise ValueError('S68 parent equity does not match Group balance')
+        record.setdefault('metrics',{}).setdefault('parent_equity',{})[year]={
+            'value':total,'page':27,
+            'status':'AUDITED_ISSUER_GROUP_OWNER_COMPONENTS_RECONCILED',
+            'source_url':proof['source_url']}
+    return record
+
 def normalize_v18(path,symbol):
  d=json.loads(Path(path).read_text()); assert d['symbol']==symbol
  fields={'revenue':('income','revenue'),'operating_profit':('income','operating_profit'),'attributable_profit':('income','attributable_profit'),'assets':('balance','assets'),'liabilities':('balance','liabilities'),'equity':('balance','equity')}
@@ -73,11 +105,13 @@ def derive(r):
  return r
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s68-official');p.add_argument('--s63');p.add_argument('--g13-balance');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
+ p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s68-official');p.add_argument('--s68-parent');p.add_argument('--s63');p.add_argument('--g13-balance');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
  records=[];errors=[]
  for sym in ['S68','G13','S20']:
   try:
    rec = (normalize_s68_official(args.s68_official) if args.s68_official else normalize_s68(args.s68)) if sym=='S68' else normalize_v18(Path(args.v18_dir)/f'{sym}_financial_v18.json',sym)
+   if sym=='S68' and args.s68_parent:
+    rec=merge_s68_parent_equity(rec,args.s68_parent)
    if sym=='G13' and args.g13_balance:
     rec=merge_g13_balance(rec,args.g13_balance)
    records.append(derive(rec))
