@@ -45,6 +45,7 @@ on:
       - 'SGX_PDF_connection_probe/test_operating_evidence_v41.py'
       - 'SGX_PDF_connection_probe/g13_balance_v42.py'
       - 'SGX_PDF_connection_probe/test_g13_balance_v42.py'
+      - 'SGX_PDF_connection_probe/test_balance_details_v43.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
       - 'SGX_PDF_connection_probe/value_hunter_s63_crosscheck_v40.py'
@@ -84,7 +85,7 @@ jobs:
       - name: Run unit tests and JavaScript syntax check
         run: |
           cd SGX_PDF_connection_probe
-          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_g13_balance_v42.py test_operating_evidence_v41.py test_value_hunter_s63_crosscheck_v40.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py test_value_hunter_quality_v33.py test_value_hunter_history_v34.py test_s63_share_snapshot_v36.py
+          python -m unittest -v test_value_hunter_v27.py test_value_hunter_v28.py test_g13_balance_v42.py test_balance_details_v43.py test_operating_evidence_v41.py test_value_hunter_s63_crosscheck_v40.py test_value_hunter_web_v29.py test_sgx_universe_v30.py test_s63_audited_pdf_v32.py test_value_hunter_quality_v33.py test_value_hunter_history_v34.py test_s63_share_snapshot_v36.py
           cd ..
           node --check docs/app.js
           node tests/history-v38.test.js

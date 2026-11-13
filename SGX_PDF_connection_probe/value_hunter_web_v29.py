@@ -35,6 +35,11 @@ ALLOWED_KEYS = {
 PUBLIC_KEYS = (
     "fiscal_year", "revenue_sgd_thousands", "revenue_growth_pct",
     "operating_margin_pct", "equity_ratio_pct",
+    "assets_sgd_thousands", "liabilities_sgd_thousands",
+    "equity_sgd_thousands", "balance_difference_sgd_thousands",
+    "balance_source_status", "balance_source_page",
+    "parent_equity_sgd_thousands", "parent_equity_status",
+    "parent_equity_source_url",
     "attributable_profit_sgd_thousands", "price_sgd",
     "shares_outstanding", "market_cap_sgd", "per_reference",
     "pbr_reference_unverified", "pbr_verified", "financial_source_url",
