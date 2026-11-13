@@ -14,6 +14,8 @@ on:
       - 'SGX_PDF_connection_probe/s68_shareholding_v46.py'
       - 'SGX_PDF_connection_probe/test_s68_shareholding_v46.py'
       - 'SGX_PDF_connection_probe/test_public_shares_v47.py'
+      - 'SGX_PDF_connection_probe/g13_shareholding_v48.py'
+      - 'SGX_PDF_connection_probe/test_g13_shareholding_v48.py'
       - 'SGX_PDF_connection_probe/value_hunter_v25.py'
       - 'SGX_PDF_connection_probe/value_hunter_v19.py'
       - 'SGX_PDF_connection_probe/value_hunter_v28.py'
@@ -121,11 +123,12 @@ jobs:
           PY
           python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
           python SGX_PDF_connection_probe/s68_shareholding_v46.py --output sgx_v18_results/S68_shares_v46.json
+          python SGX_PDF_connection_probe/g13_shareholding_v48.py --output sgx_v18_results/G13_shares_v48.json
           python SGX_PDF_connection_probe/g13_treasury_v44.py --output sgx_v18_results/G13_treasury_v44.json
           python SGX_PDF_connection_probe/s68_official_pdf_v44.py --output sgx_v18_results/S68_official_v44.json
           python SGX_PDF_connection_probe/value_hunter_v19.py --s68-official sgx_v18_results/S68_official_v44.json --v18-dir sgx_v18_results --s68 SGX_PDF_connection_probe/fixtures/S68_FY2026_integrated_v14.json --g13-balance sgx_v18_results/G13_balance_v42.json --s63 s63_v32_results/audited_report.json --output value_hunter_results
           python SGX_PDF_connection_probe/value_hunter_market_v20.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_market_results
-          python SGX_PDF_connection_probe/value_hunter_v25.py --s68-shares sgx_v18_results/S68_shares_v46.json --financials value_hunter_results/value_hunter_financials.json --market value_hunter_market_results/market_valuation_v20.json --output value_hunter_v25_results
+          python SGX_PDF_connection_probe/value_hunter_v25.py --g13-shares sgx_v18_results/G13_shares_v48.json --s68-shares sgx_v18_results/S68_shares_v46.json --financials value_hunter_results/value_hunter_financials.json --market value_hunter_market_results/market_valuation_v20.json --output value_hunter_v25_results
           python SGX_PDF_connection_probe/value_hunter_v27.py --financials value_hunter_results/value_hunter_financials.json --output value_hunter_v27_results
           python SGX_PDF_connection_probe/value_hunter_s63_crosscheck_v40.py --financials value_hunter_results/value_hunter_financials.json --audit value_hunter_v27_results/audit_v27.json --output value_hunter_v27_results/audit_v27.json
           python SGX_PDF_connection_probe/value_hunter_v28.py --financials value_hunter_results/value_hunter_financials.json --valuation value_hunter_v25_results/valuation_v25.json --audit value_hunter_v27_results/audit_v27.json --universe SGX_PDF_connection_probe/sgx_universe_v30.json --output value_hunter_v28_results
