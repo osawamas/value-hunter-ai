@@ -60,6 +60,30 @@ jobs:
                         "STATUS", run["status"], "RESULT", run.get("conclusion"),
                         "COMMIT", run["head_sha"][:10])
           PY
+      - name: Diagnose latest failed dashboard job
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import os, json, subprocess
+          url=f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/workflows/value-hunter-v29.yml/runs?per_page=8"
+          r=subprocess.run(["gh","api",url],capture_output=True,text=True)
+          if r.returncode: raise RuntimeError(r.stderr[:300])
+          for run in json.loads(r.stdout).get("workflow_runs",[]):
+              if run.get("conclusion")!="failure": continue
+              uid=run["id"]
+              d=subprocess.run(["gh","api",f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{uid}"],
+                               capture_output=True,text=True)
+              j=subprocess.run(["gh","api",f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{uid}/jobs"],
+                               capture_output=True,text=True)
+              meta=json.loads(d.stdout) if d.returncode==0 else {}
+              jobs=json.loads(j.stdout).get("jobs",[]) if j.returncode==0 else []
+              print("FAILED_RUN",uid,"EVENT",meta.get("event"),"STATUS",meta.get("status"),
+                    "CONCLUSION",meta.get("conclusion"),"JOBS",len(jobs))
+              for job in jobs:
+                  print("JOB",job.get("id"),job.get("name"),job.get("conclusion"))
+              break
+          PY
       - name: Upload diagnostic only (no secrets)
         if: always()
         uses: actions/upload-artifact@v4
