@@ -81,12 +81,18 @@ def parse_pdf(raw, equity_by_year, *, page_index=PAGE_INDEX):
         if len(doc) <= page_index:
             raise ValueError("Annual report missing financial note page")
         page = doc[page_index]
+        # The Group "Total equity" line on financial-position page 36 is
+        # under "Equity attributable to ordinary shareholders"; confirm this
+        # heading before using it as the PBR owner-equity denominator.
+        financial_position = " ".join(doc[35].get_text("text").lower().split())
+        if "equity attributable to ordinary shareholders" not in financial_position:
+            raise ValueError("Group ordinary-shareholder equity heading missing")
         split = page.rect.width / 2
         periods = {
             "2025": extract_half(page, 0, split, 2025),
             "2024": extract_half(page, split, page.rect.width, 2024),
         }
-        metrics = {"assets": {}, "liabilities": {}, "equity": {}}
+        metrics = {"assets": {}, "liabilities": {}, "equity": {}, "parent_equity": {}}
         checks = {}
         for year, extracted in periods.items():
             equity = equity_by_year.get(year)
@@ -102,6 +108,12 @@ def parse_pdf(raw, equity_by_year, *, page_index=PAGE_INDEX):
             metrics["liabilities"][year] = {"value": liabilities, "status": "EXTRACTED_GROUP_SEGMENT_NOTE_ARITHMETIC_MATCHED",
                                             "page": page_index + 1}
             metrics["equity"][year] = {"value": equity, "status": "EXTRACTED_GROUP_FINANCIAL_POSITION"}
+            metrics["parent_equity"][year] = {
+                "value": equity,
+                "status": "GROUP_ORDINARY_SHAREHOLDER_EQUITY_SAME_ISSUER_PDF",
+                "page": 36,
+                "source_url": SOURCE,
+            }
             checks[year] = {
                 "assets_minus_liabilities_minus_equity": difference,
                 "assets_row": extracted["assets"]["row"],
