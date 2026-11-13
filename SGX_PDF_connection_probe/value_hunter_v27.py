@@ -118,6 +118,7 @@ def extract_pdf(pdf_bytes, symbol):
 
     document = fitz.open(stream=pdf_bytes, filetype="pdf")
     result = {}
+    # Source PDF is issuer's FY2025 official release, amounts are SGD thousands.
     # Constrain to issuer's full-year consolidated income statement, not notes.
     candidate_pages = [2] if symbol == "S20" else list(range(min(len(document), 20)))
     for metric in LABELS[symbol]:
@@ -137,6 +138,15 @@ def extract_pdf(pdf_bytes, symbol):
             "status": "EXTRACTED_UNAMBIGUOUS" if unique else "AMBIGUOUS_OR_MISSING",
             "value": usable[0]["value"] if unique else None,
             "evidence": hits[:12],
+            "diagnostics": {
+                "pages_scanned": len(candidate_pages),
+                "candidate_hits": len(hits),
+                "extraction_reason": (
+                    "one_coordinate_matched_row" if unique
+                    else "multiple_candidate_rows" if hits
+                    else "no_strict_label_and_year_header_pair"
+                ),
+            },
         }
     document.close()
     return result
