@@ -309,6 +309,21 @@ function showDetail(r) {
       ["ランキング・時価総額", "未採用（株価と最新株式数の検証待ち）"],
     ]));
   }
+  const pendingNov13 = r.bank_pending_buyback_consistency;
+  if (pendingNov13 && pendingNov13.status === "SECONDARY_NOV13_ARITHMETICALLY_CONSISTENT_PRIMARY_NOT_VERIFIED") {
+    grid.append(field("照合保留", "UOB 11月13日買戻し：算術は一致、SGX原本は未取得", [
+      ["SGX原本の確認済み基準日", pendingNov13.primary_as_of_date || "未取得"],
+      ["原本の控除後株数", fmt(pendingNov13.primary_after_purchase_shares,0)+" 株"],
+      ["転載資料の基準日", pendingNov13.secondary_as_of_date || "未取得"],
+      ["転載記載の控除後株数", fmt(pendingNov13.secondary_claim_after_purchase_shares,0)+" 株（未検証）"],
+      ["転載との株数差", fmt(pendingNov13.implied_share_decrease,0)+" 株"],
+      ["転載記載の買戻し・取消し", fmt(pendingNov13.secondary_claim_purchased_shares,0)+" 株 / "+fmt(pendingNov13.secondary_claim_cancelled_shares,0)+" 株"],
+      ["一致の意味", "転載の計算が前日の公式株数と整合するだけ。発行体の11月13日開示を検証したわけではない"],
+      ["11月13日のSGX原本", "未確認"],
+      ["転載元", pendingNov13.secondary_source_url, true],
+      ["現在の時価総額・PER・PBR・ランキング", "未採用"],
+    ]));
+  }
   const sourceChain = r.bank_primary_three_day_chain;
   if (sourceChain && sourceChain.status === "ORIGINAL_SGX_U11_THREE_DAY_BUYBACK_CHAIN_2026_11_10_TO_12_VERIFIED") {
     const days = sourceChain.records || [];
