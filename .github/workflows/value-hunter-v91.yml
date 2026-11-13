@@ -1,0 +1,23 @@
+name: VALUE HUNTER original SGX 3-day share publishing v91
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_buyback_chain_publish_v91.py
+      - SGX_PDF_connection_probe/test_u11_buyback_chain_publish_v91.py
+      - .github/workflows/value-hunter-v91.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Ensure official UOB 3-day chain remains non-investable historical evidence
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_u11_buyback_chain_v90.py test_u11_buyback_chain_publish_v91.py
