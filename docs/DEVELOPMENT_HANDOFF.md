@@ -108,3 +108,24 @@ S63のFY2025財務には年次報告書のページ指定・PDFハッシュ・�
 
 ---
 この記録は開発再開用の**チェックポイント**。GitHubのコード・コミット履歴・Actions実行ログ・JSONの方が記録日時点の実装の最終的な証拠となる。
+
+
+## 8. 2026年11月14日：開発再開後の追加実績（v40・v41）
+
+- **v40**：ST Engineering（S63）の2025年通期、**REPORTED（通常決算）** の売上高・営業利益・親会社株主帰属利益を、年次報告書とは別の発行体公式決算PDFから自動抽出・照合。BOP（調整後利益）と2H（半年）を取り違えない厳格な選択処理を追加した。PDFハッシュ・参照URL・PDF上のページを残す。
+- v40のGitHub Actions実行により、2025年売上高 `12,346,426`、営業利益 `843,116`、帰属利益 `462,770`（いずれも**SGD千単位**）について、**同一企業の別資料との一致を確認**。営業利益は報告ベースの数値であり、BOP（調整後の営業利益など）を混同しない。
+- v40の照合元（別の発行体公式決算資料）：`https://www.stengg.com/getmedia/636a7ee6-a8b8-4200-870f-09c626cfbec2/ST-Engineering-FY2025-Results-Financial-Statements.pdf`。財務数値はPDFの2ページ目の通期REPORTED欄。**第三者による独立検証ではない**。
+- v40の処理：`SGX_PDF_connection_probe/value_hunter_s63_crosscheck_v40.py`。回帰テスト：`test_value_hunter_s63_crosscheck_v40.py`。既存v27監査JSONにS63の検証結果を付加してv28へつなぐ。
+- **v41**：Web公開用の比較JSONと日本語詳細画面に、営業利益の別資料照合状態・証拠ページも通す。回帰テスト：`test_operating_evidence_v41.py`。
+- v40/v41ともに作業ブランチ、GitHub Actionsでのテスト成功、mainへの統合済み。変更PR：`https://github.com/osawamas/value-hunter-ai/pull/21`、`https://github.com/osawamas/value-hunter-ai/pull/22`。
+- `docs/data/latest.json` のS63照合欄は、v40反映後に **売上高と親会社株主帰属利益の一致が表示された**。v41後は営業利益も表示する設計。公開JSON・Pagesの実際の表示結果はその都度再取得して確認する。
+- **ランキング対象は依然0社**。同一企業が公開した別資料の一致だけで、投資ランキングを解禁しない。
+
+### 次の優先作業
+
+1. **G13の資産・負債・親会社株主持分**を公式2025年財務諸表の連結（Group）2025年欄から自動取得し、純資産と貸借一致を算術検証。現在は貸借の一部が未取得。会社単体（Company）欄との取り違えを厳禁。公式財務資料例：`https://gentingsingapore.listedcompany.com/newsroom/20260224_173326_G13_A7CVA3KL4JFGECGT.3.pdf`。PDFページとSHA256を記録。
+2. S68の固定財務データを、年度を検証できる公式PDFライブ抽出に置き換える。
+3. S63の監査資料と通常決算を引き続き照合し、財務項目の出典を表示。PER/PBR参考値は非公式株価・基準日付き株式数を使用することを明示。
+4. GitHub Pagesの実公開URLとデプロイ成功を確認。未有効なら手動設定の必要性を明示する。
+5. 会社・株式数の公式資料に紐づく登録銘柄マスターを拡充し、全SGX銘柄は未網羅である旨を維持。
+
