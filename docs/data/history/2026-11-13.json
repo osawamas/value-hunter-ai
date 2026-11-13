@@ -1,0 +1,54 @@
+{
+  "date_utc": "2026-11-13",
+  "source_updated_at_utc": "2026-11-13T14:30:58.828098+00:00",
+  "records": [
+    {
+      "symbol": "S68",
+      "price_sgd": 20.69,
+      "per_reference": 31.7231,
+      "pbr_reference_unverified": null,
+      "market_cap_sgd": 22155751683.96,
+      "quote_timestamp_utc": "2026-11-13T09:08:04+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-09-01",
+      "quality_flags": []
+    },
+    {
+      "symbol": "G13",
+      "price_sgd": 0.575,
+      "per_reference": 17.7704,
+      "pbr_reference_unverified": null,
+      "market_cap_sgd": 6936594307.55,
+      "quote_timestamp_utc": "2026-11-13T09:13:51+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-08-14",
+      "quality_flags": []
+    },
+    {
+      "symbol": "S20",
+      "price_sgd": 1.44,
+      "per_reference": null,
+      "pbr_reference_unverified": 0.5593,
+      "market_cap_sgd": 698144869.44,
+      "quote_timestamp_utc": "2026-11-13T08:59:30+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-06-30",
+      "quality_flags": []
+    },
+    {
+      "symbol": "S63",
+      "price_sgd": 9.67,
+      "per_reference": 65.0897,
+      "pbr_reference_unverified": 11.7039,
+      "market_cap_sgd": 30121581488.5,
+      "quote_timestamp_utc": "2026-11-13T09:11:27+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-02-27",
+      "quality_flags": [
+        "SHARES_STALE"
+      ]
+    }
+  ],
+  "quote_count": 4,
+  "source": "VALUE_HUNTER_AI_PUBLIC_FEED_UNVERIFIED_QUOTES"
+}
