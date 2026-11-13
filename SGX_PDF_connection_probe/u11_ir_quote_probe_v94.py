@@ -27,7 +27,7 @@ def parse(url,raw):
   raise ValueError("Unrecognized issuer IR quote origin or page size")
  html=unescape(raw.decode("utf-8","replace"))
  if "UOB" not in html.upper() or "quote" not in html.lower():
-  raise ValueError("UOB issuer investor page or quote block absent")
+  raise ValueError("UOB issuer investor page or quote block absent; bytes="+str(len(raw))+"; has_last_done="+str("last_done" in html)+"; has_uob="+str("UOB" in html.upper())+"; prefix="+re.sub(r"[^\\x20-\\x7E]"," ",html[:180]))
  fields=[]
  for price_rx,time_rx in PATTERNS:
   prices=[x.group("price") for x in price_rx.finditer(html)]
