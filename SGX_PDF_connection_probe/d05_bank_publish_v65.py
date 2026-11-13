@@ -51,6 +51,9 @@ def attach_bank_evidence(feed,bundle):
             raise ValueError("Bank Group statement reconciliation mismatch")
     if (type(shares.get("shares_outstanding")) is not int
             or type(shares.get("treasury_shares")) is not int
+            or type(shares.get("issued_shares_including_treasury_derived")) is not int
+            or shares.get("shares_outstanding")<=0
+            or shares.get("treasury_shares")<0
             or shares.get("issued_shares_including_treasury_derived")!=shares["shares_outstanding"]+shares["treasury_shares"]
             or shares.get("as_of_date")!="2026-02-10"):
         raise ValueError("Historical DBS treasury reconciliation mismatch")
