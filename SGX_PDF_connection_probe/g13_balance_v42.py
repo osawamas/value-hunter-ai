@@ -25,12 +25,19 @@ def amount(token):
     return -int(token[1:-1]) if token.startswith("(") else int(token)
 
 
-def rows(words):
-    groups = {}
-    for word in words:
-        x0, y0, x1, y1, text, block, line, *rest = word
-        groups.setdefault((block, line), []).append((float(x0), str(text)))
-    return [" ".join(text for _, text in sorted(group)) for _, group in groups.values()]
+def rows(words, tolerance=2.1):
+    # PDF text can place a label and its number in different text blocks.
+    # Rebuild the visual row by y-coordinate, *inside one Group-year half*.
+    result = []
+    for word in sorted(words, key=lambda w: (float(w[1]), float(w[0]))):
+        x0, y0, _, _, text, *_ = word
+        y0 = float(y0)
+        if result and abs(result[-1]["y"] - y0) <= tolerance:
+            result[-1]["tokens"].append((float(x0), str(text)))
+        else:
+            result.append({"y": y0, "tokens": [(float(x0), str(text))]})
+    return [" ".join(token for _, token in sorted(row["tokens"]))
+            for row in result]
 
 
 def extract_half(page, left, right, year):
