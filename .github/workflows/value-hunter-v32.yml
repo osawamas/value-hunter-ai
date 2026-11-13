@@ -29,32 +29,6 @@ jobs:
       - name: Local regression tests
         working-directory: SGX_PDF_connection_probe
         run: python -m unittest -v test_s63_audited_pdf_v32.py test_sgx_universe_v30.py
-      - name: Inspect live PDF statement candidate pages
-        if: github.event_name == 'pull_request'
-        working-directory: SGX_PDF_connection_probe
-        run: |
-          python - <<'PY'
-          import fitz
-          from s63_audited_pdf_v32 import fetch, lines, extract_row
-          doc=fitz.open(stream=fetch(),filetype="pdf")
-          for n in range(max(0,125),min(len(doc),132)):
-              page=doc[n];text=" ".join(page.get_text("text").split())
-              rows=lines(page.get_text("words"))
-              print("PDF_PAGE",n+1,"TEXT_START",text[:600])
-              if n == 130:
-                  for row in rows:
-                      if "equity" in row["text"].lower() or "2,921,245" in row["text"]:
-                          print("EQUITY_ROW", repr(row["text"]), "Y", row["y"], "TOKENS", row["tokens"])
-              for label in ("Revenue","Profit from operations","Shareholders of the Company",
-                            "Total assets","Total liabilities","Total equity",
-                            "Equity attributable to owners of the Company"):
-                  try:
-                      r=extract_row(rows,label)
-                      print("EXACT_ROW",label,r["periods"])
-                  except ValueError as ex:
-                      print("ROW_STATUS",label,str(ex))
-          doc.close()
-          PY
       - name: Parse actual official S63 SGX annual report
         run: |
           python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
