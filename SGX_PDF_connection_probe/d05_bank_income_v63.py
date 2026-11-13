@@ -80,6 +80,15 @@ def parse_pdf(raw):
                 values=tuple(int(v.replace(",","")) for v in tail[:2])
                 if values==EXPECTED[key]:
                     hits.append((i,values))
+            if key=="net_profit" and len(hits)>1:
+                # Page 58 also contains the next comprehensive-income
+                # statement; 'Net profit' is repeated there. Take only
+                # the occurrence above the FIRST income attribution heading.
+                attribution_headings=[i for i,line in enumerate(lines)
+                                      if line.strip().lower()=="attributable to:"]
+                if not attribution_headings:
+                    raise ValueError("DBS income attribution boundary missing")
+                hits=[hit for hit in hits if hit[0] < attribution_headings[0]]
             if len(hits)!=1:
                 raise ValueError(f"DBS income row missing/ambiguous {key}: {hits}")
             matches[key]={"2025":hits[0][1][0],"2024":hits[0][1][1],
