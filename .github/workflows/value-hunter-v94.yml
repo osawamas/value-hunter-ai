@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py
+      - SGX_PDF_connection_probe/test_u11_ir_quote_probe_v94.py
       - .github/workflows/value-hunter-v94.yml
   workflow_dispatch:
 permissions:
@@ -19,8 +20,24 @@ jobs:
           python-version: '3.11'
       - name: Syntax check UOB IR quote parser
         run: python -m py_compile SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py
-      - name: Inspect issuer IR quoted-price timestamp without enabling valuation
-        run: python SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py --output evidence-v94/u11-ir.json
+      - name: Validate IR timestamp and nonvaluation test cases
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_u11_ir_quote_probe_v94.py
+      - name: Probe actual IR page and keep missing quote unverified
+        shell: bash
+        run: |
+          if python SGX_PDF_connection_probe/u11_ir_quote_probe_v94.py --output evidence-v94/u11-ir.json; then
+            echo "Issuer IR quote extraction available, still NOT SGX independent quote verification." >> "$GITHUB_STEP_SUMMARY"
+          else
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("evidence-v94/u11-ir.json").read_text())
+          assert r["status"]=="NOT_VERIFIED" and r["record"] is None, "Failed source must not publish data"
+          print("Issuer IR landing page does not expose machine-readable priced quotes; fail-closed evidence retained")
+          PY
+            echo "Actual issuer IR HTML did not expose a verifiable price/timestamp. Unverified data is not published." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
