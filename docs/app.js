@@ -335,6 +335,11 @@ function showDetail(r) {
       ["自己株式数（未検証の転載値）",
         hasNum(shareLead.candidate_treasury_shares) ?
           fmt(shareLead.candidate_treasury_shares, 0) + " 株（未検証）" : "未取得"],
+      ["以前見つけた転載の基準日", r.bank_share_discovery_history?.[0]?.event_date || "該当なし"],
+      ["以前の転載の自己株式控除後株数",
+        hasNum(r.bank_share_discovery_history?.[0]?.candidate_shares_excluding_treasury)
+          ? fmt(r.bank_share_discovery_history[0].candidate_shares_excluding_treasury,0) + " 株（未検証）"
+          : "未取得"],
       ["情報の性質", "SGXNet開示の転載。公式原本と照合できるまで未検証"],
       ["原本のURL", "未特定"],
       ["転載ページ", shareLead.secondary_source_url, true],
