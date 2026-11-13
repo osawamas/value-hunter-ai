@@ -1,0 +1,36 @@
+name: VALUE HUNTER SGX universe validation v30
+on:
+  pull_request:
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
+      - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
+      - 'SGX_PDF_connection_probe/test_sgx_universe_v30.py'
+      - 'SGX_PDF_connection_probe/value_hunter_v28.py'
+      - 'SGX_PDF_connection_probe/value_hunter_web_v29.py'
+      - 'docs/app.js'
+      - '.github/workflows/value-hunter-v30.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_universe_v30.py'
+      - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
+      - 'SGX_PDF_connection_probe/test_sgx_universe_v30.py'
+      - '.github/workflows/value-hunter-v30.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run universe and publishing regressions
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_value_hunter_v28.py test_value_hunter_web_v29.py test_sgx_universe_v30.py
+          cd ..
+          node --check docs/app.js

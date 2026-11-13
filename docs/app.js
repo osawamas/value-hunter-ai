@@ -61,10 +61,18 @@ function warn(message, error = false) {
   $("statusMessage").classList.toggle("error", error);
 }
 function validFeed(json) {
-  return json && json.schema_version === "value_hunter_web_v29" &&
-    Array.isArray(json.records) && json.records.every(r =>
-      r && ["S68", "G13", "S20"].includes(r.symbol) &&
-      r.ranking_eligible === false && Array.isArray(r.exclusion_reasons));
+  if (!json || json.schema_version !== "value_hunter_web_v29" ||
+      !Array.isArray(json.records) || !json.records.length ||
+      json.ranking_enabled !== false || !json.coverage ||
+      json.coverage.all_sgx_listed !== false) return false;
+  const seen = new Set();
+  for (const r of json.records) {
+    if (!r || typeof r.symbol !== "string" || !/^[A-Z0-9]{1,8}$/.test(r.symbol) ||
+        seen.has(r.symbol) || r.ranking_eligible !== false ||
+        !Array.isArray(r.exclusion_reasons) || !r.exclusion_reasons.length) return false;
+    seen.add(r.symbol);
+  }
+  return true;
 }
 function setFeed(json, label) {
   if (!validFeed(json)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
