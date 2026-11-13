@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-13T22:21:18.965343+00:00",
-  "input_generated_at_utc": "2026-11-13T22:21:18.910754+00:00",
+  "updated_at_utc": "2026-11-13T22:37:21.385150+00:00",
+  "input_generated_at_utc": "2026-11-13T22:37:21.339818+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -458,6 +458,47 @@
         "current_quote_verified": false,
         "current_share_count_verified": false,
         "ranking_eligible": false
+      },
+      "banking_interim_2026": {
+        "status": "ISSUER_3Q_AND_NINE_MONTH_TRADING_UPDATE_REGRESSION_MATCHED",
+        "symbol": "D05",
+        "period_end": "2026-09-30",
+        "issuer_release_date": "2026-11-05",
+        "source_url": "https://links.sgx.com/FileOpen/3Q26_trading_update.ashx?App=Announcement&FileID=910439",
+        "pdf_sha256": "c8d55126a0ad0702771ac74ab2f2b79a0f7721223de53faae1197974eca617d6",
+        "Q3": {
+          "period_start": "2026-07-01",
+          "period_end": "2026-09-30",
+          "duration": "THREE_MONTHS",
+          "unit": "SGD_millions",
+          "reporting_scope": "GROUP_ISSUER_TRADING_UPDATE",
+          "source_pdf_page": 7,
+          "metrics": {
+            "total_income": 5845,
+            "net_interest_income": 3711,
+            "operating_expenses": 2373,
+            "profit_before_allowances": 3472,
+            "net_profit": 2813
+          }
+        },
+        "nine_months": {
+          "period_start": "2026-01-01",
+          "period_end": "2026-09-30",
+          "duration": "NINE_MONTHS_YTD",
+          "unit": "SGD_millions",
+          "reporting_scope": "GROUP_ISSUER_TRADING_UPDATE",
+          "source_pdf_page": 7,
+          "metrics": {
+            "total_income": 17886,
+            "net_interest_income": 10786,
+            "operating_expenses": 7022,
+            "profit_before_allowances": 10864,
+            "net_profit": 8822
+          }
+        },
+        "not_annual_2025": true,
+        "not_independently_verified": true,
+        "ranking_eligible": false
       }
     },
     {
@@ -713,6 +754,47 @@
         "historical_only": true,
         "current_market_cap_usable": false,
         "ranking_eligible": false
+      },
+      "banking_interim_2026": {
+        "status": "ISSUER_3Q_AND_NINE_MONTH_TRADING_UPDATE_REGRESSION_MATCHED",
+        "symbol": "O39",
+        "period_end": "2026-09-30",
+        "issuer_release_date": "2026-11-06",
+        "source_url": "https://links.sgx.com/FileOpen/OCBC_3Q26_Results_Press_Release.ashx?App=Announcement&FileID=910569",
+        "pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+        "Q3": {
+          "period_start": "2026-07-01",
+          "period_end": "2026-09-30",
+          "duration": "THREE_MONTHS",
+          "unit": "SGD_millions",
+          "reporting_scope": "GROUP_ISSUER_TRADING_UPDATE",
+          "source_pdf_page": 2,
+          "metrics": {
+            "net_interest_income": 2313,
+            "non_interest_income": 1420,
+            "total_income": 3733,
+            "operating_expenses": -1522,
+            "group_net_profit": 2042
+          }
+        },
+        "nine_months": {
+          "period_start": "2026-01-01",
+          "period_end": "2026-09-30",
+          "duration": "NINE_MONTHS_YTD",
+          "unit": "SGD_millions",
+          "reporting_scope": "GROUP_ISSUER_TRADING_UPDATE",
+          "source_pdf_page": 4,
+          "metrics": {
+            "net_interest_income": 6798,
+            "non_interest_income": 4933,
+            "total_income": 11731,
+            "operating_expenses": -4602,
+            "group_net_profit": 6237
+          }
+        },
+        "not_annual_2025": true,
+        "not_independently_verified": true,
+        "ranking_eligible": false
       }
     },
     {
@@ -964,10 +1046,55 @@
         "historical_only": true,
         "current_market_cap_usable": false,
         "ranking_eligible": false
+      },
+      "banking_interim_2026": {
+        "status": "ISSUER_3Q_AND_NINE_MONTH_TRADING_UPDATE_REGRESSION_MATCHED",
+        "symbol": "U11",
+        "period_end": "2026-09-30",
+        "issuer_release_date": "2026-11-04",
+        "source_url": "https://www.uobgroup.com/investor-relations/assets/pdfs/investor/financial/2026/cfo-slides-3q-2026.pdf",
+        "pdf_sha256": "47d3c789216d14c8d5a79050b06dcf25198e0dc54c4c0846b49f3ffb98ce139d",
+        "Q3": {
+          "period_start": "2026-07-01",
+          "period_end": "2026-09-30",
+          "duration": "THREE_MONTHS",
+          "unit": "SGD_millions",
+          "reporting_scope": "GROUP_ISSUER_TRADING_UPDATE",
+          "source_pdf_page": 3,
+          "metrics": {
+            "net_interest_income": 2278,
+            "net_fee_income": 733,
+            "other_non_interest_income": 370,
+            "total_income": 3381,
+            "operating_expenses": 1570,
+            "operating_profit": 1811,
+            "net_profit": 1250
+          }
+        },
+        "nine_months": {
+          "period_start": "2026-01-01",
+          "period_end": "2026-09-30",
+          "duration": "NINE_MONTHS_YTD",
+          "unit": "SGD_millions",
+          "reporting_scope": "GROUP_ISSUER_TRADING_UPDATE",
+          "source_pdf_page": 3,
+          "metrics": {
+            "net_interest_income": 6900,
+            "net_fee_income": 2035,
+            "other_non_interest_income": 1464,
+            "total_income": 10398,
+            "operating_expenses": 4722,
+            "operating_profit": 5676,
+            "net_profit": 4165
+          }
+        },
+        "not_annual_2025": true,
+        "not_independently_verified": true,
+        "ranking_eligible": false
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-13T22:21:18.999624+00:00",
+  "quality_checked_at_utc": "2026-11-13T22:37:21.412737+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
