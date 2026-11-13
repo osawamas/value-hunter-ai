@@ -354,6 +354,22 @@ function showDetail(r) {
       ["株価・PER・PBR", "別途検証が済むまで未取得・未採用"],
     ]));
   }
+  const bankingIndicators = r.banking_indicators;
+  if (bankingIndicators &&
+      bankingIndicators.status === "HISTORICAL_DERIVED_FROM_AUDITED_ISSUER_GROUP_FY2025") {
+    const derived = bankingIndicators.values || {};
+    grid.append(field("銀行指標", "2025年の参考指標（監査済み連結数字から独自計算）", [
+      ["簡易ROE（参考・％）", hasNum(derived.simple_roe_percent) ? fmt(derived.simple_roe_percent,2) + "％" : "未取得"],
+      ["経費率（参考・％）", hasNum(derived.cost_to_income_proxy_percent) ? fmt(derived.cost_to_income_proxy_percent,2) + "％" : "未取得"],
+      ["親会社帰属利益の前年比", hasNum(derived.parent_profit_growth_percent) ? fmt(derived.parent_profit_growth_percent,2) + "％" : "未取得"],
+      ["親会社株主持分の前年比", hasNum(derived.parent_equity_growth_percent) ? fmt(derived.parent_equity_growth_percent,2) + "％" : "未取得"],
+      ["簡易ROEの計算式", "2025年親会社帰属利益 ÷ 2024・2025年末親会社株主持分平均"],
+      ["経費率の計算式", "連結営業費用の絶対値 ÷ 連結総収益"],
+      ["正式な銀行公表ROE", "別定義のため、この簡易ROEと一致しない場合あり"],
+      ["PDF識別子", bankingIndicators.source_pdf_sha256 || "未登録"],
+      ["投資ランキング", "未採用。株価・最新株式数・独立検証が不足"],
+    ]));
+  }
   parent.append(grid, el("div", "eyebrow", "ランキング除外理由・品質チェック"));
   const list = el("ul", "reasons");
   for (const reason of r.exclusion_reasons || []) {
