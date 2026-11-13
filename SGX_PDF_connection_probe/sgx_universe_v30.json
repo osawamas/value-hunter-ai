@@ -35,6 +35,16 @@
       "financial_pdf_url": "https://links.sgx.com/FileOpen/Annual%20Report%20FY2025.ashx?App=Announcement&FileID=881971",
       "financial_reference_year": 2025,
       "financial_data_status": "LIVE_EXTRACT_PARTIAL"
+    },
+    {
+      "symbol": "S63",
+      "issuer": "Singapore Technologies Engineering Ltd",
+      "market": "SGX",
+      "country": "SG",
+      "currency": "SGD",
+      "financial_pdf_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
+      "financial_reference_year": 2025,
+      "financial_data_status": "LIVE_PARSE_IMPLEMENTING_V32"
     }
   ]
 }
