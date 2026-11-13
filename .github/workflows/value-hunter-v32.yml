@@ -1,0 +1,49 @@
+name: VALUE HUNTER S63 audited financial extraction v32
+on:
+  pull_request:
+    paths:
+      - 'SGX_PDF_connection_probe/s63_audited_pdf_v32.py'
+      - 'SGX_PDF_connection_probe/test_s63_audited_pdf_v32.py'
+      - 'SGX_PDF_connection_probe/value_hunter_v19.py'
+      - 'SGX_PDF_connection_probe/sgx_universe_v30.json'
+      - '.github/workflows/value-hunter-v32.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/s63_audited_pdf_v32.py'
+      - 'SGX_PDF_connection_probe/test_s63_audited_pdf_v32.py'
+      - '.github/workflows/value-hunter-v32.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-s63:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Local regression tests
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_s63_audited_pdf_v32.py test_sgx_universe_v30.py
+      - name: Parse actual official S63 SGX annual report
+        if: github.event_name != 'pull_request'
+        run: |
+          python SGX_PDF_connection_probe/s63_audited_pdf_v32.py --output s63_v32_results/audited_report.json
+          python - <<'PY'
+          import json
+          x=json.load(open("s63_v32_results/audited_report.json"))
+          print("S63 LIVE PDF STATUS:", x['status'])
+          if x.get('error'):
+              print("DIAGNOSTIC:", x['error'])
+          PY
+      - name: Upload actual-PDF extraction diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s63-v32-results
+          path: s63_v32_results/
+          if-no-files-found: warn
