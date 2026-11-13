@@ -1,0 +1,33 @@
+name: VALUE HUNTER UOB Group summary v68
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_bank_summary_v68.py
+      - SGX_PDF_connection_probe/test_u11_bank_summary_v68.py
+      - .github/workflows/value-hunter-v68.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Verify UOB summary values, periods, and rounded balance units
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_u11_bank_summary_v68.py
+      - name: Extract actual UOB FY2025 issuer annual report Group summary
+        run: python SGX_PDF_connection_probe/u11_bank_summary_v68.py --output u11-v68/report.json
+      - name: Keep issuer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: u11-bank-summary-v68
+          path: u11-v68/
+          if-no-files-found: warn
