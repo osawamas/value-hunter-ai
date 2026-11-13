@@ -18,6 +18,8 @@ def synthetic_pdf(*, break_balance=False, company_header=False, missing_liabilit
     doc = fitz.open()
     for i in range(62):
         page = doc.new_page(width=900, height=650)
+        if i == 35:
+            page.insert_text((18, 90), "Equity attributable to ordinary shareholders", fontsize=9)
         if i != 61:
             continue
         for year, x in [(2025, 18), (2024, 468)]:
@@ -48,6 +50,7 @@ class G13BalanceTests(unittest.TestCase):
         parsed = parse_pdf(synthetic_pdf(), {y: v["equity"] for y, v in VALUE.items()})
         self.assertEqual(parsed["metrics"]["assets"]["2025"]["value"], 9185799)
         self.assertEqual(parsed["metrics"]["liabilities"]["2024"]["value"], 932987)
+        self.assertEqual(parsed["metrics"]["parent_equity"]["2025"]["value"], 8205416)
         self.assertEqual(parsed["page_pdf_number"], 62)
         self.assertEqual(parsed["checks"]["2025"]["assets_minus_liabilities_minus_equity"], 0)
         self.assertEqual(parsed["checks"]["2024"]["assets_minus_liabilities_minus_equity"], 0)
