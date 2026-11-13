@@ -1,0 +1,50 @@
+name: VALUE HUNTER public site health v31
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/value-hunter-pages-health.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/value-hunter-pages-health.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Pages configuration and HTTP response
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p site_health
+          echo "Checking Pages metadata..."
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" > site_health/pages_api.json 2> site_health/pages_api_error.txt; then
+            echo "PAGES_CONFIG_PRESENT=yes" | tee site_health/status.txt
+            python - <<'PY'
+          import json
+          x=json.load(open('site_health/pages_api.json'))
+          print("URL",x.get('html_url'))
+          print("STATUS",x.get('status'))
+          print("BUILD_TYPE",x.get('build_type'))
+          PY
+          else
+            echo "PAGES_CONFIG_PRESENT=no" | tee site_health/status.txt
+            cat site_health/pages_api_error.txt
+          fi
+          URL="https://osawamas.github.io/value-hunter-ai/"
+          STATUS="$(curl -L -sS --max-time 12 -o /dev/null -w '%{http_code}' "$URL" || true)"
+          echo "URL=$URL" | tee -a site_health/status.txt
+          echo "HTTP_STATUS=$STATUS" | tee -a site_health/status.txt
+          cat site_health/status.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload diagnostic only (no secrets)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-pages-health
+          path: site_health/
+          if-no-files-found: warn
