@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-SYMBOLS = {'S68': 'S68.SI', 'G13': 'G13.SI', 'S20': 'S20.SI'}
+SYMBOLS = {'S68': 'S68.SI', 'G13': 'G13.SI', 'S20': 'S20.SI', 'S63': 'S63.SI'}
 
 def fetch_price(symbol, timeout=15):
     ticker = SYMBOLS[symbol]
