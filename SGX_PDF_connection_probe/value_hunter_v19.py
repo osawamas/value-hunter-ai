@@ -18,6 +18,34 @@ def normalize_v18(path,symbol):
   if src and 'periods' in src:metrics[key]={str(y):{'value':p['value'],'status':src['status'],'page':d.get('pages',[None])[0 if section=='income' else -1]} for y,p in src['periods'].items()}
  return {'symbol':symbol,'issuer':{'G13':'Genting Singapore Limited','S20':'The Straits Trading Company Limited'}[symbol],'fiscal_year':2025,'source_kind':'LIVE_V18_PDF_EXTRACT','source_url':d.get('source_url'),'pdf_sha256':d.get('pdf_sha256'),'metrics':metrics}
 
+def merge_g13_balance(record, evidence_path):
+    """Only merge audited-equation values from the exact upstream annual PDF."""
+    balance=json.loads(Path(evidence_path).read_text(encoding='utf-8'))
+    if (record.get('symbol')!='G13' or balance.get('symbol')!='G13'):
+        raise ValueError('Wrong issuer for G13 balance evidence')
+    if (balance.get('status')!='EXTRACTED_GROUP_BALANCE_ARITHMETIC_MATCHED'):
+        return record
+    if record.get('pdf_sha256') != balance.get('pdf_sha256'):
+        raise ValueError('Different annual PDF SHA256')
+    for year in ('2025','2024'):
+        if balance.get('checks',{}).get(year,{}).get('matched') is not True:
+            raise ValueError('G13 balance checks incomplete')
+        items=balance['metrics']
+        assets=items['assets'][year]['value']
+        liabilities=items['liabilities'][year]['value']
+        equity=record['metrics']['equity'][year]['value']
+        if assets-liabilities != equity:
+            raise ValueError('G13 balance equation failed')
+    for key in ('assets','liabilities'):
+        record['metrics'][key]=balance['metrics'][key]
+    record['g13_balance_evidence']={
+        'page_pdf_number':balance.get('page_pdf_number'),
+        'status':balance['status'],
+        'scope':'Group',
+        'unit':'SGD_thousands',
+    }
+    return record
+
 def get(r,key,year):return r['metrics'].get(key,{}).get(str(year),{}).get('value')
 
 def derive(r):
@@ -27,10 +55,14 @@ def derive(r):
  return r
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s63');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
+ p=argparse.ArgumentParser();p.add_argument('--v18-dir',required=True);p.add_argument('--s68',required=True);p.add_argument('--s63');p.add_argument('--g13-balance');p.add_argument('--output',required=True);args=p.parse_args();out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
  records=[];errors=[]
  for sym in ['S68','G13','S20']:
-  try:records.append(derive(normalize_s68(args.s68) if sym=='S68' else normalize_v18(Path(args.v18_dir)/f'{sym}_financial_v18.json',sym)))
+  try:
+   rec = normalize_s68(args.s68) if sym=='S68' else normalize_v18(Path(args.v18_dir)/f'{sym}_financial_v18.json',sym)
+   if sym=='G13' and args.g13_balance:
+    rec=merge_g13_balance(rec,args.g13_balance)
+   records.append(derive(rec))
   except (OSError,KeyError,ValueError,AssertionError,TypeError) as ex:errors.append({'symbol':sym,'error':str(ex)})
 
  s63_status=None
