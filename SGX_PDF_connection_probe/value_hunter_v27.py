@@ -50,44 +50,65 @@ def group_lines(words, tolerance=2.5):
     return rows
 
 
-def find_year_columns(rows, row_index):
-    options = []
-    for index in range(max(0, row_index - 28), row_index):
-        years = [(x, int(token)) for x, token in rows[index]["tokens"] if token in ("2025", "2024")]
-        if len(years) == 2 and {year for _, year in years} == {2025, 2024}:
-            options.append((index, {year: x for x, year in years}))
-    return options[-1] if options else None
+def find_year_columns(rows, row_index, symbol):
+    """Select FY 2025/2024 columns, excluding interim columns and % change.
+
+    S20 has both 6-month and 12-month columns. Select the LAST 2025/2024 pair
+    ONLY when the full-year 12-month heading is present. Fail closed otherwise.
+    """
+    candidates = []
+    for i in range(max(0, row_index - 35), row_index):
+        years = [(x, int(token)) for x, token in rows[i]["tokens"]
+                 if token in ("2025", "2024")]
+        if symbol == "S20" and len(years) == 4:
+            if [year for x, year in years] != [2025, 2024, 2025, 2024]:
+                continue
+            nearby = " ".join(row["text"].lower() for row in rows[max(0, i-9):i+1])
+            if "12 months" not in nearby:
+                continue
+            candidates.append((i, {2025: years[2][0], 2024: years[3][0]}))
+        elif symbol == "G13" and len(years) == 2 and {y for x, y in years} == {2025, 2024}:
+            candidates.append((i, {year: x for x, year in years}))
+    return candidates[-1] if candidates else None
 
 
 def extract_from_rows(rows, symbol, metric):
     matches = []
     for index, row in enumerate(rows):
-        numeric = [(x, parse_amount(token)) for x, token in row["tokens"] if parse_amount(token) is not None]
-        if len(numeric) < 2:
+        numbers = [(x, value) for x, token in row["tokens"]
+                   if (value := parse_amount(token)) is not None]
+        if len(numbers) < 2:
             continue
-        label = " ".join(token for x, token in row["tokens"] if x < min(nx for nx, _ in numeric)).strip().lower()
+        left = min(x for x, _ in numbers)
+        label = " ".join(token for x, token in row["tokens"] if x < left).strip().lower()
         label = re.sub(r"\s+", " ", label)
-        if not any(re.fullmatch(pattern, label) for pattern in LABELS[symbol][metric]):
+        if symbol == "S20" and metric == "attributable_profit":
+            if label != "owners of the company":
+                continue
+            nearby = " ".join(x["text"].lower() for x in rows[max(index-5, 0):index])
+            if "attributable to" not in nearby:
+                continue
+        elif not any(re.fullmatch(pattern, label) for pattern in LABELS[symbol][metric]):
             continue
-        header = find_year_columns(rows, index)
+        header = find_year_columns(rows, index, symbol)
         if not header:
             continue
         _, columns = header
-        assigned = {}
+        chosen = {}
         for year, x in columns.items():
-            ordered = sorted((abs(nx - x), nx, value) for nx, value in numeric)
-            if not ordered or (len(ordered) > 1 and abs(ordered[0][0] - ordered[1][0]) < 5):
+            ordered = sorted((abs(nx-x), nx, val) for nx, val in numbers)
+            if len(ordered) < 2 or ordered[0][0] > 45:
                 break
-            assigned[year] = ordered[0]
-        if len(assigned) != 2 or assigned[2025][1] == assigned[2024][1]:
+            chosen[year] = ordered[0]
+        if len(chosen) != 2 or chosen[2025][1] == chosen[2024][1]:
             continue
         matches.append({
-            "value": assigned[2025][2],
+            "value": chosen[2025][2],
             "row": row["text"],
             "year_header": rows[header[0]]["text"],
             "y": row["y"],
             "year_x": columns[2025],
-            "value_x": assigned[2025][1],
+            "value_x": chosen[2025][1],
         })
     return (matches[0] if len(matches) == 1 else None, len(matches))
 
@@ -97,9 +118,13 @@ def extract_pdf(pdf_bytes, symbol):
 
     document = fitz.open(stream=pdf_bytes, filetype="pdf")
     result = {}
+    # Constrain to issuer's full-year consolidated income statement, not notes.
+    candidate_pages = [2] if symbol == "S20" else list(range(min(len(document), 20)))
     for metric in LABELS[symbol]:
         hits = []
-        for page_index in range(len(document)):
+        for page_index in candidate_pages:
+            if page_index >= len(document):
+                continue
             rows = group_lines(document[page_index].get_text("words"))
             hit, count = extract_from_rows(rows, symbol, metric)
             if hit:
@@ -113,6 +138,7 @@ def extract_pdf(pdf_bytes, symbol):
             "value": usable[0]["value"] if unique else None,
             "evidence": hits[:12],
         }
+    document.close()
     return result
 
 
