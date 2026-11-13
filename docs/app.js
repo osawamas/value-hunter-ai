@@ -164,6 +164,8 @@ function render() {
     const id = el("td");
     id.append(el("div", "ticker", r.symbol),
       el("div", "issuer", r.issuer || names[r.symbol] || ""));
+    if (r.bank_financial_state?.status === "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED")
+      id.append(el("div", "issuer", "銀行連結財務解析済・市場データ未検証"));
     tr.append(id);
     addTextCell(tr, fmt(r.price_sgd), "num");
     addTextCell(tr, fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null), "num");
@@ -175,7 +177,8 @@ function render() {
     }
     const statusTd = el("td");
     statusTd.append(el("span", r.ranking_eligible ? "status good" : "status",
-      r.ranking_eligible ? "対象" : "検証不足・除外"));
+      r.ranking_eligible ? "対象" :
+      r.bank_financial_state?.status === "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED" ? "財務解析済・ランキング除外" : "検証不足・除外"));
     tr.append(statusTd);
     const btnTd = el("td");
     const button = el("button", "detail-button", "詳細");
@@ -216,8 +219,10 @@ function showDetail(r) {
   parent.replaceChildren();
   const top = el("div", "detailtop");
   const title = el("div");
+  const bankParsed = r.bank_financial_state?.status === "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED";
   title.append(el("h3", "", r.symbol + " / " + (r.issuer || names[r.symbol] || "")),
-    el("p", "", "決算年度 " + (r.fiscal_year || "不明") + " / 金額単位：千SGD（財務）・SGD（株価）"));
+    el("p", "", bankParsed ? "銀行連結財務：2025年12月期の監査済み資料から解析済み（百万SGD）。株価・株式数・投資評価は未検証。" :
+      "決算年度 " + (r.fiscal_year || "不明") + " / 金額単位：千SGD（財務）・SGD（株価）"));
   top.append(title, el("span", r.ranking_eligible ? "status good" : "status",
     r.ranking_eligible ? "ランキング対象" : "ランキングから除外"));
   parent.append(top);
@@ -370,10 +375,27 @@ function showDetail(r) {
       ["投資ランキング", "未採用。株価・最新株式数・独立検証が不足"],
     ]));
   }
-  parent.append(grid, el("div", "eyebrow", "ランキング除外理由・品質チェック"));
+  if (bankParsed) {
+    grid.append(field("銀行状況", "銀行の財務解析と市場検証は別の工程", [
+      ["銀行連結財務", "2025年12月期・監査済み資料の解析と資料内突合を完了"],
+      ["一般事業会社の売上高・営業利益", "銀行に適用しない（共通欄は未取得表示）"],
+      ["第三者による数値の独立照合", "未完了"],
+      ["最新の株価・自己株式控除後株式数", "未検証"],
+      ["PER・PBR・投資ランキング", "必要な市場データと独立検証が不足のため対象外"],
+    ]));
+  }
+  parent.append(grid, el("div", "eyebrow", bankParsed ? "投資ランキング対象外の理由（一般事業会社用の指標は銀行では非適用）" : "ランキング除外理由・品質チェック"));
   const list = el("ul", "reasons");
   for (const reason of r.exclusion_reasons || []) {
-    const li = el("li", "", reasons[reason] || reason);
+    const bankGenericMissing = bankParsed && (
+      reason.startsWith("FINANCIAL_MISSING_") || reason === "FISCAL_YEAR_UNKNOWN" ||
+      reason === "BALANCE_UNVERIFIED_OR_MISMATCH" ||
+      reason.startsWith("SECOND_ISSUER_DOCUMENT_NOT_MATCHED_") ||
+      reason === "FINANCIAL_SOURCE_REGISTERED_NOT_PARSED" ||
+      reason === "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED");
+    const label = bankGenericMissing ? "銀行専用の財務解析とは別：一般事業会社用スキーマの未取得・非適用" :
+      (reasons[reason] || reason);
+    const li = el("li", "", label);
     li.title = reason;
     list.append(li);
   }
