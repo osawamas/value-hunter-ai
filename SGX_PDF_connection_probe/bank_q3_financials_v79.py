@@ -122,7 +122,7 @@ def parse_pdf(symbol,raw):
           "not_audited_annual_statement":True}
  finally:doc.close()
 
-def run(symbol,output,raw=None):
+def run(symbol,output,raw=None,verified_pdf_copy=None):
  rec={"symbol":symbol,"status":"NOT_VERIFIED","source_url":SOURCES[symbol]["url"],
       "pdf_sha256":None,"record":None,"error":None}
  try:
@@ -130,6 +130,10 @@ def run(symbol,output,raw=None):
   rec["pdf_sha256"]=hashlib.sha256(data).hexdigest()
   rec["record"]=parse_pdf(symbol,data)
   rec["status"]="ISSUER_Q3_9M_2026_PDF_REGRESSION_MATCHED"
+  if verified_pdf_copy is not None:
+   target=Path(verified_pdf_copy)
+   target.parent.mkdir(parents=True,exist_ok=True)
+   target.write_bytes(data)
  except Exception as exc:
   rec["error"]=f"{type(exc).__name__}: {str(exc)[:350]}"
  target=Path(output);target.parent.mkdir(parents=True,exist_ok=True)
@@ -139,7 +143,8 @@ def run(symbol,output,raw=None):
 if __name__=="__main__":
  p=argparse.ArgumentParser();p.add_argument("--symbol",choices=tuple(SCHEMAS),required=True)
  p.add_argument("--output",required=True);p.add_argument("--offline-pdf")
+ p.add_argument("--verified-pdf-copy")
  a=p.parse_args()
- record=run(a.symbol,a.output,Path(a.offline_pdf).read_bytes() if a.offline_pdf else None)
+ record=run(a.symbol,a.output,Path(a.offline_pdf).read_bytes() if a.offline_pdf else None,a.verified_pdf_copy)
  print(a.symbol,record["status"],record["error"])
  raise SystemExit(0 if record["status"]=="ISSUER_Q3_9M_2026_PDF_REGRESSION_MATCHED" else 1)
