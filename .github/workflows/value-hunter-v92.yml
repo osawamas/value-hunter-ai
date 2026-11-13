@@ -1,0 +1,23 @@
+name: VALUE HUNTER UOB pending SGX source gap v92
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/u11_pending_buyback_v92.py
+      - SGX_PDF_connection_probe/test_u11_pending_buyback_v92.py
+      - .github/workflows/value-hunter-v92.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check secondhand event consistency without primary status
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_u11_pending_buyback_v92.py
