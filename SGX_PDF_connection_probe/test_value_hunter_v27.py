@@ -21,6 +21,37 @@ class V27Tests(unittest.TestCase):
         value, count = extract_from_rows(rows, "G13", "revenue")
         self.assertEqual(value["value"], 2452053)
 
+    def test_s20_selects_full_year_not_half_year(self):
+        rows = group_lines([
+            (40, 3, 95, 11, "12 months", 0, 0, 0),
+            (100, 10, 130, 19, "2025", 0, 0, 0),
+            (200, 10, 230, 19, "2024", 0, 0, 0),
+            (300, 10, 330, 19, "2025", 0, 0, 0),
+            (400, 10, 430, 19, "2024", 0, 0, 0),
+            (15, 35, 75, 45, "Revenue", 0, 0, 0),
+            (100, 35, 150, 45, "355,783", 0, 0, 0),
+            (200, 35, 250, 45, "312,091", 0, 0, 0),
+            (300, 35, 350, 45, "623,300", 0, 0, 0),
+            (400, 35, 450, 45, "564,627", 0, 0, 0),
+        ])
+        value, count = extract_from_rows(rows, "S20", "revenue")
+        self.assertEqual(count, 1)
+        self.assertEqual(value["value"], 623300)
+
+    def test_s20_refuses_ambiguous_period(self):
+        rows = group_lines([
+            (100, 10, 130, 19, "2025", 0, 0, 0),
+            (200, 10, 230, 19, "2024", 0, 0, 0),
+            (300, 10, 330, 19, "2025", 0, 0, 0),
+            (400, 10, 430, 19, "2024", 0, 0, 0),
+            (15, 35, 75, 45, "Revenue", 0, 0, 0),
+            (100, 35, 150, 45, "355,783", 0, 0, 0),
+            (200, 35, 250, 45, "312,091", 0, 0, 0),
+            (300, 35, 350, 45, "623,300", 0, 0, 0),
+            (400, 35, 450, 45, "564,627", 0, 0, 0),
+        ])
+        self.assertEqual(extract_from_rows(rows, "S20", "revenue"), (None, 0))
+
     def test_no_year_no_certification(self):
         rows = group_lines([
             (10, 35, 70, 45, "Revenue", 0, 0, 0),
