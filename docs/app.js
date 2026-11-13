@@ -320,6 +320,23 @@ function populateHistorySymbols() {
   else if (symbols.includes(state.selected)) select.value = state.selected;
   else if (symbols.length) select.value = symbols[0];
 }
+function historicalObservations(entries, symbol, metric) {
+  const observations = [];
+  for (const entry of entries) {
+    if (typeof entry.date_utc !== "string") continue;
+    const found = (entry.records || []).find(r => r.symbol === symbol);
+    const value = found ? found[metric] : null;
+    const timestamp = found?.quote_timestamp_utc;
+    // Do not plot an undated market quote or pretend repeated stale quotes
+    // are new trading-day observations.
+    if (!hasNum(value) || value < 0 || typeof timestamp !== "string" ||
+        Number.isNaN(Date.parse(timestamp))) continue;
+    const previous = observations[observations.length - 1];
+    if (previous && previous.actualQuoteDate === timestamp && previous.value === value) continue;
+    observations.push({date: entry.date_utc, value: value, actualQuoteDate: timestamp});
+  }
+  return observations;
+}
 function renderHistory() {
   const chart = $("historyChart");
   if (!chart) return;
@@ -332,19 +349,10 @@ function renderHistory() {
   }
   const symbol = $("historySymbol").value;
   const metric = $("historyMetric").value;
-  const values = [];
-  for (const entry of index.entries) {
-    if (typeof entry.date_utc !== "string") continue;
-    const found = (entry.records || []).find(r => r.symbol === symbol);
-    const value = found ? found[metric] : null;
-    if (hasNum(value) && value >= 0) values.push({
-      date: entry.date_utc, value: value,
-      actualQuoteDate: found.quote_timestamp_utc
-    });
-  }
+  const values = historicalObservations(index.entries, symbol, metric);
   $("historyStatus").textContent = symbol + " / " +
     $("historyMetric").selectedOptions[0].textContent +
-    " — " + values.length + "回の記録。非取引日・欠損値は補完しない。";
+    " — " + values.length + "回の市場時刻付き観測値。重複・欠損は補完しない。";
   if (!values.length) {
     chart.append(el("div", "empty-history", "この指標はまだ記録されてない。"));
     return;
@@ -398,7 +406,10 @@ async function loadHistory() {
   populateHistorySymbols();renderHistory();
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {historicalObservations};
+}
+if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded",()=>{
   $("historySymbol").addEventListener("change",renderHistory);
   $("historyMetric").addEventListener("change",renderHistory);
   start();
