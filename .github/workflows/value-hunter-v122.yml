@@ -1,0 +1,53 @@
+name: VALUE HUNTER v122 G13 official June share basis
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/g13_sgx_buyback_v122.py'
+      - 'SGX_PDF_connection_probe/test_g13_sgx_buyback_v122.py'
+      - '.github/workflows/value-hunter-v122.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v122
+  cancel-in-progress: false
+jobs:
+  primary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate original source parsing
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_g13_sgx_buyback_v122
+      - name: Retrieve primary SGX G13 buyback
+        run: |
+          python SGX_PDF_connection_probe/g13_sgx_buyback_v122.py --output docs/data/sgx-g13-june10-shares-v122.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-g13-june10-shares-v122.json").read_text())
+          assert x["schema_version"]=="sgx-g13-buyback-share-basis-v122"
+          if x["record"]:
+            assert x["record"]["june_30_shares_independently_confirmed"] is False
+            assert x["record"]["ranking_eligible"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print(x["status"],x["error"])
+          PY
+      - name: Commit separate dated SGX original
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-g13-june10-shares-v122.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v122): June 10 G13 SGX treasury adjusted shares'
+            git push
+          fi
