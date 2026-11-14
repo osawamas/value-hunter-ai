@@ -1,0 +1,31 @@
+{
+  "schema_version": "sgx-g13-fy2025-auditor-probe-v130",
+  "attempted_at_utc": "2026-11-14T05:52:51.437435+00:00",
+  "source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160",
+  "status": "INDEPENDENT_FY2025_AUDITOR_OPINION_IN_PRIMARY_PDF_CONFIRMED",
+  "record": {
+    "schema_version": "sgx-g13-fy2025-independent-auditor-opinion-v130",
+    "symbol": "G13",
+    "fiscal_year": 2025,
+    "source_url": "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160",
+    "source_pdf_sha256": "fe6856502967711f79b73d0c01f5a3b10dfd772900495c73f9d166ee5b32622c",
+    "auditor_issuer": "PricewaterhouseCoopers LLP",
+    "auditor_independence_statement_observed": true,
+    "independent_auditor_opinion_found": true,
+    "audited_annual_group_financials_period_end": "2025-12-31",
+    "report_pages_containing_auditor_opinion": [
+      63,
+      64,
+      65
+    ],
+    "reported_annual_revenue_sgd_thousands": 2452053,
+    "reported_attributable_profit_sgd_thousands": 390346,
+    "reported_group_equity_sgd_thousands": 8205416,
+    "independent_numerical_recalculation_by_our_system": false,
+    "2026_interim_figures_audited_by_this_opinion": false,
+    "2026_stock_price_or_current_shares_audited": false,
+    "ranking_eligible": false,
+    "financial_feed_modified": false
+  },
+  "error": null
+}
