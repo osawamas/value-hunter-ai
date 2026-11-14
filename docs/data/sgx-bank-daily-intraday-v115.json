@@ -1,0 +1,47 @@
+{
+  "schema_version": "sgx-yahoo-daily-intraday-consistency-v115",
+  "date_and_symbol_matched_count": 3,
+  "matching_price_count": 3,
+  "same_provider_internal_consistency_only": true,
+  "official_exchange_confirmed_quotes": 0,
+  "financial_feed_modified": false,
+  "ranking_eligible": false,
+  "records": [
+    {
+      "symbol": "D05",
+      "session_date_sgt": "2026-11-13",
+      "daily_close_sgd": "69.90",
+      "last_5m_bar_price_sgd": "69.90",
+      "rounded_price_matches": true,
+      "provider_internal_only": true,
+      "secondary_prices_independently_verified": false,
+      "sgx_trade_execution_timestamp_verified": false,
+      "valuation_eligible": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "O39",
+      "session_date_sgt": "2026-11-13",
+      "daily_close_sgd": "28.53",
+      "last_5m_bar_price_sgd": "28.53",
+      "rounded_price_matches": true,
+      "provider_internal_only": true,
+      "secondary_prices_independently_verified": false,
+      "sgx_trade_execution_timestamp_verified": false,
+      "valuation_eligible": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U11",
+      "session_date_sgt": "2026-11-13",
+      "daily_close_sgd": "37.75",
+      "last_5m_bar_price_sgd": "37.75",
+      "rounded_price_matches": true,
+      "provider_internal_only": true,
+      "secondary_prices_independently_verified": false,
+      "sgx_trade_execution_timestamp_verified": false,
+      "valuation_eligible": false,
+      "ranking_eligible": false
+    }
+  ]
+}
