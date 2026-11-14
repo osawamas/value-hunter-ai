@@ -292,10 +292,10 @@ function showDetail(r) {
       ["株式数出典", r.shares_source_url, true],
       ["株式数のPDF識別子（SHA256）", r.shares_pdf_sha256 || "未取得"],
     ]),
-    field("評価", "バリュエーション（参考）", [
-      ["時価総額（SGD）", fmt(r.market_cap_sgd, 0)],
-      ["PER", fmt(r.per_reference) + (hasNum(r.per_reference) ? " 倍" : "")],
-      ["PBR（未検証）", fmt(r.pbr_reference_unverified) + (hasNum(r.pbr_reference_unverified) ? " 倍" : "")],
+    field("評価", "旧期間の財務・非公式株価による未検証の参考計算（正式な評価値ではない）", [
+      ["参考時価総額（未検証・SGD）", fmt(r.market_cap_sgd, 0)],
+      ["参考PER（未検証）", fmt(r.per_reference) + (hasNum(r.per_reference) ? " 倍" : "")],
+      ["参考PBR（未検証）", fmt(r.pbr_reference_unverified) + (hasNum(r.pbr_reference_unverified) ? " 倍" : "")],
       ["PBR分母：親会社株主持分（千SGD）", fmt(r.parent_equity_sgd_thousands, 0)],
       ["親会社株主持分の検証状態", r.parent_equity_status || "未検証"],
       ["親会社株主持分の独立検証", "未完了（企業の監査済み資料による内訳照合とは別）"],
