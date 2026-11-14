@@ -1,0 +1,22 @@
+{
+  "schema_version": "uob-ir-2026-11-13-probe-v163",
+  "attempted_at_utc": "2026-11-14T07:31:09.569156+00:00",
+  "status": "UOB_ISSUER_IR_PAGE_PARSED_IDENTITY_NOT_VERIFIED",
+  "record": {
+    "schema_version": "uob-ir-nov13-page-evidence-v163",
+    "page_url": "https://uob.listedcompany.com/sgx-announcements/news.html?id=2634252",
+    "response_html_sha256": "4b3cb1259863506ca6bddbdc941bbe9ef7c5cf3d5ca35e71a6c245d389ac680a",
+    "response_bytes": 2183,
+    "visible_chars": 157,
+    "expected_announcement_ref_visible": false,
+    "buyback_title_visible": false,
+    "date_nov13_visible": false,
+    "UOB_ir_announcement_identity_verified": false,
+    "candidate_public_ir_or_sgx_links": [],
+    "sgx_original_announcement_verified": false,
+    "uob_treasury_adjusted_shares_from_primary_sgx": null,
+    "latest_outstanding_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
