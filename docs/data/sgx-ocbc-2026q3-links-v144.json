@@ -1,0 +1,33 @@
+{
+  "schema_version": "sgx-ocbc-q3-attachment-probe-v144",
+  "status": "SGX_OCBC_Q3_ATTACHMENT_LINKS_RESEARCHED",
+  "record": {
+    "schema_version": "sgx-ocbc-q3-official-attachment-links-v144",
+    "original_announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/",
+    "source_html_sha256": "002307b35ed58271c17d03c00319e02ae51599d24396de4e6f7785e0a496df86",
+    "official_attachment_url_count": 3,
+    "all_three_verified_attachment_links": true,
+    "downloaded_original_pdfs": false,
+    "quarterly_metrics_extracted": false,
+    "current_market_data_verified": false,
+    "ranking_eligible": false,
+    "attachments": [
+      {
+        "filename": "OCBC_3Q26_Results_Press_Release.pdf",
+        "resolved_official_link": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+        "unique_direct_sgx_link": true
+      },
+      {
+        "filename": "OCBC_3Q26_CEO_Presentation.pdf",
+        "resolved_official_link": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910570_OCBC_3Q26_CEO_Presentation.pdf",
+        "unique_direct_sgx_link": true
+      },
+      {
+        "filename": "OCBC_3Q26_Results_Highlights.pdf",
+        "resolved_official_link": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910571_OCBC_3Q26_Results_Highlights.pdf",
+        "unique_direct_sgx_link": true
+      }
+    ]
+  },
+  "error": null
+}
