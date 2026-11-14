@@ -1,0 +1,104 @@
+{
+  "schema_version": "sgx-ocbc-balance-discovery-probe-v158",
+  "status": "OCBC_PRIMARY_BANK_BALANCE_ROWS_EXTRACTED_RESEARCH_ONLY",
+  "record": {
+    "schema_version": "sgx-ocbc-q3-bank-balance-row-discovery-v158",
+    "symbol": "O39",
+    "source_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "source_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "page_selection": [
+      8,
+      9
+    ],
+    "row_neighborhoods": [
+      {
+        "pdf_page": 8,
+        "line": "Net profit attributable to equity holders",
+        "before": "(10)",
+        "next": "6,237",
+        "next2": "5,677"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Selected Balance Sheet Items",
+        "before": "(8)",
+        "next": "Ordinary equity",
+        "next2": "60,899"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Ordinary equity",
+        "before": "Selected Balance Sheet Items",
+        "next": "60,899",
+        "next2": "58,263"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Equity attributable to equity holders of the Bank",
+        "before": "(1)",
+        "next": "63,347",
+        "next2": "59,963"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Total assets",
+        "before": "–",
+        "next": "731,689",
+        "next2": "647,812"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Net loans to customers",
+        "before": "1",
+        "next": "366,929",
+        "next2": "322,729"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Deposits of non-bank customers",
+        "before": "2",
+        "next": "461,462",
+        "next2": "410,596"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Selected Changes in Equity Items",
+        "before": "(1)",
+        "next": "Total comprehensive income, net of tax",
+        "next2": "5,555"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Return on equity 1/",
+        "before": "Key Financial Ratios (%)",
+        "next": "13.5",
+        "next2": "12.9"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Common Equity Tier 1 capital adequacy ratio",
+        "before": "0.9",
+        "next": "15.5",
+        "next2": "16.9"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Tier 1 capital adequacy ratio",
+        "before": "15.7",
+        "next": "16.4",
+        "next2": "17.6"
+      },
+      {
+        "pdf_page": 8,
+        "line": "Total capital adequacy ratio",
+        "before": "16.3",
+        "next": "18.3",
+        "next2": "19.4"
+      }
+    ],
+    "precise_balance_sheet_independently_verified": false,
+    "current_share_price_or_equity_valuation_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
