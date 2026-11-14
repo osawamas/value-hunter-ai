@@ -1,0 +1,37 @@
+name: VALUE HUNTER v184 big-three nine-month earnings growth
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/bank-nine-month-v184.js'
+      - 'docs/test_bank_nine_month_v184.js'
+      - '.github/workflows/value-hunter-v184.yml'
+permissions:
+  contents: read
+jobs:
+  historical-growth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact historical quarter and nine-month primary source comparisons
+        run: |
+          node --check docs/bank-nine-month-v184.js
+          node docs/test_bank_nine_month_v184.js
+          node docs/test_bank_profit_yoy_v182.js
+          node docs/test_bank_coverage_v169.js
+      - name: Bank profit never activates SGX market ranking
+        run: |
+          node - <<'JS'
+          const f=require('./docs/data/latest.json');
+          const u=require('./docs/data/sgx-uob-exact-bank-table-v175.json');
+          if(f.ranking_eligible_count!==0 || u.record.ranking_eligible!==false ||
+             u.record.independent_third_party_numerical_reperformance!==false)
+            throw Error("Primary financial data promoted as market-verified");
+          console.log("Bank 9M growth calculations remain historical issuer evidence only");
+          JS
