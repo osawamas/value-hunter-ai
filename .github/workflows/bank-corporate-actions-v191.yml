@@ -1,26 +1,33 @@
-name: SGX bank corporate actions evidence v191
+name: SGX source evidence integrity suite v198
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
+      - 'scripts/verify-evidence-v198.js'
       - 'docs/test_bank_corporate_actions_v190.js'
       - 'docs/test_bank_cross_evidence_v192.js'
       - 'docs/test_bank_share_evidence_v193.js'
       - 'docs/test_bank_fy_interim_bridge_v195.js'
-      - 'docs/bank-fy-interim-bridge-v195.js'
+      - 'docs/test_official_batch_v196.js'
+      - 'docs/test_fy_third_party_figure_v197.js'
       - 'docs/bank-share-evidence-v193.js'
-      - 'docs/index.html'
+      - 'docs/bank-fy-interim-bridge-v195.js'
+      - 'docs/official-batch-v196.js'
+      - 'docs/fy-third-party-figure-v197.js'
       - 'docs/data/sgx-bank-corporate-actions-v190.json'
       - 'docs/data/sgx-big3-bank-research-v186.json'
+      - 'docs/data/sgx-official-batch-seed-v196.json'
+      - 'docs/data/sgx-independent-figure-research-v197.json'
       - 'docs/data/latest.json'
+      - 'docs/index.html'
       - '.github/workflows/bank-corporate-actions-v191.yml'
 permissions:
   contents: read
 jobs:
-  bank-corporate-actions-regression:
+  evidence-integrity:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout exact commit
         uses: actions/checkout@v4
@@ -28,11 +35,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Validate official bank share evidence gates
-        run: node docs/test_bank_corporate_actions_v190.js
-      - name: Cross-check original-bank aggregates, dated shares and ranking gate
-        run: node docs/test_bank_cross_evidence_v192.js
-      - name: Verify bank share provenance UI fails closed
-        run: node docs/test_bank_share_evidence_v193.js
-      - name: Validate bank annual and interim source evidence bridge
-        run: node docs/test_bank_fy_interim_bridge_v195.js
+      - name: Run source, financial-period and ranking integrity regressions
+        run: node scripts/verify-evidence-v198.js
