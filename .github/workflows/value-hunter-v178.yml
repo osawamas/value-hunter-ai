@@ -1,0 +1,36 @@
+name: VALUE HUNTER v178 Big Three SGX source interest-income dashboard
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/bank-nii-v178.js'
+      - 'docs/test_bank_nii_v178.js'
+      - '.github/workflows/value-hunter-v178.yml'
+permissions:
+  contents: read
+jobs:
+  display:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate actual SGX original source NII subtotal and UI
+        run: |
+          node --check docs/bank-nii-v178.js
+          node docs/test_bank_nii_v178.js
+          node docs/test_bank_coverage_v169.js
+          node docs/test_reference_valuation_guard_v168.js
+      - name: Prevent bank sum from activating current market valuations
+        run: |
+          node - <<'JS'
+          const f=require("./docs/data/latest.json"),s=require("./docs/data/sgx-big3-nii-v177.json");
+          if(f.ranking_eligible_count!==0||s.record.ranking_eligible!==false||
+             s.record.independent_third_party_earnings_audit!==false)
+             throw Error("Issuer source sum falsely marked independent");
+          console.log("SGX 3Q26 bank 8302m NII is historical issuer-sum only");
+          JS
