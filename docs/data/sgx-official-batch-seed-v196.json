@@ -1,0 +1,117 @@
+{
+  "schema_version": "sgx-official-first-batch-board-lot-v196",
+  "source_url": "https://www.sgx.com/securities/trading",
+  "source_issuer": "Singapore Exchange (SGX)",
+  "source_section": "Securities Trading — 5 October 2026 initial reduced board lot batch",
+  "effective_date": "2026-10-05",
+  "source_claim_scope": "ELEVEN_NAMED_BOARD_LOT_SECURITIES_ONLY",
+  "source_is_full_security_master": false,
+  "official_full_security_master_obtained": false,
+  "total_official_named_items": 11,
+  "quote_fields_excluded": true,
+  "quote_usage_or_redistribution_license_verified": false,
+  "financial_verification_performed": false,
+  "ranking_eligible_count": 0,
+  "issued_shares_verified": false,
+  "rows": [
+    {
+      "symbol": "D05",
+      "name": "DBS Group Holdings Ltd",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "G07",
+      "name": "Great Eastern Holdings Ltd",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "H02",
+      "name": "Haw Par Corporation Ltd",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "C07",
+      "name": "Jardine Cycle & Carriage Ltd",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "J36",
+      "name": "Jardine Matheson Holdings Ltd",
+      "trading_currency": "USD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "BN4",
+      "name": "Keppel Ltd",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "O39",
+      "name": "Oversea-Chinese Banking Corporation Ltd",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "K6S",
+      "name": "Prudential PLC",
+      "trading_currency": "USD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "S68",
+      "name": "Singapore Exchange Limited",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "U11",
+      "name": "United Overseas Bank Limited",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    },
+    {
+      "symbol": "V03",
+      "name": "Venture Corporation Limited",
+      "trading_currency": "SGD",
+      "board_lot_shares": 10,
+      "effective_date": "2026-10-05",
+      "provenance": "OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH",
+      "eligible_for_valuation": false
+    }
+  ]
+}
