@@ -1,0 +1,58 @@
+name: VALUE HUNTER v103 third-party SGX candidate quality audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_provider_audit_v103.py'
+      - 'SGX_PDF_connection_probe/test_sgx_provider_audit_v103.py'
+      - '.github/workflows/value-hunter-v103.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v103-provider-audit
+  cancel-in-progress: false
+jobs:
+  provider-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline edge-case tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_provider_audit_v103
+      - name: Inspect live third-party API without promoting financial data
+        run: |
+          python SGX_PDF_connection_probe/sgx_provider_audit_v103.py --output docs/data/sgx-provider-quality-v103.json
+      - name: Prevent unverified data promotion
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('docs/data/sgx-provider-quality-v103.json').read_text())
+          assert r['source_kind']=='THIRD_PARTY_NOT_OFFICIAL_SGX_MASTER'
+          assert r['ranking_eligible'] is False
+          assert r['promoted_to_financial_feed'] is False
+          assert r['sgx_master_comparison_completed'] is False
+          side=json.loads(Path('docs/data/sgx-universe-candidates.json').read_text())
+          assert r['source_url']==side['source_url']
+          assert r['accepted_rows']==side['provider_accepted_candidate_count']
+          assert r['rejected_rows']==side['provider_unaccepted_rows']
+          assert r['source_response_sha256']==side['source_json_sha256'], 'API has changed since candidate snapshot; do not conflate snapshots'
+          print('Audited same provider snapshot as published sidecar')
+          PY
+      - name: Commit strictly separate provider-quality evidence
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-provider-quality-v103.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v103): audit rejected provider rows and nonofficial status signals'
+            git push
+          fi
