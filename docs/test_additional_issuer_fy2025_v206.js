@@ -45,6 +45,16 @@ function verify(x,f,s){
  return true;
 }
 verify(research,feed,seed);
+const html=fs.readFileSync("docs/index.html","utf8");
+const {validate}=require("./additional-issuer-research-v206.js");
+assert.ok(html.includes('src="./additional-issuer-research-v206.js"'));
+assert.ok(html.includes('id="additionalIssuerResearchRows"'));
+assert.ok(html.includes('id="additionalIssuerResearchStatus"'));
+const view=validate(feed,seed,research);
+assert.deepEqual(view.map(x=>[x.symbol,x.revenue,x.reported_profit]),[
+ ["BN4",5983,789],["V03",2534.5,227]
+]);
+
 for(const mutate of [
  (x,f,s)=>{x.items[0].reported_parent_net_profit_2025_m_sgd=1100},
  (x,f,s)=>{x.items[1].financial_feed_registered=true},
