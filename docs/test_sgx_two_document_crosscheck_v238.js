@@ -6,6 +6,24 @@ const v03=JSON.parse(fs.readFileSync("docs/data/sgx-v03-primary-statements-v213.
 const annual=JSON.parse(fs.readFileSync("docs/data/sgx-annual-report-sha-v237.json","utf8"));
 const original=JSON.parse(fs.readFileSync("docs/data/sgx-original-pdf-sha-v233.json","utf8"));
 const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+// v240: immutable observed original-PDF identity. Intentional source replacement
+// requires reviewing a NEW provenance version, never silent sidecar substitution.
+const sourcePins=Object.freeze({
+ H02:Object.freeze({
+  issuer:"Haw Par Corporation Limited",
+  annualSha:"75328b273799863390e35a626e8e3679fe79ab853ef0a00f2775dd159364cfb8", annualBytes:4754838,
+  resultSha:"94ad135079c4da21a1c7f22a3dd07807cf21b406873d9414d283a3a25753acb5",resultBytes:706174,
+  annualUrl:"https://links.sgx.com/FileOpen/Haw%20Par%20Corp%20Annual%20Report%202025.ashx?App=Announcement&FileID=881713",
+  resultUrl:"https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/876566_FY25%20Haw%20Par%20SGX%20Announcementl.pdf"
+ }),
+ V03:Object.freeze({
+  issuer:"Venture Corporation Limited",
+  annualSha:"eaebb6f4192ceb478c819b991eb18a3c34e43bf573388b9098b5e48b73b26a97",annualBytes:8502570,
+  resultSha:"b1043821f0a335f1d660fa8603aa1bb6b5ca3178fcd32439a1cea699174a5794",resultBytes:520231,
+  annualUrl:"https://links.sgx.com/FileOpen/VCL_Annual_Report_2025.ashx?App=Announcement&FileID=881699",
+  resultUrl:"https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/876221_Venture%20FY2025%20Financial%20Results.pdf"
+ })
+});
 function verify(d,h,v,a,o,f){
  assert.equal(d.schema_version,"sgx-issuer-fy2025-two-document-figure-reconciliation-v238");
  assert.equal(d.financial_period_end,"2025-12-31");
@@ -40,6 +58,16 @@ function verify(d,h,v,a,o,f){
   assert.ok(fr[0].pdf_url.startsWith("https://links.sgx.com/"));
   assert.equal(ar[0].issuer_numerical_audit_independently_verified,false);
   assert.equal(fr[0].independent_financial_numeric_verification,false);
+  const pinned=sourcePins[symbol];
+  assert.equal(row.issuer,pinned.issuer,"proof issuer identity drift");
+  assert.equal(ar[0].issuer,pinned.issuer,"annual issuer identity drift");
+  assert.equal(fr[0].issuer,pinned.issuer,"results issuer identity drift");
+  assert.equal(ar[0].sha256,pinned.annualSha,"annual official PDF digest drift");
+  assert.equal(ar[0].bytes,pinned.annualBytes,"annual official PDF length drift");
+  assert.equal(ar[0].source_url,pinned.annualUrl,"annual official URL drift");
+  assert.equal(fr[0].sha256,pinned.resultSha,"results official PDF digest drift");
+  assert.equal(fr[0].byte_length,pinned.resultBytes,"results official PDF length drift");
+  assert.equal(fr[0].pdf_url,pinned.resultUrl,"results official URL drift");
   for(const [year,fields] of Object.entries(row.fields)){
    const ref=symbol==="H02"?
     {revenue:h.income[year].revenue,gross_profit:h.income[year].gross_profit,
@@ -81,6 +109,12 @@ for(const change of [
  (d,h,v,a,o,f)=>{a.records[1].sha256="bad-digest"},
  (d,h,v,a,o,f)=>{o.records[0].byte_length=0},
  (d,h,v,a,o,f)=>{a.records[0].issuer_numerical_audit_independently_verified=true},
+ (d,h,v,a,o,f)=>{a.records[0].sha256=o.records[0].sha256},
+ (d,h,v,a,o,f)=>{a.records[0].sha256="a".repeat(64)},
+ (d,h,v,a,o,f)=>{a.records[1].bytes++},
+ (d,h,v,a,o,f)=>{o.records[1].pdf_url=o.records[0].pdf_url},
+ (d,h,v,a,o,f)=>{o.records[0].issuer="Venture Corporation Limited"},
+ (d,h,v,a,o,f)=>{d.records[0].issuer="Venture Corporation Limited"},
  (d,h,v,a,o,f)=>{f.ranking_eligible_count=1}
 ]){
  const args=[proof,h02,v03,annual,original,feed].map(x=>structuredClone(x));
