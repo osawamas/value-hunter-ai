@@ -46,12 +46,19 @@ jobs:
           assert f["ranking_eligible_count"]==0
           print("Market-value and independent-audit eligibility remains blocked")
           PY
-      - name: Save isolated evidence audit
+      - name: Refresh current main evidence and commit with bounded push retry
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/data/sgx-ranking-readiness-v117.json
-          if ! git diff --cached --quiet; then
-            git commit -m 'data(v117): sector specific seven issuer ranking readiness blockers'
-            git push
-          fi
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_ranking_readiness_v117.py --feed docs/data/latest.json --s63-buyback docs/data/sgx-s63-buyback-v109.json --output docs/data/sgx-ranking-readiness-v117.json
+            git add docs/data/sgx-ranking-readiness-v117.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v117): refresh seven issuer ranking readiness'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          echo "Failed to reconcile latest main"
+          exit 1
