@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict");
-const {csvRows,normalize}=require("../scripts/stage-sgx-csv-v199.js");
+const {csvRows,normalize,decodeOriginalCsv}=require("../scripts/stage-sgx-csv-v199.js");
 const csv=[
  "Trading Code,Trading Name,Traded Currency,Listing Board,Security Type,Last,Bid,Ask,Volume",
  'D05,"DBS Group Holdings Ltd",SGD,MAINBOARD,STOCK,37.75,37.70,37.80,10000',
@@ -9,11 +9,18 @@ const csv=[
 ].join("\r\n")+"\r\n";
 const meta={as_of_date:"2026-11-14",source_url:"https://www.sgx.com/securities/securities-prices?code=stocks"};
 const doc=normalize(csv,meta);
+const original=decodeOriginalCsv(Buffer.from(csv,"utf8"));
+assert.equal(original.csv,csv);
+const invalidBytes=Buffer.from([0xff,0xfe]);
+assert.throws(()=>decodeOriginalCsv(invalidBytes));
+assert.throws(()=>decodeOriginalCsv(csv));
+
 assert.equal(doc.item_count,3);
 assert.deepEqual(doc.items.map(x=>x.trading_code),["D05","J36","O39"]);
 assert.equal(doc.items[1].trading_name,"Jardine Matheson, Holdings Ltd");
 assert.equal(doc.items[1].trading_currency,"USD");
 assert.equal(doc.original_csv_sha256.length,64);
+assert.equal(doc.original_csv_sha256,original.sha256);
 assert.equal(doc.original_file_is_sgx_verified,false);
 assert.equal(doc.full_sgx_universe_verified,false);
 assert.equal(doc.quote_columns_stripped,true);
