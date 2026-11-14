@@ -94,6 +94,8 @@ on:
       - 'docs/test_sgx_directory_staging_v252.js'
       - 'docs/data/sgx-corporate-indexed-page-v253.json'
       - 'docs/test_sgx_corporate_indexed_v253.js'
+      - 'scripts/reconcile-sgx-official-code-v254.js'
+      - 'docs/test_sgx_official_code_join_v254.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
       - '.github/workflows/sgx-original-pdf-probe-v246.yml'
