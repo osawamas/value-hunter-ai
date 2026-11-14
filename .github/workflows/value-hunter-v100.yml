@@ -1,0 +1,26 @@
+name: VALUE HUNTER SGX universe browser v100
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/universe.js
+      - docs/index.html
+      - docs/test_universe_v100.js
+      - .github/workflows/value-hunter-v100.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify independent candidate UI syntax and fail-closed schema
+        run: |
+          node --check docs/app.js
+          node --check docs/universe.js
+          node docs/test_universe_v100.js
