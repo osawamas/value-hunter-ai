@@ -1,0 +1,54 @@
+name: VALUE HUNTER v109 SGX S63 official 13 Nov buyback
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_s63_buyback_v109.py'
+      - 'SGX_PDF_connection_probe/test_sgx_s63_buyback_v109.py'
+      - '.github/workflows/value-hunter-v109.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v109
+  cancel-in-progress: false
+jobs:
+  direct-primary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unit tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_s63_buyback_v109
+      - name: Fetch and validate SGX official historical shares
+        run: |
+          python SGX_PDF_connection_probe/sgx_s63_buyback_v109.py --output docs/data/sgx-s63-buyback-v109.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-s63-buyback-v109.json").read_text())
+          assert x["schema_version"]=="sgx-s63-buyback-original-v109"
+          if x["record"]:
+            assert x["record"]["allow_market_cap_or_per_pbr"] is False
+            assert x["record"]["verified_trade_time_stock_quote"] is False
+            assert x["record"]["ranking_eligible"] is False
+          z=json.loads(Path("docs/data/latest.json").read_text())
+          assert z["ranking_eligible_count"]==0
+          print(x["status"],x["error"])
+          PY
+      - name: Commit independent historical evidence
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-s63-buyback-v109.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v109): S63 Nov 13 SGX original buyback snapshot'
+            git push
+          fi
