@@ -1,0 +1,38 @@
+name: VALUE HUNTER v104 SGX quote fail-closed test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_quote_gate_v104.py'
+      - 'SGX_PDF_connection_probe/test_sgx_quote_gate_v104.py'
+      - '.github/workflows/value-hunter-v104.yml'
+permissions:
+  contents: read
+jobs:
+  offline-quote-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fail-closed market quote tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_quote_gate_v104
+      - name: Assert published financial feed is unaffected
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          banks=[r for r in feed["records"] if r["symbol"] in ("D05","O39","U11")]
+          assert len(banks)==3
+          assert feed["ranking_eligible_count"]==0 and feed["ranking_enabled"] is False
+          for bank in banks:
+            assert bank["price_sgd"] is None and bank["market_cap_sgd"] is None
+            assert bank["shares_outstanding"] is None
+          print("No unverified bank quote or valuation promotion")
+          PY
