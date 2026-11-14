@@ -1,0 +1,60 @@
+name: VALUE HUNTER v180 DBS SGX precise 3Q and 9M bank income
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_dbs_exact_table_v180.py'
+      - 'SGX_PDF_connection_probe/test_sgx_dbs_exact_table_v180.py'
+      - '.github/workflows/value-hunter-v180.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v180
+  cancel-in-progress: false
+jobs:
+  exact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Guard exact SGX original table columns
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_dbs_exact_table_v180
+      - name: Fetch original DBS trading update and verify exact table
+        run: |
+          python SGX_PDF_connection_probe/sgx_dbs_exact_table_v180.py --prior docs/data/sgx-big3-nii-v177.json --layout docs/data/sgx-dbs-table-contexts-v179.json --output docs/data/sgx-dbs-exact-table-v180.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("docs/data/sgx-dbs-exact-table-v180.json").read_text())
+          assert d["status"]=="DBS_3Q26_9M26_PRIMARY_SGX_TABLE_COLUMNS_RECONCILED",d["error"]
+          r=d["record"]
+          assert r["net_profit_3q26_sgd_millions"]==2813
+          assert r["net_profit_9m26_sgd_millions"]==8822
+          assert r["net_interest_income_3q26_sgd_millions"]==3711
+          assert r["independent_numerical_verification"] is False
+          assert json.loads(Path("docs/data/latest.json").read_text())["ranking_eligible_count"]==0
+          PY
+      - name: Save original historical issuer bank evidence only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_dbs_exact_table_v180.py --prior docs/data/sgx-big3-nii-v177.json --layout docs/data/sgx-dbs-table-contexts-v179.json --output docs/data/sgx-dbs-exact-table-v180.json
+            git add docs/data/sgx-dbs-exact-table-v180.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v180): DBS original quarter and nine-month bank income exact columns'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1
