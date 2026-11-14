@@ -22,7 +22,8 @@ const tests=[
  "docs/test_additional_issuer_fy2025_v206.js",
  "docs/test_remaining_issuer_research_v207.js",
  "docs/test_h02_group_statement_v208.js",
- "docs/test_v03_balance_v209.js"
+ "docs/test_v03_balance_v209.js",
+ "docs/test_issuer_pdf_probe_v210.js"
 ];
 let failed=0;
 for(const test of tests){
