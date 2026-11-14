@@ -56,6 +56,17 @@ function verify(d,f,s,t){
  return true;
 }
 verify(doc,feed,seed,first);
+const html=fs.readFileSync("docs/index.html","utf8");
+const {validate}=require("./remaining-issuer-research-v207.js");
+assert.ok(html.includes('src="./remaining-issuer-research-v207.js"'));
+assert.ok(html.includes('id="remainingIssuerResearchRows"'));
+assert.ok(html.includes('id="remainingIssuerResearchStatus"'));
+const displayed=validate(feed,seed,doc,first);
+assert.deepEqual(displayed.map(x=>[x.symbol,x.currency,x.amount]),[
+ ["G07","SGD",1207.1],["H02","SGD",229.967],["C07","USD",1110],
+ ["J36","USD",1109],["K6S","USD",4119]
+]);
+
 for(const mutate of [
  (d,f,s,t)=>{d.items[0].ranking_eligible=true},
  (d,f,s,t)=>{d.items[2].reporting_currency="SGD"},
