@@ -1,0 +1,39 @@
+{
+  "schema_version": "sgx-share-price-date-coherence-v161",
+  "feed_updated_at_utc": "2026-11-14T07:08:54.210317+00:00",
+  "issuers_reviewed": 2,
+  "mismatched_reference_date_count": 2,
+  "official_trade_tape_verified_count": 0,
+  "ranking_eligible_count": 0,
+  "financial_feed_modified": false,
+  "records": [
+    {
+      "symbol": "G13",
+      "reference_share_snapshot_date": "2026-06-30",
+      "reference_quote_trading_date": "2026-11-13",
+      "share_quote_reference_date_gap_days": 136,
+      "same_date_reconciled": false,
+      "newest_observed_sgx_share_snapshot_date": "2026-06-30",
+      "newest_observed_sgx_shares_ex_treasury": 12063642274,
+      "reference_feed_shares_ex_treasury": 12063642274,
+      "newest_snapshot_is_currently_complete": false,
+      "official_trade_tape_quote_confirmed": false,
+      "reference_market_cap_per_pbr_temporally_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S63",
+      "reference_share_snapshot_date": "2026-06-30",
+      "reference_quote_trading_date": "2026-11-13",
+      "share_quote_reference_date_gap_days": 136,
+      "same_date_reconciled": false,
+      "newest_observed_sgx_share_snapshot_date": "2026-11-13",
+      "newest_observed_sgx_shares_ex_treasury": 3115847115,
+      "reference_feed_shares_ex_treasury": 3119304988,
+      "newest_snapshot_is_currently_complete": false,
+      "official_trade_tape_quote_confirmed": false,
+      "reference_market_cap_per_pbr_temporally_verified": false,
+      "ranking_eligible": false
+    }
+  ]
+}
