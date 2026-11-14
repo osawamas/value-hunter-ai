@@ -1,0 +1,21 @@
+{
+  "schema_version": "sgx-ocbc-q3-crosscheck-probe-v148",
+  "status": "OCBC_3Q26_TWO_ISSUER_PDFS_ROUNDED_PROFIT_MATCH",
+  "record": {
+    "schema_version": "sgx-ocbc-q3-issuer-two-pdf-crosscheck-v148",
+    "symbol": "O39",
+    "period_end_date": "2026-09-30",
+    "reported_group_net_profit_3q26_sgd_billion": "2.04",
+    "reported_group_net_profit_yoy_pct": 3,
+    "original_press_release_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "original_highlights_pdf_sha256": "1111632e69e5dd3fdacbab8c6febc21f723949b5240b2e7c7947e4a675dbde16",
+    "different_issuer_document_hashes_confirmed": true,
+    "same_issuer_rounded_q3_profit_consistency": true,
+    "independent_third_party_reperformance": false,
+    "independently_audited_interim_profit": false,
+    "annualised_per_or_pbr_permitted": false,
+    "live_quote_or_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
