@@ -61,6 +61,8 @@ jobs:
           node docs/test_ocbc_bundle_summary_v167.js
           node --check docs/reference-valuation-guard-v168.js
           node docs/test_reference_valuation_guard_v168.js
+          node --check docs/bank-coverage-v169.js
+          node docs/test_bank_coverage_v169.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
