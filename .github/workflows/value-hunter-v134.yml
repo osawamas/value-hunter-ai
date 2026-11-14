@@ -1,0 +1,53 @@
+name: VALUE HUNTER v134 direct SGX securities prices HTML probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_securities_prices_probe_v134.py'
+      - 'SGX_PDF_connection_probe/test_sgx_securities_prices_probe_v134.py'
+      - '.github/workflows/value-hunter-v134.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v134
+  cancel-in-progress: false
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test static/JS-only responses without false listings
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_securities_prices_probe_v134
+      - name: Inspect actual SGX securities-prices page HTML only
+        run: |
+          python SGX_PDF_connection_probe/sgx_securities_prices_probe_v134.py --output docs/data/sgx-official-html-probe-v134.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-official-html-probe-v134.json").read_text())
+          assert x["schema_version"]=="sgx-securities-price-html-research-v134"
+          if x["result"]:
+            assert x["result"]["complete_official_sgx_security_master_retrieved"] is False
+            assert x["result"]["eligible_for_ranking"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print(x["status"],x["error"])
+          PY
+      - name: Commit only page-structure research
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-official-html-probe-v134.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v134): official SGX securities prices HTML structure evidence'
+            git push
+          fi
