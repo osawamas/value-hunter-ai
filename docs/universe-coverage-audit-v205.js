@@ -49,16 +49,48 @@
     official_master_complete:false,full_company_universe_verified:false,
     quote_or_valuation_permitted:false,ranking_eligible:0};
  }
+ // v251 historical aggregate is a scale reference, not a verified issuer directory.
+ function compareOfficialMonthEnd(feed,candidates,official,statistics){
+  const known=reconcile(feed,candidates,official);
+  if(statistics?.schema_version!=="sgx-official-monthend-listed-securities-count-v251"||
+     statistics.report_month!=="2026-08"||
+     statistics.as_of_date!=="2026-08-31"||
+     statistics.reported_total_listed_securities!==604||
+     statistics.reported_mainboard_listings!==406||
+     statistics.reported_catalist_listings!==198||
+     statistics.reported_mainboard_listings+statistics.reported_catalist_listings!==statistics.reported_total_listed_securities||
+     statistics.source_kind!=="SGX_ORIGINAL_MONTHLY_MARKET_STATISTICS_PDF"||
+     statistics.source_url!=="https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Aug%202026.ashx?App=Announcement&FileID=903915"||
+     statistics.not_current_asof_2026_11_15!==true||
+     statistics.not_security_code_list!==true||
+     statistics.not_issuer_level_registry!==true||
+     statistics.not_licensing_permission!==true||
+     statistics.comparison_scope!=="HISTORICAL_SGX_AGGREGATE_VS_PARTIAL_THIRD_PARTY_COMPANY_CANDIDATES_NOT_SAME_UNITS"||
+     statistics.official_security_master_complete!==false||
+     statistics.ranking_eligible!==false||
+     statistics.financial_feed_modified!==false||
+     known.official_master_complete!==false||
+     known.ranking_eligible!==0)
+   throw Error("SGX historical listing count cannot be promoted to issuer master");
+  return {...known,official_historical_listed_securities:604,
+    as_of:"2026-08-31",official_historical_mainboard:406,
+    official_historical_catalist:198,
+    historical_count_issuer_universe_comparable:false,
+    historical_count_not_current:true,
+    source:statistics.source_url};
+ }
  async function render(){
   const status=document.getElementById("universeCoverageAuditStatus");
   const body=document.getElementById("universeCoverageAuditRows");
   if(!status||!body)return;
   try{
    const files=await Promise.all(
-    ["./data/latest.json","./data/sgx-universe-candidates.json","./data/sgx-official-batch-seed-v196.json"]
+    ["./data/latest.json","./data/sgx-universe-candidates.json","./data/sgx-official-batch-seed-v196.json","./data/sgx-official-monthend-aug2026-v251.json"]
     .map(async p=>{const r=await fetch(p,{cache:"no-store"});if(!r.ok)throw Error("HTTP");return r.json()}));
-   const d=reconcile(...files);
+   const d=compareOfficialMonthEnd(...files);
    const items=[
+    ["SGX公式・2026年8月末の上場証券数（過去時点）",String(d.official_historical_listed_securities)+"（Mainboard "+d.official_historical_mainboard+" / Catalist "+d.official_historical_catalist+"）"],
+    ["第三者の企業候補（上記と定義・時点が異なる）",String(d.third_party_candidates)+"（不完全・公式全証券一覧ではない）"],
     ["公式11証券と第三者182候補の一致",String(d.official_in_third_party)+" / "+String(d.official_lot_batch)],
     ["公式11証券のうち第三者候補に欠けるコード",d.official_missing_from_third_party.join("、")||"なし"],
     ["公式11証券のうち財務未登録コード",d.official_missing_financials.join("、")||"なし"]
@@ -67,7 +99,7 @@
     const td=document.createElement("td");td.textContent=v;tr.append(td);
    }fragment.append(tr)}
    body.replaceChildren(fragment);
-   status.textContent="公式の11証券限定資料・第三者の182候補・財務登録7社を別々に照合。母集団は異なり、いずれも公式SGX全銘柄マスターの完成を示さない。";
+   status.textContent="SGX公式2026年8月末の上場証券604と第三者企業候補182は定義・時点が異なる。182/604を取得率や未収録銘柄数に換算しない。公式の完全な銘柄コード一覧は未取得。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=2;td.textContent="台帳の更新差分が未照合のため詳細を非表示";
@@ -75,6 +107,6 @@
    status.textContent="台帳の照合待ち";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={reconcile};
+ if(typeof module!=="undefined"&&module.exports)module.exports={reconcile,compareOfficialMonthEnd};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
