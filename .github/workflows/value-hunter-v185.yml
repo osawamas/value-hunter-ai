@@ -1,0 +1,35 @@
+name: VALUE HUNTER v185 source-bound ranking blocker checklist
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ranking-blockers-v185.js'
+      - 'docs/test_ranking_blockers_v185.js'
+      - '.github/workflows/value-hunter-v185.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-gaps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate strict ranking blockers against actual feed and source gates
+        run: |
+          node --check docs/ranking-blockers-v185.js
+          node docs/test_ranking_blockers_v185.js
+          node docs/test_sgx_market_policy_v183.js
+          node docs/test_bank_nine_month_v184.js
+      - name: Ranking remains disabled and no third-party candidates marked complete
+        run: |
+          node - <<'JS'
+          const feed=require('./docs/data/latest.json'),gate=require('./docs/data/sgx-first-issuer-gate-v137.json');
+          if(feed.ranking_eligible_count!==0||gate.eligible_count!==0||gate.ranking_activation_permitted!==false)
+            throw Error('Unverified ranking activation');
+          console.log('All currently missing evidence requirements explicitly preserved');
+          JS
