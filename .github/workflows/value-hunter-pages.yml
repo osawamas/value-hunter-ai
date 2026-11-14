@@ -53,6 +53,8 @@ jobs:
           node docs/test_ocbc_income_v155.js
           node --check docs/ocbc-allowance-v157.js
           node docs/test_ocbc_allowance_v157.js
+          node --check docs/ocbc-balance-v160.js
+          node docs/test_ocbc_balance_v160.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
