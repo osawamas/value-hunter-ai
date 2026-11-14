@@ -64,7 +64,28 @@ def main():
   links=json.loads(Path(a.links).read_text())
   out["record"]=audit(links,fetch_pdf)
   out["status"]="SGX_OCBC_Q3_THREE_ORIGINAL_PDFS_VERIFIED"
- except Exception as e:out["error"]=type(e).__name__+": "+str(e)[:280]
+ except Exception as e:
+  out["error"]=type(e).__name__+": "+str(e)[:280]
+  try:
+   manifest=json.loads(Path(a.links).read_text())
+   diag=[]
+   for item in manifest.get("record",{}).get("attachments",[]):
+    url=item.get("resolved_official_link")
+    if not url:continue
+    try:
+     req=Request(url,headers={"User-Agent":"Mozilla/5.0 VALUE-HUNTER-AI/1.0","Accept":"application/pdf"})
+     with urlopen(req,timeout=20) as resp:
+      sample=resp.read(128)
+      diag.append({"filename":item.get("filename"),"url_host":resp.geturl().split("/")[2],
+       "final_path":"/"+"/".join(resp.geturl().split("/")[3:])[:180],
+       "content_type":resp.headers.get("Content-Type",""),
+       "sample_pdf_magic":sample.startswith(b"%PDF"),
+       "sample_html_magic":b"<html" in sample.lower() or b"<!doctype" in sample.lower()})
+    except Exception as inner:
+     diag.append({"filename":item.get("filename"),"error":type(inner).__name__+": "+str(inner)[:140]})
+   out["response_diagnostics"]=diag
+  except Exception as diag_error:
+   out["response_diagnostics_error"]=type(diag_error).__name__+": "+str(diag_error)[:140]
  f=Path(a.output);f.parent.mkdir(parents=True,exist_ok=True)
  f.write_text(json.dumps(out,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  print(out["status"],out["error"])
