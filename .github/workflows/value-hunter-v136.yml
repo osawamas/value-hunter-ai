@@ -1,0 +1,51 @@
+name: VALUE HUNTER v136 official SGX public JS path discovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_public_js_paths_v136.py'
+      - 'SGX_PDF_connection_probe/test_sgx_public_js_paths_v136.py'
+      - '.github/workflows/value-hunter-v136.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v136
+  cancel-in-progress: false
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: No raw keys, only public script paths
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_public_js_paths_v136
+      - name: Fetch exact SGX-referenced public JS bundles read-only
+        run: |
+          python SGX_PDF_connection_probe/sgx_public_js_paths_v136.py --assets docs/data/sgx-html-assets-v135.json --output docs/data/sgx-public-js-paths-v136.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-public-js-paths-v136.json").read_text())
+          assert x["official_quote_api_confirmed"] is False
+          assert x["official_complete_master_confirmed"] is False
+          assert x["ranking_eligible"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          PY
+      - name: Save public path hints, not market data
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-public-js-paths-v136.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v136): SGX public JS bundle path hints'
+            git push
+          fi
