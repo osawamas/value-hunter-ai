@@ -1,0 +1,37 @@
+# VALUE HUNTER AI — v214 checkpoint (2026-11-14 JST)
+
+## Resume state
+- Continue from `docs/development-checkpoint-v211.md`, not from v189. Read latest main, Actions jobs, `docs/data/latest.json`, v212/213 source JSON and this checkpoint first.
+- Last observed `docs/data/latest.json` updated `2026-11-14T13:19:38.274864+00:00`, registered financial issuers 7, ranking eligible 0 and ranking disabled. Main advanced concurrently with v132/v140/v161/v137 sidecar refresh; never overwrite those.
+- Unified `scripts/verify-evidence-v198.js` now includes 21 test-file paths through v214. **Actual Node child-process full suite and GitHub Actions push workflow job result still unobserved**, unlike separate V8 compatibility checks.
+
+## v212 Haw Par original SGX filing
+- Discovered SGX official announcement https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/ (reference SG260227OTHRQ304, broadcast 2026-02-27 17:23:27 SGT, ISIN SG1D25001158, FY period 2025-12-31).
+- Clicked original attachment https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/876566_FY25%20Haw%20Par%20SGX%20Announcementl.pdf, 25 pages. Directly inspected **page index 1 income and page index 2 group balance screenshots** and visually matched FY2025 revenue SGD 229,967 thousand, group profit after tax 265,462 thousand, assets 4,417,906 thousand, liabilities 126,830 thousand, equity 4,291,076 thousand. FY2024 group assets 4,277,008, liabilities 128,474 and equity 4,148,534 thousand also visible. Separate issuer FY2025 annual report https://links.sgx.com/FileOpen/Haw%20Par%20Corp%20Annual%20Report%202025.ashx?App=Announcement&FileID=881713 matched those numbers. The annual report is a **second issuer document**, not independent cross-source auditor assurance.
+- Replaced H02 URL in `scripts/probe-issuer-financial-pdf-v210.js` with exact official SGX original, commit `b1b2dbb16a086658c8f1ba162e5699d773a71e59`.
+- Added `docs/data/sgx-h02-primary-filing-v212.json`, commit `1154edb82a37da788c90e52e79066ef79da7fa61`, and `docs/test_h02_primary_filing_v212.js`, commit `8ceb504a98fc9a5ee8e10930c0a496448123cb2f`. Test PASS in V8 compatibility harness.
+- Original PDF **raw bytes NOT locally retrieved** due sandbox DNS restrictions; SHA256 remains NULL. No independent financial audit or permitted market data.
+
+## v213 Venture primary SGX FY2025 financial filing
+- Discovered official SGX FY results https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/ffb0cf0762793bfd0a05c1b05682e892b669a44a7de8ee65074a9a4be02148f8, reference SG260226OTHRP753, broadcast 2026-02-26 17:16:06 SGT, ISIN SG0531000230, period 2025-12-31.
+- Clicked exact official 13-page PDF https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/876221_Venture%20FY2025%20Financial%20Results.pdf. Directly inspected page index 0 consolidated income and index 2 group balance screenshots. FY2025 amounts SGD thousands: revenue 2,534,517, group profit after tax 227,635, parent profit 226,958, noncontrolling profit 677, assets 3,602,219, current liabilities 791,558, noncurrent liabilities 12,828, parent equity 2,792,741, noncontrolling equity **5,092**, total equity **2,797,833**. 2024 NCI equity **4,511**, parent equity **2,889,813**, total equity 2,894,324, group profit 245,750, parent profit 245,029, NCI profit 721.
+- This **resolves the v209 numeric 'unexplained' rounded difference**: FY2025 5.1m vs exact 5.092m NCI; FY2024 4.5m vs exact 4.511m. Do not overwrite historical rounded research with falsely precise values; use v213 original-statement sidecar.
+- Changed V03 source probe to direct original SGX financial statements instead of press release, commit `d92ff8d9deb5c81aacf92ee9475cc101e9c3a674`.
+- Added `docs/data/sgx-v03-primary-statements-v213.json` commit `35c759f2147c805ec745690f5049f8cc85b7a02e` and `docs/test_v03_primary_statements_v213.js` commit `9299f1eb76584f2541fabc392f65f13cec2a67df`; test PASS in V8 compatibility environment. PDF raw bytes/hash not obtained; independent external audit NOT certified.
+
+## v214 research UI and integrated tests
+- Added `docs/primary-issuer-reconciliation-v214.js` commit `8cad59343ed10ea1b800577104991c6cf2673933` with HTML panel `docs/index.html` commit `735e1eea92179cca9bb66ec8856888c8aca54b2a`, displaying H02/V03 exact FY2025 assets, liabilities, parent equity, NCI when verified, group profit, owner profit when separately available and original SGX links. Currency SGD thousands, no market prices or rankings.
+- Added negative regression `docs/test_primary_issuer_reconciliation_v214.js` commit `0530935a603cfb3471975dee9f8e87a5ed3f87cd`. One failure exposed that modifying H02 net assets was not rejected, so strengthened module to explicitly reconcile net assets=total equity=assets-liabilities, fix `f7c66d96b6588646c70fca72f2ed08b5bc649436`. Retest PASS.
+- Unified `scripts/verify-evidence-v198.js` extended to tests v212/v213/v214; `.github/workflows/bank-corporate-actions-v191.yml` changed path triggers for these files. Last workflow commit `fd774001df608b21ee50b36d4fc25a80f21b9931`.
+- Reran **all three actual JS test bodies** (v212/213/214) against latest fetched JSON timestamp `2026-11-14T13:19:38.274864+00:00` in in-process V8 Node assert/fs-compatible harness: **3/3 PASS**. GitHub Actions real run/job success remains unknown; do not claim otherwise.
+
+## Outstanding priorities for v215+
+1. Check actual GitHub Actions runs and v210 probe artifacts for raw PDF SHA of H02/V03, or run authorized direct original PDFs where DNS/network permits. Current HTML/PDF screenshot was inspected but byte hash absent.
+2. UOB Nov13 original SGX share buyback form `SG261113OTHRHOAF` and OCBC Nov12 treasury use attachment `SG261112OTHRXH64` original remain unobtained. Secondary syndication is not the original. Reconcile true date-matched issued-ex-treasury shares.
+3. Official complete SGX listed issuer/security master and lawful reuse rights, as distinct from the v196 limited 11-security board-lot list and third-party 182 candidates. v199 CSV manual staging, v202 instrument classifier and v204 ISIN guards already implemented.
+4. Licensed timestamped SGX quote redisplay rights; G13/S63 independent numeric external validation and parent equity scope; correct comparable operating profit definition. Do not activate valuation/ranking until all gates pass.
+5. Pages public deployment still unconfirmed; if repository owner has not activated Settings→Pages→GitHub Actions do not claim live.
+6. Existing daily VALUE HUNTER AI continuation automation and the temporary hourly four-run automation were created earlier; these are separate from this chat. Continue from main, do not repeat v212/213 visual PDF inspection unless source changes.
+
+## Copyable next-thread handoff
+VALUE HUNTER AI `osawamas/value-hunter-ai` をv214から続行。最新main・Actions・`docs/data/latest.json`・`docs/data/sgx-h02-primary-filing-v212.json`・`docs/data/sgx-v03-primary-statements-v213.json`・`docs/development-checkpoint-v214.md`を読む。v212でHaw Par H02公式SGX発表 SG260227OTHRQ304 と25ページ原本PDFを特定し、損益・貸借の該当ページを目視照合。v213でVenture V03公式SGX発表 SG260226OTHRP753 の13ページ原本を特定し、2025年の親会社利益226,958千SGD、NCI利益677千SGD、親会社株主持分2,792,741千SGD、NCI持分5,092千SGD、総純資産2,797,833千SGDを原本から確認し、v209で未確認だった差額を解決。v210原本ダウンロード器を両社の正規SGX資料URLへ更新。v214で2社の財務原本照合画面を追加し、純資産改ざんを検出する修正も済ませた。新3テストは最新フィードでV8互換環境3/3 PASS、全21テストの実Node/GitHub Actions CI結果は未確認。原本PDFのバイトSHA、UOB11/13・OCBC11/12原本、公式SGX全銘柄、正規株価ライセンス、G13/S63独立財務監査、GitHub Pages公開は未完。財務登録7社、第三者候補182、公式限定11証券、ランキング適格0社。完了を繰り返さずGitHubへコミットし続行。
