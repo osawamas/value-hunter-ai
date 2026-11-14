@@ -1,0 +1,40 @@
+name: VALUE HUNTER v157 OCBC allowances Japanese dashboard
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ocbc-allowance-v157.js'
+      - 'docs/test_ocbc_allowance_v157.js'
+      - '.github/workflows/value-hunter-v157.yml'
+permissions:
+  contents: read
+jobs:
+  allowance-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: All OCBC source display guards
+        run: |
+          node --check docs/ocbc-allowance-v157.js
+          node docs/test_ocbc_allowance_v157.js
+          node docs/test_ocbc_income_v155.js
+          node docs/test_ocbc_exact_profit_v153.js
+      - name: Actual OCBC source breakdown and ranking audit
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const {validate}=require('./docs/ocbc-allowance-v157.js');
+          const f=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const b=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-allowances-v156.json','utf8'));
+          const c=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-income-components-v154.json','utf8'));
+          const out=validate(f,b,c);
+          assert.equal(out.impaired+out.nonimpaired,424);
+          assert.equal(f.ranking_eligible_count,0);
+          console.log('OCBC allowance composition UI valid with actual issuer evidence');
+          JS
