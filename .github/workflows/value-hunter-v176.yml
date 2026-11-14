@@ -1,0 +1,37 @@
+name: VALUE HUNTER v176 UOB precise source and big three bank dashboard
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/bank-coverage-v169.js'
+      - 'docs/test_bank_coverage_v169.js'
+      - '.github/workflows/value-hunter-v176.yml'
+permissions:
+  contents: read
+jobs:
+  full-bank-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source-bound bank quarterly values
+        run: |
+          node --check docs/bank-coverage-v169.js
+          node docs/test_bank_coverage_v169.js
+          node docs/test_reference_valuation_guard_v168.js
+          node docs/test_ocbc_bundle_summary_v167.js
+      - name: Assert UOB audited-status and SGX quote are not invented
+        run: |
+          node - <<'JS'
+          const u=require("./docs/data/sgx-uob-exact-bank-table-v175.json");
+          const f=require("./docs/data/latest.json");
+          if(u.record.independent_third_party_numerical_reperformance!==false||
+             u.record["2026_11_13_buyback_original_verified"]!==false||
+             u.record.current_sgx_quote_and_treasury_shares_verified!==false||
+             f.ranking_eligible_count!==0)throw Error("Unauthorized valuation promotion");
+          console.log('Three bank source rows verified, no live PER/PBR claim');
+          JS
