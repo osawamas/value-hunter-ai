@@ -1,0 +1,45 @@
+{
+  "schema_version": "sgx-official-asset-discovery-v135",
+  "attempted_at_utc": "2026-11-14T06:03:48.725854+00:00",
+  "status": "SGX_PAGE_RESOURCE_REFERENCES_OBSERVED",
+  "record": {
+    "schema_version": "sgx-official-page-public-resources-v135",
+    "source_url": "https://www.sgx.com/securities/securities-prices?code=stocks",
+    "source_html_sha256": "318a6d387088beddb4e88295b40ece3eb4cbc7dd22798d7dba84368d29c4f5ac",
+    "referenced_resource_count": 5,
+    "javascript_resource_count": 4,
+    "potential_static_download_links": 0,
+    "resources": [
+      {
+        "kind": "script",
+        "url": "https://cloud.google.com/ai/gen-app-builder/client?hl=en_US",
+        "hostname": "cloud.google.com"
+      },
+      {
+        "kind": "script",
+        "url": "https://www.sgx.com/securities/runtime.a74dd797f16f2d3b774e.chunk.js",
+        "hostname": "www.sgx.com"
+      },
+      {
+        "kind": "script",
+        "url": "https://www.sgx.com/securities/index.32e3899753ae86309a56.chunk.js",
+        "hostname": "www.sgx.com"
+      },
+      {
+        "kind": "link",
+        "url": "https://www.sgx.com/securities/index.32e3899753ae86309a56.css",
+        "hostname": "www.sgx.com"
+      },
+      {
+        "kind": "script",
+        "url": "https://www.googletagservices.com/tag/js/gpt.js",
+        "hostname": "www.googletagservices.com"
+      }
+    ],
+    "official_quote_endpoint_confirmed": false,
+    "downloadable_master_confirmed": false,
+    "market_data_fetched": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
