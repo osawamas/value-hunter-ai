@@ -10,6 +10,7 @@
   <script src="./app.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./share-warning-v111.js" defer></script>
+  <script src="./bank-quote-research-v116.js" defer></script>
 </head>
 <body>
   <div class="page">
@@ -98,6 +99,23 @@
         <div class="tablefoot"><span id="universeCandidateShown">0件</span>
           <span>掲載候補は財務未取得・投資ランキング対象外。SGX公式全銘柄の完全な一覧ではない。</span>
         </div>
+      </section>
+
+      <section class="workspace" aria-labelledby="secondaryBankResearchTitle">
+        <div class="section-heading">
+          <div><div class="eyebrow">SECONDARY MARKET RESEARCH / NOT SGX OFFICIAL</div>
+            <h2 id="secondaryBankResearchTitle">銀行3社の過去株価研究（未検証）</h2>
+          </div>
+          <p>第三者の過去日足・5分足。約定時刻・現在株価の証明ではない。</p>
+        </div>
+        <p id="secondaryBankResearchStatus" class="status-message" role="status">過去の第三者株価資料を照合中…</p>
+        <div class="tablewrap">
+          <table><thead><tr><th>銘柄</th><th>取引日（SGT）</th><th>日足参考終値</th>
+          <th>最終5分足参考価格</th><th>バー時刻（SGT）</th><th>同一提供元内の照合</th></tr></thead>
+          <tbody id="secondaryBankResearchRows"><tr><td colspan="6" class="empty">取得中…</td></tr></tbody></table>
+        </div>
+        <div class="tablefoot"><span>Yahoo Finance参考情報。日足・5分足は同一提供元。</span>
+          <span>SGX公式約定価格ではなく、時価総額・PER・PBR・ランキングへ使用しない。</span></div>
       </section>
 
       <section class="details" aria-labelledby="detailTitle">
