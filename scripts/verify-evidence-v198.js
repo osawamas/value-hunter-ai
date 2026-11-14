@@ -32,7 +32,8 @@ const tests=[
  "docs/test_uob_buyback_chain_v216.js",
  "docs/test_evidence_suite_report_v219.js",
  "docs/test_multicurrency_subset_v220.js",
- "docs/test_official_multicurrency_v221.js"
+ "docs/test_official_multicurrency_v221.js",
+ "docs/test_sgx_source_rights_v222.js"
 ];
 let failed=0;
 const results=[];
