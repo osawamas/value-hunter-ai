@@ -19,6 +19,7 @@
   <script src="./app.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./official-batch-v196.js" defer></script>
+  <script src="./universe-coverage-audit-v205.js" defer></script>
   <script src="./fy-third-party-figure-v197.js" defer></script>
   <script src="./share-warning-v111.js" defer></script>
   <script src="./bank-quote-research-v116.js" defer></script>
@@ -142,6 +143,12 @@
         <div class="section-heading"><div><div class="eyebrow">OFFICIAL SGX / LIMITED STATIC BATCH</div>
           <h2 id="officialSeedTitle">公式資料で確認した銘柄コード（11銘柄）</h2></div>
           <p>2026年10月5日の売買単位変更11銘柄のみ。SGX全銘柄マスターではない。</p></div>
+        <h3>公式限定台帳と第三者候補の差分</h3>
+        <p id="universeCoverageAuditStatus" class="status-message" role="status">3種類の銘柄台帳を照合中…</p>
+        <div class="tablewrap"><table><thead><tr><th>対象</th><th>照合結果</th></tr></thead>
+          <tbody id="universeCoverageAuditRows"><tr><td colspan="2">照合中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>候補が欠けていても自動で正式財務登録はしない。</span>
+          <span>公式11銘柄の部分資料はSGX全銘柄マスターではない。</span></div>
         <p id="officialSeedStatus" class="status-message" role="status">公式SGX銘柄コードを照合中…</p>
         <div class="tablewrap" style="max-height:360px;overflow:auto"><table><thead><tr>
           <th>コード</th><th>SGX表記の銘柄名</th><th>取引通貨</th><th>新売買単位</th><th>財務登録</th>
