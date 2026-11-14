@@ -1,0 +1,42 @@
+name: VALUE HUNTER v111 S63 share provenance warning tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/app.js'
+      - 'docs/index.html'
+      - 'docs/style.css'
+      - 'docs/share-warning-v111.js'
+      - 'docs/test_share_warning_v111.js'
+      - '.github/workflows/value-hunter-v111.yml'
+permissions:
+  contents: read
+jobs:
+  warning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript and adversarial tests
+        run: |
+          node --check docs/app.js
+          node --check docs/share-warning-v111.js
+          node docs/test_share_warning_v111.js
+          node docs/test_universe_v100.js
+      - name: Compare warning sidecar to published original data
+        run: |
+          node - <<'JS'
+          const fs=require("node:fs");
+          const assert=require("node:assert/strict");
+          const {validateShareWarning}=require("./docs/share-warning-v111.js");
+          const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+          const audit=JSON.parse(fs.readFileSync("docs/data/sgx-s63-share-delta-v110.json","utf8"));
+          assert.equal(feed.ranking_eligible_count,0);
+          const match=validateShareWarning(feed,audit);
+          assert.equal(match.delta,-3457873);
+          console.log("v111 warning is consistent with current published S63 record");
+          JS
