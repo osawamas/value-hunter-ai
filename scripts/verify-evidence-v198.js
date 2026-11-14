@@ -39,7 +39,8 @@ const tests=[
  "docs/test_sgx_instrument_types_v226.js",
  "docs/test_sgx_dual_currency_second_batch_v227.js",
  "docs/test_dual_currency_ui_v228.js",
- "docs/test_staged_sgx_universe_audit_v229.js"
+ "docs/test_staged_sgx_universe_audit_v229.js",
+ "docs/test_sgx_issuer_directory_v230.js"
 ];
 let failed=0;
 const results=[];
