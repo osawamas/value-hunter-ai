@@ -1,0 +1,40 @@
+name: VALUE HUNTER v165 compact OCBC research accordion
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/style.css'
+      - 'docs/test_ocbc_group_v165.js'
+      - '.github/workflows/value-hunter-v165.yml'
+permissions:
+  contents: read
+jobs:
+  compact-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure OCBC research source panels survive grouping
+        run: |
+          node docs/test_ocbc_group_v165.js
+          node docs/test_ocbc_quarter_v147.js
+          node docs/test_ocbc_bank_ratios_v150.js
+          node docs/test_ocbc_exact_profit_v153.js
+          node docs/test_ocbc_income_v155.js
+          node docs/test_ocbc_allowance_v157.js
+          node docs/test_ocbc_balance_v160.js
+          node docs/test_share_date_v162.js
+      - name: Keep all market valuations outside rankings
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path('docs/data/latest.json').read_text())
+          assert j['ranking_eligible_count']==0
+          assert all(r['ranking_eligible'] is False for r in j['records'])
+          PY
