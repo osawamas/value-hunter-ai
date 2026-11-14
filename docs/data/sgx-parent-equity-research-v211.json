@@ -1,0 +1,47 @@
+{
+  "schema_version": "sgx-g13-s63-parent-equity-external-figure-v211",
+  "period_end": "2025-12-31",
+  "reviewed_on_date": "2026-11-14",
+  "cross_publisher_historical_figures_only": true,
+  "external_provider_filing_origin_not_independently_authenticated": true,
+  "parent_equity_independent_audit_completed": false,
+  "independent_source_recalculation_confirmed": false,
+  "original_external_provider_dataset_hash_verified": false,
+  "verified_market_quote_and_same_date_shares": false,
+  "financial_feed_modified": false,
+  "ranking_eligible_count": 0,
+  "records": [
+    {
+      "symbol": "G13",
+      "provider": "Yahoo Finance Singapore",
+      "source_url": "https://sg.finance.yahoo.com/quote/G13.SI/balance-sheet/",
+      "provider_scope": "TOTAL_COMMON_STOCK_EQUITY",
+      "provider_unit": "SGD_thousands",
+      "provider_parent_equity": 8205416,
+      "issuer_parent_equity_sgd_thousands": 8205416,
+      "provider_total_assets": 9185799,
+      "provider_total_liabilities": 980383,
+      "issuer_total_assets_sgd_thousands": 9185799,
+      "issuer_total_liabilities_sgd_thousands": 980383,
+      "method": "EXACT_DISPLAYED_AGGREGATOR_FY2025",
+      "independent_auditor_confirmation": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S63",
+      "provider": "StockAnalysis",
+      "source_url": "https://stockanalysis.com/quote/sgx/S63/financials/balance-sheet/",
+      "provider_scope": "TOTAL_COMMON_EQUITY_DISTINCT_FROM_TOTAL_EQUITY",
+      "provider_unit": "SGD_millions_rounded",
+      "provider_parent_equity": 2574,
+      "issuer_parent_equity_sgd_thousands": 2573638,
+      "provider_total_equity": 2921,
+      "issuer_total_equity_sgd_thousands": 2921245,
+      "provider_total_assets": 16032,
+      "issuer_total_assets_sgd_thousands": 16032106,
+      "method": "ROUNDING_TOLERANCE_PLUS_MINUS_0_5_MILLION",
+      "independent_auditor_confirmation": false,
+      "ranking_eligible": false
+    }
+  ]
+}
