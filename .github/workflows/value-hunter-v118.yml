@@ -1,0 +1,41 @@
+name: VALUE HUNTER v118 ranking readiness dashboard integration
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ranking-readiness-v118.js'
+      - 'docs/test_ranking_readiness_v118.js'
+      - '.github/workflows/value-hunter-v118.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run validation and adversarial UI tests
+        run: |
+          node --check docs/ranking-readiness-v118.js
+          node --check docs/app.js
+          node docs/test_ranking_readiness_v118.js
+          node docs/test_bank_quote_research_v116.js
+          node docs/test_share_warning_v111.js
+      - name: Verify actual published 7-issuer readiness against latest feed
+        run: |
+          node - <<'JS'
+          const assert=require("node:assert/strict");
+          const fs=require("node:fs");
+          const {validate}=require("./docs/ranking-readiness-v118.js");
+          const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+          const audit=JSON.parse(fs.readFileSync("docs/data/sgx-ranking-readiness-v117.json","utf8"));
+          const rows=validate(feed,audit);
+          assert.equal(rows.length,7);
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log("Readiness UI is consistent with current financial feed");
+          JS
