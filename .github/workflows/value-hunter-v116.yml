@@ -1,0 +1,42 @@
+name: VALUE HUNTER v116 research-only bank chart display
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/bank-quote-research-v116.js'
+      - 'docs/test_bank_quote_research_v116.js'
+      - '.github/workflows/value-hunter-v116.yml'
+permissions:
+  contents: read
+jobs:
+  research-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and adverse market-data UI tests
+        run: |
+          node --check docs/app.js
+          node --check docs/bank-quote-research-v116.js
+          node docs/test_bank_quote_research_v116.js
+          node docs/test_share_warning_v111.js
+      - name: Check real capture files are consistently guarded
+        run: |
+          node - <<'JS'
+          const fs=require("node:fs");
+          const assert=require("node:assert/strict");
+          const {validate}=require("./docs/bank-quote-research-v116.js");
+          const files=["sgx-bank-secondary-quotes-v112.json","sgx-bank-intraday-v114.json","sgx-bank-daily-intraday-v115.json"]
+            .map(n=>JSON.parse(fs.readFileSync("docs/data/"+n,"utf8")));
+          const rows=validate(...files);
+          assert.equal(rows.length,3);
+          assert.equal(rows.every(x=>x.equal),true);
+          const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log("v116 real bank research panel evidence checked",rows.length);
+          JS
