@@ -1,0 +1,56 @@
+{
+  "schema_version": "sgx-h02-group-statement-v208",
+  "symbol": "H02",
+  "issuer": "Haw Par Corporation Limited",
+  "period_end": "2025-12-31",
+  "reporting_scope": "AUDITED_GROUP_CONSOLIDATED_STATEMENT_IN_ISSUER_FULL_YEAR_RELEASE",
+  "financial_currency": "SGD",
+  "unit": "SGD_thousands",
+  "source_url": "https://hawpar.listedcompany.com/newsroom/20260227_172327_H02_R2V7WFBB9WQMBBP4.1.pdf",
+  "source_pdf_page_indices_zero_based": {
+    "income": 1,
+    "balance": 2
+  },
+  "pdf_sha256": null,
+  "source_pdf_bytes_locally_verified": false,
+  "independent_third_party_numeric_verification": false,
+  "external_audit_opinion_text_independently_reviewed": false,
+  "shares_and_quote_same_date_verified": false,
+  "financial_feed_registered": false,
+  "investment_ranking_eligible": false,
+  "income": {
+    "FY2025": {
+      "revenue": 229967,
+      "gross_profit": 128765,
+      "other_income": 211269,
+      "profit_before_tax": 281649,
+      "profit_after_tax": 265462
+    },
+    "FY2024": {
+      "revenue": 244824,
+      "gross_profit": 134087,
+      "other_income": 180159,
+      "profit_before_tax": 246118,
+      "profit_after_tax": 228274
+    }
+  },
+  "balance": {
+    "FY2025": {
+      "total_assets": 4417906,
+      "total_liabilities": 126830,
+      "net_assets": 4291076,
+      "total_equity": 4291076
+    },
+    "FY2024": {
+      "total_assets": 4277008,
+      "total_liabilities": 128474,
+      "net_assets": 4148534,
+      "total_equity": 4148534
+    }
+  },
+  "periods_are_full_year": true,
+  "parent_attributable_profit_from_this_staging_verified": false,
+  "operating_profit_specific_line_extracted": false,
+  "ranking_eligibility_permitted": false,
+  "source_material_type": "ISSUER_FULL_YEAR_CONDENSED_AUDITED_SUMMARY_STAGING_ONLY"
+}
