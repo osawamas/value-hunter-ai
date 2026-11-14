@@ -19,6 +19,7 @@
   <script src="./app.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./official-batch-v196.js" defer></script>
+  <script src="./official-multicurrency-v221.js" defer></script>
   <script src="./universe-coverage-audit-v205.js" defer></script>
   <script src="./additional-issuer-research-v206.js" defer></script>
   <script src="./remaining-issuer-research-v207.js" defer></script>
@@ -197,6 +198,19 @@
           </tr></thead><tbody id="primaryIssuerReconciliationRows"><tr><td colspan="9">照合中…</td></tr></tbody></table></div>
         <div class="tablefoot"><span>すべてFY2025、単位は千SGD。H02の親会社帰属利益は未分離で表示。</span>
           <span>V03の非支配株主持分はSGX原本に明示。未取得の原本SHAや市場データ利用権限を検証済みとは扱わない。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="officialCurrencyPairTitle">
+        <div class="section-heading"><div><div class="eyebrow">SGX MULTI-CURRENCY / OFFICIAL EXAMPLES</div>
+          <h2 id="officialCurrencyPairTitle">同一商品・通貨別の取引カウンター</h2></div>
+          <p>SGX公式の例。取引コードと発行体の数は一致しない。</p></div>
+        <p id="officialCurrencyPairStatus" class="status-message" role="status">公式取引カウンターの差分を照合中…</p>
+        <div class="tablewrap"><table><thead><tr><th>商品・発行体表記</th><th>種類</th>
+          <th>主要カウンター</th><th>別通貨カウンター</th>
+          <th>第三者候補・主要</th><th>第三者候補・別通貨</th></tr></thead>
+          <tbody id="officialCurrencyPairRows"><tr><td colspan="6">照合中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>証券コードと通貨を別々に管理。ETFは一般企業の投資ランキング対象とみなさない。</span>
+          <span>公式資料：<a href="https://www.sgx.com/securities/trading" target="_blank" rel="noopener noreferrer">SGX Trading</a>。これは全銘柄マスターではない。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="secondaryBankResearchTitle">
