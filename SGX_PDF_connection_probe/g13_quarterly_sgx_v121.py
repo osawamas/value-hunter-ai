@@ -86,7 +86,7 @@ def run(path):
       "text_length":len(content),
       "row_lines":[line.strip()[:240] for line in content.splitlines()
                    if any(term in line.lower() for term in
-                          ("total revenue","net profit after taxation","not been audited"))][:12]}
+                          ("total revenue","net profit after taxation","not been audited","566,096","649,790","revenue"))][:12]}
   except Exception as debug_error:
    z["pdf_content_debug_error"]=type(debug_error).__name__+": "+str(debug_error)[:180]
  target=Path(path);target.parent.mkdir(parents=True,exist_ok=True)
