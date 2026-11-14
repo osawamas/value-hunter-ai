@@ -4,7 +4,7 @@ from g13_quarterly_sgx_v121 import parse_text
 def fixture():
  return """Genting Singapore Limited QUARTERLY BUSINESS OVERVIEW
  in respect of the three months ended 30 September 2026
- Total Revenue     566,096   649,790   (13)  595,951  (5)
+ Revenue\n                  566,096   649,790   (13)  595,951  (5)
  Net profit after taxation    54,731   94,618   (42) 90,884 (40)
  Financial information presented in this quarterly business overview was prepared
  based on the management accounts of the Group and the same has not been audited nor reviewed
