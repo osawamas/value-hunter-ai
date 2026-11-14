@@ -1,0 +1,40 @@
+{
+  "schema_version": "sgx-securities-price-html-research-v134",
+  "attempted_at_utc": "2026-11-14T06:01:53.507996+00:00",
+  "status": "SGX_OFFICIAL_HTML_RETRIEVED_STRUCTURE_ONLY",
+  "result": {
+    "schema_version": "sgx-official-page-html-probe-v134",
+    "requested_url": "https://www.sgx.com/securities/securities-prices?code=stocks",
+    "html_response_sha256": "7e0b582d12e405a8b7e2f4016e93c00adbb19e2dbae332025d1fb31b797f94e9",
+    "response_bytes": 15335,
+    "visible_text_length": 776,
+    "visible_markers": {
+      "Trading Name": false,
+      "Trading Code": false,
+      "ST Engineering": false,
+      "Genting Sing": false,
+      "G13": false,
+      "S63": false,
+      "DBS": false,
+      "OCBC Bank": false,
+      "Download": true,
+      "As at": false
+    },
+    "visible_expected_ticker_presence": {
+      "S63": false,
+      "G13": false,
+      "D05": false,
+      "O39": false,
+      "U11": false,
+      "S68": false,
+      "S20": false
+    },
+    "page_contains_multi_ticker_visible_table_evidence": false,
+    "js_rendering_or_access_failure_possible": true,
+    "complete_official_sgx_security_master_retrieved": false,
+    "official_master_row_count_verified": null,
+    "official_trade_time_quote_parsed": false,
+    "eligible_for_ranking": false
+  },
+  "error": null
+}
