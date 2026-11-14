@@ -17,6 +17,13 @@ function validateTarget(raw){
     !(/^\/FileOpen\/[A-Za-z0-9%._~()+,-]+\.ashx$/i.test(u.pathname)||
       /^\/1\.0\.0\/corporate-announcements\/[A-Za-z0-9_-]+\/[A-Za-z0-9%._~-]+\.pdf$/i.test(u.pathname)))
    throw Error("Only actual SGX announcement PDF URLs are accepted");
+ const isFileOpen=u.pathname.startsWith("/FileOpen/");
+ const allowed=isFileOpen?new Set(["App","FileID"]):new Set();
+ for(const key of u.searchParams.keys())if(!allowed.has(key))throw Error("Unexpected SGX PDF URL query argument");
+ if(isFileOpen&&(u.searchParams.get("App")!=="Announcement"||
+    !/^\\d+$/.test(u.searchParams.get("FileID")||"")||
+    [...u.searchParams.keys()].length!==2))
+  throw Error("SGX FileOpen requires an exact announcement file id");
  return u.href;
 }
 function evidence(bytes,sourceUrl,finalUrl,subject){
