@@ -71,6 +71,8 @@ jobs:
           node docs/test_bank_nine_month_v184.js
           node --check docs/ranking-blockers-v185.js
           node docs/test_ranking_blockers_v185.js
+          node --check docs/bank-combined-v187.js
+          node docs/test_bank_combined_v187.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
