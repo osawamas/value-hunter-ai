@@ -35,6 +35,17 @@ class Test(unittest.TestCase):
  def test_quote_day_does_not_turn_shares_current(self):
   f,g,s=data();f["records"][0]["shares_as_of_date"]="2026-11-13"
   with self.assertRaises(ValueError):reconcile(f,g,s)
+ def test_future_trading_day_does_not_make_june_shares_current(self):
+  f,g,s=data()
+  f["records"][0]["quote_timestamp_utc"]="2026-11-16T09:13:51+00:00"
+  a=reconcile(f,g,s)
+  self.assertEqual(a["records"][0]["reference_quote_trading_date"],"2026-11-16")
+  self.assertFalse(a["records"][0]["same_date_reconciled"])
+  self.assertEqual(a["ranking_eligible_count"],0)
+ def test_unreasonable_future_quote_rejected(self):
+  f,g,s=data()
+  f["records"][0]["quote_timestamp_utc"]="2035-01-01T09:13:51+00:00"
+  with self.assertRaises(ValueError):reconcile(f,g,s)
  def test_ranking_guard(self):
   f,g,s=data();f["ranking_eligible_count"]=1
   with self.assertRaises(ValueError):reconcile(f,g,s)
