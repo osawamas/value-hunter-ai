@@ -6,6 +6,11 @@ on:
     paths:
       - '.github/workflows/value-hunter-pages.yml'
       - 'docs/test_ranking_blockers_v185.js'
+      - 'docs/*.js'
+      - 'docs/*.css'
+      - 'docs/*.html'
+      - 'docs/data/*.json'
+      - 'docs/README-PREVIEW-v249.md'
   workflow_run:
     workflows: ["VALUE HUNTER SGX dashboard data refresh v29"]
     types: [completed]
