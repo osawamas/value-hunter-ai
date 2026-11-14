@@ -42,7 +42,7 @@
   const vp=v03.group.FY2025;
   const rows=[
    {symbol:"H02",issuer:"Haw Par",assets:hp.total_assets,
-    liabilities:hp.total_liabilities,parent_equity:hp.total_equity,
+    liabilities:hp.total_liabilities,parent_equity:null,
     noncontrolling_equity:null,total_equity:hp.total_equity,
     group_profit:h02.verified_from_primary_pdf_visual.income_FY2025.profit_after_tax,
     owner_profit:null,source:h02.original_pdf_url},
@@ -53,7 +53,7 @@
     owner_profit:vp.profit_attributable_to_owners,source:v03.primary_pdf_url}
   ];
   const expected={
-    H02:[4417906,126830,4291076,null,4291076,265462,null],
+    H02:[4417906,126830,null,null,4291076,265462,null],
     V03:[3602219,804386,2792741,5092,2797833,227635,226958]
   };
   for(const x of rows){
@@ -90,7 +90,7 @@
     a.textContent="SGX原本";td.append(a);tr.append(td);frag.append(tr);
    }
    body.replaceChildren(frag);
-   status.textContent="単位：千SGD、FY2025。H02のグループ利益とV03の親会社帰属利益は別指標。原本ページ目視確認・貸借算術一致までで、原本SHA取得と独立財務検証・最新株式数・株価利用許可は未完。正式ランキング対象外。";
+   status.textContent="単位：千SGD、FY2025。H02の親会社株主持分と非支配株主持分は未分離。グループ税引後利益と親会社帰属利益は別指標。原本ページ目視確認・貸借算術一致までで、原本SHA取得と独立財務検証・最新株式数・株価利用許可は未完。正式ランキング対象外。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=9;td.textContent="原本財務の照合状態が変わったため非表示";
