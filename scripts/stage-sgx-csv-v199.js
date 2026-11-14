@@ -28,6 +28,13 @@ function csvRows(raw){
  if(field.length||row.length){row.push(field);if(row.some(x=>x.trim()))rows.push(row);}
  return rows;
 }
+function decodeOriginalCsv(bytes){
+ if(!Buffer.isBuffer(bytes))throw Error("Original CSV must be raw bytes");
+ const csv=bytes.toString("utf8");
+ if(!Buffer.from(csv,"utf8").equals(bytes))
+  throw Error("CSV is not valid UTF-8; transcode explicitly before import, retaining original");
+ return {csv,sha256:crypto.createHash("sha256").update(bytes).digest("hex")};
+}
 function normalize(raw,{as_of_date,source_url,source_description="manually supplied CSV"}={}){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(as_of_date||"")||
     new Date(as_of_date+"T00:00:00Z").toISOString().slice(0,10)!==as_of_date)
@@ -84,11 +91,14 @@ if(require.main===module){
    const output=path.resolve(out),repoDocs=path.resolve(__dirname,"../docs");
    if(output===repoDocs||output.startsWith(repoDocs+path.sep))
     throw Error("Refusing to publish unauthenticated staged data under docs/");
-   const doc=normalize(fs.readFileSync(inp,"utf8"),{as_of_date,source_url});
+   const original=decodeOriginalCsv(fs.readFileSync(inp));
+   const doc=normalize(original.csv,{as_of_date,source_url});
+   if(doc.original_csv_sha256!==original.sha256)throw Error("Source bytes and parsed CSV digest differ");
+   doc.original_csv_encoding="UTF-8";
    fs.mkdirSync(path.dirname(output),{recursive:true});
    fs.writeFileSync(output,JSON.stringify(doc,null,2)+"\n",{flag:"wx"});
    process.stdout.write("Staged "+doc.item_count+" unverified security counters; NO prices or ranking eligibility.\n");
   }catch(err){process.stderr.write(String(err)+"\n");process.exitCode=1}
  }
 }
-module.exports={csvRows,normalize};
+module.exports={csvRows,normalize,decodeOriginalCsv};
