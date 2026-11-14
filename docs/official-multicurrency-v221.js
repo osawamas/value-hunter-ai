@@ -57,19 +57,19 @@
      !Array.isArray(extended.new_pairs)||extended.new_pairs.length!==18)
    throw Error("Extended SGX counter evidence unavailable");
   const expected=[
-    "NS8U|P7VU|BUSINESS_TRUST","M62|QS0|ETF",
-    "P5P|QR9|ETF","O9P|QL3|ETF","N6M|QL2|ETF",
-    "I98|QK9|ETF","BS6|SO7|POTENTIAL_EQUITY",
-    "BYI|BYJ|ETF","CFA|COI|ETF","SET|SEB|STAPLED_SECURITY",
-    "LG9|TID|ETF","CYC|CYB|ETF","MMS|MMT|ETF",
-    "ZHY|ZHD|ETF","HST|HSS|ETF","O87|GSD|ETF",
-    "YYY|YYR|ETF","UD1U|8U7U|REIT"
+    "NS8U|USD|P7VU|SGD|BUSINESS_TRUST","M62|USD|QS0|SGD|ETF",
+    "P5P|USD|QR9|SGD|ETF","O9P|USD|QL3|SGD|ETF","N6M|USD|QL2|SGD|ETF",
+    "I98|USD|QK9|SGD|ETF","BS6|SGD|SO7|RMB|POTENTIAL_EQUITY",
+    "BYI|USD|BYJ|SGD|ETF","CFA|SGD|COI|USD|ETF","SET|EUR|SEB|SGD|STAPLED_SECURITY",
+    "LG9|USD|TID|SGD|ETF","CYC|SGD|CYB|USD|ETF","MMS|SGD|MMT|USD|ETF",
+    "ZHY|RMB|ZHD|USD|ETF","HST|SGD|HSS|USD|ETF","O87|USD|GSD|SGD|ETF",
+    "YYY|SGD|YYR|RMB|ETF","UD1U|SGD|8U7U|EUR|REIT"
   ];
   const codes=new Set(rows.flatMap(r=>[r.primary_code,r.secondary_code]));
   const third=new Set(candidates.candidates.map(r=>r.symbol));
   for(let i=0;i<18;i++){
    const p=extended.new_pairs[i];
-   const id=p?.primary?.code+"|"+p?.secondary?.code+"|"+p?.instrument_category;
+   const id=p?.primary?.code+"|"+p?.primary?.currency+"|"+p?.secondary?.code+"|"+p?.secondary?.currency+"|"+p?.instrument_category;
    if(id!==expected[i]||p.same_instrument_pair_source!=="SGX_OFFICIAL_STATIC_TRADING_TABLE"||
     p.ranking_eligible!==false||p.official_current_listing_independently_verified!==false||
     p.issuer_financial_data_verified!==false||!p.underlying_name||
