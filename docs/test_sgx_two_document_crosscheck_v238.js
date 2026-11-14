@@ -26,8 +26,20 @@ function verify(d,h,v,a,o,f){
   assert.equal(row.source_figure_values_match_between_issuer_documents,true);
   assert.equal(row.independent_external_numeric_audit_complete,false);
   assert.equal(row.ranking_eligible,false);
-  assert.ok(a.records.some(x=>x.symbol===symbol&&x.source_report_retrieved_and_hashed===true));
-  assert.ok(o.records.some(x=>x.symbol===symbol&&x.source_pdf_byte_digest_calculated===true));
+  const ar=a.records.filter(x=>x.symbol===symbol);
+  const fr=o.records.filter(x=>x.symbol===symbol);
+  assert.equal(ar.length,1,"exactly one annual source for "+symbol);
+  assert.equal(fr.length,1,"exactly one results source for "+symbol);
+  assert.equal(ar[0].source_report_retrieved_and_hashed,true);
+  assert.equal(fr[0].source_pdf_byte_digest_calculated,true);
+  assert.match(ar[0].sha256,/^[a-f0-9]{64}$/);
+  assert.match(fr[0].sha256,/^[a-f0-9]{64}$/);
+  assert.notEqual(ar[0].sha256,fr[0].sha256,"annual and results source must be distinct");
+  assert.ok(ar[0].bytes>0&&fr[0].byte_length>0);
+  assert.ok(ar[0].source_url.startsWith("https://links.sgx.com/"));
+  assert.ok(fr[0].pdf_url.startsWith("https://links.sgx.com/"));
+  assert.equal(ar[0].issuer_numerical_audit_independently_verified,false);
+  assert.equal(fr[0].independent_financial_numeric_verification,false);
   for(const [year,fields] of Object.entries(row.fields)){
    const ref=symbol==="H02"?
     {revenue:h.income[year].revenue,gross_profit:h.income[year].gross_profit,
@@ -64,6 +76,11 @@ for(const change of [
  (d,h,v,a,o,f)=>{d.external_independent_auditor_numeric_recalculation_completed=true},
  (d,h,v,a,o,f)=>{d.ranking_eligible_count=1},
  (d,h,v,a,o,f)=>{a.records[0].source_report_retrieved_and_hashed=false},
+ (d,h,v,a,o,f)=>{a.records[0].symbol="V03"},
+ (d,h,v,a,o,f)=>{o.records[1].symbol="H02"},
+ (d,h,v,a,o,f)=>{a.records[1].sha256="bad-digest"},
+ (d,h,v,a,o,f)=>{o.records[0].byte_length=0},
+ (d,h,v,a,o,f)=>{a.records[0].issuer_numerical_audit_independently_verified=true},
  (d,h,v,a,o,f)=>{f.ranking_eligible_count=1}
 ]){
  const args=[proof,h02,v03,annual,original,feed].map(x=>structuredClone(x));
