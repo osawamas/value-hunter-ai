@@ -11,6 +11,8 @@ on:
       - 'scripts/classify-sgx-counters-v202.js'
       - 'docs/test_classify_sgx_counters_v202.js'
       - 'docs/test_stage_classification_pipeline_v203.js'
+      - 'scripts/sgx-isin-linkage-v204.js'
+      - 'docs/test_sgx_isin_linkage_v204.js'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
       - 'docs/test_bank_cross_evidence_v192.js'
