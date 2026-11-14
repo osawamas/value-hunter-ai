@@ -1,0 +1,62 @@
+{
+  "schema_version": "sgx-bank-corporate-actions-v190",
+  "verified_as_of_date": "2026-11-12",
+  "basis": "SGX official issuer corporate-announcement page, Section D; as-of date is the purchase date, not live",
+  "no_license_verified_quote": true,
+  "ranking_eligible": false,
+  "financial_feed_modified": false,
+  "uob": {
+    "symbol": "U11",
+    "isin": "SG1M31001969",
+    "observations": [
+      {
+        "date": "2026-11-11",
+        "announcement_reference": "SG261111OTHRGYNT",
+        "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/OGJOD7K9GS51JRLV/cab40affb30af649a2f5a37c76072f84a0e1497d6fae97787c4c968bc7c120cc",
+        "purchased": 34000,
+        "cancelled": 34000,
+        "treasury_shares_after": 14548000,
+        "issued_excluding_treasury_after": 1646745591,
+        "origin": "OFFICIAL_SGX_ANNOUNCEMENT_HTML",
+        "official_verified": true
+      },
+      {
+        "date": "2026-11-12",
+        "announcement_reference": "SG261112OTHRSYPK",
+        "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/MTW96I6ZXZBTQZK8/7c3dc707a598dc02da057fc772c1ba67abe1b9b3ceb4fe9d2b92fd00b510d97d",
+        "purchased": 34000,
+        "cancelled": 34000,
+        "treasury_shares_after": 14548000,
+        "issued_excluding_treasury_after": 1646711591,
+        "origin": "OFFICIAL_SGX_ANNOUNCEMENT_HTML",
+        "official_verified": true
+      }
+    ],
+    "latest_unverified": {
+      "date": "2026-11-13",
+      "announcement_reference": "SG261113OTHRHOAF",
+      "secondary_url": "https://c2charts.shareinvestor.com/news/news.html?nid=515671689&source=regional_sgxnet",
+      "secondary_reported_issued_excluding_treasury_after": 1646677591,
+      "official_verified": false,
+      "may_enter_ranking": false
+    }
+  },
+  "ocbc": {
+    "symbol": "O39",
+    "outstanding_change_notice": {
+      "date": "2026-11-12",
+      "announcement_reference": "SG261112OTHRXH64",
+      "secondary_url": "https://a.siasset.com/news/news.html?nid=515671461&source=sg_sgxnet",
+      "attachment_name": "Anno_12Nov2026.pdf",
+      "official_attachment_obtained": false,
+      "share_change_verified": false,
+      "may_enter_ranking": false
+    }
+  },
+  "source_policy": {
+    "official_sgx_market_data_policy_url": "https://www.datadirect.sgx.com/Market-Data-Policy",
+    "policy_effective": "2026-07-01",
+    "licensed_timestamped_quotation_available": false,
+    "unverified_reference_quotes_do_not_authorize_redistribution": true
+  }
+}
