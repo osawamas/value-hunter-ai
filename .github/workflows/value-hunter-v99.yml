@@ -1,0 +1,23 @@
+name: VALUE HUNTER safe SGX candidate universe sidecar v99
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/sgx_companies_publish_v99.py
+      - SGX_PDF_connection_probe/test_sgx_companies_publish_v99.py
+      - .github/workflows/value-hunter-v99.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test incomplete issuer registry must remain excluded from investment ranking
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_sgx_companies_api_v98.py test_sgx_companies_publish_v99.py
