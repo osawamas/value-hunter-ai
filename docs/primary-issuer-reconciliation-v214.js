@@ -17,6 +17,9 @@
      feed.records.some(x=>["H02","V03"].includes(x.symbol)))
    throw Error("Primary issuer source gating changed");
   const hp=h02.verified_from_primary_pdf_visual.balance_FY2025;
+  if(hp.net_assets!==hp.total_equity||
+     hp.total_assets-hp.total_liabilities!==hp.net_assets)
+    throw Error("H02 net-asset reconciliation mismatch");
   const vp=v03.group.FY2025;
   const rows=[
    {symbol:"H02",issuer:"Haw Par",assets:hp.total_assets,
