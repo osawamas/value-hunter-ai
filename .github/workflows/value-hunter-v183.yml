@@ -1,0 +1,35 @@
+name: VALUE HUNTER v183 market quote source and licence disclosures
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/test_sgx_market_policy_v183.js'
+      - '.github/workflows/value-hunter-v183.yml'
+permissions:
+  contents: read
+jobs:
+  source-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Market source and sorting controls
+        run: |
+          node docs/test_sgx_market_policy_v183.js
+          node docs/test_reference_valuation_guard_v168.js
+          node docs/test_bank_profit_yoy_v182.js
+          node docs/test_bank_coverage_v169.js
+      - name: Assert reference quote is not exchange-authenticated
+        run: |
+          node - <<'JS'
+          const f=require("./docs/data/latest.json");
+          if(f.ranking_eligible_count!==0||
+             f.records.some(x=>x.ranking_eligible!==false))
+             throw Error("Invalid ranking state");
+          console.log('Market price and derived valuation never certified without rights and provenance');
+          JS
