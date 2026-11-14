@@ -1,0 +1,52 @@
+name: VALUE HUNTER v117 ranking readiness evidence audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_ranking_readiness_v117.py'
+      - 'SGX_PDF_connection_probe/test_sgx_ranking_readiness_v117.py'
+      - '.github/workflows/value-hunter-v117.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v117
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Strict sector-specific audit tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_ranking_readiness_v117
+      - name: Inspect all seven published issuer records
+        run: |
+          python SGX_PDF_connection_probe/sgx_ranking_readiness_v117.py --feed docs/data/latest.json --s63-buyback docs/data/sgx-s63-buyback-v109.json --output docs/data/sgx-ranking-readiness-v117.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-ranking-readiness-v117.json").read_text())
+          assert r["registered_issuers"]==7 and r["ranking_eligible_count"]==0
+          assert r["changes_to_financial_feed"] is False
+          assert all(x["eligible_for_ranking"] is False for x in r["records"])
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print("Market-value and independent-audit eligibility remains blocked")
+          PY
+      - name: Save isolated evidence audit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-ranking-readiness-v117.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v117): sector specific seven issuer ranking readiness blockers'
+            git push
+          fi
