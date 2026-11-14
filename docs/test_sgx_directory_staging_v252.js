@@ -52,4 +52,21 @@ for(const bad of [
 assert.throws(()=>parseCsv("A,B\n\"bad\"tail,C"));
 assert.throws(()=>parseCsv("A,B\n\"unterminated"));
 assert.equal(feed.ranking_eligible_count,0);
+// Exercise the real command-line pipeline, not only the pure parser.
+const child=require("node:child_process"),os=require("node:os"),path=require("node:path");
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),"sgx-directory-v252-"));
+try{
+ const file=path.join(temp,"source.csv");
+ fs.writeFileSync(file,csv);
+ const command=child.spawnSync(process.execPath,["scripts/stage-sgx-official-directory-v252.js",file,url,date],{encoding:"utf8",timeout:30000});
+ assert.equal(command.status,0,command.stderr);
+ const output=JSON.parse(fs.readFileSync("build/research/sgx-official-directory-staging-v252.json","utf8"));
+ assert.equal(output.staged_security_rows,3);
+ assert.equal(output.csv_sha256,require("node:crypto").createHash("sha256").update(csv).digest("hex"));
+ assert.equal(output.records.some(x=>x.ranking_eligible!==false),false);
+ assert.equal(output.official_full_master_verified,false);
+ assert.equal(output.financial_feed_modified,false);
+ const latest=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+ assert.equal(latest.ranking_eligible_count,0);
+}finally{fs.rmSync(temp,{recursive:true,force:true})}
 console.log("v252 PASS: manual SGX directory CSV staged with source/date gates, safe CSV parsing and zero ranking promotion");
