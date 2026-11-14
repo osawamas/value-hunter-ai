@@ -15,7 +15,7 @@ function derive(buyback,actions,rights,feed){
   source.official_verified===true&&source.origin==="OFFICIAL_SGX_ANNOUNCEMENT_HTML"&&
   source.announcement_reference===row.announcement_ref&&
   source.source_url===row.source_url&&
-  source.issued_excluding_treasury_after===row.issued_excluding_treasury_after&&
+  source.issued_excluding_treasury_after===row.issued_excluding_treasury_after_purchase&&
   source.cancelled===row.cancelled&&
   actions.verified_as_of_date===row.trade_date&&
   buyback.official_current_asof_date===row.trade_date);
@@ -29,7 +29,7 @@ function derive(buyback,actions,rights,feed){
   latest_nov13_official_original_obtained:false,
   source_status:matches?"HISTORICAL_SGX_ORIGINAL_MATCHED_NOT_CURRENT":"SOURCE_MISMATCH_BLOCKED",
   secondary_nov13_included:false,
-  licensed_quote_available:!noLicense?false:false,
+  licensed_quote_available:false,
   live_valuation_allowed:false,ranking_eligible:false
  };
  const ocbcNotice=actions.ocbc.outstanding_change_notice||{};
