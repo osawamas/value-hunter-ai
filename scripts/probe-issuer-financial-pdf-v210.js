@@ -7,8 +7,8 @@ const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypt
 const TARGETS=[
  {symbol:"H02",kind:"FY2025_ISSUER_FINANCIAL_STATEMENTS",
   url:"https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/876566_FY25%20Haw%20Par%20SGX%20Announcementl.pdf"},
- {symbol:"V03",kind:"FY2025_ISSUER_RESULTS_PRESS_RELEASE",
-  url:"https://links.sgx.com/FileOpen/Venture%20FY2025%20Press%20release.ashx?App=Announcement&FileID=876222"}
+ {symbol:"V03",kind:"FY2025_ISSUER_FINANCIAL_STATEMENTS",
+  url:"https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/876221_Venture%20FY2025%20Financial%20Results.pdf"}
 ];
 const allowed=new Set(["hawpar.listedcompany.com","links.sgx.com"]);
 function validateTarget(url){
