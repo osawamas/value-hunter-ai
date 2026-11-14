@@ -1,0 +1,55 @@
+name: VALUE HUNTER v130 independent FY2025 G13 auditor opinion
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/g13_fy2025_auditor_v130.py'
+      - 'SGX_PDF_connection_probe/test_g13_fy2025_auditor_v130.py'
+      - '.github/workflows/value-hunter-v130.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v130
+  cancel-in-progress: false
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: PyMuPDF source parser and negative tests
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_g13_fy2025_auditor_v130
+      - name: Fetch G13 SGX annual original and identify independent opinion
+        run: |
+          python SGX_PDF_connection_probe/g13_fy2025_auditor_v130.py --feed docs/data/latest.json --output docs/data/sgx-g13-fy2025-auditor-v130.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-g13-fy2025-auditor-v130.json").read_text())
+          assert r["schema_version"]=="sgx-g13-fy2025-auditor-probe-v130"
+          if r["record"]:
+            assert r["record"]["independent_numerical_recalculation_by_our_system"] is False
+            assert r["record"]["2026_interim_figures_audited_by_this_opinion"] is False
+            assert r["record"]["ranking_eligible"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(r["status"],r["error"])
+          PY
+      - name: Save audit opinion evidence separately
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-g13-fy2025-auditor-v130.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v130): independent FY2025 G13 audit opinion primary report'
+            git push
+          fi
