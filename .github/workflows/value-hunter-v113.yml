@@ -1,0 +1,52 @@
+name: VALUE HUNTER v113 dated bank quote crosscheck
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_bank_secondary_crosscheck_v113.py'
+      - 'SGX_PDF_connection_probe/test_sgx_bank_secondary_crosscheck_v113.py'
+      - '.github/workflows/value-hunter-v113.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v113
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test different sources and safeguards
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_bank_secondary_crosscheck_v113
+      - name: Compare real published third-party research snapshots
+        run: |
+          python SGX_PDF_connection_probe/sgx_bank_secondary_crosscheck_v113.py --feed docs/data/latest.json --secondary docs/data/sgx-bank-secondary-quotes-v112.json --output docs/data/sgx-bank-secondary-crosscheck-v113.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          out=json.loads(Path("docs/data/sgx-bank-secondary-crosscheck-v113.json").read_text())
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert out["reference_close_count"]==3
+          assert out["official_sgx_price_verified_count"]==0
+          assert out["ranking_eligible"] is False
+          assert feed["ranking_eligible_count"]==0
+          print("Actual secondary source agreement",out["all_three_research_closes_match"])
+          PY
+      - name: Save separate research crosscheck
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-bank-secondary-crosscheck-v113.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v113): compare bank chart closes to archived secondary research'
+            git push
+          fi
