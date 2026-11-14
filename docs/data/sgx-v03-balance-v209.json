@@ -1,0 +1,38 @@
+{
+  "schema_version": "sgx-v03-fy2025-annual-balance-v209",
+  "symbol": "V03",
+  "issuer": "Venture Corporation Limited",
+  "period_end": "2025-12-31",
+  "source_url": "https://venture.listedcompany.com/financial_highlights.html",
+  "source_class": "ISSUER_INVESTOR_RELATIONS_FY2025_GROUP_HIGHLIGHTS",
+  "currency": "SGD",
+  "unit": "SGD_millions_rounded_1_decimal",
+  "source_pdf_sha256": null,
+  "original_pdf_bytes_verified": false,
+  "audited_financial_statements_independently_rechecked": false,
+  "group_statement_independent_numeric_validation": false,
+  "issued_ex_treasury_shares_current_verified": false,
+  "authorized_timestamped_quote_verified": false,
+  "financial_feed_registered": false,
+  "ranking_eligible": false,
+  "historical": {
+    "FY2025": {
+      "revenue": 2534.5,
+      "parent_profit": 227,
+      "assets": 3602.2,
+      "liabilities": 804.4,
+      "parent_equity": 2792.7
+    },
+    "FY2024": {
+      "revenue": 2735.9,
+      "parent_profit": 245,
+      "assets": 3699.9,
+      "liabilities": 805.6,
+      "parent_equity": 2889.8
+    }
+  },
+  "total_equity_reported_from_source": false,
+  "noncontrolling_equity_numerically_verified": false,
+  "derived_total_equity_only_from_assets_minus_liabilities": true,
+  "no_current_market_valuation_allowed": true
+}
