@@ -1,0 +1,23 @@
+{
+  "schema_version": "sgx-ocbc-bank-ratio-probe-v149",
+  "status": "OCBC_3Q26_ISSUER_BANK_RATIOS_OBSERVED_IN_PRIMARY_PDF",
+  "record": {
+    "schema_version": "sgx-ocbc-3q26-bank-ratio-research-v149",
+    "symbol": "O39",
+    "financial_period_end": "2026-09-30",
+    "sgx_primary_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "sgx_primary_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "net_interest_margin_3q26_pct_issuer_reported": "1.66",
+    "nonperforming_loan_ratio_pct_issuer_reported": "0.8",
+    "cet1_capital_adequacy_ratio_pct_reported": "15.5",
+    "return_on_equity_3q26_annualised_pct_reported": "13.1",
+    "fully_phased_cet1_is_distinct_from_transitional_ratio": true,
+    "ratios_are_rounded_public_issuer_values": true,
+    "exact_table_row_scoping_independently_audited": false,
+    "bank_provision_and_credit_loss_full_reconciliation_completed": false,
+    "independent_numerical_verification": false,
+    "current_shares_or_market_quote_verified": false,
+    "per_pbr_ranking_permitted": false
+  },
+  "error": null
+}
