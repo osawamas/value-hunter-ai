@@ -1,6 +1,6 @@
 {
   "schema_version": "sgx-first-issuer-evidence-gate-v137",
-  "feed_updated_at_utc": "2026-11-14T12:53:28.295404+00:00",
+  "feed_updated_at_utc": "2026-11-14T13:19:38.274864+00:00",
   "checked_issuers": 2,
   "required_evidence_fields": [
     "fy2025_external_auditor_opinion",
