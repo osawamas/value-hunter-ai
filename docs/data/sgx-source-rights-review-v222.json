@@ -28,7 +28,8 @@
       "full_security_master_verified": false,
       "market_data_fields_allowed": false,
       "source_identifiers_only": false,
-      "can_enable_rankings": false
+      "can_enable_rankings": false,
+      "public_quote_redistribution_authorized": false
     },
     {
       "id": "SGX_OFFICIAL_MARKET_DATA",
