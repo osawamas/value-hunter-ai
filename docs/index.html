@@ -21,6 +21,7 @@
   <script src="./official-batch-v196.js" defer></script>
   <script src="./official-multicurrency-v221.js" defer></script>
   <script src="./universe-coverage-audit-v205.js" defer></script>
+  <script src="./sgx-listing-event-watch-v257.js" defer></script>
   <script src="./additional-issuer-research-v206.js" defer></script>
   <script src="./remaining-issuer-research-v207.js" defer></script>
   <script src="./primary-issuer-reconciliation-v214.js" defer></script>
@@ -142,6 +143,17 @@
         <div class="tablefoot"><span id="universeCandidateShown">0件</span>
           <span>掲載候補は財務未取得・投資ランキング対象外。SGX公式全銘柄の完全な一覧ではない。</span>
         </div>
+      </section>
+
+      <section class="workspace" aria-labelledby="sgxListingEventTitle">
+        <div class="section-heading"><div><div class="eyebrow">SGXNET / CORPORATE ACTION WATCH</div>
+          <h2 id="sgxListingEventTitle">売買・上場状態の追加調査が必要な銘柄</h2></div>
+          <p>過去の取引コードが確認できても、現在の取引や上場継続を意味しない。</p></div>
+        <p id="sgxListingEventStatus" class="status-message" role="status">公式開示の重要イベントを照合中…</p>
+        <div class="tablewrap"><table><thead><tr><th>銘柄</th><th>開示日</th><th>確認済みの企業イベント</th><th>原本</th></tr></thead>
+          <tbody id="sgxListingEventRows"><tr><td colspan="4">照合中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>5WAの予定日は条件付き目安。P11の上場廃止確定・取引状態も未検証。</span>
+          <span>重要イベントの監視結果は市場価格、全SGX銘柄マスター、投資推奨とは別。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="officialSeedTitle">
