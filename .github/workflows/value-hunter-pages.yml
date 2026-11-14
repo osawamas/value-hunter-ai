@@ -31,6 +31,8 @@ jobs:
           node docs/test_share_warning_v111.js
           node --check docs/bank-quote-research-v116.js
           node docs/test_bank_quote_research_v116.js
+          node --check docs/ranking-readiness-v118.js
+          node docs/test_ranking_readiness_v118.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
