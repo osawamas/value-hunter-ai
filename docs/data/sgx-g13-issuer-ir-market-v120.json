@@ -1,0 +1,8 @@
+{
+  "schema_version": "g13-issuer-ir-market-research-v120",
+  "attempted_utc": "2026-11-14T05:19:37.794075+00:00",
+  "requested_url": "https://gentingsingapore.listedcompany.com/share-quote-and-chart.html",
+  "status": "NOT_VERIFIED",
+  "record": null,
+  "error": "ValueError: Missing or ambiguous symbol/currency"
+}
