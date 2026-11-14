@@ -5,7 +5,7 @@ historical treasury-adjusted shares and Yahoo reference trade date.
 This diagnostic NEVER changes finance feed, PER, PBR or ranking.
 """
 import argparse,hashlib,json
-from datetime import date,datetime,timezone
+from datetime import date,datetime,timezone,timedelta
 from pathlib import Path
 
 def day(value):
@@ -34,8 +34,10 @@ def reconcile(feed,g13,s63):
       r.get("shares_count_basis")!="issued_excluding_treasury"):
    raise ValueError("Quote or shares source violates reference-only requirements")
   share_date=day(r.get("shares_as_of_date"));quote_date=day(r.get("quote_timestamp_utc"))
-  if share_date!=date(2026,6,30) or quote_date!=date(2026,11,13):
-   raise ValueError("Unexpected source-date basis or future upstream changes: revisit")
+  if share_date!=date(2026,6,30) or quote_date<date(2026,11,13):
+   raise ValueError("Unexpected original shares source date or invalid old quote")
+  if quote_date>datetime.now(timezone.utc).date()+timedelta(days=1):
+   raise ValueError("Future reference quote date is not credible")
   days=(quote_date-share_date).days
   if days<=0:raise ValueError("Expected historical shares precede reference price")
   primary=g13 if symbol=="G13" else s63
