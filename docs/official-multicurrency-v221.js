@@ -44,19 +44,68 @@
     throw Error("Third-party coverage baseline changed");
   return rows;
  }
+ function validateExpanded(base,extended,candidates,feed){
+  const rows=validate(base,candidates,feed);
+  if(extended?.schema_version!=="sgx-dual-currency-identity-research-v224"||
+     extended.source_url!=="https://www.sgx.com/securities/trading"||
+     extended.scope!=="SELECTED_OFFICIAL_PAIRS_NOT_EXHAUSTIVE"||
+     extended.complete_official_sgx_security_master!==false||
+     extended.quote_fields_collected!==false||
+     extended.public_redistribution_rights_verified!==false||
+     extended.ranking_eligible_count!==0||
+     extended.new_pair_count!==18||extended.new_counter_count!==36||
+     !Array.isArray(extended.new_pairs)||extended.new_pairs.length!==18)
+   throw Error("Extended SGX counter evidence unavailable");
+  const expected=[
+    "NS8U|P7VU|BUSINESS_TRUST","M62|QS0|ETF",
+    "P5P|QR9|ETF","O9P|QL3|ETF","N6M|QL2|ETF",
+    "I98|QK9|ETF","BS6|SO7|POTENTIAL_EQUITY",
+    "BYI|BYJ|ETF","CFA|COI|ETF","SET|SEB|STAPLED_SECURITY",
+    "LG9|TID|ETF","CYC|CYB|ETF","MMS|MMT|ETF",
+    "ZHY|ZHD|ETF","HST|HSS|ETF","O87|GSD|ETF",
+    "YYY|YYR|ETF","UD1U|8U7U|REIT"
+  ];
+  const codes=new Set(rows.flatMap(r=>[r.primary_code,r.secondary_code]));
+  const third=new Set(candidates.candidates.map(r=>r.symbol));
+  for(let i=0;i<18;i++){
+   const p=extended.new_pairs[i];
+   const id=p?.primary?.code+"|"+p?.secondary?.code+"|"+p?.instrument_category;
+   if(id!==expected[i]||p.same_instrument_pair_source!=="SGX_OFFICIAL_STATIC_TRADING_TABLE"||
+    p.ranking_eligible!==false||p.official_current_listing_independently_verified!==false||
+    p.issuer_financial_data_verified!==false||!p.underlying_name||
+    !/^[A-Z]{3}$/.test(p.primary.currency)||!/^[A-Z]{3}$/.test(p.secondary.currency))
+     throw Error("Official currency counter evidence changed");
+   for(const code of [p.primary.code,p.secondary.code]){
+    if(codes.has(code))throw Error("Duplicate traded counter");
+    codes.add(code);
+   }
+   rows.push({instrument:p.underlying_name,category:p.instrument_category,
+    primary_code:p.primary.code,primary_currency:p.primary.currency,
+    secondary_code:p.secondary.code,secondary_currency:p.secondary.currency,
+    primary_third_party:third.has(p.primary.code),
+    secondary_third_party:third.has(p.secondary.code),
+    independently_verified_as_unique_issuer:false,eligible_for_ranking:false});
+  }
+  if(codes.size!==42||
+    rows.filter(r=>r.primary_third_party||r.secondary_third_party).length!==3||
+    rows.some(r=>r.secondary_third_party))
+   throw Error("SGX counter count/coverage changed");
+  return rows;
+ }
  async function render(){
   const status=document.getElementById("officialCurrencyPairStatus");
   const tbody=document.getElementById("officialCurrencyPairRows");
   if(!status||!tbody)return;
   try{
-   const [a,b,c]=await Promise.all(
+   const [a,b,c,d]=await Promise.all(
     ["./data/sgx-official-multicurrency-subset-v220.json",
-     "./data/sgx-universe-candidates.json","./data/latest.json"].map(async p=>{
+     "./data/sgx-universe-candidates.json","./data/latest.json",
+     "./data/sgx-dual-currency-research-v224.json"].map(async p=>{
       const res=await fetch(p,{cache:"no-store"});
       if(!res.ok)throw Error("Source HTTP "+res.status);
       return res.json();
      }));
-   const rows=validate(a,b,c),frag=document.createDocumentFragment();
+   const rows=validateExpanded(a,d,b,c),frag=document.createDocumentFragment();
    for(const x of rows){
     const tr=document.createElement("tr");
     for(const v of [x.instrument,x.category,
@@ -69,7 +118,7 @@
     frag.append(tr);
    }
    tbody.replaceChildren(frag);
-   status.textContent="SGX取引案内の3商品・6通貨別カウンターの例。第三者182候補と一致はAWXのみ。カウンター6件を発行体6社と数えない。全銘柄一覧ではなく株価・許諾付き投資ランキングの証拠でもない。";
+   status.textContent="SGX取引案内からの限定的な21商品・42通貨別カウンター。第三者182候補と一致するコードはAWX・BS6・CFAの3件。42カウンターを42発行体と数えない。全銘柄一覧ではなく株価・許諾付き投資ランキングの証拠でもない。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;
    td.textContent="公式カウンターと候補台帳が一致しないため非表示";
@@ -77,6 +126,6 @@
    status.textContent="台帳の再照合が必要";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={validate};
+ if(typeof module!=="undefined"&&module.exports)module.exports={validate,validateExpanded};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
