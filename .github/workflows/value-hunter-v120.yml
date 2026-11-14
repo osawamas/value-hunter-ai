@@ -1,0 +1,54 @@
+name: VALUE HUNTER v120 Genting issuer market source direct probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/g13_issuer_market_v120.py'
+      - 'SGX_PDF_connection_probe/test_g13_issuer_market_v120.py'
+      - '.github/workflows/value-hunter-v120.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v120
+  cancel-in-progress: false
+jobs:
+  issuer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Adversarial issuer market evidence tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_g13_issuer_market_v120
+      - name: Fetch actual Genting IR quote and dated shares
+        run: |
+          python SGX_PDF_connection_probe/g13_issuer_market_v120.py --output docs/data/sgx-g13-issuer-ir-market-v120.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-g13-issuer-ir-market-v120.json").read_text())
+          assert x["schema_version"]=="g13-issuer-ir-market-research-v120"
+          if x["record"]:
+              assert x["record"]["ranking_eligible"] is False
+              assert x["record"]["source_is_sgx_trade_tape"] is False
+              assert x["record"]["market_cap_per_pbr_permitted"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(x["status"],x["error"])
+          PY
+      - name: Commit isolated historical research
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-g13-issuer-ir-market-v120.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v120): issuer IR delayed G13 quote and share reference'
+            git push
+          fi
