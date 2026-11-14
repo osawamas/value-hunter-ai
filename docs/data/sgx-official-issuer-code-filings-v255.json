@@ -1,0 +1,111 @@
+{
+  "schema_version": "sgx-official-announcement-issuer-codes-v255",
+  "observed_on": "2026-11-15",
+  "source_kind": "SGXNET_ORIGINAL_ISSUER_SECURITY_ANNOUNCEMENT_HTML",
+  "source_snapshot_scope": "EIGHT_HISTORICAL_ISSUER_CODE_IDENTITIES_NOT_CURRENT_MASTER",
+  "all_sgx_security_master_verified": false,
+  "all_codes_currently_listed_verified": false,
+  "issuer_identity_isin_direct_original_announcement": true,
+  "licence_to_republish_market_quotes_verified": false,
+  "financials_independently_audited": false,
+  "ranking_eligible_count": 0,
+  "records": [
+    {
+      "issuer_name": "OCEANUS GROUP LIMITED",
+      "trading_code": "579",
+      "isin": "SG1M80907371",
+      "announcement_ref": "SG260814OTHROJYF",
+      "announced_on": "2026-08-14",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/832MZ2RT52XMRZZU/a904993d72a95b69a3a4d21362022b682f02e0ecf7f91f1bf6cf929b52a3be1c",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OILTEK INTERNATIONAL LIMITED",
+      "trading_code": "HQU",
+      "isin": "SGXE21569376",
+      "announcement_ref": "SG260410OTHRH0PY",
+      "announced_on": "2026-04-10",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/I9AZB0MRAS1VW6F1/",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OKP HOLDINGS LIMITED",
+      "trading_code": "5CF",
+      "isin": "SG1M55904841",
+      "announcement_ref": "SG260401OTHRXIAW",
+      "announced_on": "2026-04-01",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/WRMX0ZXC0RXZZU34/",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OLD CHANG KEE LTD.",
+      "trading_code": "5ML",
+      "isin": "SG1W49939232",
+      "announcement_ref": "SG261113OTHR9OGS",
+      "announced_on": "2026-11-13",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/06B3W0K0MPRLGZLS/64873a5f376fa86f3fae3f7793eaab84d66de830bab81ad049b948c4c24d5dd9",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OSSIA INTERNATIONAL LTD",
+      "trading_code": "O08",
+      "isin": "SG1D61018413",
+      "announcement_ref": "SG260629OTHR4XNV",
+      "announced_on": "2026-06-29",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/5C10OKSACD572VP3/",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OUE HEALTHCARE LIMITED",
+      "trading_code": "5WA",
+      "isin": "SG2F86994413",
+      "announcement_ref": "SG260824OTHRTOJR",
+      "announced_on": "2026-08-24",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/VLW3DK2EY2Q1NFJF",
+      "current_listing_status_note": "2026 scheme-of-arrangement events observed; do not assume active listing",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OUE LIMITED",
+      "trading_code": "LJ3",
+      "isin": "SG2B80958517",
+      "announcement_ref": "SG261102OTHRXFXJ",
+      "announced_on": "2026-11-02",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/9BTTW0YUVV5IONC8/1aab789ab24878459bb0085d34d774205b0b284468136ed333c310a3fa7ed51f",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "issuer_name": "OXPAY FINANCIAL LIMITED",
+      "trading_code": "TVV",
+      "isin": "SGXE15822534",
+      "announcement_ref": "SG260813OTHRH7WL",
+      "announced_on": "2026-08-13",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/TB7V4NB74JRGHQHR/",
+      "source_security_identity_verified_asof_announcement": true,
+      "current_trading_quote_verified": false,
+      "share_count_verified": false,
+      "ranking_eligible": false
+    }
+  ]
+}
