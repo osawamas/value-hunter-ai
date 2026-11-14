@@ -1,0 +1,44 @@
+name: VALUE HUNTER structured SGX companies API v98
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/sgx_companies_api_v98.py
+      - SGX_PDF_connection_probe/test_sgx_companies_api_v98.py
+      - .github/workflows/value-hunter-v98.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test strict candidate-only SGX JSON parser
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_sgx_companies_api_v98.py
+      - name: Probe keyless actual company API without promoting finance or quotes
+        shell: bash
+        run: |
+          if python SGX_PDF_connection_probe/sgx_companies_api_v98.py --output issuer-index-v98/candidates.json; then
+            echo "Third-party candidate issuer list downloaded; NOT SGX official complete universe." >> "$GITHUB_STEP_SUMMARY"
+          else
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("issuer-index-v98/candidates.json").read_text())
+          assert data["status"]=="NOT_VERIFIED" and data["record"] is None
+          print("No verified source available; no candidates imported")
+          PY
+            echo "Company API not machine available/complete; no companies automatically imported." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sgx-companies-json-v98
+          path: issuer-index-v98/
+          if-no-files-found: warn
