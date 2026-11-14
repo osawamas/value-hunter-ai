@@ -1,0 +1,94 @@
+{
+  "schema_version": "sgx-issuer-fy2025-two-document-figure-reconciliation-v238",
+  "reviewed_date": "2026-11-14",
+  "financial_period_end": "2025-12-31",
+  "reporting_unit": "SGD_thousands",
+  "research_scope": "SAME_ISSUER_FULL_YEAR_RELEASE_VS_ISSUER_ANNUAL_REPORT",
+  "both_source_pdfs_cryptographically_hashed": true,
+  "same_issuer_documents_not_independent_external_data_validation": true,
+  "external_independent_auditor_numeric_recalculation_completed": false,
+  "file_sha_is_not_accounting_assurance": true,
+  "annual_report_table_values_reviewed": true,
+  "registered_financial_feed_modified": false,
+  "ranking_eligible_count": 0,
+  "records": [
+    {
+      "symbol": "H02",
+      "issuer": "Haw Par Corporation Limited",
+      "annual_source": "docs/data/sgx-annual-report-sha-v237.json",
+      "interim_source": "docs/data/sgx-original-pdf-sha-v233.json",
+      "annual_income_page_index_zero_based": 44,
+      "annual_balance_page_index_zero_based": 46,
+      "annual_pdf_page_image_reviewed": false,
+      "annual_pdf_text_lines_reviewed": true,
+      "financial_release_pdf_page_image_reviewed": true,
+      "accounting_scope": "CONSOLIDATED_GROUP",
+      "issuer_parent_equity_separately_authenticated": false,
+      "fields": {
+        "FY2025": {
+          "revenue": 229967,
+          "gross_profit": 128765,
+          "profit_after_tax": 265462,
+          "total_assets": 4417906,
+          "total_liabilities": 126830,
+          "total_equity": 4291076
+        },
+        "FY2024": {
+          "revenue": 244824,
+          "gross_profit": 134087,
+          "profit_after_tax": 228274,
+          "total_assets": 4277008,
+          "total_liabilities": 128474,
+          "total_equity": 4148534
+        }
+      },
+      "source_figure_values_match_between_issuer_documents": true,
+      "independent_external_numeric_audit_complete": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "V03",
+      "issuer": "Venture Corporation Limited",
+      "annual_source": "docs/data/sgx-annual-report-sha-v237.json",
+      "interim_source": "docs/data/sgx-original-pdf-sha-v233.json",
+      "annual_income_page_index_zero_based": 100,
+      "annual_balance_page_index_zero_based": 99,
+      "annual_pdf_page_image_reviewed": true,
+      "annual_pdf_text_lines_reviewed": true,
+      "financial_release_pdf_page_image_reviewed": true,
+      "accounting_scope": "CONSOLIDATED_GROUP_WITH_NCI_DISTINCTION",
+      "issuer_parent_equity_separately_authenticated": true,
+      "fields": {
+        "FY2025": {
+          "revenue": 2534517,
+          "profit_before_tax": 284413,
+          "profit_for_year": 227635,
+          "profit_attributable_to_owners": 226958,
+          "profit_attributable_to_nci": 677,
+          "total_assets": 3602219,
+          "current_liabilities": 791558,
+          "noncurrent_liabilities": 12828,
+          "parent_equity": 2792741,
+          "noncontrolling_equity": 5092,
+          "total_equity": 2797833
+        },
+        "FY2024": {
+          "revenue": 2735927,
+          "profit_before_tax": 306587,
+          "profit_for_year": 245750,
+          "profit_attributable_to_owners": 245029,
+          "profit_attributable_to_nci": 721,
+          "total_assets": 3699946,
+          "current_liabilities": 785164,
+          "noncurrent_liabilities": 20458,
+          "parent_equity": 2889813,
+          "noncontrolling_equity": 4511,
+          "total_equity": 2894324
+        }
+      },
+      "source_figure_values_match_between_issuer_documents": true,
+      "independent_external_numeric_audit_complete": false,
+      "ranking_eligible": false
+    }
+  ]
+}
