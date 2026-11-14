@@ -1,0 +1,34 @@
+name: SGX issuer original PDF provenance v210
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe-issuer-financial-pdf-v210.js'
+      - 'docs/test_issuer_pdf_probe_v210.js'
+      - '.github/workflows/issuer-pdf-source-probe-v210.yml'
+permissions:
+  contents: read
+jobs:
+  primary-pdf-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify offline official PDF source safeguards
+        run: node docs/test_issuer_pdf_probe_v210.js
+      - name: Attempt primary issuer PDFs and record SHA256 or honest failure
+        id: probe
+        continue-on-error: true
+        run: node scripts/probe-issuer-financial-pdf-v210.js
+      - name: Preserve source provenance report, never PDF bytes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-issuer-pdf-v210-source-provenance
+          path: build/research/sgx-discovered-issuer-pdf-v210.json
+          if-no-files-found: warn
+          retention-days: 14
