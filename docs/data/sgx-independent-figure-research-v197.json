@@ -1,0 +1,48 @@
+{
+  "schema_version": "sgx-fy2025-third-party-figures-v197",
+  "reviewed_on_date": "2026-11-14",
+  "period_end": "2025-12-31",
+  "unit_external": "SGD_millions",
+  "unit_issuer": "SGD_thousands",
+  "external_provider": "StockAnalysis",
+  "third_party_public_web_summary_not_audit": true,
+  "external_data_methodology_independently_verified": false,
+  "issuer_auditor_report_not_rechecked_with_external_numbers": true,
+  "operating_income_definition_not_comparable": true,
+  "independent_audit_requirement_satisfied": false,
+  "official_current_quote_verified": false,
+  "ranking_eligible_count": 0,
+  "financial_feed_modified": false,
+  "records": [
+    {
+      "symbol": "G13",
+      "source": "https://stockanalysis.com/quote/sgx/G13/financials/",
+      "original": "https://gentingsingapore.listedcompany.com/newsroom/20260224_173326_G13_A7CVA3KL4JFGECGT.2.pdf",
+      "issuer_revenue_thousands": 2452053,
+      "issuer_parent_profit_thousands": 390346,
+      "issuer_reported_operating_profit_thousands": 506609,
+      "external_revenue_millions": 2452,
+      "external_net_income_millions": 390.35,
+      "external_operating_income_millions": 450.46,
+      "revenue_absolute_diff_millions": 0.053,
+      "parent_profit_absolute_diff_millions": 0.004,
+      "operating_income_comparable": false,
+      "may_promote_to_ranking": false
+    },
+    {
+      "symbol": "S63",
+      "source": "https://stockanalysis.com/quote/sgx/S63/financials/",
+      "original": "https://www.stengg.com/getmedia/636a7ee6-a8b8-4200-870f-09c626cfbec2/ST-Engineering-FY2025-Results-Financial-Statements.pdf",
+      "issuer_revenue_thousands": 12346426,
+      "issuer_parent_profit_thousands": 462770,
+      "issuer_reported_operating_profit_thousands": 843116,
+      "external_revenue_millions": 12346,
+      "external_net_income_millions": 462.77,
+      "external_operating_income_millions": 1144,
+      "revenue_absolute_diff_millions": 0.426,
+      "parent_profit_absolute_diff_millions": 0,
+      "operating_income_comparable": false,
+      "may_promote_to_ranking": false
+    }
+  ]
+}
