@@ -1,0 +1,23 @@
+{
+  "schema_version": "sgx-ocbc-allowances-probe-v156",
+  "status": "OCBC_9M26_ALLOWANCE_BREAKDOWN_RECONCILED_IN_PRIMARY_PDF",
+  "record": {
+    "schema_version": "sgx-ocbc-9m26-allowance-components-v156",
+    "symbol": "O39",
+    "period_end_date": "2026-09-30",
+    "unit": "SGD_millions",
+    "original_sgx_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "original_sgx_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "source_pdf_page": 5,
+    "impaired_asset_allowances_9m26": 190,
+    "non_impaired_asset_allowances_9m26": 234,
+    "total_allowances_9m26": 424,
+    "computed_composition_difference": 0,
+    "exact_text_original_same_issuer_confirmed": true,
+    "full_expected_credit_loss_validation": false,
+    "independent_third_party_financial_verification": false,
+    "current_quote_or_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
