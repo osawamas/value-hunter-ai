@@ -57,7 +57,8 @@ const tests=[
  "docs/test_sgx_pdf_replay_v247.js",
  "docs/test_sgx_pdf_four_ui_v248.js",
  "docs/test_dashboard_preview_v249.js",
- "docs/test_dashboard_preview_smoke_v250.js"
+ "docs/test_dashboard_preview_smoke_v250.js",
+ "docs/test_sgx_official_monthend_v251.js"
 ];
 let failed=0;
 const results=[];
