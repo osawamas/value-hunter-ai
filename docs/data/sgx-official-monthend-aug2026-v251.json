@@ -1,0 +1,20 @@
+{
+  "schema_version": "sgx-official-monthend-listed-securities-count-v251",
+  "report_month": "2026-08",
+  "as_of_date": "2026-08-31",
+  "reported_total_listed_securities": 604,
+  "reported_mainboard_listings": 406,
+  "reported_catalist_listings": 198,
+  "source_url": "https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Aug%202026.ashx?App=Announcement&FileID=903915",
+  "source_kind": "SGX_ORIGINAL_MONTHLY_MARKET_STATISTICS_PDF",
+  "source_section": "Issuer Services — Number of Listings (month-end); Statistics At A Glance",
+  "source_definition": "Total number of listed securities. Excludes GDRs, hedge funds and debt securities per report footnote.",
+  "not_current_asof_2026_11_15": true,
+  "not_security_code_list": true,
+  "not_issuer_level_registry": true,
+  "not_licensing_permission": true,
+  "comparison_scope": "HISTORICAL_SGX_AGGREGATE_VS_PARTIAL_THIRD_PARTY_COMPANY_CANDIDATES_NOT_SAME_UNITS",
+  "official_security_master_complete": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false
+}
