@@ -35,6 +35,8 @@ def parse(raw):
  pattern=r"Issuer\s*/\s*Manager\s+"+NAME+r"\s+Securit(?:y|ies)\s+"+NAME+r"\s*-\s*"+ISIN+r"\s*-\s*"+CODE+r"\b"
  if len(re.findall(pattern,plain,re.I))!=1:
   raise ValueError("No unique issuer-ISIN-counter binding in primary announcement")
+ if len(re.findall(re.escape(NAME)+r"\\s*-\\s*"+ISIN+r"\\s*-\\s*"+CODE+r"\\b",plain,re.I)) != 1:
+  raise ValueError("Duplicate issuer-ISIN-counter references")
  if len(re.findall(r"Announcement Reference\s+"+REF+r"\b",plain,re.I))!=1:
   raise ValueError("Announcement reference wrong or ambiguous")
  if not re.search(r"Date\s*&\s*Time of Broadcast\s+09-Mar-2026\s+07:33:28\b",plain,re.I):
