@@ -1,0 +1,59 @@
+name: VALUE HUNTER v156 OCBC nine-month allowance composition
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_ocbc_allowances_v156.py'
+      - 'SGX_PDF_connection_probe/test_sgx_ocbc_allowances_v156.py'
+      - '.github/workflows/value-hunter-v156.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v156
+  cancel-in-progress: false
+jobs:
+  breakdown:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source integrity regression
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_ocbc_allowances_v156
+      - name: Fetch and verify OCBC issuer allowance composition
+        run: |
+          python SGX_PDF_connection_probe/sgx_ocbc_allowances_v156.py --originals docs/data/sgx-ocbc-2026q3-pdfs-v145.json --components docs/data/sgx-ocbc-income-components-v154.json --output docs/data/sgx-ocbc-allowances-v156.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('docs/data/sgx-ocbc-allowances-v156.json').read_text())
+          assert d['status']=='OCBC_9M26_ALLOWANCE_BREAKDOWN_RECONCILED_IN_PRIMARY_PDF',d['error']
+          x=d['record']
+          assert x['impaired_asset_allowances_9m26']+x['non_impaired_asset_allowances_9m26']==x['total_allowances_9m26']==424
+          assert x['independent_third_party_financial_verification'] is False
+          assert x['ranking_eligible'] is False
+          assert json.loads(Path('docs/data/latest.json').read_text())['ranking_eligible_count']==0
+          PY
+      - name: Save dated issuer credit provision evidence with retry
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_ocbc_allowances_v156.py --originals docs/data/sgx-ocbc-2026q3-pdfs-v145.json --components docs/data/sgx-ocbc-income-components-v154.json --output docs/data/sgx-ocbc-allowances-v156.json
+            git add docs/data/sgx-ocbc-allowances-v156.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v156): OCBC 9M26 SGX primary allowance breakdown'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
