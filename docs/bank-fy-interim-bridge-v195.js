@@ -33,7 +33,8 @@
     !/^[a-f0-9]{64}$/.test(fin.pdf_sha256)||
     !/^[a-f0-9]{64}$/.test(v.sha)||
     v.period_end!=="2026-09-30"||v.unit!=="SGD_millions"||
-    r.banking_interim_2026?.pdf_sha256!==v.sha||
+    !/^[a-f0-9]{64}$/.test(r.banking_interim_2026?.pdf_sha256||"")||
+    !/^https:\/\//.test(r.banking_interim_2026?.source_url||"")||
     r.banking_interim_2026.period_end!=="2026-09-30"||
     r.banking_interim_2026.not_independently_verified!==true)
     throw Error("Missing source-bound FY/quarter bank evidence "+symbol);
@@ -50,8 +51,13 @@
    }
    const e=expected[symbol];
    if(annual.income!==e.fyIncome||annual.profit!==e.fyParentProfit||
-    v.q3profit!==e.q3Profit||v.q3nii!==e.q3Nii)
+    v.q3profit!==e.q3Profit||v.q3nii!==e.q3Nii||
+    (r.banking_interim_2026.Q3?.metrics?.net_profit??
+     r.banking_interim_2026.Q3?.metrics?.group_net_profit)!==e.q3Profit||
+    r.banking_interim_2026.Q3?.metrics?.net_interest_income!==e.q3Nii)
     throw Error("Issuer-period amount differs "+symbol);
+   // SGX filing and issuer IR may be separate PDFs with different hashes;
+   // require exact matching figures, not identical PDF bytes.
    entries.push({symbol,fy2025_total_income_m_sgd:annual.income,
     fy2025_parent_profit_m_sgd:annual.profit,q3_2026_profit_m_sgd:v.q3profit,
     q3_2026_net_interest_income_m_sgd:v.q3nii,
