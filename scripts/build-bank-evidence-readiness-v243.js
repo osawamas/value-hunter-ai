@@ -25,7 +25,7 @@ function derive(buyback,actions,rights,feed){
  const uob={
   symbol:"U11",verified_historical_share_snapshot:matches,
   historical_as_of_date:matches?row.trade_date:null,
-  historical_ex_treasury_shares:matches?row.issued_excluding_treasury_after:null,
+  historical_ex_treasury_shares:matches?row.issued_excluding_treasury_after_purchase:null,
   latest_nov13_official_original_obtained:false,
   source_status:matches?"HISTORICAL_SGX_ORIGINAL_MATCHED_NOT_CURRENT":"SOURCE_MISMATCH_BLOCKED",
   secondary_nov13_included:false,
