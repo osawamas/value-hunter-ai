@@ -7,6 +7,8 @@ on:
       - 'scripts/verify-evidence-v198.js'
       - 'scripts/stage-sgx-csv-v199.js'
       - 'docs/test_stage_sgx_csv_v199.js'
+      - 'docs/test_uob_share_display_scope_v201.js'
+      - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
       - 'docs/test_bank_cross_evidence_v192.js'
       - 'docs/test_bank_share_evidence_v193.js'
