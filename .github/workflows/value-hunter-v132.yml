@@ -45,12 +45,25 @@ jobs:
           f=json.loads(Path("docs/data/latest.json").read_text())
           assert f["ranking_eligible_count"]==0
           PY
-      - name: Publish limited FY2025 audit assurance evidence only
+      - name: Regenerate against freshest main and push with bounded retry
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/data/sgx-fy2025-audit-assurance-v132.json
-          if ! git diff --cached --quiet; then
-            git commit -m 'data(v132): differentiate externally audited annuals from current market checks'
-            git push
-          fi
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_fy2025_audit_assurance_v132.py --feed docs/data/latest.json --g13 docs/data/sgx-g13-fy2025-auditor-v130.json --s63 docs/data/sgx-s63-fy2025-auditor-v131.json --output docs/data/sgx-fy2025-audit-assurance-v132.json
+            git add docs/data/sgx-fy2025-audit-assurance-v132.json
+            if git diff --cached --quiet; then
+              echo "Current feed and audit sidecar already agree"
+              exit 0
+            fi
+            git commit -m 'data(v132): reconcile FY2025 audit with current feed'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Concurrent main update; retrying from fresh head"
+            sleep "$((attempt * 2))"
+          done
+          echo "Unable to push up-to-date audit evidence after retries"
+          exit 1
