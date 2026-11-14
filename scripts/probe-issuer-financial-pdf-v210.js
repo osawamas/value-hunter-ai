@@ -24,22 +24,53 @@ function pdfDigest(bytes){
 }
 async function download(url,{fetcher=fetch,maxBytes=25_000_000}={}){
  validateTarget(url);
+ if(!Number.isSafeInteger(maxBytes)||maxBytes<16||maxBytes>25_000_000)
+  throw Error("Invalid bounded original-PDF size limit");
  const ac=new AbortController(),timer=setTimeout(()=>ac.abort(),30000);
  try{
-  const response=await fetcher(url,{signal:ac.signal,redirect:"follow",headers:{"Accept":"application/pdf"}});
-  if(!response.ok)throw Error("Original issuer PDF HTTP "+response.status);
-  validateTarget(response.url||url);
-  const sizeHeader=Number(response.headers?.get?.("content-length")||0);
-  if(sizeHeader>maxBytes)throw Error("PDF size exceeds limit");
-  const chunks=[];let total=0;
-  if(!response.body)throw Error("PDF has no response body");
-  for await(const chunk of response.body){
-   total+=chunk.byteLength;
-   if(total>maxBytes)throw Error("PDF stream exceeds size limit");
-   chunks.push(Buffer.from(chunk));
+  let current=url,response;
+  const visited=new Set();
+  for(let redirects=0;redirects<=3;redirects++){
+   validateTarget(current);
+   if(visited.has(current))throw Error("PDF redirect cycle");
+   visited.add(current);
+   response=await fetcher(current,{
+    signal:ac.signal,redirect:"manual",headers:{"Accept":"application/pdf"}
+   });
+   if([301,302,303,307,308].includes(response.status)){
+    if(redirects===3)throw Error("Too many PDF redirects");
+    const location=response.headers?.get?.("location");
+    if(!location)throw Error("PDF redirect without location");
+    const next=new URL(location,current).href;
+    validateTarget(next); // reject before making the next request
+    current=next;
+    continue;
+   }
+   if(!response.ok)throw Error("Original issuer PDF HTTP "+response.status);
+   if(response.url){
+    validateTarget(response.url);
+    if(response.url!==current)
+     throw Error("Fetcher followed unapproved automatic redirect");
+   }
+   const lengthRaw=response.headers?.get?.("content-length");
+   if(lengthRaw!==null&&lengthRaw!==undefined&&lengthRaw!==""){
+    const n=Number(lengthRaw);
+    if(!Number.isSafeInteger(n)||n<0||n>maxBytes)
+     throw Error("Invalid or oversized PDF Content-Length");
+   }
+   const chunks=[];let total=0;
+   if(!response.body)throw Error("PDF has no response body");
+   for await(const chunk of response.body){
+    total+=chunk.byteLength;
+    if(total>maxBytes)throw Error("PDF stream exceeds size limit");
+    chunks.push(Buffer.from(chunk));
+   }
+   const buf=Buffer.concat(chunks);
+   return {digest:pdfDigest(buf),
+    mime:response.headers?.get?.("content-type")||null,
+    fetched_final_url:current,redirect_count:redirects};
   }
-  return {digest:pdfDigest(Buffer.concat(chunks)),mime:response.headers?.get?.("content-type")||null,
-   fetched_final_url:response.url||url};
+  throw Error("PDF redirect limit reached");
  }finally{clearTimeout(timer)}
 }
 async function run(){
