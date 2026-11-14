@@ -8,7 +8,7 @@
     "visible_market_page_quote_updated_at_sgt": "2026-11-13 17:14",
     "exact_share_count_as_of_date_verified": false,
     "shares_definition": "ISSUED_AND_PAID_UP_DISPLAY_NO_TREASURY_RECONCILIATION",
-    "site_pages_licensed_for_quote_redistribution": false
+    "quote_redistribution_permission_confirmed": false
   },
   "syndicated_sgxnet_buyback": {
     "source_url": "https://b.siasset.com/news/news.html?nid=515671689&source=regional_sgxnet",
