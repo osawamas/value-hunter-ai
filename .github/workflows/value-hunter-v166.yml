@@ -1,0 +1,57 @@
+name: VALUE HUNTER v166 consolidated OCBC primary bank research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_ocbc_bundle_v166.py'
+      - 'SGX_PDF_connection_probe/test_sgx_ocbc_bundle_v166.py'
+      - '.github/workflows/value-hunter-v166.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v166
+  cancel-in-progress: false
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run bank original source fail closed tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_ocbc_bundle_v166
+      - name: Consolidate actual seven source files with identical original hashes
+        run: |
+          python SGX_PDF_connection_probe/sgx_ocbc_bundle_v166.py --originals docs/data/sgx-ocbc-2026q3-pdfs-v145.json --rounded docs/data/sgx-ocbc-2026q3-bank-profit-v146.json --ratios docs/data/sgx-ocbc-2026q3-bank-ratios-v149.json --exact docs/data/sgx-ocbc-exact-profit-v152.json --income docs/data/sgx-ocbc-income-components-v154.json --allowances docs/data/sgx-ocbc-allowances-v156.json --balance docs/data/sgx-ocbc-bank-balance-v159.json --output docs/data/sgx-ocbc-bank-research-v166.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('docs/data/sgx-ocbc-bank-research-v166.json').read_text())
+          assert x['income_statement_sgd_millions']['3Q26']['group_net_profit']==2042
+          assert x['bank_balance_2026_09_30_sgd_millions']['ordinary_equity']==60899
+          assert x['independent_third_party_financial_reperformance'] is False
+          assert x['per_pbr_and_ranking_permitted'] is False
+          assert json.loads(Path('docs/data/latest.json').read_text())['ranking_eligible_count']==0
+          PY
+      - name: Publish consolidated research sidecar with bounded retry
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_ocbc_bundle_v166.py --originals docs/data/sgx-ocbc-2026q3-pdfs-v145.json --rounded docs/data/sgx-ocbc-2026q3-bank-profit-v146.json --ratios docs/data/sgx-ocbc-2026q3-bank-ratios-v149.json --exact docs/data/sgx-ocbc-exact-profit-v152.json --income docs/data/sgx-ocbc-income-components-v154.json --allowances docs/data/sgx-ocbc-allowances-v156.json --balance docs/data/sgx-ocbc-bank-balance-v159.json --output docs/data/sgx-ocbc-bank-research-v166.json
+            git add docs/data/sgx-ocbc-bank-research-v166.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v166): consolidate original OCBC 2026Q3 banking research evidence'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
