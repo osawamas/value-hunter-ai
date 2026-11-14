@@ -1,0 +1,40 @@
+name: VALUE HUNTER v150 OCBC bank health Japanese UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ocbc-bank-ratios-v150.js'
+      - 'docs/test_ocbc_bank_ratios_v150.js'
+      - '.github/workflows/value-hunter-v150.yml'
+permissions:
+  contents: read
+jobs:
+  health-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original issuer ratio guards and all banking UI tests
+        run: |
+          node --check docs/ocbc-bank-ratios-v150.js
+          node docs/test_ocbc_bank_ratios_v150.js
+          node docs/test_ocbc_quarter_v147.js
+          node docs/test_annual_arithmetic_v141.js
+      - name: Verify true OCBC SGX bank-ratio sidecar against actual source
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const {validate}=require('./docs/ocbc-bank-ratios-v150.js');
+          const f=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const q=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-2026q3-bank-profit-v146.json','utf8'));
+          const r=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-2026q3-bank-ratios-v149.json','utf8'));
+          const result=validate(f,q,r);
+          assert.equal(result.cet1,'15.5');
+          assert.equal(f.ranking_eligible_count,0);
+          console.log('Banking original ratio display verified with no valuation promotion');
+          JS
