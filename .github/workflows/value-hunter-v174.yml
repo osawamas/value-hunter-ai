@@ -1,0 +1,56 @@
+name: VALUE HUNTER v174 UOB SGX CFO financial row locator
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_uob_table_v174.py'
+      - 'SGX_PDF_connection_probe/test_sgx_uob_table_v174.py'
+      - '.github/workflows/value-hunter-v174.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v174
+  cancel-in-progress: false
+jobs:
+  locate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify actual SGX PDF integrity
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_uob_table_v174
+      - name: Extract source-bound finance table locations
+        run: |
+          python SGX_PDF_connection_probe/sgx_uob_table_v174.py --source docs/data/sgx-uob-2026q3-cfo-v172.json --output docs/data/sgx-uob-quarter-table-rows-v174.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-uob-quarter-table-rows-v174.json").read_text())
+          assert x["status"]=="UOB_PRIMARY_CFO_FINANCIAL_ROW_CONTEXTS_IDENTIFIED",x["error"]
+          assert x["record"]["strict_row_column_mapping_done"] is False
+          assert json.loads(Path("docs/data/latest.json").read_text())["ranking_eligible_count"]==0
+          PY
+      - name: Commit source row layout research
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_uob_table_v174.py --source docs/data/sgx-uob-2026q3-cfo-v172.json --output docs/data/sgx-uob-quarter-table-rows-v174.json
+            git add docs/data/sgx-uob-quarter-table-rows-v174.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v174): actual UOB CFO quarter and 9M table row contexts'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
