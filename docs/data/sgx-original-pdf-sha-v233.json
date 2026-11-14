@@ -18,7 +18,7 @@
   "ranking_enabled": false,
   "ranking_eligible_count": 0,
   "external_independent_numeric_audit_completed": false,
-  "notes": "Downloaded job artifact and inspected provenance JSON: both PDFs succeeded and SHA256/byte_length were computed over their original SGX response bytes. Historical v212/v213 reports recorded SHA=null before this later successful probe; this newer overlay supersedes those availability flags only, not the historical reported figures or accounting audit state.",
+  "notes": "Downloaded job artifact and inspected provenance JSON: both PDFs succeeded and SHA256/byte_length were computed over their original SGX response bytes. Historical v212/v213 reports recorded SHA=null before this later successful probe; this newer overlay supersedes those availability flags only, not the historical reported figures or accounting audit state. Independent second artifact downloaded and JSON compared: identical SHA256 and byte size for H02/V03 in two separate GitHub Actions runs.",
   "records": [
     {
       "symbol": "H02",
@@ -50,5 +50,21 @@
       "licensed_timestamped_quote_verified": false,
       "ranking_eligible": false
     }
-  ]
+  ],
+  "independent_second_github_actions_fetch_same_bytes": true,
+  "repeated_independent_download_runs": [
+    {
+      "workflow_run_id": 43598869441,
+      "artifact_id": 14115445847,
+      "observed_at_utc": "2026-11-14T13:15:56.855Z",
+      "github_run_url": "https://github.com/osawamas/value-hunter-ai/actions/runs/43598869441"
+    },
+    {
+      "workflow_run_id": 43603411759,
+      "artifact_id": 14117450791,
+      "observed_at_utc": "2026-11-14T14:10:05.273Z",
+      "github_run_url": "https://github.com/osawamas/value-hunter-ai/actions/runs/43603411759"
+    }
+  ],
+  "sha256_matches_between_two_separate_github_actions_runs_for_both_symbols": true
 }
