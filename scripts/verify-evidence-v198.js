@@ -57,7 +57,7 @@ const report={
 };
 try{
  fs.mkdirSync(path.dirname(resultPath),{recursive:true});
- fs.writeFileSync(resultPath,JSON.stringify(report,null,2)+"\\n");
+ fs.writeFileSync(resultPath,JSON.stringify(report,null,2)+"\n");
  if(process.env.GITHUB_STEP_SUMMARY){
   const table=["## SGX source-integrity regression",
    "Commit: \`"+(report.commit_sha||"unverified-local")+"\`",
@@ -66,11 +66,11 @@ try{
    "| Test | Status |","|---|---|",
    ...results.map(r=>"| \`"+r.test+"\` | "+r.status+" |"),
    "",
-   "These tests do not independently audit issuer PDFs, validate a quote license, or make investment rankings eligible."].join("\\n");
-  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,table+"\\n");
+   "These tests do not independently audit issuer PDFs, validate a quote license, or make investment rankings eligible."].join("\n");
+  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,table+"\n");
  }
 }catch(e){
  failed++;
- process.stderr.write("FAIL: unable to preserve evidence run report: "+e+"\\n");
+ process.stderr.write("FAIL: unable to preserve evidence run report: "+e+"\n");
 }
 process.exitCode=failed?1:0;
