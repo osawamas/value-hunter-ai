@@ -1,0 +1,53 @@
+name: VALUE HUNTER v119 official G13 historical ticker ISIN proof
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_g13_primary_identity_v119.py'
+      - 'SGX_PDF_connection_probe/test_sgx_g13_primary_identity_v119.py'
+      - '.github/workflows/value-hunter-v119.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v119
+  cancel-in-progress: false
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Adversarial source tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_g13_primary_identity_v119
+      - name: Read original SGX announcement directly
+        run: |
+          python SGX_PDF_connection_probe/sgx_g13_primary_identity_v119.py --output docs/data/sgx-g13-official-identity-v119.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-g13-official-identity-v119.json").read_text())
+          assert r["schema_version"]=="sgx-g13-primary-identity-v119"
+          if r["record"]:
+              assert r["record"]["ranking_eligible"] is False
+              assert r["record"]["market_cap_per_pbr_use_permitted"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(r["status"],r["error"])
+          PY
+      - name: Commit historical proof separate from financial values
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-g13-official-identity-v119.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v119): G13 original SGX historical ticker-ISIN link'
+            git push
+          fi
