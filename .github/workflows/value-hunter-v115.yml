@@ -1,0 +1,52 @@
+name: VALUE HUNTER v115 daily vs 5-minute bank chart consistency
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_daily_intraday_consistency_v115.py'
+      - 'SGX_PDF_connection_probe/test_sgx_daily_intraday_consistency_v115.py'
+      - '.github/workflows/value-hunter-v115.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v115
+  cancel-in-progress: false
+jobs:
+  consistency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test mismatches and false official claims
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_daily_intraday_consistency_v115
+      - name: Reconcile independent HTTP response captures from same Yahoo provider
+        run: |
+          python SGX_PDF_connection_probe/sgx_daily_intraday_consistency_v115.py --daily docs/data/sgx-bank-secondary-quotes-v112.json --intraday docs/data/sgx-bank-intraday-v114.json --output docs/data/sgx-bank-daily-intraday-v115.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("docs/data/sgx-bank-daily-intraday-v115.json").read_text())
+          assert a["official_exchange_confirmed_quotes"]==0
+          assert a["same_provider_internal_consistency_only"] is True
+          assert a["ranking_eligible"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print("Daily and intraday matched",a["matching_price_count"])
+          PY
+      - name: Publish unverified research comparison
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-bank-daily-intraday-v115.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v115): Yahoo daily intraday consistency research'
+            git push
+          fi
