@@ -1,8 +1,16 @@
 {
   "schema_version": "sgx-s63-auditor-probe-v131",
-  "attempted_at_utc": "2026-11-14T05:54:30.581604+00:00",
+  "attempted_at_utc": "2026-11-14T05:55:30.748708+00:00",
   "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20FY2025%20Auditors%20Report.ashx?App=Announcement&FileID=876452",
   "status": "NOT_VERIFIED",
   "record": null,
-  "error": "ValueError: Unrelated or missing audit report"
+  "error": "ValueError: Unrelated or missing audit report",
+  "pdf_text_diagnostics": {
+    "page_count": 7,
+    "first_page_start": "",
+    "contains_opinion": false,
+    "contains_auditor": false,
+    "contains_pwc": false,
+    "revenue_context": []
+  }
 }
