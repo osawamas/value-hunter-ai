@@ -1,0 +1,370 @@
+{
+  "schema_version": "sgx-third-party-company-candidates-v99",
+  "generated_at_utc": "2026-11-14T00:19:49.404906+00:00",
+  "source_url": "https://stocks.com.sg/api/v1/companies",
+  "source_json_sha256": "fd99f1e3e3890788cd46c66a337cc05a8401242ea3493c0c60772939e44221b0",
+  "source_kind": "THIRD_PARTY_LISTED_COMPANY_API_FREE_TIER",
+  "coverage": "PARTIAL_UNVERIFIED",
+  "provider_raw_rows": 50,
+  "provider_accepted_candidate_count": 49,
+  "known_verified_issuer_count": 7,
+  "known_verified_issuer_overlap": 0,
+  "known_verified_issuer_missing": [
+    "D05",
+    "G13",
+    "O39",
+    "S20",
+    "S63",
+    "S68",
+    "U11"
+  ],
+  "full_sgx_listing_completeness_verified": false,
+  "records_not_added_to_verified_financial_feed": true,
+  "stock_quote_or_financial_metrics_fetched": false,
+  "eligible_for_ranking": false,
+  "candidates": [
+    {
+      "symbol": "1B0",
+      "display_name": "mm2 Asia Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "1D0",
+      "display_name": "Kimly Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "1F1",
+      "display_name": "Clearbridge Health Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "1F3",
+      "display_name": "Noel Gifts International Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "1J5",
+      "display_name": "Hyphens Pharma International Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "40T",
+      "display_name": "Stamford American International School",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "40V",
+      "display_name": "iX Biopharma Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "42R",
+      "display_name": "Jumbo Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "544",
+      "display_name": "CSE Global Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "558",
+      "display_name": "UMS Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5AI",
+      "display_name": "OKP Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5BI",
+      "display_name": "Serial System Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5CF",
+      "display_name": "SinoCloud Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5CP",
+      "display_name": "Silverlake Axis Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5DD",
+      "display_name": "Micro-Mechanics Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5E2",
+      "display_name": "Seatrium Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5GD",
+      "display_name": "HC Surgical Specialists Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5HE",
+      "display_name": "Stamford Land Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5ML",
+      "display_name": "Old Chang Kee Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5OI",
+      "display_name": "Japan Foods Holding Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5TP",
+      "display_name": "UMS Integration Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5UX",
+      "display_name": "Oxley Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5WH",
+      "display_name": "Rex International Holding Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "8AZ",
+      "display_name": "Aztech Global Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "9CI",
+      "display_name": "CapitaLand Investment Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "A04",
+      "display_name": "ASL Marine Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "A17U",
+      "display_name": "CapitaLand Ascendas REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "A26",
+      "display_name": "Singapore Shipping Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "A30",
+      "display_name": "Asia Enterprises Holding Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "A50",
+      "display_name": "Thomson Medical Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "A7RU",
+      "display_name": "Keppel Infrastructure Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "AGS",
+      "display_name": "The Hour Glass Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "AIY",
+      "display_name": "iFAST Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "AJBU",
+      "display_name": "Keppel DC REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "AP4",
+      "display_name": "Riverstone Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "AU8U",
+      "display_name": "CapitaLand China Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "AWX",
+      "display_name": "AEM Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "B61",
+      "display_name": "Bukit Sembawang Estates Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BCD",
+      "display_name": "Indo Agri Resources Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BEW",
+      "display_name": "Frasers Centrepoint Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BEZ",
+      "display_name": "Dyna-Mac Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BHK",
+      "display_name": "UOI Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BHU",
+      "display_name": "Dasin Retail Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BMGU",
+      "display_name": "BHG Retail REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BN2",
+      "display_name": "Valuetronics Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BN4",
+      "display_name": "Keppel Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BN8",
+      "display_name": "Baker Technology Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BQF",
+      "display_name": "Mewah International Inc",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BRS",
+      "display_name": "Top Glove Corporation Bhd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    }
+  ]
+}
