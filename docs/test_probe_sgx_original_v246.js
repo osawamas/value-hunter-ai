@@ -25,7 +25,6 @@ for(const unsafe of [
  "https://links.sgx.com/FileOpen/X.ashx?url=http://localhost",
  "file:///etc/passwd"
 ]){
- if(unsafe.includes("?url="))continue; // unknown SGX query keys are separately disallowed below
  assert.throws(()=>validateTarget(unsafe),unsafe);
 }
 for(const bad of [Buffer.from("NOT-A-PDF".padEnd(150)),Buffer.concat([Buffer.from("%PDF-"),Buffer.alloc(MAX_BYTES+1)])]){
