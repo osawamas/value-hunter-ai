@@ -1,0 +1,27 @@
+{
+  "schema_version": "sgx-uob-q3-cfo-probe-v172",
+  "status": "UOB_Q3_CFO_PRIMARY_SGX_PDF_VERIFIED",
+  "record": {
+    "schema_version": "sgx-uob-q3-cfo-original-v172",
+    "symbol": "U11",
+    "issuer": "UNITED OVERSEAS BANK LIMITED",
+    "financial_period_end": "2026-09-30",
+    "source_pdf_url": "https://links.sgx.com/FileOpen/3Q26%20CFO%20presentation%20slides.ashx?App=Announcement&FileID=910319",
+    "source_pdf_sha256": "d3b474aa87a2f2741bf68754a2f38b7189d905a8ff2bf6c51f88b758c867ec18",
+    "source_pdf_page_count": 20,
+    "issuer_original_sgx_pdf_verified": true,
+    "announcement_landing_page_and_ref_verified": false,
+    "cfo_pdf_observed_group_net_profit_3q26_sgd_millions": 1250,
+    "cfo_pdf_observed_group_net_profit_9m26_sgd_millions": 4165,
+    "cfo_pdf_observed_net_interest_income_3q26_sgd_millions": 2278,
+    "cfo_pdf_observed_net_fee_income_3q26_sgd_millions": 733,
+    "exact_table_row_column_scoping_independently_reperformed": false,
+    "issuer_2026_interim_independently_audited": false,
+    "nov13_buyback_announcement_original_verified": false,
+    "independent_third_party_financial_verification": false,
+    "current_sgx_quote_verified": false,
+    "current_treasury_adjusted_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
