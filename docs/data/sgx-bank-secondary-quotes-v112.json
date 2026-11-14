@@ -1,0 +1,84 @@
+{
+  "schema_version": "sgx-secondary-quote-probe-v112",
+  "attempted_at_utc": "2026-11-14T05:00:12.419436+00:00",
+  "source_kind": "YAHOO_UNOFFICIAL_DAILY_CHART",
+  "verified_exchange_quotes": 0,
+  "secondary_dated_chart_count": 3,
+  "promote_to_financial_feed": false,
+  "eligible_for_market_cap_per_pbr": false,
+  "ranking_eligible": false,
+  "records": [
+    {
+      "symbol": "D05",
+      "status": "SECONDARY_YAHOO_DAILY_CHART_RESEARCH_ONLY",
+      "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/D05.SI?interval=1d&range=5d",
+      "record": {
+        "symbol": "D05",
+        "provider_symbol": "D05.SI",
+        "status": "SECONDARY_YAHOO_DAILY_CHART_RESEARCH_ONLY",
+        "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/D05.SI?interval=1d&range=5d",
+        "response_sha256": "ee12420ebd6b46f497c7afe787fdd42b186d57222048e0e30cd1df8cb887993d",
+        "close_sgd_research": 69.900002,
+        "daily_bar_timestamp_utc": "2026-11-13T01:00:00+00:00",
+        "daily_bar_date_sgt": "2026-11-13",
+        "retrieved_at_utc": "2026-11-14T05:00:12.419436+00:00",
+        "exchange_timezone": "Asia/Singapore",
+        "actual_exchange_last_trade_timestamp_verified": false,
+        "original_sgx_exchange_source_verified": false,
+        "independent_price_crosscheck_completed": false,
+        "usable_for_market_cap": false,
+        "usable_for_per_pbr": false,
+        "ranking_eligible": false
+      },
+      "error": null
+    },
+    {
+      "symbol": "O39",
+      "status": "SECONDARY_YAHOO_DAILY_CHART_RESEARCH_ONLY",
+      "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/O39.SI?interval=1d&range=5d",
+      "record": {
+        "symbol": "O39",
+        "provider_symbol": "O39.SI",
+        "status": "SECONDARY_YAHOO_DAILY_CHART_RESEARCH_ONLY",
+        "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/O39.SI?interval=1d&range=5d",
+        "response_sha256": "6c43968bdaf16f84b99c154aaaafeec475c90276e36c3728332f2c102271ae26",
+        "close_sgd_research": 28.530001,
+        "daily_bar_timestamp_utc": "2026-11-13T01:00:00+00:00",
+        "daily_bar_date_sgt": "2026-11-13",
+        "retrieved_at_utc": "2026-11-14T05:00:12.419436+00:00",
+        "exchange_timezone": "Asia/Singapore",
+        "actual_exchange_last_trade_timestamp_verified": false,
+        "original_sgx_exchange_source_verified": false,
+        "independent_price_crosscheck_completed": false,
+        "usable_for_market_cap": false,
+        "usable_for_per_pbr": false,
+        "ranking_eligible": false
+      },
+      "error": null
+    },
+    {
+      "symbol": "U11",
+      "status": "SECONDARY_YAHOO_DAILY_CHART_RESEARCH_ONLY",
+      "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/U11.SI?interval=1d&range=5d",
+      "record": {
+        "symbol": "U11",
+        "provider_symbol": "U11.SI",
+        "status": "SECONDARY_YAHOO_DAILY_CHART_RESEARCH_ONLY",
+        "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/U11.SI?interval=1d&range=5d",
+        "response_sha256": "7db4e4e3e2bf7472401c87cf32896881ab578dd3dcf601c7fee8cbbb9db524ee",
+        "close_sgd_research": 37.75,
+        "daily_bar_timestamp_utc": "2026-11-13T01:00:00+00:00",
+        "daily_bar_date_sgt": "2026-11-13",
+        "retrieved_at_utc": "2026-11-14T05:00:12.419436+00:00",
+        "exchange_timezone": "Asia/Singapore",
+        "actual_exchange_last_trade_timestamp_verified": false,
+        "original_sgx_exchange_source_verified": false,
+        "independent_price_crosscheck_completed": false,
+        "usable_for_market_cap": false,
+        "usable_for_per_pbr": false,
+        "ranking_eligible": false
+      },
+      "error": null
+    }
+  ]
+}
