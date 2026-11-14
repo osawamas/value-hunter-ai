@@ -1,0 +1,26 @@
+{
+  "schema_version": "sgx-s63-second-site-price-v128",
+  "attempted_at_utc": "2026-11-14T05:49:54.668075+00:00",
+  "requested_url": "https://www.eoddata.com/stockquote/SGX/S63.htm",
+  "status": "SECONDARY_EODDATA_S63_HISTORICAL_CLOSE_MATCHED",
+  "record": {
+    "status": "SECONDARY_EODDATA_S63_HISTORICAL_CLOSE_MATCHED",
+    "symbol": "S63",
+    "trade_date_sgt": "2026-11-13",
+    "currency": "SGD",
+    "source_url": "https://www.eoddata.com/stockquote/SGX/S63.htm",
+    "source_html_sha256": "8f0e4afbcd715e14ba637d09c88ed7228e305e88e0539e97c2121acf5a0e0185",
+    "close_sgd_research": 9.67,
+    "open_sgd": 9.66,
+    "high_sgd": 9.77,
+    "low_sgd": 9.47,
+    "published_volume_text": "5.29M",
+    "different_website_from_yahoo": true,
+    "upstream_market_data_independence_verified": false,
+    "original_sgx_exchange_trade_tape_verified": false,
+    "exact_executed_trade_time_verified": false,
+    "eligible_for_market_cap_per_pbr": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
