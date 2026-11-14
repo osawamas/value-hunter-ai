@@ -7,6 +7,7 @@ on:
       - 'docs/index.html'
       - 'docs/ocbc-bundle-summary-v167.js'
       - 'docs/test_ocbc_bundle_summary_v167.js'
+      - 'docs/test_ocbc_group_v165.js'
       - '.github/workflows/value-hunter-v167.yml'
 permissions:
   contents: read
