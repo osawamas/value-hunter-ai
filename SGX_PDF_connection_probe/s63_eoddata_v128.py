@@ -27,7 +27,7 @@ class Visible(HTMLParser):
   if not self.hide:self.parts.append(val)
 
 def parse(raw):
- if not isinstance(raw,bytes) or not 250<len(raw)<3_000_000:
+ if not isinstance(raw,bytes) or not 100<len(raw)<3_000_000:
   raise ValueError("Invalid secondary page")
  parser=Visible();parser.feed(raw.decode("utf-8","replace"))
  text=" ".join(" ".join(parser.parts).split())
