@@ -90,6 +90,8 @@ on:
       - 'docs/universe-coverage-audit-v205.js'
       - 'docs/data/sgx-official-monthend-aug2026-v251.json'
       - 'docs/test_sgx_official_monthend_v251.js'
+      - 'scripts/stage-sgx-official-directory-v252.js'
+      - 'docs/test_sgx_directory_staging_v252.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
       - '.github/workflows/sgx-original-pdf-probe-v246.yml'
