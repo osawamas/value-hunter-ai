@@ -1,0 +1,59 @@
+name: VALUE HUNTER v148 OCBC two official PDF profit crosscheck
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_ocbc_q3_two_pdf_v148.py'
+      - 'SGX_PDF_connection_probe/test_sgx_ocbc_q3_two_pdf_v148.py'
+      - '.github/workflows/value-hunter-v148.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v148
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install and test original source checks
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_ocbc_q3_two_pdf_v148
+      - name: Actual OCBC separate SGX PDFs crosscheck
+        run: |
+          python SGX_PDF_connection_probe/sgx_ocbc_q3_two_pdf_v148.py --pdfs docs/data/sgx-ocbc-2026q3-pdfs-v145.json --profit docs/data/sgx-ocbc-2026q3-bank-profit-v146.json --output docs/data/sgx-ocbc-two-pdf-crosscheck-v148.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          o=json.loads(Path("docs/data/sgx-ocbc-two-pdf-crosscheck-v148.json").read_text())
+          if o["record"]:
+            assert o["record"]["independent_third_party_reperformance"] is False
+            assert o["record"]["ranking_eligible"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(o["status"],o["error"])
+          PY
+      - name: Commit independent original capture from same issuer
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_ocbc_q3_two_pdf_v148.py --pdfs docs/data/sgx-ocbc-2026q3-pdfs-v145.json --profit docs/data/sgx-ocbc-2026q3-bank-profit-v146.json --output docs/data/sgx-ocbc-two-pdf-crosscheck-v148.json
+            git add docs/data/sgx-ocbc-two-pdf-crosscheck-v148.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v148): OCBC 3Q two original issuer PDF consistency'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1
