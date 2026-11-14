@@ -1,0 +1,50 @@
+{
+  "schema_version": "sgx-source-reuse-policy-v222",
+  "review_date": "2026-11-14",
+  "feeds": [
+    {
+      "id": "SGX_OFFICIAL_TRADING_PAGE",
+      "source_url": "https://www.sgx.com/securities/trading",
+      "provider": "Singapore Exchange",
+      "collected_scope": "STATIC_EXAMPLES_ONLY",
+      "official_sgx_source": true,
+      "full_security_master_verified": false,
+      "public_quote_redistribution_authorized": false,
+      "source_identifiers_only": true,
+      "market_data_fields_allowed": false,
+      "can_enable_rankings": false
+    },
+    {
+      "id": "STOCKSSG_COMPANY_API",
+      "source_url": "https://stocks.com.sg/developers",
+      "terms_url": "https://stocks.com.sg/terms",
+      "provider": "StocksSG",
+      "collected_scope": "RESEARCH_ONLY_NO_DATA_CAPTURE",
+      "free_api_tier_documented": true,
+      "rate_limit_without_key_per_minute": 10,
+      "public_dataset_redistribution_authorized": false,
+      "terms_prohibit_reproducing_redistributing_without_permission": true,
+      "official_sgx_source": false,
+      "full_security_master_verified": false,
+      "market_data_fields_allowed": false,
+      "source_identifiers_only": false,
+      "can_enable_rankings": false
+    },
+    {
+      "id": "SGX_OFFICIAL_MARKET_DATA",
+      "source_url": "https://www.sgx.com/data-connectivity/our-data-vendors",
+      "provider": "Singapore Exchange licensed market-data services",
+      "collected_scope": "NOT_CONNECTED",
+      "licensed_feed_contract_obtained": false,
+      "public_quote_redistribution_authorized": false,
+      "full_security_master_verified": false,
+      "market_data_fields_allowed": false,
+      "can_enable_rankings": false
+    }
+  ],
+  "must_not_assume_free_api_means_redistribution_rights": true,
+  "financial_feed_modified": false,
+  "ranking_eligible_count": 0,
+  "official_full_list_available": false,
+  "licensed_time_stamped_quote_available": false
+}
