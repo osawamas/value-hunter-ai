@@ -1,0 +1,12 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path");
+const root=path.resolve(__dirname,"..");
+const content=fs.readFileSync(path.join(root,"scripts/verify-evidence-v198.js"),"utf8");
+const tests=[...content.matchAll(/"docs\/test_[^"]+\.js"/g)].map(x=>x[0].slice(1,-1));
+assert.ok(tests.length>=30);
+assert.equal(tests.length,new Set(tests).size,"Duplicate tests may artificially inflate suite pass count");
+assert.ok(tests.includes("docs/test_evidence_unique_paths_v235.js"));
+assert.ok(tests.includes("docs/test_sgx_pdf_sha_evidence_v233.js"));
+assert.ok(tests.includes("docs/test_sgx_pdf_sha_ui_v234.js"));
+for(const name of tests)assert.ok(fs.existsSync(path.join(root,name)),"Missing test file "+name);
+console.log("v235 PASS: "+tests.length+" distinct and present tests; no duplicated regression-count inflation");
