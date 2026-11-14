@@ -66,9 +66,9 @@
           </label>
           <label class="control">並び替え
             <select id="sortBy" aria-label="並び替え">
-              <option value="symbol">銘柄コード</option><option value="market_cap_sgd">時価総額（大きい順）</option>
+              <option value="symbol">銘柄コード</option><option value="market_cap_sgd">参考時価総額（未検証・大きい順）</option>
               <option value="revenue_growth_pct">売上成長率（高い順）</option>
-              <option value="per_reference">PER（低い順）</option><option value="pbr_reference_unverified">PBR（低い順・参考）</option>
+              <option value="per_reference">参考PER（未検証・低い順）</option><option value="pbr_reference_unverified">参考PBR（未検証・低い順）</option>
             </select>
           </label>
           <button id="exportCsv" class="secondary-button" type="button">CSV出力 ↓</button>
@@ -76,8 +76,8 @@
         <div id="statusMessage" class="status-message" role="status">公式データを読み込んでる...</div>
         <div class="tablewrap">
           <table><thead><tr>
-            <th>銘柄</th><th class="num">株価 <small>SGD</small></th><th class="num">時価総額 <small>億SGD</small></th>
-            <th class="num">PER <small>倍</small></th><th class="num">PBR <small>倍</small></th>
+            <th>銘柄</th><th class="num">参考株価 <small>SGD</small></th><th class="num">参考時価総額 <small>億SGD</small></th>
+            <th class="num">参考PER <small>倍</small></th><th class="num">参考PBR <small>倍</small></th>
             <th class="num">売上成長率</th><th class="num">営業利益率</th><th class="num">自己資本比率</th><th>検証状況</th><th></th>
           </tr></thead><tbody id="stockRows"><tr><td colspan="10" class="empty">データ読み込み中…</td></tr></tbody></table>
         </div>
