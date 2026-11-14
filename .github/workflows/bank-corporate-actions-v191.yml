@@ -118,3 +118,11 @@ jobs:
           path: build/research/evidence-integrity-v218.json
           if-no-files-found: error
           retention-days: 14
+      - name: Preserve date-bound UOB and pending OCBC evidence readiness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-bank-evidence-readiness-v244
+          path: build/research/sgx-bank-evidence-readiness-v243.json
+          if-no-files-found: error
+          retention-days: 30
