@@ -59,6 +59,8 @@ jobs:
           node docs/test_share_date_v162.js
           node --check docs/ocbc-bundle-summary-v167.js
           node docs/test_ocbc_bundle_summary_v167.js
+          node --check docs/reference-valuation-guard-v168.js
+          node docs/test_reference_valuation_guard_v168.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
