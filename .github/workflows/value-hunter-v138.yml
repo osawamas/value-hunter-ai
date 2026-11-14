@@ -31,8 +31,13 @@ jobs:
           const {validate}=require('./docs/first-issuer-gate-v138.js');
           const feed=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
           const gate=JSON.parse(fs.readFileSync('docs/data/sgx-first-issuer-gate-v137.json','utf8'));
-          const rows=validate(feed,gate);
-          assert.equal(rows.length,2);
           assert.equal(feed.ranking_eligible_count,0);
-          console.log('Strict first issuer UI gates applied to actual public feed');
+          if (feed.updated_at_utc === gate.feed_updated_at_utc) {
+            const rows=validate(feed,gate);
+            assert.equal(rows.length,2);
+            console.log('Current financial and gate evidence aligned');
+          } else {
+            assert.throws(()=>validate(feed,gate),/版または安全状態が不一致/);
+            console.log('Expected fail-closed on stale gate after fresh v29 feed; post-audit workflow will regenerate');
+          }
           JS
