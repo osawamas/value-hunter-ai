@@ -1,0 +1,57 @@
+{
+  "schema_version": "sgx-uob-official-daily-buyback-chain-v242",
+  "reviewed_on": "2026-11-15",
+  "issuer": "UNITED OVERSEAS BANK LIMITED",
+  "symbol": "U11",
+  "isin": "SG1M31001969",
+  "unit": "shares",
+  "source_kind": "SGX_ORIGINAL_ANNOUNCEMENT_HTML",
+  "official_current_asof_date": "2026-11-12",
+  "period_and_issuer_scope": "DAILY_MARKET_BUYBACK_NOT_TOTAL_BANK_VALUATION",
+  "latest_2026_11_13_official_original_retrieved": false,
+  "latest_2026_11_13_secondary_not_promoted": true,
+  "source_2026_11_13_secondary_url": "https://b.siasset.com/news/news.html?nid=515671689&source=regional_sgxnet",
+  "all_sgx_buyback_announcements_to_date_verified": false,
+  "licensed_timestamped_trade_quote_verified": false,
+  "third_party_independent_financial_verification": false,
+  "current_market_cap_per_pbr_verified": false,
+  "ranking_eligible": false,
+  "rows": [
+    {
+      "trade_date": "2026-11-10",
+      "announcement_ref": "SG261110OTHRQ7Q7",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/Y0NT6GHJQAPLSMVQ/58e79d1d9d9600964459eebacee1ddcafc278a5ae3bfa3fac4da267e7247d75c",
+      "broadcast_sgt": "2026-11-10T18:11:29+08:00",
+      "purchased": 34000,
+      "cancelled": 34000,
+      "held_treasury_from_daily_purchase": 0,
+      "cumulative_purchased_under_mandate": 6776600,
+      "issued_excluding_treasury_after_purchase": 1646779591,
+      "treasury_shares_after_purchase": 14548000
+    },
+    {
+      "trade_date": "2026-11-11",
+      "announcement_ref": "SG261111OTHRGYNT",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/OGJOD7K9GS51JRLV/cab40affb30af649a2f5a37c76072f84a0e1497d6fae97787c4c968bc7c120cc",
+      "broadcast_sgt": "2026-11-11T18:33:06+08:00",
+      "purchased": 34000,
+      "cancelled": 34000,
+      "held_treasury_from_daily_purchase": 0,
+      "cumulative_purchased_under_mandate": 6810600,
+      "issued_excluding_treasury_after_purchase": 1646745591,
+      "treasury_shares_after_purchase": 14548000
+    },
+    {
+      "trade_date": "2026-11-12",
+      "announcement_ref": "SG261112OTHRSYPK",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/MTW96I6ZXZBTQZK8/7c3dc707a598dc02da057fc772c1ba67abe1b9b3ceb4fe9d2b92fd00b510d97d",
+      "broadcast_sgt": "2026-11-12T18:40:46+08:00",
+      "purchased": 34000,
+      "cancelled": 34000,
+      "held_treasury_from_daily_purchase": 0,
+      "cumulative_purchased_under_mandate": 6844600,
+      "issued_excluding_treasury_after_purchase": 1646711591,
+      "treasury_shares_after_purchase": 14548000
+    }
+  ]
+}
