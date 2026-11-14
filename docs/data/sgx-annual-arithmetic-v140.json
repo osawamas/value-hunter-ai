@@ -1,0 +1,53 @@
+{
+  "schema_version": "sgx-annual-statement-arithmetic-v140",
+  "feed_updated_at_utc": "2026-11-14T06:16:49.324341+00:00",
+  "checked_issuers": 2,
+  "arithmetically_reconciled_count": 2,
+  "independent_numerical_verification_count": 0,
+  "eligible_count": 0,
+  "financial_feed_modified": false,
+  "records": [
+    {
+      "symbol": "G13",
+      "statement_year": 2025,
+      "unit": "SGD_thousands",
+      "assets": 9185799,
+      "liabilities": 980383,
+      "group_equity": 8205416,
+      "parent_attributable_equity": 8205416,
+      "calculated_noncontrolling_interest": 0,
+      "assets_minus_liabilities_minus_group_equity": 0,
+      "group_equity_minus_parent_minus_nci": 0,
+      "same_issuer_audited_statement_arithmetic_passed": true,
+      "independent_external_auditor_opinion_observed": true,
+      "independent_third_party_reperformance_completed": false,
+      "independent_parent_equity_source_completed": false,
+      "valid_current_quote_and_shares_proven": false,
+      "official_2026_earnings_audited": false,
+      "market_cap_per_pbr_promoted": false,
+      "ranking_eligible": false,
+      "original_annual_report_sha256": "fe6856502967711f79b73d0c01f5a3b10dfd772900495c73f9d166ee5b32622c"
+    },
+    {
+      "symbol": "S63",
+      "statement_year": 2025,
+      "unit": "SGD_thousands",
+      "assets": 16032106,
+      "liabilities": 13110861,
+      "group_equity": 2921245,
+      "parent_attributable_equity": 2573638,
+      "calculated_noncontrolling_interest": 347607,
+      "assets_minus_liabilities_minus_group_equity": 0,
+      "group_equity_minus_parent_minus_nci": 0,
+      "same_issuer_audited_statement_arithmetic_passed": true,
+      "independent_external_auditor_opinion_observed": true,
+      "independent_third_party_reperformance_completed": false,
+      "independent_parent_equity_source_completed": false,
+      "valid_current_quote_and_shares_proven": false,
+      "official_2026_earnings_audited": false,
+      "market_cap_per_pbr_promoted": false,
+      "ranking_eligible": false,
+      "original_annual_report_sha256": "eb39428ba51c1c39463eea983648e2b7f7cfb1bf84a1da02d2ef3d5b8ecf989b"
+    }
+  ]
+}
