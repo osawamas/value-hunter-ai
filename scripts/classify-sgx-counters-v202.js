@@ -8,6 +8,8 @@
   ["REIT","REIT"],["REAL ESTATE INVESTMENT TRUST","REIT"],
   ["ETF","ETF"],["EXCHANGE TRADED FUND","ETF"],
   ["BUSINESS TRUST","BUSINESS_TRUST"],
+  ["STAPLED SECURITY","STAPLED_SECURITY"],["STAPLED SECURITIES","STAPLED_SECURITY"],
+  ["L&I PRODUCT","LEVERAGED_PRODUCT"],
   ["WARRANT","WARRANT"],["STRUCTURED WARRANT","WARRANT"],
   ["DLC","LEVERAGED_PRODUCT"],["DAILY LEVERAGE CERTIFICATE","LEVERAGED_PRODUCT"],
   ["BOND","DEBT"],["NOTE","DEBT"],["DEBT","DEBT"]
@@ -27,7 +29,7 @@
    staged.ranking_enabled!==false||staged.ranking_eligible_count!==0||
    !Array.isArray(staged.items)||staged.items.length!==staged.item_count)
    throw Error("Staging status not verified for classification");
-  const summary={POTENTIAL_EQUITY:0,REIT:0,ETF:0,BUSINESS_TRUST:0,WARRANT:0,LEVERAGED_PRODUCT:0,DEBT:0,UNCLASSIFIED:0};
+  const summary={POTENTIAL_EQUITY:0,REIT:0,ETF:0,BUSINESS_TRUST:0,STAPLED_SECURITY:0,WARRANT:0,LEVERAGED_PRODUCT:0,DEBT:0,UNCLASSIFIED:0};
   const keys=new Set(),rows=[];
   for(const x of staged.items){
    const code=x?.trading_code,cur=x?.trading_currency,typ=x?.instrument_type;
