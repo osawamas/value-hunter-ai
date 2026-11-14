@@ -1,0 +1,24 @@
+name: SGX bank corporate actions evidence v191
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/test_bank_corporate_actions_v190.js'
+      - 'docs/data/sgx-bank-corporate-actions-v190.json'
+      - '.github/workflows/bank-corporate-actions-v191.yml'
+permissions:
+  contents: read
+jobs:
+  bank-corporate-actions-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate source-bound bank corporate actions and unverified-data gates
+        run: node docs/test_bank_corporate_actions_v190.js
