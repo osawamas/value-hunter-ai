@@ -7,6 +7,7 @@
   <meta name="description" content="VALUE HUNTER AI — SGX上場銘柄の財務・株価・データ検証状況を日本語で比較。">
   <title>安物で割安 | VALUE HUNTER AI</title>
   <link rel="stylesheet" href="./style.css">
+  <script src="./ranking-blockers-v185.js" defer></script>
   <script src="./bank-coverage-v169.js" defer></script>
   <script src="./bank-nii-v178.js" defer></script>
   <script src="./bank-profit-yoy-v182.js" defer></script>
@@ -62,6 +63,18 @@
         <div class="metric"><span>ランキング対象</span><strong id="eligibleCount">—</strong><small>必要データ・検証済みに限定</small></div>
         <div class="metric"><span>データ不足・除外</span><strong id="excludedCount">—</strong><small>除外理由を個別表示</small></div>
         <div class="metric"><span>非公式参考株価</span><strong id="pricedCount">—</strong><small>取引所の正式価格認証とは別</small></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="rankingBlockerTitle">
+        <div class="section-heading"><div><div class="eyebrow">EVIDENCE GAPS / RANKING HOLD</div>
+          <h2 id="rankingBlockerTitle">ランキング有効化までに不足している検証</h2></div>
+          <p>確認済みの条件と未完了の証拠を出典に沿って表示する。</p></div>
+        <p id="rankingBlockerStatus" class="status-message" role="status">公開データと検証条件を照合中…</p>
+        <div class="tablewrap"><table><thead><tr><th>銘柄</th><th>区分</th><th>確認済み条件</th>
+          <th>不足している検証</th><th>判定</th>
+        </tr></thead><tbody id="rankingBlockerRows"><tr><td colspan="5">読み込み中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>条件数は投資魅力度・開発完了率を表さない。</span>
+          <span>G13・S63は厳格な8条件、銀行3社は銀行専用の未完了項目。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="listTitle">
