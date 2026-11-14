@@ -1,0 +1,49 @@
+{
+  "schema_version": "sgx-h02-official-primary-document-v212",
+  "symbol": "H02",
+  "isin": "SG1D25001158",
+  "source_class": "OFFICIAL_SGX_ISSUER_FILING_WITH_PDF_VISUALLY_REVIEWED",
+  "announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/",
+  "announcement_reference": "SG260227OTHRQ304",
+  "broadcast_sgt": "2026-02-27T17:23:27+08:00",
+  "period_end": "2025-12-31",
+  "original_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/876566_FY25%20Haw%20Par%20SGX%20Announcementl.pdf",
+  "attachment_display_name": "FY25 Haw Par SGX Announcementl.pdf",
+  "original_pdf_total_pages": 25,
+  "source_pages_zero_based": {
+    "income": 1,
+    "balance": 2
+  },
+  "source_pdf_sha256": null,
+  "source_pdf_bytes_independently_downloaded": false,
+  "source_pdf_page_images_reviewed": true,
+  "separate_issuer_annual_pdf": "https://links.sgx.com/FileOpen/Haw%20Par%20Corp%20Annual%20Report%202025.ashx?App=Announcement&FileID=881713",
+  "comparison_document_is_another_issuer_document_not_independent_auditor": true,
+  "verified_from_primary_pdf_visual": {
+    "unit": "SGD_thousands",
+    "income_FY2025": {
+      "revenue": 229967,
+      "gross_profit": 128765,
+      "profit_before_tax": 281649,
+      "profit_after_tax": 265462
+    },
+    "balance_FY2025": {
+      "total_assets": 4417906,
+      "total_liabilities": 126830,
+      "net_assets": 4291076,
+      "total_equity": 4291076
+    },
+    "balance_FY2024": {
+      "total_assets": 4277008,
+      "total_liabilities": 128474,
+      "net_assets": 4148534,
+      "total_equity": 4148534
+    }
+  },
+  "full_external_independent_numeric_audit_completed": false,
+  "latest_issued_ex_treasury_shares_verified": false,
+  "authorized_timestamped_quote_verified": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false,
+  "evidence_note": "SGX attachment PDF pages 2 and 3 (zero-based 1,2) visually inspected; PDF byte hash not obtained; annual report supports issuer consistency only."
+}
