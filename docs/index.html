@@ -21,6 +21,7 @@
   <script src="./ocbc-bank-ratios-v150.js" defer></script>
   <script src="./ocbc-exact-profit-v153.js" defer></script>
   <script src="./ocbc-income-v155.js" defer></script>
+  <script src="./ocbc-allowance-v157.js" defer></script>
 </head>
 <body>
   <div class="page">
@@ -237,6 +238,18 @@
         </tr></thead><tbody id="ocbcIncomeRows"><tr><td colspan="7">読み込み中…</td></tr></tbody></table></div>
         <div class="tablefoot"><span>金額単位：百万SGD。2026年の発行会社SGX原本。</span>
           <span>独立財務検証、現在PER/PBRおよびランキングへの昇格なし。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="ocbcAllowanceTitle">
+        <div class="section-heading"><div><div class="eyebrow">OCBC 9M2026 / CREDIT ALLOWANCES</div>
+          <h2 id="ocbcAllowanceTitle">OCBC・引当金の内訳</h2></div>
+          <p>SGX原本の計上額を内訳から照合する。</p></div>
+        <p id="ocbcAllowanceStatus" class="status-message" role="status">引当金の原本照合中…</p>
+        <div class="tablewrap"><table><thead><tr><th>期間</th><th>不良資産向け</th>
+          <th>非不良資産向け</th><th>引当金合計</th><th>検証状態</th>
+        </tr></thead><tbody id="ocbcAllowanceRows"><tr><td colspan="5">読み込み中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>金額は百万SGD。2026年の発行会社資料の算術照合。</span>
+          <span>信用リスクの第三者検証ではない。</span></div>
       </section>
 
       <section class="details" aria-labelledby="detailTitle">
