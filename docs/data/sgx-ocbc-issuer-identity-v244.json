@@ -1,0 +1,19 @@
+{
+  "schema_version": "sgx-ocbc-official-issuer-identity-v244",
+  "review_date": "2026-11-15",
+  "source_url": "https://links.sgx.com/1.0.0/corporate-information/1943",
+  "official_company_information_last_updated": "2026-11-13T08:45:28+08:00",
+  "issuer_name": "OVERSEA-CHINESE BANKING CORPORATION LIMITED",
+  "security_name": "OVERSEA-CHINESE BANKING CORP",
+  "symbol": "O39",
+  "isin": "SG1S04926220",
+  "listing_board": "MAINBOARD",
+  "company_information_source": "SGX_OFFICIAL_CORPORATE_INFORMATION",
+  "official_daily_treasury_change_notice_2026_11_12_obtained": false,
+  "official_treasury_attachment_2026_11_12_obtained": false,
+  "latest_issued_excluding_treasury_shares_verified": false,
+  "complete_sgx_security_master_verified": false,
+  "licensed_quote_available": false,
+  "ranking_eligible": false,
+  "scope": "ISSUER_IDENTITY_ONLY_NOT_CURRENT_SHARES_OR_PRICE"
+}
