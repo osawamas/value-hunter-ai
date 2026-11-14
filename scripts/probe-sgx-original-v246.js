@@ -21,7 +21,7 @@ function validateTarget(raw){
  const allowed=isFileOpen?new Set(["App","FileID"]):new Set();
  for(const key of u.searchParams.keys())if(!allowed.has(key))throw Error("Unexpected SGX PDF URL query argument");
  if(isFileOpen&&(u.searchParams.get("App")!=="Announcement"||
-    !/^\\d+$/.test(u.searchParams.get("FileID")||"")||
+    !/^\d+$/.test(u.searchParams.get("FileID")||"")||
     [...u.searchParams.keys()].length!==2))
   throw Error("SGX FileOpen requires an exact announcement file id");
  return u.href;
