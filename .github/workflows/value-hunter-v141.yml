@@ -1,0 +1,43 @@
+name: VALUE HUNTER v141 accounting arithmetic Japanese UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/annual-arithmetic-v141.js'
+      - 'docs/test_annual_arithmetic_v141.js'
+      - '.github/workflows/value-hunter-v141.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check arithmetic and other risk-display logic
+        run: |
+          node --check docs/annual-arithmetic-v141.js
+          node docs/test_annual_arithmetic_v141.js
+          node docs/test_external_audit_v133.js
+          node docs/test_first_issuer_gate_v138.js
+      - name: Verify current actual statement matches audit arithmetic or fails closed if stale
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const {validate}=require('./docs/annual-arithmetic-v141.js');
+          const feed=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const arithmetic=JSON.parse(fs.readFileSync('docs/data/sgx-annual-arithmetic-v140.json','utf8'));
+          assert.equal(feed.ranking_eligible_count,0);
+          if(feed.updated_at_utc===arithmetic.feed_updated_at_utc){
+            assert.equal(validate(feed,arithmetic).length,2);
+            console.log('FY2025 arithmetic matches current feed');
+          }else{
+            assert.throws(()=>validate(feed,arithmetic));
+            console.log('Stale arithmetic safely hidden while sidecar refresh is pending');
+          }
+          JS
