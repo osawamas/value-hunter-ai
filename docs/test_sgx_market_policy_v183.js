@@ -1,0 +1,17 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs");
+const html=fs.readFileSync("docs/index.html","utf8");
+const app=fs.readFileSync("docs/app.js","utf8");
+const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+assert.ok(html.includes("非公式参考株価"));
+assert.ok(html.includes("正規株価の取得と利用条件"));
+assert.ok(html.includes("https://www.sgx.com/securities/securities-prices?code=stocks"));
+assert.ok(html.includes("https://www.datadirect.sgx.com/Market-Data-Policy"));
+assert.ok(html.includes("https://www.sgx.com/data-connectivity/our-data-vendors"));
+const select=html.match(/<select id="sortBy"[^>]*>([\s\S]*?)<\/select>/)?.[1];
+assert.ok(select,"Sort menu present");
+assert.ok(!/value="(?:per_reference|pbr_reference_unverified|market_cap_sgd)"/.test(select),"No unverifiable valuation sort");
+assert.ok(/value="revenue_growth_pct"/.test(select),"Safe financial metric sort remains");
+assert.ok(app.includes("referenceValuationDisplayPermitted(r)"));
+assert.equal(feed.ranking_eligible_count,0);
+console.log("v183 SGX reference quote correctly labeled, unsafe sorts hidden, policy linked");
