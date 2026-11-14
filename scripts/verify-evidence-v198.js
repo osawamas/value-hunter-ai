@@ -61,7 +61,8 @@ const tests=[
  "docs/test_sgx_official_monthend_v251.js",
  "docs/test_sgx_directory_staging_v252.js",
  "docs/test_sgx_corporate_indexed_v253.js",
- "docs/test_sgx_official_code_join_v254.js"
+ "docs/test_sgx_official_code_join_v254.js",
+ "docs/test_sgx_filing_codes_v255.js"
 ];
 let failed=0;
 const results=[];
