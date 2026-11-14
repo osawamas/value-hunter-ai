@@ -47,7 +47,7 @@ const reasons = {
   VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE: "株価または株式数の日時が古い／不明のため評価値を非表示"
 };
 const $ = id => document.getElementById(id);
-const state = { feed: null, selected: null, visible: [], shareAudit: null, g13QuarterRisk: null };
+const state = { feed: null, selected: null, visible: [], shareAudit: null, g13QuarterRisk: null, s63NineMonth: null };
 
 function el(tag, cls = "", text = null) {
   const node = document.createElement(tag);
@@ -236,6 +236,17 @@ function showDetail(r) {
       q.revenueYoY.toFixed(2)+"%、税引後利益前年同期比 "+
       q.profitYoY.toFixed(2)+"%。ランキング適格とは認めない。"));
     note.append(safeLink(q.source,"SGX公式の第3四半期報告を開く ↗"));
+    parent.append(note);
+  }
+  if (r.symbol === "S63" && state.s63NineMonth) {
+    const q=state.s63NineMonth;
+    const note=el("section","share-evidence-warning");
+    note.append(el("strong","","S63：2026年9か月間の業績・受注状況（会社発表）"));
+    note.append(el("p","",q.note+" 売上高約"+q.revenueSgdBillion+
+      "十億SGD、前年同期比+"+q.revenueYoY+
+      "%、受注額約"+q.contractWinsSgdBillion+
+      "十億SGD、受注残約"+q.orderBookSgdBillion+"十億SGD。"));
+    note.append(safeLink(q.source,"SGX公式の9か月間事業報告を開く ↗"));
     parent.append(note);
   }
   if (r.symbol === "S63" && state.shareAudit) {
@@ -653,6 +664,15 @@ async function start() {
     const response = await fetch("./data/latest.json", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
     setFeed(await response.json(), "GitHub上の公開データ");
+    try {
+      const q=await fetch("./data/sgx-s63-9m2026-v125.json",{cache:"no-store"});
+      if(!q.ok)throw new Error("HTTP "+q.status);
+      state.s63NineMonth=window.S63NineMonthV126.validate(state.feed,await q.json());
+      render();
+    }catch(error){
+      state.s63NineMonth=null;
+      console.warn("S63 9M official presentation unavailable:",error.message);
+    }
     try {
       const q=await fetch("./data/sgx-g13-2026q3-v121.json",{cache:"no-store"});
       if(!q.ok)throw new Error("HTTP "+q.status);
