@@ -57,6 +57,8 @@ jobs:
           node docs/test_ocbc_balance_v160.js
           node --check docs/share-date-v162.js
           node docs/test_share_date_v162.js
+          node --check docs/ocbc-bundle-summary-v167.js
+          node docs/test_ocbc_bundle_summary_v167.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
