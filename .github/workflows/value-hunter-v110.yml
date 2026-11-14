@@ -1,0 +1,53 @@
+name: VALUE HUNTER v110 S63 dated share reconciliation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_share_delta_v110.py'
+      - 'SGX_PDF_connection_probe/test_sgx_share_delta_v110.py'
+      - '.github/workflows/value-hunter-v110.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v110
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test reference date and fail-closed behavior
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_share_delta_v110
+      - name: Reconcile two actual saved evidence records
+        run: |
+          python SGX_PDF_connection_probe/sgx_share_delta_v110.py --feed docs/data/latest.json --sgx-evidence docs/data/sgx-s63-buyback-v109.json --output docs/data/sgx-s63-share-delta-v110.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-s63-share-delta-v110.json").read_text())
+          assert x["new_minus_published_shares"]==-3457873
+          assert x["published_reference_is_older"] is True
+          assert x["current_shares_verified"] is False
+          assert x["ranking_eligible"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print(x["warning"])
+          PY
+      - name: Commit separate dated comparison only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-s63-share-delta-v110.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v110): compare older S63 share count with newer SGX primary'
+            git push
+          fi
