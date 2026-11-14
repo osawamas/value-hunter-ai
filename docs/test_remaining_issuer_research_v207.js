@@ -27,7 +27,10 @@ function verify(d,f,s,t){
  assert.equal(d.items.length,5);
  const symbols=d.items.map(x=>x.symbol).sort();
  assert.deepEqual(symbols,Object.keys(expected).sort());
- const research=new Set([...d.items,...t.items].map(x=>x.symbol));
+ assert.equal(t.items.length,2);
+ const combined=[...d.items,...t.items].map(x=>x.symbol);
+ const research=new Set(combined);
+ assert.equal(research.size,combined.length);
  assert.equal(research.size,7);
  const registered=new Set(f.records.map(x=>x.symbol));
  for(const row of s.rows)assert.ok(registered.has(row.symbol)||research.has(row.symbol));
