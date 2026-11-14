@@ -29,5 +29,26 @@ assert.throws(()=>pdfDigest(Buffer.from("NOT_A_PDF_ORIGINAL")));
   makeResponse(url,sample,1000000),maxBytes:100}));
  await assert.rejects(()=>download(TARGETS[0].url,{fetcher:async url=>
   makeResponse(url,Buffer.from("BAD DOCUMENT BODY"))}));
- console.log("v210 PASS: official-only PDF download guard, source byte SHA, bounded stream and redirect denial");
+ const outside=[];
+ await assert.rejects(()=>download(TARGETS[0].url,{fetcher:async url=>{
+  outside.push(url);
+  return {ok:false,status:302,headers:{get:key=>key==="location"?
+   "https://untrusted.example.org/private.pdf":null}};
+ }}));
+ assert.deepEqual(outside,[TARGETS[0].url],"Untrusted redirect must never be requested");
+ const local=[];
+ const localPath="https://links.sgx.com/verified.pdf";
+ const redirected=await download(TARGETS[0].url,{fetcher:async url=>{
+  local.push(url);
+  if(url===TARGETS[0].url)return {ok:false,status:302,
+   headers:{get:key=>key==="location"?"/verified.pdf":null}};
+  return makeResponse(url,sample);
+ }});
+ assert.deepEqual(local,[TARGETS[0].url,localPath]);
+ assert.equal(redirected.redirect_count,1);
+ assert.equal(redirected.fetched_final_url,localPath);
+ await assert.rejects(()=>download(TARGETS[0].url,{fetcher:async url=>({
+  ...makeResponse(url,sample),headers:{get:key=>key==="content-length"?"NaN":"application/pdf"}
+ })}));
+ console.log("v210 PASS: official-only PDF download guard, source byte SHA, bounded stream and redirect allowlist and header validation");
 })().catch(e=>{console.error(e);process.exitCode=1});
