@@ -12,7 +12,8 @@ const tests=[
  "docs/test_bank_share_evidence_v193.js",
  "docs/test_bank_fy_interim_bridge_v195.js",
  "docs/test_official_batch_v196.js",
- "docs/test_fy_third_party_figure_v197.js"
+ "docs/test_fy_third_party_figure_v197.js",
+ "docs/test_stage_sgx_csv_v199.js"
 ];
 let failed=0;
 for(const test of tests){
