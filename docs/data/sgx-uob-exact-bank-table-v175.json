@@ -1,0 +1,94 @@
+{
+  "schema_version": "sgx-uob-column-precision-probe-v175",
+  "status": "UOB_3Q26_9M26_SGX_PRIMARY_TABLE_COLUMNS_VERIFIED",
+  "record": {
+    "schema_version": "sgx-uob-exact-3q26-bank-statement-v175",
+    "symbol": "U11",
+    "financial_period_end": "2026-09-30",
+    "unit": "SGD_millions",
+    "official_pdf_url": "https://links.sgx.com/FileOpen/3Q26%20CFO%20presentation%20slides.ashx?App=Announcement&FileID=910319",
+    "official_pdf_sha256": "d3b474aa87a2f2741bf68754a2f38b7189d905a8ff2bf6c51f88b758c867ec18",
+    "financial_table_pdf_page": 3,
+    "period_specific_table_rows": {
+      "Net interest income": {
+        "9m26": 6900,
+        "9m25": 7009,
+        "3q26": 2278,
+        "3q25": 2265,
+        "pdf_page": 3,
+        "table_line": 18,
+        "original_eight_column_text": [
+          "6,900",
+          "7,009",
+          "(2)",
+          "2,278",
+          "2,297",
+          "(1)",
+          "2,265",
+          "1"
+        ]
+      },
+      "Net fee income": {
+        "9m26": 2035,
+        "9m25": 1945,
+        "3q26": 733,
+        "3q25": 615,
+        "pdf_page": 3,
+        "table_line": 27,
+        "original_eight_column_text": [
+          "2,035",
+          "1,945",
+          "5",
+          "733",
+          "665",
+          "10",
+          "615",
+          "19"
+        ]
+      },
+      "Total income": {
+        "9m26": 10398,
+        "9m25": 10519,
+        "3q26": 3381,
+        "3q25": 3398,
+        "pdf_page": 3,
+        "table_line": 45,
+        "original_eight_column_text": [
+          "10,398",
+          "10,519",
+          "(1)",
+          "3,381",
+          "3,595",
+          "(6)",
+          "3,398",
+          "(0)"
+        ]
+      },
+      "Net profit": {
+        "9m26": 4165,
+        "9m25": 3271,
+        "3q26": 1250,
+        "3q25": 443,
+        "pdf_page": 3,
+        "table_line": 118,
+        "original_eight_column_text": [
+          "4,165",
+          "3,271",
+          "27",
+          "1,250",
+          "1,478",
+          "(15)",
+          "443",
+          ">100"
+        ]
+      }
+    },
+    "table_row_and_column_mapping_verified_in_issuer_pdf": true,
+    "independent_third_party_numerical_reperformance": false,
+    "2026_interim_audited_under_fy2025_opinion": false,
+    "2026_11_13_buyback_original_verified": false,
+    "current_sgx_quote_and_treasury_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
