@@ -23,6 +23,7 @@
   <script src="./ocbc-income-v155.js" defer></script>
   <script src="./ocbc-allowance-v157.js" defer></script>
   <script src="./ocbc-balance-v160.js" defer></script>
+  <script src="./share-date-v162.js" defer></script>
 </head>
 <body>
   <div class="page">
@@ -264,6 +265,20 @@
         </tr></thead><tbody id="ocbcBalanceRows"><tr><td colspan="7">読み込み中…</td></tr></tbody></table></div>
         <div class="tablefoot"><span>単位：百万SGD。持分間差額を非支配株主持分とは扱わない。</span>
           <span>独立数値検証・最新株式数・PBR認証は未完。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="shareDateTitle">
+        <div class="section-heading">
+          <div><div class="eyebrow">SHARE / QUOTE SOURCE DATE MISMATCH</div>
+          <h2 id="shareDateTitle">株価と株式数の基準日</h2></div>
+          <p>データ取得日と出典資料の基準日は別。株式数が180日以内でも時点整合は未検証。</p>
+        </div>
+        <p id="shareDateStatus" class="status-message" role="status">公式出典の基準日を照合中…</p>
+        <div class="tablewrap"><table><thead><tr><th>銘柄</th><th>参考株式数基準日</th>
+          <th>参考株価取引日</th><th>日付差</th><th>新しいSGX株式数資料</th><th>評価状態</th>
+        </tr></thead><tbody id="shareDateRows"><tr><td colspan="6">読み込み中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>同じ取引日の最新自己株式控除後株数と正規SGX約定価格は未検証。</span>
+        <span>参考PER・PBR・時価総額は正式なランキングに採用しない。</span></div>
       </section>
 
       <section class="details" aria-labelledby="detailTitle">
