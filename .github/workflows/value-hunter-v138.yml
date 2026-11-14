@@ -1,0 +1,38 @@
+name: VALUE HUNTER v138 first issuer eligibility checklist display
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/first-issuer-gate-v138.js'
+      - 'docs/test_first_issuer_gate_v138.js'
+      - '.github/workflows/value-hunter-v138.yml'
+permissions:
+  contents: read
+jobs:
+  checklist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test unsafe first-issuer promotion rejected
+        run: |
+          node --check docs/first-issuer-gate-v138.js
+          node docs/test_first_issuer_gate_v138.js
+          node docs/test_external_audit_v133.js
+      - name: Verify actual public data and latest strict gate
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'), assert=require('node:assert/strict');
+          const {validate}=require('./docs/first-issuer-gate-v138.js');
+          const feed=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const gate=JSON.parse(fs.readFileSync('docs/data/sgx-first-issuer-gate-v137.json','utf8'));
+          const rows=validate(feed,gate);
+          assert.equal(rows.length,2);
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log('Strict first issuer UI gates applied to actual public feed');
+          JS
