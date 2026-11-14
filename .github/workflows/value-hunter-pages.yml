@@ -105,6 +105,15 @@ jobs:
                   archive.write(file, file.relative_to(root.parent).as_posix())
           print(f"Packaged {len(files)} static files for offline preview.")
           PY
+      - name: Verify extracted ZIP assets, local HTTP loads, and ranking hold
+        run: python3 scripts/verify-preview-archive-v250.py build/preview/value-hunter-dashboard-preview-v249.zip
+      - name: Preserve real ZIP verification summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-dashboard-preview-smoke-v250
+          path: build/preview/dashboard-preview-smoke-v250.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Retain downloadable dashboard preview for 30 days
         uses: actions/upload-artifact@v4
         with:
