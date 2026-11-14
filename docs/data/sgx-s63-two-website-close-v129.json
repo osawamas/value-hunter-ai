@@ -1,0 +1,22 @@
+{
+  "schema_version": "sgx-s63-historical-close-second-website-v129",
+  "symbol": "S63",
+  "session_date_sgt": "2026-11-13",
+  "yahoo_reference_close_sgd": "9.67",
+  "eoddata_close_sgd": "9.67",
+  "two_website_close_values_match": true,
+  "upstream_market_data_provider_independence_verified": false,
+  "primary_exchange_execution_quote_verified": false,
+  "original_sgx_share_snapshot_on_same_date": true,
+  "original_sgx_shares_ex_treasury": 3115847115,
+  "s63_11_13_shares_still_current_verified": false,
+  "corporate_action_date_does_not_certify_quote_time": true,
+  "yahoo_reference_url": "https://query1.finance.yahoo.com/v8/finance/chart/S63.SI?interval=1d&range=5d",
+  "eoddata_original_url": "https://www.eoddata.com/stockquote/SGX/S63.htm",
+  "eoddata_source_sha256": "8f0e4afbcd715e14ba637d09c88ed7228e305e88e0539e97c2121acf5a0e0185",
+  "sgx_share_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92",
+  "source_notes": "Two separately hosted price displays; exchange trade tape and upstream independence not certified",
+  "market_cap_per_pbr_promoted": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false
+}
