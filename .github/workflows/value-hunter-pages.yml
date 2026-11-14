@@ -35,6 +35,8 @@ jobs:
           node docs/test_ranking_readiness_v118.js
           node --check docs/g13-quarter-warning-v123.js
           node docs/test_g13_quarter_warning_v123.js
+          node --check docs/s63-nine-month-v126.js
+          node docs/test_s63_nine_month_v126.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
