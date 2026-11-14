@@ -47,6 +47,8 @@ on:
       - 'docs/data/sgx-dual-currency-research-v224.json'
       - 'docs/test_dual_currency_expansion_v224.js'
       - 'docs/test_expanded_currency_ui_v225.js'
+      - 'docs/test_sgx_instrument_types_v226.js'
+      - 'scripts/classify-sgx-counters-v202.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
