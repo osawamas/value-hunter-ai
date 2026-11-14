@@ -54,7 +54,8 @@ const tests=[
  "docs/test_sgx_ocbc_identity_v244.js",
  "docs/test_bank_share_supplemental_v245.js",
  "docs/test_probe_sgx_original_v246.js",
- "docs/test_sgx_pdf_replay_v247.js"
+ "docs/test_sgx_pdf_replay_v247.js",
+ "docs/test_sgx_pdf_four_ui_v248.js"
 ];
 let failed=0;
 const results=[];
