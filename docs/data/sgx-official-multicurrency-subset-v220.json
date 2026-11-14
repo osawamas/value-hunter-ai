@@ -1,0 +1,75 @@
+{
+  "schema_version": "sgx-official-multicurrency-subset-v220",
+  "observed_date": "2026-11-14",
+  "source_url": "https://www.sgx.com/securities/trading",
+  "source_scope": "EXAMPLES_OF_PRIMARY_AND_SECONDARY_CURRENCY_COUNTERS_ONLY",
+  "complete_sgx_list": false,
+  "source_terms_or_market_data_rights_verified": false,
+  "quote_fields_included": false,
+  "approved_to_redistribute_full_exchange_master": false,
+  "issuer_entity_id_independently_verified": false,
+  "ranking_eligible_count": 0,
+  "financial_feed_modified": false,
+  "groups": [
+    {
+      "underlying_display": "AEM HOLDINGS LTD",
+      "sgx_instrument_label": "Security",
+      "category": "POTENTIAL_EQUITY",
+      "counter_pair": [
+        {
+          "code": "AWX",
+          "currency": "SGD",
+          "trading_name": "AEM SGD",
+          "is_primary": true
+        },
+        {
+          "code": "XWA",
+          "currency": "USD",
+          "trading_name": "AEM USD",
+          "is_primary": false
+        }
+      ],
+      "may_count_as_two_issuers": false
+    },
+    {
+      "underlying_display": "UOB APAC Green REIT ETF",
+      "sgx_instrument_label": "ETF",
+      "category": "ETF",
+      "counter_pair": [
+        {
+          "code": "GRN",
+          "currency": "SGD",
+          "trading_name": "UOB AP GRN REIT S$",
+          "is_primary": true
+        },
+        {
+          "code": "GRE",
+          "currency": "USD",
+          "trading_name": "UOB AP GRN REIT US$",
+          "is_primary": false
+        }
+      ],
+      "may_count_as_two_issuers": false
+    },
+    {
+      "underlying_display": "NIKKOAM-STC CHINA EV ETF",
+      "sgx_instrument_label": "ETF",
+      "category": "ETF",
+      "counter_pair": [
+        {
+          "code": "EVS",
+          "currency": "SGD",
+          "trading_name": "NikkoAM-STC CN EV S$",
+          "is_primary": true
+        },
+        {
+          "code": "EVD",
+          "currency": "USD",
+          "trading_name": "NikkoAM-STC CN EV US$",
+          "is_primary": false
+        }
+      ],
+      "may_count_as_two_issuers": false
+    }
+  ]
+}
