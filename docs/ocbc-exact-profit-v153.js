@@ -18,6 +18,8 @@
      e.group_profit_3q26_sgd_millions!==2042||
      e.group_profit_9m26_sgd_millions!==6237||
      !Array.isArray(e.exact_statement_profit_rows)||e.exact_statement_profit_rows.length!==2||
+     e.exact_statement_profit_rows[0].current_sgd_millions!==2042||
+     e.exact_statement_profit_rows[1].current_sgd_millions!==6237||
      e.exact_statement_profit_rows[0].comparison_sgd_millions!==1978||
      e.exact_statement_profit_rows[1].comparison_sgd_millions!==5677||
      e.exact_statement_profit_rows[0].pdf_page!==2||
