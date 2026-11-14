@@ -39,6 +39,8 @@ jobs:
           node docs/test_s63_nine_month_v126.js
           node --check docs/external-audit-v133.js
           node docs/test_external_audit_v133.js
+          node --check docs/first-issuer-gate-v138.js
+          node docs/test_first_issuer_gate_v138.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
