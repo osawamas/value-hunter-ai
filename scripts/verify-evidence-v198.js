@@ -15,7 +15,8 @@ const tests=[
  "docs/test_fy_third_party_figure_v197.js",
  "docs/test_stage_sgx_csv_v199.js",
  "docs/test_uob_share_display_scope_v201.js",
- "docs/test_classify_sgx_counters_v202.js"
+ "docs/test_classify_sgx_counters_v202.js",
+ "docs/test_stage_classification_pipeline_v203.js"
 ];
 let failed=0;
 for(const test of tests){
