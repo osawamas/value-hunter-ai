@@ -1,0 +1,59 @@
+name: VALUE HUNTER v172 UOB original SGX CFO 3Q26 PDF
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_uob_q3_v172.py'
+      - 'SGX_PDF_connection_probe/test_sgx_uob_q3_v172.py'
+      - '.github/workflows/value-hunter-v172.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v172
+  cancel-in-progress: false
+jobs:
+  original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reject fake SGX original PDF
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_uob_q3_v172
+      - name: Retrieve true SGX UOB CFO PDF and confirm source contents
+        run: |
+          python SGX_PDF_connection_probe/sgx_uob_q3_v172.py --output docs/data/sgx-uob-2026q3-cfo-v172.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('docs/data/sgx-uob-2026q3-cfo-v172.json').read_text())
+          if r['record']:
+            assert r['record']['independent_third_party_financial_verification'] is False
+            assert r['record']['nov13_buyback_announcement_original_verified'] is False
+            assert r['record']['ranking_eligible'] is False
+          assert json.loads(Path('docs/data/latest.json').read_text())['ranking_eligible_count']==0
+          print(r['status'],r['error'])
+          PY
+      - name: Commit original PDF evidence hash with safe retries
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_uob_q3_v172.py --output docs/data/sgx-uob-2026q3-cfo-v172.json
+            git add docs/data/sgx-uob-2026q3-cfo-v172.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v172): UOB primary SGX Q3 CFO presentation hash and figures'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1
