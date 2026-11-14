@@ -52,8 +52,12 @@ def fetch_pdf(url):
   raise ValueError("Not expected SGX original")
  request=Request(url,headers={"User-Agent":"Mozilla/5.0 VALUE-HUNTER-AI/1.0 OCBC-PDF-audit","Accept":"application/pdf"})
  with urlopen(request,timeout=35) as res:
-  if res.geturl()!=url or "pdf" not in res.headers.get("Content-Type","").lower():
-   raise ValueError("Original SGX PDF not returned")
+  from urllib.parse import urlparse
+  landed=urlparse(res.geturl())
+  if (landed.scheme!="https" or landed.hostname!="links.sgx.com" or
+      not landed.path.startswith("/FileOpen/") or
+      "pdf" not in res.headers.get("Content-Type","").lower()):
+   raise ValueError("Original SGX PDF not returned through official redirect")
   b=res.read(12_000_001)
  return b
 def main():
