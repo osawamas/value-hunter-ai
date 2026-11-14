@@ -1,0 +1,24 @@
+{
+  "schema_version": "sgx-g13-primary-identity-v119",
+  "attempted_at_utc": "2026-11-14T05:16:33.306734+00:00",
+  "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/NF6GZEGGD4XBFOVY/",
+  "status": "SGX_PRIMARY_HISTORICAL_G13_TICKER_ISIN_LINK",
+  "record": {
+    "status": "SGX_PRIMARY_HISTORICAL_G13_TICKER_ISIN_LINK",
+    "issuer": "GENTING SINGAPORE LIMITED",
+    "symbol": "G13",
+    "isin": "SGXE21576413",
+    "reference": "SG260130OTHRZ1XN",
+    "broadcast_sgt_text": "30-Jan-2026 17:20:38",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/NF6GZEGGD4XBFOVY/",
+    "original_html_sha256": "10988ce9e47e8414110c210f49db4e97c6b13d2c8b01c42a55751fc79c6630a1",
+    "historical_issuer_identity_only": true,
+    "issuer_current_listing_status_verified": false,
+    "current_shares_verified": false,
+    "current_quote_verified": false,
+    "financial_independence_verified": false,
+    "market_cap_per_pbr_use_permitted": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
