@@ -1,0 +1,54 @@
+name: VALUE HUNTER v121 G13 Q3 2026 original SGX earnings
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/g13_quarterly_sgx_v121.py'
+      - 'SGX_PDF_connection_probe/test_g13_quarterly_sgx_v121.py'
+      - '.github/workflows/value-hunter-v121.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v121
+  cancel-in-progress: false
+jobs:
+  quarterly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check pdftotext availability and adversarial parser
+        run: |
+          command -v pdftotext
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_g13_quarterly_sgx_v121
+      - name: Read original Singapore Exchange Q3 2026 PDF
+        run: |
+          python SGX_PDF_connection_probe/g13_quarterly_sgx_v121.py --output docs/data/sgx-g13-2026q3-v121.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("docs/data/sgx-g13-2026q3-v121.json").read_text())
+          assert a["schema_version"]=="sgx-g13-2026q3-original-v121"
+          if a["record"]:
+            assert a["record"]["financials_audited"] is False
+            assert a["record"]["ranking_eligible"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(a["status"],a["error"])
+          PY
+      - name: Commit SGX quarterly evidence separately
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-g13-2026q3-v121.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v121): G13 Q3 2026 official unaudited quarterly PDF'
+            git push
+          fi
