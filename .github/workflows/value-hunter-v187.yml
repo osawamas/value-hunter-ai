@@ -1,0 +1,37 @@
+name: VALUE HUNTER v187 three SGX issuer bank profit and NII totals
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/bank-combined-v187.js'
+      - 'docs/test_bank_combined_v187.js'
+      - '.github/workflows/value-hunter-v187.yml'
+permissions:
+  contents: read
+jobs:
+  original-bank-totals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify normalized source totals from real 3-bank SGX bank PDF records
+        run: |
+          node --check docs/bank-combined-v187.js
+          node docs/test_bank_combined_v187.js
+          node docs/test_bank_nine_month_v184.js
+          node docs/test_bank_profit_yoy_v182.js
+          node docs/test_ranking_blockers_v185.js
+      - name: All SGX bank totals still research only
+        run: |
+          node - <<'JS'
+          const f=require('./docs/data/latest.json'),b=require('./docs/data/sgx-big3-bank-research-v186.json');
+          if(f.ranking_eligible_count!==0||b.ranking_eligible!==false||
+            b.independent_third_party_financial_verification!==false||
+            b.current_market_cap_per_pbr_verified!==false)throw Error('Unauthorized bank valuation');
+          console.log('Three SGX issuer quarter totals confirmed as research-only');
+          JS
