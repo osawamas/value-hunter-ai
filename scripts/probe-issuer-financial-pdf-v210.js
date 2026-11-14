@@ -6,7 +6,7 @@
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto");
 const TARGETS=[
  {symbol:"H02",kind:"FY2025_ISSUER_FINANCIAL_STATEMENTS",
-  url:"https://hawpar.listedcompany.com/newsroom/20260227_172327_H02_R2V7WFBB9WQMBBP4.1.pdf"},
+  url:"https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/876566_FY25%20Haw%20Par%20SGX%20Announcementl.pdf"},
  {symbol:"V03",kind:"FY2025_ISSUER_RESULTS_PRESS_RELEASE",
   url:"https://links.sgx.com/FileOpen/Venture%20FY2025%20Press%20release.ashx?App=Announcement&FileID=876222"}
 ];
