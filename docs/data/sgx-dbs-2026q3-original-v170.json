@@ -1,0 +1,29 @@
+{
+  "schema_version": "sgx-dbs-q3-original-probe-v170",
+  "status": "DBS_3Q26_PRIMARY_SGX_ANNOUNCEMENT_AND_PDF_VERIFIED",
+  "record": {
+    "schema_version": "sgx-dbs-q3-2026-original-bank-research-v170",
+    "symbol": "D05",
+    "issuer": "DBS GROUP HOLDINGS LTD",
+    "isin": "SG1L01001701",
+    "announcement_reference": "SG261105OTHRTOOX",
+    "broadcast_sgt": "2026-11-05 06:30:36",
+    "financial_period_end": "2026-09-30",
+    "announcement_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/PWUTJ371L9ASOMF8/3044419f7294ad033fa90ebb2386da5245d415e663ece3af98d4448469034599",
+    "announcement_html_sha256": "ff407b66b344ddfef315a6fb2349505efabaea0d5c38e6c2a2593787eba67f31",
+    "official_pdf_url": "https://links.sgx.com/FileOpen/3Q26_CFO_presentation.ashx?App=Announcement&FileID=910441",
+    "official_pdf_sha256": "bd9351bfeef24f5345848c574017b25c3ff5b4e292c78d6950aebd7cde761695",
+    "official_pdf_pages": 22,
+    "group_net_profit_3q26_sgd_billion_reported": "2.81",
+    "group_net_profit_9m26_sgd_billion_reported": "8.82",
+    "group_net_interest_income_3q26_sgd_billion_reported": "3.71",
+    "npl_ratio_3q26_pct_reported": "0.9",
+    "transitional_cet1_3q26_pct_reported": "15.9",
+    "rounded_company_issuer_figures": true,
+    "independent_earnings_reperformance": false,
+    "quarterly_2026_independently_audited": false,
+    "current_sgx_price_and_shares_verified": false,
+    "per_pbr_ranking_permitted": false
+  },
+  "error": null
+}
