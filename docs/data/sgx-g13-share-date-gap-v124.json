@@ -1,0 +1,19 @@
+{
+  "schema_version": "sgx-g13-share-source-date-gap-v124",
+  "symbol": "G13",
+  "sgx_original_purchase_date": "2026-06-10",
+  "public_feed_claimed_shares_date": "2026-06-30",
+  "date_difference_days": 20,
+  "published_shares": 12063642274,
+  "sgx_primary_record_shares": 12063642274,
+  "quantity_matched": true,
+  "primary_source_proves_published_date": false,
+  "sgx_primary_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/CHP29KEV0YJ4ZBNY/",
+  "source_reference": "SG260610OTHRU53S",
+  "pdf_or_html_source_sha256": "89a2f83a284eceb02a6c4268164a34a6aad66b2b9418747ff24cad36a7de6b0f",
+  "current_treasury_adjusted_shares_independently_verified": false,
+  "reference_market_cap_pbr_per_permitted": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false,
+  "warning": "Same share quantity at two described dates is not proof of shares on the later date."
+}
