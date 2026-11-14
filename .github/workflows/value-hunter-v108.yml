@@ -1,0 +1,57 @@
+name: VALUE HUNTER v108 UOB OCBC SGX primary ticker-ISIN links
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_bank_isin_v108.py'
+      - 'SGX_PDF_connection_probe/test_sgx_bank_isin_v108.py'
+      - '.github/workflows/value-hunter-v108.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v108
+  cancel-in-progress: false
+jobs:
+  primary-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unit tests including adversarial identity cases
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_bank_isin_v108
+      - name: Live SGX official issuer-security-original GET
+        run: |
+          python SGX_PDF_connection_probe/sgx_bank_isin_v108.py --output docs/data/sgx-bank-code-isins-v108.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-bank-code-isins-v108.json").read_text())
+          assert x["schema_version"]=="sgx-bank-counter-isins-v108"
+          assert x["financial_feed_modified"] is False
+          assert x["ranking_eligible"] is False
+          assert x["official_master_complete"] is False
+          for r in x["records"]:
+              if r["record"]:
+                  assert r["record"]["eligible_for_market_cap_per_pbr"] is False
+                  assert r["record"]["today_listing_status_verified"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print("Verified historical links:",x["official_historical_links_verified"])
+          PY
+      - name: Publish separate provenance JSON without modifying valuations
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-bank-code-isins-v108.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v108): direct SGX bank counter-ISIN proof'
+            git push
+          fi
