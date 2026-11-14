@@ -22,8 +22,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Validate dashboard JavaScript
-        run: node --check docs/app.js
+      - name: Validate dashboard JavaScript and non-investable candidate browser
+        run: |
+          node --check docs/app.js
+          node --check docs/universe.js
+          node docs/test_universe_v100.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
