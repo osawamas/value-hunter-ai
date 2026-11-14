@@ -1,0 +1,52 @@
+name: VALUE HUNTER v129 S63 two website historical close crosscheck
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/s63_second_site_crosscheck_v129.py'
+      - 'SGX_PDF_connection_probe/test_s63_second_site_crosscheck_v129.py'
+      - '.github/workflows/value-hunter-v129.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v129
+  cancel-in-progress: false
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate unsafe hypothetical market data
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_s63_second_site_crosscheck_v129
+      - name: Crosscheck archived actual S63 secondary and original shares
+        run: |
+          python SGX_PDF_connection_probe/s63_second_site_crosscheck_v129.py --feed docs/data/latest.json --eod docs/data/sgx-s63-second-site-v128.json --buyback docs/data/sgx-s63-buyback-v109.json --output docs/data/sgx-s63-two-website-close-v129.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-s63-two-website-close-v129.json").read_text())
+          assert x["two_website_close_values_match"] is True
+          assert x["primary_exchange_execution_quote_verified"] is False
+          assert x["market_cap_per_pbr_promoted"] is False
+          assert x["ranking_eligible"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          PY
+      - name: Publish separated corroboration evidence
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-s63-two-website-close-v129.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v129): S63 Yahoo and EODData same-day historical close crosscheck'
+            git push
+          fi
