@@ -12,6 +12,12 @@ assert.deepEqual(rows.map(x=>[x.symbol,x.fy2025_total_income_m_sgd,
  x.fy2025_parent_profit_m_sgd,x.q3_2026_profit_m_sgd]),[
  ["D05",22900,10933,2813],["O39",14614,7422,2042],["U11",13808,4682,1250]
 ]);
+const uobIR=feed.records.find(x=>x.symbol==="U11").banking_interim_2026;
+const uobSGX=bank.entries.find(x=>x.symbol==="U11");
+// The two primary issuer PDFs are distinct byte streams, but reported Q3 values agree.
+assert.ok(uobIR.pdf_sha256!==uobSGX.sha);
+assert.equal(uobIR.Q3.metrics.net_profit,uobSGX.q3profit);
+assert.equal(uobIR.Q3.metrics.net_interest_income,uobSGX.q3nii);
 for(const x of rows){
  assert.match(x.fy_pdf_sha256,/^[a-f0-9]{64}$/);
  assert.match(x.q3_pdf_sha256,/^[a-f0-9]{64}$/);
@@ -22,6 +28,7 @@ for(const edit of [
  (f,b)=>{f.records.find(r=>r.symbol==="D05").bank_financial_state.banking_metrics_parsed=false},
  (f,b)=>{f.records.find(r=>r.symbol==="O39").banking_audited.income.total_income["2025"]++},
  (f,b)=>{f.records.find(r=>r.symbol==="U11").banking_interim_2026.pdf_sha256="forged"},
+ (f,b)=>{f.records.find(r=>r.symbol==="U11").banking_interim_2026.Q3.metrics.net_profit++},
  (f,b)=>{f.records.find(r=>r.symbol==="D05").bank_financial_state.third_party_numerical_verification=true},
  (f,b)=>{f.records.find(r=>r.symbol==="O39").ranking_eligible=true},
  (f,b)=>{b.entries.find(r=>r.symbol==="U11").q3profit++},
