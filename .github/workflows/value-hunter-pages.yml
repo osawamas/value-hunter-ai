@@ -74,6 +74,39 @@ jobs:
           node docs/test_ranking_blockers_v185.js
           node --check docs/bank-combined-v187.js
           node docs/test_bank_combined_v187.js
+  # v249: keep a usable static dashboard snapshot even if Pages is disabled.
+  # This is a download artifact, not a deployed website or proof of market-data rights.
+  dashboard-preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Package complete static dashboard without modifying ranking data
+        run: |
+          test -f docs/index.html
+          test -f docs/data/latest.json
+          test -f docs/pdf-sha-evidence-v234.js
+          python3 - <<'PY'
+          import pathlib, zipfile
+          root = pathlib.Path("docs")
+          files = sorted(p for p in root.rglob("*") if p.is_file())
+          assert any(p.name == "index.html" for p in files)
+          pathlib.Path("build/preview").mkdir(parents=True, exist_ok=True)
+          with zipfile.ZipFile("build/preview/value-hunter-dashboard-preview-v249.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+              for file in files:
+                  archive.write(file, file.relative_to(root.parent).as_posix())
+          print(f"Packaged {len(files)} static files for offline preview.")
+          PY
+      - name: Retain downloadable dashboard preview for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-dashboard-preview-v249
+          path: build/preview/value-hunter-dashboard-preview-v249.zip
+          if-no-files-found: error
+          retention-days: 30
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
