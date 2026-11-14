@@ -5,6 +5,7 @@
    PDFs, licensing, site publication, or investment ranking readiness. */
 const {spawnSync}=require("node:child_process");
 const path=require("node:path");
+const fs=require("node:fs");
 const root=path.resolve(__dirname,"..");
 const tests=[
  "docs/test_bank_corporate_actions_v190.js",
@@ -31,13 +32,45 @@ const tests=[
  "docs/test_uob_buyback_chain_v216.js"
 ];
 let failed=0;
+const results=[];
 for(const test of tests){
  const proc=spawnSync(process.execPath,[path.join(root,test)],{
   cwd:root,encoding:"utf8",timeout:30_000,env:{...process.env}
  });
  if(proc.error||proc.status!==0){
-  failed++;process.stderr.write("FAIL "+test+"\n"+(proc.stdout||"")+(proc.stderr||"")+(proc.error||"")+"\n");
- }else process.stdout.write("PASS "+test+"\n");
+  failed++;results.push({test,status:"FAIL",exit_code:proc.status,signal:proc.signal||null,runner_error:proc.error?String(proc.error):null});
+  process.stderr.write("FAIL "+test+"\n"+(proc.stdout||"")+(proc.stderr||"")+(proc.error||"")+"\n");
+ }else {results.push({test,status:"PASS",exit_code:0});process.stdout.write("PASS "+test+"\n");}
 }
 process.stdout.write("Evidence smoke suite: "+(tests.length-failed)+"/"+tests.length+" passed; rankings remain independently gated.\n");
+const resultPath=path.join(root,"build","research","evidence-integrity-v218.json");
+const report={
+ schema_version:"sgx-evidence-integrity-results-v218",
+ purpose:"SOURCE_AND_RANKING_GUARD_TESTS_NOT_MARKET_AUDIT",
+ commit_sha:/^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA||"")?process.env.GITHUB_SHA:null,
+ node_version:process.version,
+ total:results.length,passed:results.length-failed,failed,
+ verdict:failed?"FAIL":"PASS",results,
+ independent_financial_audit_proven:false,
+ market_data_redistribution_license_proven:false,
+ actual_github_pages_publication_proven:false
+};
+try{
+ fs.mkdirSync(path.dirname(resultPath),{recursive:true});
+ fs.writeFileSync(resultPath,JSON.stringify(report,null,2)+"\\n");
+ if(process.env.GITHUB_STEP_SUMMARY){
+  const table=["## SGX source-integrity regression",
+   "Commit: \`"+(report.commit_sha||"unverified-local")+"\`",
+   "Result: **"+report.passed+"/"+report.total+"** passed",
+   "",
+   "| Test | Status |","|---|---|",
+   ...results.map(r=>"| \`"+r.test+"\` | "+r.status+" |"),
+   "",
+   "These tests do not independently audit issuer PDFs, validate a quote license, or make investment rankings eligible."].join("\\n");
+  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,table+"\\n");
+ }
+}catch(e){
+ failed++;
+ process.stderr.write("FAIL: unable to preserve evidence run report: "+e+"\\n");
+}
 process.exitCode=failed?1:0;
