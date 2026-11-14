@@ -13,17 +13,31 @@
     data.ocbc.outstanding_change_notice.official_attachment_obtained!==false||
     data.uob.latest_unverified?.official_verified!==false)
    throw Error("銀行の株式数検証情報が未整合");
+  // Refuse rendering even historical share counts if issuer-level gates drift.
+  if(!Array.isArray(feed.records)||!feed.coverage||
+    feed.coverage.all_sgx_listed!==false||
+    feed.coverage.registered_count!==feed.records.length||
+    feed.records.some(x=>x.ranking_eligible!==false)||
+    ["D05","O39","U11"].some(symbol=>
+      feed.records.filter(x=>x.symbol===symbol).length!==1))
+   throw Error("銀行ごとのランキング判定が不一致");
   const [a,b]=data.uob.observations;
   if(a.date!=="2026-11-11"||b.date!=="2026-11-12"||
     a.issued_excluding_treasury_after!==1646745591||
     b.issued_excluding_treasury_after!==1646711591||
     a.cancelled!==34000||b.cancelled!==34000||
+    a.purchased!==34000||b.purchased!==34000||
+    a.origin!=="OFFICIAL_SGX_ANNOUNCEMENT_HTML"||
+    b.origin!=="OFFICIAL_SGX_ANNOUNCEMENT_HTML"||
+    a.announcement_reference!=="SG261111OTHRGYNT"||
+    b.announcement_reference!=="SG261112OTHRSYPK"||
     a.issued_excluding_treasury_after-b.issued_excluding_treasury_after!==34000||
     ![a,b].every(x=>x.official_verified===true&&
       /^https:\/\/links\.sgx\.com\//.test(x.source_url)))
    throw Error("UOB原本の履歴が期待値と不一致");
   if(data.uob.latest_unverified.date!=="2026-11-13"||
     data.uob.latest_unverified.may_enter_ranking!==false||
+    data.ocbc.outstanding_change_notice.official_attachment_obtained!==false||
     data.ocbc.outstanding_change_notice.may_enter_ranking!==false)
    throw Error("未確認資料を正式情報へ昇格不可");
   return {symbol:"U11",date:b.date,count:b.issued_excluding_treasury_after,
