@@ -85,6 +85,8 @@ on:
       - 'docs/data/sgx-four-pdf-replay-evidence-v248.json'
       - 'docs/test_sgx_pdf_four_ui_v248.js'
       - 'docs/test_dashboard_preview_v249.js'
+      - 'scripts/verify-preview-archive-v250.py'
+      - 'docs/test_dashboard_preview_smoke_v250.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
       - '.github/workflows/sgx-original-pdf-probe-v246.yml'
