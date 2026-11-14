@@ -8,16 +8,18 @@ from datetime import datetime,timezone
 from pathlib import Path
 from urllib.request import Request,urlopen
 
-SOURCE="https://links.sgx.com/FileOpen/ST%20Engineering%20FY2025%20Auditors%20Report.ashx?App=Announcement&FileID=876452"
+SOURCE="https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328"
 
 def parse(raw,feed):
- if not isinstance(raw,bytes) or not raw.startswith(b"%PDF") or len(raw)>8_000_000:
+ if not isinstance(raw,bytes) or not raw.startswith(b"%PDF") or len(raw)>22_000_000:
   raise ValueError("Invalid original audit PDF bytes")
  if feed.get("schema_version")!="value_hunter_web_v29" or feed.get("ranking_eligible_count")!=0:
   raise ValueError("Untrusted feed state")
  rec=[r for r in feed.get("records",[]) if r.get("symbol")=="S63"]
  if len(rec)!=1 or rec[0].get("ranking_eligible") is not False or rec[0].get("fiscal_year")!=2025:
   raise ValueError("Not FY2025 S63 published metric record")
+ if rec[0].get("financial_source_url")!=SOURCE or rec[0].get("financial_pdf_sha256")!=hashlib.sha256(raw).hexdigest():
+  raise ValueError("Annual source URL or SHA mismatches published financial reference")
  import fitz
  doc=fitz.open(stream=raw,filetype="pdf")
  try:
@@ -69,8 +71,8 @@ def fetch():
  with urlopen(req,timeout=35) as resp:
   if resp.geturl()!=SOURCE or "pdf" not in resp.headers.get("Content-Type","").lower():
    raise ValueError("SGX audit original unavailable")
-  raw=resp.read(8_000_001)
- if len(raw)>8_000_000 or not raw.startswith(b"%PDF"):
+  raw=resp.read(22_000_001)
+ if len(raw)>22_000_000 or not raw.startswith(b"%PDF"):
   raise ValueError("Invalid/oversized PDF response")
  return raw
 
