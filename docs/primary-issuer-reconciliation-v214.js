@@ -16,6 +16,25 @@
      h02.ranking_eligible!==false||v03.ranking_eligible!==false||
      feed.records.some(x=>["H02","V03"].includes(x.symbol)))
    throw Error("Primary issuer source gating changed");
+  const official={
+    H02:{
+      reference:"SG260227OTHRQ304",
+      isin:"SG1D25001158",
+      pdf:"https://links.sgx.com/1.0.0/corporate-announcements/R2V7WFBB9WQMBBP4/876566_FY25%20Haw%20Par%20SGX%20Announcementl.pdf"
+    },
+    V03:{
+      reference:"SG260226OTHRP753",
+      isin:"SG0531000230",
+      pdf:"https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/876221_Venture%20FY2025%20Financial%20Results.pdf"
+    }
+  };
+  if(h02.announcement_reference!==official.H02.reference||
+     h02.isin!==official.H02.isin||
+     h02.original_pdf_url!==official.H02.pdf||
+     v03.announcement_reference!==official.V03.reference||
+     v03.isin!==official.V03.isin||
+     v03.primary_pdf_url!==official.V03.pdf)
+    throw Error("Primary SGX announcement identity or PDF URL changed");
   const hp=h02.verified_from_primary_pdf_visual.balance_FY2025;
   if(hp.net_assets!==hp.total_equity||
      hp.total_assets-hp.total_liabilities!==hp.net_assets)
