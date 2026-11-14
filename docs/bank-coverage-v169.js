@@ -1,7 +1,7 @@
 /* v169: Bank evidence coverage, not an annual/interim earnings comparison. */
 "use strict";
 (function(root) {
- function validate(feed, bundle, dbsQ3, uobQ3, uobExact) {
+ function validate(feed, bundle, dbsQ3, uobQ3, uobExact, dbsExact) {
   if(feed?.schema_version!=="value_hunter_web_v29"||feed.ranking_enabled!==false||
     feed.ranking_eligible_count!==0||!Array.isArray(feed.records)||
     bundle?.schema_version!=="sgx-ocbc-bank-research-bundle-v166"||
@@ -75,6 +75,24 @@
      uobExact.record.current_sgx_quote_and_treasury_shares_verified!==false||
      uobExact.record.ranking_eligible!==false)
     throw Error("UOB quarter column-scoped original evidence invalid");
+  if(dbsExact?.schema_version!=="sgx-dbs-exact-table-probe-v180"||
+     dbsExact.status!=="DBS_3Q26_9M26_PRIMARY_SGX_TABLE_COLUMNS_RECONCILED"||
+     dbsExact.record?.schema_version!=="sgx-dbs-exact-3q-9m-original-v180"||
+     dbsExact.record.symbol!=="D05"||
+     dbsExact.record.financial_period_end!=="2026-09-30"||
+     dbsExact.record.unit!=="SGD_millions"||
+     dbsExact.record.net_profit_3q26_sgd_millions!==2813||
+     dbsExact.record.net_profit_9m26_sgd_millions!==8822||
+     dbsExact.record.net_interest_income_3q26_sgd_millions!==3711||
+     dbsExact.record.issuer_original_row_and_column_positions_verified!==true||
+     dbsExact.record.net_interest_row_only_first_six_column_values_authenticated!==true||
+     dbsExact.record.independent_numerical_verification!==false||
+     dbsExact.record.fy2025_auditor_opinion_does_not_certify_2026_interim!==true||
+     dbsExact.record.official_execution_quote_verified!==false||
+     dbsExact.record.latest_treasury_shares_verified!==false||
+     dbsExact.record.ranking_eligible!==false||
+     !/^[a-f0-9]{64}$/.test(dbsExact.record.original_pdf_sha256))
+    throw Error("DBS primary SGX trading source exact quarter not verified");
   const dbs=banks.D05.banking_evidence;
   if(dbs?.status!=="BANK_ISSUER_FY2025_GROUP_STATEMENTS_RECONCILED"||
      dbs.scope!=="GROUP_BANKING_NOT_INDUSTRIAL_FINANCIALS"||
@@ -89,8 +107,8 @@
      !/^https:\/\/links\.sgx\.com\//.test(bundle.sgx_original_pdf_url))
     throw Error("OCBC interim original mismatch");
   return [
-   {symbol:"D05",name:"DBS",fy:"10,933",q3:"約2,810（会社概数）",equity:"68,867（2025年末・親会社株主持分）",source:dbs.source_url,
-    note:"FY2025と2026年3Qは別原本。四半期は概数・独立検証待ち"},
+   {symbol:"D05",name:"DBS",fy:"10,933",q3:"2,813（原本表で照合）",equity:"68,867（2025年末・親会社株主持分）",source:dbs.source_url,
+    note:"2026年3Qの原本表の行・列まで照合。第三者の数値再検証は未完"},
    {symbol:"O39",name:"OCBC",fy:"未照合",q3:"2,042",equity:"60,899（2026年9月末・普通株主持分）",source:bundle.sgx_original_pdf_url,
     note:"2026年3Q発行会社資料・FY2025とは比較不可"},
    {symbol:"U11",name:"UOB",fy:"未照合",q3:"1,250（原本表の列まで照合）",equity:"未照合",source:uobQ3.record.source_pdf_url,
@@ -102,11 +120,11 @@
   const info=document.getElementById("bankCoverageStatus");
   if(!body||!info)return;
   try {
-   const [f,b,d,u,e]=await Promise.all(["./data/latest.json","./data/sgx-ocbc-bank-research-v166.json","./data/sgx-dbs-2026q3-original-v170.json","./data/sgx-uob-2026q3-cfo-v172.json","./data/sgx-uob-exact-bank-table-v175.json"].map(async url=>{
+   const [f,b,d,u,e,de]=await Promise.all(["./data/latest.json","./data/sgx-ocbc-bank-research-v166.json","./data/sgx-dbs-2026q3-original-v170.json","./data/sgx-uob-2026q3-cfo-v172.json","./data/sgx-uob-exact-bank-table-v175.json","./data/sgx-dbs-exact-table-v180.json"].map(async url=>{
      const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error("HTTP");return r.json();
    }));
    body.replaceChildren();
-   for(const item of validate(f,b,d,u,e)){
+   for(const item of validate(f,b,d,u,e,de)){
      const tr=document.createElement("tr");
      for(const value of [item.symbol+" / "+item.name,item.fy,item.q3,item.equity,item.note]){
        const td=document.createElement("td");td.textContent=value;tr.append(td);
@@ -118,7 +136,7 @@
      }else td.textContent="未登録";
      tr.append(td);body.append(tr);
    }
-   info.textContent="単位：百万SGD。3社の2026年3Q発行会社原本は確認済み。ただしDBSは会社発表の概数、OCBC・UOBは原本の四半期表から取得した値。2025年度とは別期間。独立数値検証・最新株価と株数は未完。";
+   info.textContent="単位：百万SGD。3社の2026年3Q発行会社原本は確認済み。ただし銀行3社とも原本PDFの2026年3Q純利益の表を照合済み。2025年度とは別期間。独立数値検証・最新株価と株数は未完。";
   } catch(e) {
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=6;td.textContent="資料の照合待ちのため非表示";tr.append(td);
