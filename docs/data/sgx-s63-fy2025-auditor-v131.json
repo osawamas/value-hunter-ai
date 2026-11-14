@@ -1,0 +1,8 @@
+{
+  "schema_version": "sgx-s63-auditor-probe-v131",
+  "attempted_at_utc": "2026-11-14T05:54:30.581604+00:00",
+  "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20FY2025%20Auditors%20Report.ashx?App=Announcement&FileID=876452",
+  "status": "NOT_VERIFIED",
+  "record": null,
+  "error": "ValueError: Unrelated or missing audit report"
+}
