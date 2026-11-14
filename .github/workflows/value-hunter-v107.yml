@@ -1,0 +1,53 @@
+name: VALUE HUNTER v107 SGX announcement code-ISIN proof
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_announcement_link_v107.py'
+      - 'SGX_PDF_connection_probe/test_sgx_announcement_link_v107.py'
+      - '.github/workflows/value-hunter-v107.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v107-sgx-link
+  cancel-in-progress: false
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline positive and negative cases
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_announcement_link_v107
+      - name: Inspect historical official SGX announcement
+        run: |
+          python SGX_PDF_connection_probe/sgx_announcement_link_v107.py --output docs/data/sgx-d05-primary-code-link-v107.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-d05-primary-code-link-v107.json").read_text())
+          assert x["schema_version"]=="sgx-announcement-counter-link-v107"
+          if x["record"]:
+            assert x["record"]["ranking_eligible"] is False
+            assert x["record"]["official_entire_sgx_master_verified"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(x["status"],x["error"])
+          PY
+      - name: Commit isolated provenance
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-d05-primary-code-link-v107.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v107): primary D05 ticker-ISIN announcement proof'
+            git push
+          fi
