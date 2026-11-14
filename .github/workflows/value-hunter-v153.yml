@@ -1,0 +1,42 @@
+name: VALUE HUNTER v153 OCBC exact profits Japanese UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ocbc-exact-profit-v153.js'
+      - 'docs/test_ocbc_exact_profit_v153.js'
+      - '.github/workflows/value-hunter-v153.yml'
+permissions:
+  contents: read
+jobs:
+  exact-profit-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate strict bank-only dashboard code
+        run: |
+          node --check docs/ocbc-exact-profit-v153.js
+          node docs/test_ocbc_exact_profit_v153.js
+          node docs/test_ocbc_quarter_v147.js
+          node docs/test_ocbc_bank_ratios_v150.js
+      - name: Validate real exact bank profit figures without ranking
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'), assert=require('node:assert/strict');
+          const {validate}=require('./docs/ocbc-exact-profit-v153.js');
+          const f=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const x=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-exact-profit-v152.json','utf8'));
+          const q=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-2026q3-bank-profit-v146.json','utf8'));
+          const rows=validate(f,x,q);
+          assert.equal(rows.length,2);
+          assert.equal(rows[0].current,2042);
+          assert.equal(rows[1].current,6237);
+          assert.equal(f.ranking_eligible_count,0);
+          console.log('True OCBC original source table values displayed with source checks');
+          JS
