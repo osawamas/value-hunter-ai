@@ -1,0 +1,21 @@
+"use strict";
+const assert=require("node:assert/strict");
+const v=require("./reference-valuation-guard-v168.js");
+const g={shares_as_of_date:"2026-06-30",quote_timestamp_utc:"2026-11-13T09:13:51+00:00"};
+assert.equal(v.status(g),"DATE_MISMATCH");
+assert.match(v.label(g),/基準日不一致/);
+assert.equal(v.canDisplayReferenceValuation(g),false);
+assert.equal(v.status({shares_as_of_date:"2026-11-13",quote_timestamp_utc:g.quote_timestamp_utc}),
+ "DATES_MATCH_BUT_ORIGINAL_SGX_PRICE_NOT_VERIFIED");
+assert.equal(v.canDisplayReferenceValuation({shares_as_of_date:"2026-11-13",quote_timestamp_utc:g.quote_timestamp_utc}),false);
+assert.equal(v.status({shares_as_of_date:null,quote_timestamp_utc:null}),"UNKNOWN_DATE");
+assert.equal(v.canDisplayReferenceValuation({}),false);
+const fs=require("node:fs");
+const app=fs.readFileSync("docs/app.js","utf8");
+const html=fs.readFileSync("docs/index.html","utf8");
+assert.ok(html.includes('<script src="./reference-valuation-guard-v168.js" defer></script>'));
+assert.ok(app.includes("window.VALUE_HUNTER_REF_VALUATION"));
+assert.ok(app.includes("referenceValuationLabel(r)"));
+assert.ok(!app.includes("addTextCell(tr, fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null)"));
+assert.ok(!app.includes("addTextCell(tr, fmt(r.per_reference),"));
+console.log("v168 reference values blocked in ranking table; historical details remain tagged");
