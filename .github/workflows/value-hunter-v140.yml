@@ -7,6 +7,9 @@ on:
       - 'SGX_PDF_connection_probe/annual_statement_arithmetic_v140.py'
       - 'SGX_PDF_connection_probe/test_annual_statement_arithmetic_v140.py'
       - '.github/workflows/value-hunter-v140.yml'
+  workflow_run:
+    workflows: ["VALUE HUNTER v132 FY2025 external audit assurance integration"]
+    types: [completed]
 permissions:
   contents: write
 concurrency:
@@ -14,6 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   arithmetic:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
