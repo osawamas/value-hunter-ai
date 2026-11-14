@@ -42,6 +42,8 @@ on:
       - 'docs/test_multicurrency_subset_v220.js'
       - 'docs/official-multicurrency-v221.js'
       - 'docs/test_official_multicurrency_v221.js'
+      - 'docs/data/sgx-source-rights-review-v222.json'
+      - 'docs/test_sgx_source_rights_v222.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
