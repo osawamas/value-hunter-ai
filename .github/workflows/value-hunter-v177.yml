@@ -1,0 +1,58 @@
+name: VALUE HUNTER v177 Big Three SGX original quarter NII reconciliation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_big3_nii_v177.py'
+      - 'SGX_PDF_connection_probe/test_sgx_big3_nii_v177.py'
+      - '.github/workflows/value-hunter-v177.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v177
+  cancel-in-progress: false
+jobs:
+  nii:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source authenticity rejection
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_big3_nii_v177
+      - name: Extract official DBS trading original and reconcile all bank NII
+        run: |
+          python SGX_PDF_connection_probe/sgx_big3_nii_v177.py --dbs docs/data/sgx-dbs-2026q3-original-v170.json --ocbc docs/data/sgx-ocbc-bank-research-v166.json --uob docs/data/sgx-uob-exact-bank-table-v175.json --output docs/data/sgx-big3-nii-v177.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-big3-nii-v177.json").read_text())
+          assert x["status"]=="SGX_THREE_BANK_3Q26_NII_PRIMARY_SUM_RECONCILED",x["error"]
+          assert x["record"]["three_bank_3q26_nii_sum_sgd_millions"]==8302
+          assert x["record"]["independent_third_party_earnings_audit"] is False
+          assert x["record"]["ranking_eligible"] is False
+          assert json.loads(Path("docs/data/latest.json").read_text())["ranking_eligible_count"]==0
+          PY
+      - name: Commit original source arithmetic, never current valuation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_big3_nii_v177.py --dbs docs/data/sgx-dbs-2026q3-original-v170.json --ocbc docs/data/sgx-ocbc-bank-research-v166.json --uob docs/data/sgx-uob-exact-bank-table-v175.json --output docs/data/sgx-big3-nii-v177.json
+            git add docs/data/sgx-big3-nii-v177.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v177): SGX Big Three 3Q26 primary net interest 8302m reconciliation'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
