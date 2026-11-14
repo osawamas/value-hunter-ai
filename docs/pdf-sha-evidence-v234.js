@@ -58,7 +58,7 @@
    for(const r of rows){
     const tr=document.createElement("tr");
     const values=[r.symbol,r.bytes.toLocaleString("ja-JP"),r.sha,"GitHub Actions 2回一致","未完了"];
-    for(const value of values){const td=document.createElement("td");td.textContent=value;tr.append(td);}
+    for(const [i,value] of values.entries()){const td=document.createElement("td");td.textContent=i===2?r.sha.slice(0,14)+"…"+r.sha.slice(-12):value;if(i===2)td.title=r.sha;tr.append(td);}
     const td=document.createElement("td"),a=document.createElement("a");
     a.href=r.source;a.textContent="SGX原本";a.target="_blank";a.rel="noopener noreferrer";
     td.append(a);tr.append(td);frag.append(tr);
