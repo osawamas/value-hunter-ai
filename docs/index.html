@@ -22,6 +22,7 @@
   <script src="./official-multicurrency-v221.js" defer></script>
   <script src="./universe-coverage-audit-v205.js" defer></script>
   <script src="./sgx-listing-event-watch-v257.js" defer></script>
+  <script src="./sgx-historical-code-search-v258.js" defer></script>
   <script src="./additional-issuer-research-v206.js" defer></script>
   <script src="./remaining-issuer-research-v207.js" defer></script>
   <script src="./primary-issuer-reconciliation-v214.js" defer></script>
@@ -154,6 +155,27 @@
           <tbody id="sgxListingEventRows"><tr><td colspan="4">照合中…</td></tr></tbody></table></div>
         <div class="tablefoot"><span>5WAの予定日は条件付き目安。P11の上場廃止確定・取引状態も未検証。</span>
           <span>重要イベントの監視結果は市場価格、全SGX銘柄マスター、投資推奨とは別。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="sgxHistoricalCodeTitle">
+        <div class="section-heading"><div><div class="eyebrow">SGXNET / 20 HISTORICAL COUNTERS</div>
+          <h2 id="sgxHistoricalCodeTitle">SGX開示で調べた20社の取引コード検索</h2></div>
+          <p>一覧の一部分を個別の公式開示と照合した調査データ。SGX全銘柄でも現在の上場確認済みリストでもない。</p></div>
+        <p id="sgxHistoricalCodeStatus" class="status-message" role="status">SGXNetの銘柄コードを照合中…</p>
+        <div class="toolbar">
+          <label class="search"><span aria-hidden="true">⌕</span>
+            <input id="sgxHistoricalCodeSearch" type="search" placeholder="取引コード・会社名・ISINで検索" aria-label="SGX過去開示コードの検索" autocomplete="off"></label>
+          <label><span>上場市場</span>
+            <select id="sgxHistoricalCodeBoard" aria-label="市場区分で絞り込む">
+              <option value="ALL">すべて</option><option value="MAINBOARD">Mainboard</option><option value="CATALIST">Catalist</option>
+            </select></label>
+        </div>
+        <div class="tablewrap" style="max-height:450px;overflow:auto"><table>
+          <thead><tr><th>コード</th><th>企業名</th><th>市場</th><th>確認状態</th><th>資料</th></tr></thead>
+          <tbody id="sgxHistoricalCodeRows"><tr><td colspan="5">照合中…</td></tr></tbody>
+        </table></div>
+        <div class="tablefoot"><span id="sgxHistoricalCodeShown">—</span>
+          <span>株価は転載しない。<a href="https://www.sgx.com/securities/securities-prices?code=stocks" target="_blank" rel="noopener noreferrer">SGX公式の株価検索</a>で確認可能。コード出典は各行から開ける。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="officialSeedTitle">
