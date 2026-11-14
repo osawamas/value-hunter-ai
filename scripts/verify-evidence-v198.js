@@ -23,7 +23,8 @@ const tests=[
  "docs/test_remaining_issuer_research_v207.js",
  "docs/test_h02_group_statement_v208.js",
  "docs/test_v03_balance_v209.js",
- "docs/test_issuer_pdf_probe_v210.js"
+ "docs/test_issuer_pdf_probe_v210.js",
+ "docs/test_parent_equity_research_v211.js"
 ];
 let failed=0;
 for(const test of tests){
