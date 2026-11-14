@@ -24,6 +24,10 @@ for(const mutate of [
  (f,h,v)=>{v.group.FY2025.noncontrolling_equity++},
  (f,h,v)=>{v.group.FY2025.profit_attributable_to_owners++},
  (f,h,v)=>{h.source_pdf_sha256="a".repeat(64)},
+ (f,h,v)=>{h.original_pdf_url="https://example.com/false-original.pdf"},
+ (f,h,v)=>{v.primary_pdf_url="https://links.sgx.com/FileOpen/other.pdf"},
+ (f,h,v)=>{h.isin="SG1D25001159"},
+ (f,h,v)=>{v.announcement_reference="INVALID"},
  (f,h,v)=>{v.independent_auditor_external_source_verified=true},
  (f,h,v)=>{f.ranking_enabled=true},
  (f,h,v)=>{f.records.push({...f.records[0],symbol:"V03"})}
