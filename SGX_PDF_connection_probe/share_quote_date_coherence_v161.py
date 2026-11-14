@@ -12,7 +12,9 @@ def day(value):
  if not isinstance(value,str):raise ValueError("Date absent")
  try:return date.fromisoformat(value[:10])
  except ValueError:raise ValueError("Not ISO date")
-def reconcile(feed,g13,s63):
+def reconcile(feed,g13,s63,today=None):
+ if today is None:today=datetime.now(timezone.utc).date()
+ if not isinstance(today,date):raise ValueError("Invalid evaluation date")
  if feed.get("schema_version")!="value_hunter_web_v29" or feed.get("ranking_enabled") is not False or feed.get("ranking_eligible_count")!=0:
   raise ValueError("Ranking safety condition not present")
  if (g13.get("schema_version")!="sgx-g13-h1-direct-primary-share-confirmation-v127" or
@@ -36,7 +38,7 @@ def reconcile(feed,g13,s63):
   share_date=day(r.get("shares_as_of_date"));quote_date=day(r.get("quote_timestamp_utc"))
   if share_date!=date(2026,6,30) or quote_date<date(2026,11,13):
    raise ValueError("Unexpected original shares source date or invalid old quote")
-  if quote_date>datetime.now(timezone.utc).date()+timedelta(days=1):
+  if quote_date>today+timedelta(days=1):
    raise ValueError("Future reference quote date is not credible")
   days=(quote_date-share_date).days
   if days<=0:raise ValueError("Expected historical shares precede reference price")
