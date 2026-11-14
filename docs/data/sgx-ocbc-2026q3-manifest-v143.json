@@ -1,7 +1,30 @@
 {
   "schema_version": "sgx-ocbc-q3-original-probe-v143",
   "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/",
-  "status": "NOT_VERIFIED",
-  "record": null,
-  "error": "ValueError: Ambiguous/missing report type"
+  "status": "SGX_OCBC_2026Q3_PRIMARY_ANNOUNCEMENT_VERIFIED",
+  "record": {
+    "schema_version": "sgx-ocbc-2026q3-original-manifest-v143",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/",
+    "source_html_sha256": "002307b35ed58271c17d03c00319e02ae51599d24396de4e6f7785e0a496df86",
+    "symbol": "O39",
+    "issuer": "OVERSEA-CHINESE BANKING CORPORATION LIMITED",
+    "isin": "SG1S04926220",
+    "announcement_reference": "SG261106OTHRI4L9",
+    "broadcast_sgt_text": "06-Nov-2026 06:59:27",
+    "financial_period_end": "2026-09-30",
+    "attachments_listed": [
+      "OCBC_3Q26_Results_Press_Release.pdf",
+      "OCBC_3Q26_CEO_Presentation.pdf",
+      "OCBC_3Q26_Results_Highlights.pdf"
+    ],
+    "sgx_original_announcement_identity_confirmed": true,
+    "attached_pdfs_downloaded_and_numerically_parsed": false,
+    "independent_financial_numbers_reperformed": false,
+    "nov12_treasury_shares_notice_verified": false,
+    "latest_share_count_verified": false,
+    "exact_exchange_quote_verified": false,
+    "market_cap_per_pbr_eligible": false,
+    "ranking_eligible": false
+  },
+  "error": null
 }
