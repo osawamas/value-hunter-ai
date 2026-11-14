@@ -55,6 +55,7 @@ on:
       - 'docs/test_staged_sgx_universe_audit_v229.js'
       - 'scripts/stage-sgx-issuer-directory-v230.js'
       - 'docs/test_sgx_issuer_directory_v230.js'
+      - 'docs/test_offline_sgx_cli_v232.js'
       - 'scripts/classify-sgx-counters-v202.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
