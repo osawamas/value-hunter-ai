@@ -1,0 +1,57 @@
+{
+  "schema_version": "sgx-v03-official-primary-statements-v213",
+  "symbol": "V03",
+  "isin": "SG0531000230",
+  "issuer": "Venture Corporation Limited",
+  "period_end": "2025-12-31",
+  "reporting_unit": "SGD_thousands",
+  "announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/ffb0cf0762793bfd0a05c1b05682e892b669a44a7de8ee65074a9a4be02148f8",
+  "announcement_reference": "SG260226OTHRP753",
+  "broadcast_sgt": "2026-02-26T17:16:06+08:00",
+  "primary_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/G8XZA2TO5M07X8S0/876221_Venture%20FY2025%20Financial%20Results.pdf",
+  "primary_pdf_pages": 13,
+  "primary_pdf_visual_pages_zero_based": {
+    "income": 0,
+    "balance": 2
+  },
+  "original_pdf_bytes_downloaded": false,
+  "original_pdf_sha256": null,
+  "source_pdf_page_images_reviewed": true,
+  "other_issuer_annual_report_url": "https://links.sgx.com/FileOpen/VCL_Annual_Report_2025.ashx?App=Announcement&FileID=881699",
+  "second_issuer_document_not_independent_numerical_audit": true,
+  "group": {
+    "FY2025": {
+      "revenue": 2534517,
+      "profit_before_tax": 284413,
+      "profit_for_year": 227635,
+      "profit_attributable_to_owners": 226958,
+      "profit_attributable_to_nci": 677,
+      "assets": 3602219,
+      "current_liabilities": 791558,
+      "noncurrent_liabilities": 12828,
+      "parent_equity": 2792741,
+      "noncontrolling_equity": 5092,
+      "total_equity": 2797833
+    },
+    "FY2024": {
+      "revenue": 2735927,
+      "profit_before_tax": 306587,
+      "profit_for_year": 245750,
+      "profit_attributable_to_owners": 245029,
+      "profit_attributable_to_nci": 721,
+      "assets": 3699946,
+      "current_liabilities": 785164,
+      "noncurrent_liabilities": 20458,
+      "parent_equity": 2889813,
+      "noncontrolling_equity": 4511,
+      "total_equity": 2894324
+    }
+  },
+  "previous_rounded_parent_equity_source": "docs/data/sgx-v03-balance-v209.json",
+  "noncontrolling_equity_from_official_line_now_visually_matched": true,
+  "independent_auditor_external_source_verified": false,
+  "official_current_ex_treasury_shares_verified": false,
+  "timestamped_licensed_quote_verified": false,
+  "financial_feed_modified": false,
+  "ranking_eligible": false
+}
