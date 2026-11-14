@@ -59,7 +59,8 @@ const tests=[
  "docs/test_dashboard_preview_v249.js",
  "docs/test_dashboard_preview_smoke_v250.js",
  "docs/test_sgx_official_monthend_v251.js",
- "docs/test_sgx_directory_staging_v252.js"
+ "docs/test_sgx_directory_staging_v252.js",
+ "docs/test_sgx_corporate_indexed_v253.js"
 ];
 let failed=0;
 const results=[];
