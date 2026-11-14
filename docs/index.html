@@ -8,6 +8,7 @@
   <title>安物で割安 | VALUE HUNTER AI</title>
   <link rel="stylesheet" href="./style.css">
   <script src="./app.js" defer></script>
+  <script src="./universe.js" defer></script>
 </head>
 <body>
   <div class="page">
@@ -74,6 +75,28 @@
           </tr></thead><tbody id="stockRows"><tr><td colspan="10" class="empty">データ読み込み中…</td></tr></tbody></table>
         </div>
         <div class="tablefoot"><span id="tableCount">0件を表示</span><span>— は未取得または計算対象外</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="universeTitle">
+        <div class="section-heading">
+          <div><div class="eyebrow">UNIVERSE DISCOVERY / THIRD-PARTY CANDIDATES</div>
+            <h2 id="universeTitle">SGX銘柄候補台帳 <small id="universeCandidateCount">—</small></h2>
+          </div>
+          <p>検証済み7銘柄のスクリーナーとは独立した候補一覧</p>
+        </div>
+        <p id="universeCandidateStatus" class="status-message" role="status">候補一覧を取得中…</p>
+        <div class="toolbar">
+          <label class="search"><span aria-hidden="true">⌕</span>
+            <input id="universeCandidateSearch" type="search" placeholder="候補のコード・企業名で検索" aria-label="SGX未検証銘柄候補の検索" autocomplete="off">
+          </label>
+        </div>
+        <div class="tablewrap" style="max-height:360px;overflow:auto">
+          <table><thead><tr><th>銘柄コード</th><th>候補企業名（第三者情報）</th><th>検証状態</th></tr></thead>
+          <tbody id="universeCandidateRows"><tr><td colspan="3" class="empty">候補一覧を読み込み中…</td></tr></tbody></table>
+        </div>
+        <div class="tablefoot"><span id="universeCandidateShown">0件</span>
+          <span>掲載候補は財務未取得・投資ランキング対象外。SGX公式全銘柄の完全な一覧ではない。</span>
+        </div>
       </section>
 
       <section class="details" aria-labelledby="detailTitle">
