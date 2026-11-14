@@ -1,0 +1,6 @@
+{
+  "schema_version": "sgx-boardlot-subset-probe-v142",
+  "status": "NOT_VERIFIED",
+  "record": null,
+  "error": "ValueError: Original historical board-lot date absent"
+}
