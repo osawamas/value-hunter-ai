@@ -1,0 +1,25 @@
+name: SGX official security seed validation v196
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/data/sgx-official-batch-seed-v196.json'
+      - 'docs/official-batch-v196.js'
+      - 'docs/test_official_batch_v196.js'
+      - 'docs/data/latest.json'
+      - 'docs/index.html'
+      - '.github/workflows/sgx-official-seed-v196.yml'
+permissions:
+  contents: read
+jobs:
+  official-securities-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate SGX static batch coverage scope and license gates
+        run: node docs/test_official_batch_v196.js
