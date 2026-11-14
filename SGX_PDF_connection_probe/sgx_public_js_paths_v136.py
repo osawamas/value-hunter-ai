@@ -16,6 +16,8 @@ KEYWORDS=("api.sgx.com","api2.sgx.com","marketdata","stockcode","securitytype",
 def parse(js,source):
  if not isinstance(js,bytes) or not 50<len(js)<12_000_000:
   raise ValueError("Invalid public JS bundle")
+ if b"<html" in js[:600].lower() or b"<!doctype html" in js[:600].lower():
+  raise ValueError("SGX returned an HTML fallback instead of JavaScript")
  if not source.startswith(EXPECTED_ROOT) or not source.endswith(".chunk.js"):
   raise ValueError("Only known official script assets")
  text=js.decode("utf-8","replace")
@@ -50,6 +52,9 @@ def fetch(url):
                           "Accept":"application/javascript,text/javascript,*/*"})
  with urlopen(req,timeout=30) as r:
   if r.geturl()!=url:raise ValueError("Unexpected redirect")
+  content_type=r.headers.get("Content-Type","").lower()
+  if "html" in content_type:
+   raise ValueError("SGX served an HTML fallback, not JavaScript")
   raw=r.read(12_000_001)
  if len(raw)>12_000_000:raise ValueError("JS bundle size too large")
  return raw
