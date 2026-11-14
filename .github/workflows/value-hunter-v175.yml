@@ -1,0 +1,58 @@
+name: VALUE HUNTER v175 UOB 3Q SGX source precise financial columns
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_uob_exact_table_v175.py'
+      - 'SGX_PDF_connection_probe/test_sgx_uob_exact_table_v175.py'
+      - '.github/workflows/value-hunter-v175.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v175
+  cancel-in-progress: false
+jobs:
+  exact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source strict 3Q and 9M column tests
+        run: |
+          python -m pip install --quiet 'pymupdf>=1.24,<1.28'
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_uob_exact_table_v175
+      - name: Retrieve same SGX original and parse precise bank numbers
+        run: |
+          python SGX_PDF_connection_probe/sgx_uob_exact_table_v175.py --prior docs/data/sgx-uob-2026q3-cfo-v172.json --layout docs/data/sgx-uob-quarter-table-rows-v174.json --output docs/data/sgx-uob-exact-bank-table-v175.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-uob-exact-bank-table-v175.json").read_text())
+          assert x["status"]=="UOB_3Q26_9M26_SGX_PRIMARY_TABLE_COLUMNS_VERIFIED",x["error"]
+          assert x["record"]["period_specific_table_rows"]["Net profit"]["3q26"]==1250
+          assert x["record"]["period_specific_table_rows"]["Net profit"]["9m26"]==4165
+          assert x["record"]["ranking_eligible"] is False
+          assert json.loads(Path("docs/data/latest.json").read_text())["ranking_eligible_count"]==0
+          PY
+      - name: Save original 3Q26/9M26 bank table evidence
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_uob_exact_table_v175.py --prior docs/data/sgx-uob-2026q3-cfo-v172.json --layout docs/data/sgx-uob-quarter-table-rows-v174.json --output docs/data/sgx-uob-exact-bank-table-v175.json
+            git add docs/data/sgx-uob-exact-bank-table-v175.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v175): precise UOB SGX original 3Q/9M group net profit and income'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
