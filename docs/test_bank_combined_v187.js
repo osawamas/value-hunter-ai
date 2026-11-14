@@ -1,0 +1,13 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs");
+const {validate}=require("./bank-combined-v187.js");
+const f=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+const b=JSON.parse(fs.readFileSync("docs/data/sgx-big3-bank-research-v186.json","utf8"));
+assert.deepEqual(validate(f,b),{q3profit:6105,nineprofit:19224,q3nii:8302,ninenii:24484});
+const bad=JSON.parse(JSON.stringify(b));bad.entries[2].nineprofit=4166;
+assert.throws(()=>validate(f,bad));
+const promoted=JSON.parse(JSON.stringify(b));promoted.ranking_eligible=true;
+assert.throws(()=>validate(f,promoted));
+const unauthorized=JSON.parse(JSON.stringify(b));unauthorized.authentic_current_sgx_execution_quotes_verified=true;
+assert.throws(()=>validate(f,unauthorized));
+console.log("v187 SGX three bank annual/interim numbers bound to exact original source data");
