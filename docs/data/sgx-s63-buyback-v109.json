@@ -1,0 +1,27 @@
+{
+  "schema_version": "sgx-s63-buyback-original-v109",
+  "attempted_at_utc": "2026-11-14T04:49:50.822271+00:00",
+  "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92",
+  "status": "SGX_PRIMARY_BUYBACK_13NOV2026_HISTORICAL_SNAPSHOT",
+  "record": {
+    "status": "SGX_PRIMARY_BUYBACK_13NOV2026_HISTORICAL_SNAPSHOT",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92",
+    "source_sha256": "f0ee6c50c8aab4861df79a0e0e8d86c3db7bb85e8b4f8d48011ac9ffbe06fc13",
+    "symbol": "S63",
+    "isin": "SG1F60858221",
+    "reference": "SG261113OTHRPXGV",
+    "broadcast_sgt_text": "13-Nov-2026 18:21:18",
+    "purchase_date": "2026-11-13",
+    "shares_purchased": 500000,
+    "shares_cancelled": 0,
+    "purchased_as_treasury": 500000,
+    "issued_excluding_treasury_after_purchase": 3115847115,
+    "treasury_shares_after_purchase": 6648082,
+    "dated_historical_snapshot_only": true,
+    "verified_current_shares_at_newer_dates": false,
+    "verified_trade_time_stock_quote": false,
+    "allow_market_cap_or_per_pbr": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
