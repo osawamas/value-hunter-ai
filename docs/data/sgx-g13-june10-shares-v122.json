@@ -1,0 +1,27 @@
+{
+  "schema_version": "sgx-g13-buyback-share-basis-v122",
+  "attempted_at_utc": "2026-11-14T05:25:40.451025+00:00",
+  "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/CHP29KEV0YJ4ZBNY/",
+  "status": "SGX_G13_PRIMARY_JUNE10_BUYBACK_SHARE_SNAPSHOT",
+  "record": {
+    "status": "SGX_G13_PRIMARY_JUNE10_BUYBACK_SHARE_SNAPSHOT",
+    "symbol": "G13",
+    "isin": "SGXE21576413",
+    "reference": "SG260610OTHRU53S",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/CHP29KEV0YJ4ZBNY/",
+    "html_sha256": "89a2f83a284eceb02a6c4268164a34a6aad66b2b9418747ff24cad36a7de6b0f",
+    "purchase_date": "2026-06-10",
+    "broadcast_sgt_text": "10-Jun-2026 17:55:09",
+    "shares_bought": 2000000,
+    "shares_cancelled": 0,
+    "shares_added_to_treasury": 2000000,
+    "issued_excluding_treasury_after_purchase": 12063642274,
+    "treasury_shares_after_purchase": 30384550,
+    "proof_applies_only_to_june_10": true,
+    "june_30_shares_independently_confirmed": false,
+    "current_shares_verified": false,
+    "quote_or_valuation_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
