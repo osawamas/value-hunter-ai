@@ -1,0 +1,58 @@
+name: VALUE HUNTER v143 official OCBC 3Q2026 SGX original
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_ocbc_q3_original_v143.py'
+      - 'SGX_PDF_connection_probe/test_sgx_ocbc_q3_original_v143.py'
+      - '.github/workflows/value-hunter-v143.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v143
+  cancel-in-progress: false
+jobs:
+  original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Historical source identity and negative tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_ocbc_q3_original_v143
+      - name: Fetch OCBC Q3 2026 SGX announcement original
+        run: |
+          python SGX_PDF_connection_probe/sgx_ocbc_q3_original_v143.py --output docs/data/sgx-ocbc-2026q3-manifest-v143.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-ocbc-2026q3-manifest-v143.json").read_text())
+          if x["record"]:
+            assert x["record"]["nov12_treasury_shares_notice_verified"] is False
+            assert x["record"]["ranking_eligible"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(x["status"],x["error"])
+          PY
+      - name: Save isolated OCBC original research
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_ocbc_q3_original_v143.py --output docs/data/sgx-ocbc-2026q3-manifest-v143.json
+            git add docs/data/sgx-ocbc-2026q3-manifest-v143.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v143): OCBC official Q3 announcement and attachment manifest'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1
