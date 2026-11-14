@@ -51,6 +51,8 @@ jobs:
           node docs/test_ocbc_exact_profit_v153.js
           node --check docs/ocbc-income-v155.js
           node docs/test_ocbc_income_v155.js
+          node --check docs/ocbc-allowance-v157.js
+          node docs/test_ocbc_allowance_v157.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
