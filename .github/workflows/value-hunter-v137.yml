@@ -1,0 +1,57 @@
+name: VALUE HUNTER v137 first issuer strict evidence gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_first_issuer_gate_v137.py'
+      - 'SGX_PDF_connection_probe/test_sgx_first_issuer_gate_v137.py'
+      - '.github/workflows/value-hunter-v137.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v137
+  cancel-in-progress: false
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Reject forged valuation eligibility and stale sources
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_first_issuer_gate_v137
+      - name: Compute real issuer readiness without changing valuations
+        run: |
+          python SGX_PDF_connection_probe/sgx_first_issuer_gate_v137.py --feed docs/data/latest.json --assurance docs/data/sgx-fy2025-audit-assurance-v132.json --g13 docs/data/sgx-g13-h1-shares-v127.json --s63 docs/data/sgx-s63-share-delta-v110.json --s63-price docs/data/sgx-s63-two-website-close-v129.json --output docs/data/sgx-first-issuer-gate-v137.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("docs/data/sgx-first-issuer-gate-v137.json").read_text())
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert d["checked_issuers"]==2 and d["eligible_count"]==0
+          assert d["ranking_activation_permitted"] is False
+          assert f["ranking_eligible_count"]==0
+          assert all(not r["eligible_for_ranking"] for r in d["records"])
+          PY
+      - name: Save research gate with retry on concurrent main updates
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_first_issuer_gate_v137.py --feed docs/data/latest.json --assurance docs/data/sgx-fy2025-audit-assurance-v132.json --g13 docs/data/sgx-g13-h1-shares-v127.json --s63 docs/data/sgx-s63-share-delta-v110.json --s63-price docs/data/sgx-s63-two-website-close-v129.json --output docs/data/sgx-first-issuer-gate-v137.json
+            git add docs/data/sgx-first-issuer-gate-v137.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v137): independently verified gate status for first SGX issuer'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1
