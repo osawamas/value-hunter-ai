@@ -44,7 +44,8 @@ const tests=[
  "docs/test_offline_sgx_cli_v232.js",
  "docs/test_sgx_pdf_sha_evidence_v233.js",
  "docs/test_sgx_pdf_sha_ui_v234.js",
- "docs/test_evidence_unique_paths_v235.js"
+ "docs/test_evidence_unique_paths_v235.js",
+ "docs/test_issuer_annual_pdf_v236.js"
 ];
 let failed=0;
 const results=[];
