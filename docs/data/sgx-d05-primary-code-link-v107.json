@@ -1,0 +1,22 @@
+{
+  "schema_version": "sgx-announcement-counter-link-v107",
+  "attempted_at_utc": "2026-11-14T02:53:55.831653+00:00",
+  "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/U6RBLH1JFNDV1QZT/4d07e8c30959620ceca55f7e574d69cf8270329fdcd719a5a2992624f3474f80",
+  "status": "SGX_PRIMARY_ANNOUNCEMENT_COUNTER_ISIN_LINK_MATCHED",
+  "record": {
+    "status": "SGX_PRIMARY_ANNOUNCEMENT_COUNTER_ISIN_LINK_MATCHED",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/U6RBLH1JFNDV1QZT/4d07e8c30959620ceca55f7e574d69cf8270329fdcd719a5a2992624f3474f80",
+    "source_html_sha256": "367ed57b88378fb053e004c28d9b3d9a68bd19251cb853f201394951cecd7842",
+    "issuer": "DBS GROUP HOLDINGS LTD",
+    "symbol": "D05",
+    "isin": "SG1L01001701",
+    "announcement_reference": "SG260309OTHROF8R",
+    "announcement_broadcast_sgt_text": "09-Mar-2026 07:33:28",
+    "single_historical_announcement_only": true,
+    "issuer_active_as_of_now_verified": false,
+    "official_entire_sgx_master_verified": false,
+    "financial_values_verified_by_this_evidence": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
