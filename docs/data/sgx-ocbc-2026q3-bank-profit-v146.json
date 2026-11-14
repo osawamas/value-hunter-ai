@@ -1,0 +1,26 @@
+{
+  "schema_version": "sgx-ocbc-q3-metrics-probe-v146",
+  "status": "OCBC_2026Q3_PRIMARY_BANK_PROFIT_PARSED",
+  "record": {
+    "schema_version": "sgx-ocbc-3q26-official-bank-results-v146",
+    "symbol": "O39",
+    "issuer": "Oversea-Chinese Banking Corporation Limited",
+    "period_end_date": "2026-09-30",
+    "financial_type": "BANK",
+    "group_net_profit_3q26_sgd_billion_reported": "2.04",
+    "group_net_profit_9m26_sgd_billion_reported": "6.24",
+    "group_net_profit_3q26_yoy_pct_reported": 3,
+    "group_net_profit_9m26_yoy_pct_reported": 10,
+    "reported_values_are_rounded_in_original_release": true,
+    "original_sgx_press_release_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "original_sgx_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "same_issuer_release_values_compared": true,
+    "independent_third_party_earnings_verification": false,
+    "quarter_is_audited_annual_2025": false,
+    "annualised_per_calculated": false,
+    "exact_sgx_execution_quote_verified": false,
+    "current_treasury_adjusted_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
