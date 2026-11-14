@@ -1,0 +1,38 @@
+name: SGX original PDF evidence probe v246
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "Issuer code (U11 or O39)"
+        type: choice
+        options:
+          - U11
+          - O39
+        required: true
+      original_pdf_url:
+        description: "Exact manually verified links.sgx.com FileOpen or corporate-announcements PDF URL"
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  original-pdf-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Download and hash exact SGX original PDF only
+        env:
+          SYMBOL: ${{ inputs.symbol }}
+          ORIGINAL_URL: ${{ inputs.original_pdf_url }}
+        run: node scripts/probe-sgx-original-v246.js "$SYMBOL" "$ORIGINAL_URL"
+      - name: Retain source provenance only (no PDF redistribution)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-original-pdf-source-v246
+          path: build/research/sgx-original-pdf-v246-*.json
+          if-no-files-found: error
+          retention-days: 30
