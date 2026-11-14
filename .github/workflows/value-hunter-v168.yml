@@ -1,0 +1,44 @@
+name: VALUE HUNTER v168 reference valuation time coherence UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/app.js'
+      - 'docs/reference-valuation-guard-v168.js'
+      - 'docs/test_reference_valuation_guard_v168.js'
+      - '.github/workflows/value-hunter-v168.yml'
+permissions:
+  contents: read
+jobs:
+  suppress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: All reference valuation UI source guards
+        run: |
+          node --check docs/app.js
+          node --check docs/reference-valuation-guard-v168.js
+          node docs/test_reference_valuation_guard_v168.js
+          node docs/test_share_date_v162.js
+          node docs/test_ocbc_group_v165.js
+      - name: Real financial feed must suppress unverified cap PER PBR
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const guard=require('./docs/reference-valuation-guard-v168.js');
+          const feed=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          assert.equal(feed.ranking_eligible_count,0);
+          for(const r of feed.records){
+            assert.equal(guard.canDisplayReferenceValuation(r),false);
+            assert.ok(guard.label(r).startsWith("—"));
+            if(["G13","S63","S68","S20"].includes(r.symbol))
+              assert.equal(guard.status(r),"DATE_MISMATCH");
+          }
+          console.log('Historical mismatched prices cannot enter sortable valuation rows');
+          JS
