@@ -1,0 +1,49 @@
+{
+  "schema_version": "uob-primary-share-buyback-chain-v216",
+  "issuer": "United Overseas Bank Limited",
+  "symbol": "U11",
+  "isin": "SG1M31001969",
+  "source_scope": "OFFICIAL_SGX_HISTORICAL_BUYBACK_NOT_LIVE_SHARES",
+  "earliest_official_date": "2026-10-20",
+  "latest_official_date": "2026-11-12",
+  "mandate_start": "2026-04-17",
+  "constant_treasury_shares_for_observed_dates": 14548000,
+  "original_official_disclosures": [
+    {
+      "date": "2026-10-20",
+      "announcement_reference": "SG261020OTHRZ7CY",
+      "announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/43DBS3XMHT5NDGQV/ff6eca4e7b94ead1117fcdadcf6308bc86e6c1851099e9ad931a884891416337",
+      "post_purchase_issued_ex_treasury": 1646915591,
+      "cumulative_market_buyback_since_mandate": 6640600,
+      "treasury_after": 14548000
+    },
+    {
+      "date": "2026-11-11",
+      "announcement_reference": "SG261111OTHRGYNT",
+      "announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/OGJOD7K9GS51JRLV/cab40affb30af649a2f5a37c76072f84a0e1497d6fae97787c4c968bc7c120cc",
+      "post_purchase_issued_ex_treasury": 1646745591,
+      "cumulative_market_buyback_since_mandate": 6810600,
+      "treasury_after": 14548000
+    },
+    {
+      "date": "2026-11-12",
+      "announcement_reference": "SG261112OTHRSYPK",
+      "announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/MTW96I6ZXZBTQZK8/7c3dc707a598dc02da057fc772c1ba67abe1b9b3ceb4fe9d2b92fd00b510d97d",
+      "post_purchase_issued_ex_treasury": 1646711591,
+      "cumulative_market_buyback_since_mandate": 6844600,
+      "treasury_after": 14548000
+    }
+  ],
+  "displayed_issuer_microsite_shares_match_official_2026_10_20_number": true,
+  "issuer_microsite_effective_share_date_confirmed": false,
+  "issuer_microsite_share_basis_equivalent_to_sgx_ex_treasury_confirmed": false,
+  "later_2026_11_13_syndicated_count_not_officially_confirmed": true,
+  "original_2026_11_13_sgx_form_obtained": false,
+  "full_buyback_daily_originals_between_oct20_nov12_retrieved": false,
+  "cumulative_delta_equals_share_delta_on_observed_endpoints": true,
+  "official_current_outstanding_verified": false,
+  "licensed_timestamped_price_available": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false,
+  "warning": "Exact correspondence at an old official date does not date or classify the issuer microsite's displayed figure. The mandate cumulative delta aligns over observed original endpoints without proving every intervening original filing."
+}
