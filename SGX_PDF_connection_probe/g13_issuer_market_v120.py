@@ -81,7 +81,19 @@ def run(path):
  try:
   obj["record"]=extract(fetch())
   obj["status"]=obj["record"]["status"]
- except Exception as e:obj["error"]=type(e).__name__+": "+str(e)[:300]
+ except Exception as e:
+  obj["error"]=type(e).__name__+": "+str(e)[:300]
+  try:
+   b=fetch()
+   p=Visible();p.feed(b.decode("utf-8","replace"))
+   words=" ".join(" ".join(p.text).split())
+   diagnostics={}
+   for term in ("SGX Symbol","Currency","Last Done","Issued","Updated","Quotes Delayed"):
+    m=re.search(re.escape(term),words,re.I)
+    diagnostics[term]=words[max(0,m.start()-45):m.start()+170] if m else "NOT_FOUND"
+   obj["page_structure_diagnostics"]=diagnostics
+  except Exception as e2:
+   obj["page_structure_diagnostics_error"]=type(e2).__name__+": "+str(e2)[:100]
  dest=Path(path);dest.parent.mkdir(parents=True,exist_ok=True)
  dest.write_text(json.dumps(obj,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
  return obj
