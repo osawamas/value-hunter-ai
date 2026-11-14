@@ -1,0 +1,57 @@
+name: VALUE HUNTER v112 dated secondary SGX quote live research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_yahoo_dated_v112.py'
+      - 'SGX_PDF_connection_probe/test_sgx_yahoo_dated_v112.py'
+      - '.github/workflows/value-hunter-v112.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v112
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run adversarial parser tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_yahoo_dated_v112
+      - name: Fetch secondary dated market charts without promotion
+        run: |
+          python SGX_PDF_connection_probe/sgx_yahoo_dated_v112.py --output docs/data/sgx-bank-secondary-quotes-v112.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-bank-secondary-quotes-v112.json").read_text())
+          assert x["source_kind"]=="YAHOO_UNOFFICIAL_DAILY_CHART"
+          assert x["verified_exchange_quotes"]==0
+          assert x["promote_to_financial_feed"] is False
+          assert x["ranking_eligible"] is False
+          for r in x["records"]:
+              if r["record"]:
+                  assert r["record"]["usable_for_market_cap"] is False
+                  assert r["record"]["actual_exchange_last_trade_timestamp_verified"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print("Research-only:", x["secondary_dated_chart_count"])
+          PY
+      - name: Save distinct market research evidence only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-bank-secondary-quotes-v112.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v112): timestamped secondary bank chart research'
+            git push
+          fi
