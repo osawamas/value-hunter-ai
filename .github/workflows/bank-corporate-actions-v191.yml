@@ -63,6 +63,8 @@ on:
       - 'docs/test_evidence_unique_paths_v235.js'
       - 'scripts/probe-issuer-annual-pdf-v236.js'
       - 'docs/test_issuer_annual_pdf_v236.js'
+      - 'docs/data/sgx-annual-report-sha-v237.json'
+      - 'docs/test_sgx_annual_report_sha_v237.js'
       - 'docs/data/sgx-original-pdf-sha-v233.json'
       - 'docs/test_sgx_pdf_sha_evidence_v233.js'
       - 'scripts/classify-sgx-counters-v202.js'
