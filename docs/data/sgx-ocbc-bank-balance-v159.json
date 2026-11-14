@@ -1,0 +1,45 @@
+{
+  "schema_version": "sgx-ocbc-q3-balance-probe-v159",
+  "status": "OCBC_Q3_PRIMARY_BANK_BALANCE_ROWS_PARSED",
+  "record": {
+    "schema_version": "sgx-ocbc-q3-bank-balance-selected-v159",
+    "symbol": "O39",
+    "period_end_date": "2026-09-30",
+    "unit": "SGD_millions",
+    "official_source_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "official_source_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "pdf_page": 8,
+    "selected_bank_items": {
+      "ordinary_equity": {
+        "sgd_millions": 60899,
+        "source_line": 129
+      },
+      "equity_attributable_to_bank_equity_holders": {
+        "sgd_millions": 63347,
+        "source_line": 138
+      },
+      "total_assets": {
+        "sgd_millions": 731689,
+        "source_line": 147
+      },
+      "net_customer_loans": {
+        "sgd_millions": 366929,
+        "source_line": 166
+      },
+      "deposits_nonbank_customers": {
+        "sgd_millions": 461462,
+        "source_line": 175
+      }
+    },
+    "attributable_equity_less_ordinary_equity": 2448,
+    "difference_is_not_identified_as_noncontrolling_interest": true,
+    "bank_ordinary_equity_not_assumed_group_equity": true,
+    "not_full_audited_bank_statement": true,
+    "independent_third_party_numbers_verified": false,
+    "current_treasury_adjusted_shares_verified": false,
+    "current_sgx_quote_verified": false,
+    "pbr_eligible": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
