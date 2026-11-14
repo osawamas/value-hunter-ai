@@ -1,0 +1,42 @@
+name: VALUE HUNTER v162 visible quote share date mismatch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/share-date-v162.js'
+      - 'docs/test_share_date_v162.js'
+      - '.github/workflows/value-hunter-v162.yml'
+permissions:
+  contents: read
+jobs:
+  date-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Date mismatch negative tests
+        run: |
+          node --check docs/share-date-v162.js
+          node docs/test_share_date_v162.js
+          node docs/test_first_issuer_gate_v138.js
+      - name: Current finance feed must fail closed on stale date-sidecar
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const {validate}=require('./docs/share-date-v162.js');
+          const f=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const d=JSON.parse(fs.readFileSync('docs/data/sgx-share-quote-date-v161.json','utf8'));
+          assert.equal(f.ranking_eligible_count,0);
+          if(f.updated_at_utc===d.feed_updated_at_utc){
+            const rows=validate(f,d);assert.equal(rows.length,2);
+            assert(rows.every(x=>x.gap>0));
+          }else{
+            assert.throws(()=>validate(f,d));
+            console.log('Expected safe hide of stale source-date diagnostics');
+          }
+          JS
