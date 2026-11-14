@@ -37,7 +37,7 @@ def analyze(raw,prior,layout):
  finally:doc.close()
  # Printed order: 3Q26 3Q25 YoY 2Q26 QoQ 9M26 9M25 YoY.
  labels={
- "Of which: Net interest income":["3,711","3,578","4","3,581","4","10,786","10,542","2"],
+ "Of which: Net interest income":["3,711","3,578","4","3,581","4","10,786"],
  "Net profit":["2,813","2,954","(5)","3,079","(9)","8,822","8,675","2"],
  "Total income":["5,845","5,932","(1)","6,093","(4)","17,886","17,569","2"]
  }
@@ -56,6 +56,7 @@ def analyze(raw,prior,layout):
   "original_sgx_pdf_url":URL,"original_pdf_sha256":sha,
   "statement_pdf_page":7,
   "official_table_column_order":["3Q26","3Q25","3Q26_YOY_PCT","2Q26","3Q26_QOQ_PCT","9M26","9M25","9M26_YOY_PCT"],
+  "net_interest_row_only_first_six_column_values_authenticated":True,
   "exact_original_table_rows":result,
   "net_interest_income_3q26_components_sgd_millions":[3576,135],
   "net_interest_income_3q26_sgd_millions":3711,
