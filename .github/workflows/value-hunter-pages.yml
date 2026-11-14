@@ -29,6 +29,8 @@ jobs:
           node docs/test_universe_v100.js
           node --check docs/share-warning-v111.js
           node docs/test_share_warning_v111.js
+          node --check docs/bank-quote-research-v116.js
+          node docs/test_bank_quote_research_v116.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
