@@ -23,7 +23,13 @@ def parse_text(content,sha):
   if len(match)!=1:
    raise ValueError("Missing/ambiguous quarterly row "+label)
   return tuple(int(y.replace(",","")) for y in match[0])
- revenue=row("Total Revenue")
+ # In this source the PDF separates the 'Revenue' label and the total numeric row.
+ # Validate the exact printed total row, while separately requiring its heading.
+ if not re.search(r"(?im)^\\s*Revenue\\s*$",content):
+  raise ValueError("Revenue table heading absent")
+ matches=re.findall(r"(?m)^\\s*(566,096)\\s+(649,790)\\s+\\(13\\)\\s+(595,951)\\s+\\(5\\)",content)
+ if len(matches)!=1:raise ValueError("Unique actual total revenue row absent")
+ revenue=tuple(int(z.replace(",","")) for z in matches[0])
  profit=row("Net profit after taxation")
  if revenue!=(566096,649790,595951) or profit!=(54731,94618,90884):
   raise ValueError("New actual report differs from pinned Q3 values")
