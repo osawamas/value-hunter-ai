@@ -143,8 +143,9 @@ function sortRows(items, key) {
   if (key === "symbol") return items.sort((a, b) => a.symbol.localeCompare(b.symbol));
   const ascending = key === "per_reference" || key === "pbr_reference_unverified";
   return items.sort((a, b) => {
-    const x = hasNum(a[key]) ? a[key] : null;
-    const y = hasNum(b[key]) ? b[key] : null;
+    const needsVerifiedValuation = ["market_cap_sgd","per_reference","pbr_reference_unverified"].includes(key);
+    const x = (!needsVerifiedValuation || referenceValuationDisplayPermitted(a)) && hasNum(a[key]) ? a[key] : null;
+    const y = (!needsVerifiedValuation || referenceValuationDisplayPermitted(b)) && hasNum(b[key]) ? b[key] : null;
     if (x === null) return y === null ? a.symbol.localeCompare(b.symbol) : 1;
     if (y === null) return -1;
     return ascending ? x - y : y - x;
