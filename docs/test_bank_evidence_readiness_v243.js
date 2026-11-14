@@ -51,4 +51,10 @@ for(const edit of [
  const args=source.map(x=>structuredClone(x));edit(args);
  assert.throws(()=>verify(args));
 }
+const cp=require("node:child_process"),path=require("node:path");
+const root=path.resolve(__dirname,"..");
+const command=cp.spawnSync(process.execPath,["scripts/build-bank-evidence-readiness-v243.js"],{cwd:root,encoding:"utf8",timeout:30000});
+assert.equal(command.status,0,"readiness CLI must produce a valid fail-closed research report: "+command.stderr);
+const saved=JSON.parse(fs.readFileSync(path.join(root,"build/research/sgx-bank-evidence-readiness-v243.json"),"utf8"));
+assert.deepEqual(saved,derive(...source),"CLI artifact must reproduce test-validated evidence without changing finance feed");
 console.log("v243 PASS: derived UOB date-bound shares, OCBC pending original and licensed market data fail-closed");
