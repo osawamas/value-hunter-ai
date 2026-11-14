@@ -1,0 +1,34 @@
+{
+  "schema_version": "uob-issuer-share-display-scope-v201",
+  "observed_on_date": "2026-11-14",
+  "symbol": "U11",
+  "issuer_microsite": {
+    "source_url": "https://uob.listedcompany.com/stock_fundamentals.html",
+    "displayed_issued_paid_up_shares": 1646915591,
+    "visible_market_page_quote_updated_at_sgt": "2026-11-13 17:14",
+    "exact_share_count_as_of_date_verified": false,
+    "shares_definition": "ISSUED_AND_PAID_UP_DISPLAY_NO_TREASURY_RECONCILIATION",
+    "site_pages_licensed_for_quote_redistribution": false
+  },
+  "syndicated_sgxnet_buyback": {
+    "source_url": "https://b.siasset.com/news/news.html?nid=515671689&source=regional_sgxnet",
+    "announcement_reference": "SG261113OTHRHOAF",
+    "broadcast_sgt": "2026-11-13 17:41",
+    "reported_shares_excluding_treasury": 1646677591,
+    "reported_treasury_shares": 14548000,
+    "source_is_original_sgx_filings": false
+  },
+  "numeric_display_difference_not_reconcilable_due_to_basis_and_dates": 238000,
+  "share_count_definitions_comparable": false,
+  "complete_buyback_chain_verified_as_of_2026_11_13": false,
+  "issuer_page_share_timestamp_verified": false,
+  "original_nov13_sgx_filing_downloaded": false,
+  "market_cap_per_pbr_allowed": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false,
+  "notes": [
+    "The issuer microsite labels its figure issued and paid-up shares; the syndicated SGX notice labels its figure issued excluding treasury after a later-date purchase. These cannot be reconciled without exact effective share timestamp and corporate actions.",
+    "The quote timestamp visible on an issuer microsite is not the effective timestamp of its issued-share count.",
+    "Do not promote either count into live market cap or valuation."
+  ]
+}
