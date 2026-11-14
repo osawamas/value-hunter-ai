@@ -37,6 +37,7 @@ on:
       - 'docs/test_primary_issuer_reconciliation_v214.js'
       - 'docs/data/uob-buyback-chain-v216.json'
       - 'docs/test_uob_buyback_chain_v216.js'
+      - 'docs/test_evidence_suite_report_v219.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
