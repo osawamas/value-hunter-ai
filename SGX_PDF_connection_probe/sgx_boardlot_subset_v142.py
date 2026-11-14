@@ -72,7 +72,20 @@ def main():
  a=p.parse_args();out={"schema_version":"sgx-boardlot-subset-probe-v142","status":"NOT_VERIFIED",
                        "record":None,"error":None}
  try:out["record"]=parse(fetch());out["status"]="SGX_OFFICIAL_HISTORICAL_BOARDLOT_TABLE_VERIFIED"
- except Exception as e:out["error"]=type(e).__name__+": "+str(e)[:260]
+ except Exception as e:
+  out["error"]=type(e).__name__+": "+str(e)[:260]
+  try:
+   raw=fetch()
+   html=raw.decode("utf-8","replace")
+   out["response_diagnostics"]={
+    "response_bytes":len(raw),"response_sha256":hashlib.sha256(raw).hexdigest(),
+    "contains_2026_effective_date":"5 October 2026" in html,
+    "has_securities_table_label":"Stock code" in html,
+    "has_D05_label":bool(re.search(r"\\bD05\\b",html)),
+    "has_loading_fallback":"loading" in html.lower()
+   }
+  except Exception as ex:
+   out["response_diagnostics_error"]=type(ex).__name__+": "+str(ex)[:100]
  path=Path(a.output);path.parent.mkdir(parents=True,exist_ok=True)
  path.write_text(json.dumps(out,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  print(out["status"],out["error"])
