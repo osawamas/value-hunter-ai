@@ -92,20 +92,73 @@
    throw Error("SGX counter count/coverage changed");
   return rows;
  }
+ function validateAll(base,first,second,candidates,feed){
+  const rows=validateExpanded(base,first,candidates,feed);
+  if(second?.schema_version!=="sgx-official-dual-currency-extra-research-v227"||
+    second.source_url!=="https://www.sgx.com/securities/trading"||
+    second.scope!=="SECOND_SELECTED_BATCH_STATIC_IDENTITY_ONLY"||
+    second.not_a_complete_sgx_security_master!==true||
+    second.free_public_market_data_redistribution_authorized!==false||
+    second.current_sgx_listing_independently_authenticated!==false||
+    second.ranking_eligible_count!==0||
+    second.new_pair_count!==20||second.new_counter_count!==40||
+    !Array.isArray(second.pairs)||second.pairs.length!==20)
+   throw Error("Official additional currency counter evidence changed");
+  const expected=[
+   "SRT|SGD|SRU|USD|ETF","ESG|SGD|ESU|USD|ETF",
+   "LCU|USD|LCS|SGD|ETF","CXS|SGD|CXU|USD|ETF",
+   "SQU|USD|SQQ|SGD|ETF","VND|USD|VNM|SGD|ETF",
+   "ICU|USD|ICM|SGD|ETF","GRO|SGD|GRU|USD|ETF",
+   "JJJ|SGD|JUS|USD|ETF","MCN|SGD|MCS|USD|ETF",
+   "YLD|SGD|YLU|USD|ETF","JK8|SGD|VK8|USD|ETF",
+   "EAA|SGD|EAU|USD|ETF","INC|SGD|ICH|CNH|ETF",
+   "A93|SGD|A94|USD|ETF","CXN|RMB|CXO|USD|ETF",
+   "SBO|SGD|SBV|USD|ETF","MXNU|GBP|MENU|SGD|REIT",
+   "GLU|USD|GLS|SGD|ETF","ULG|USD|UGS|SGD|POTENTIAL_EQUITY"
+  ];
+  const allCodes=new Set(rows.flatMap(x=>[x.primary_code,x.secondary_code]));
+  const third=new Set(candidates.candidates.map(x=>x.symbol));
+  for(let i=0;i<20;i++){
+   const p=second.pairs[i];
+   if([p?.primary?.code,p?.primary?.currency,p?.secondary?.code,
+       p?.secondary?.currency,p?.instrument_category].join("|")!==expected[i]||
+      p.official_table_source!=="SGX_SECURITIES_TRADING_DUAL_CURRENCY"||
+      p.issuer_entity_identity_independently_verified!==false||
+      p.valuation_ready!==false||p.ranking_eligible!==false||
+      !p.underlying_name)
+    throw Error("New dual-currency pair has changed");
+   for(const code of [p.primary.code,p.secondary.code]){
+    if(allCodes.has(code))throw Error("Duplicate instrument counter");
+    allCodes.add(code);
+   }
+   rows.push({instrument:p.underlying_name,category:p.instrument_category,
+    primary_code:p.primary.code,primary_currency:p.primary.currency,
+    secondary_code:p.secondary.code,secondary_currency:p.secondary.currency,
+    primary_third_party:third.has(p.primary.code),
+    secondary_third_party:third.has(p.secondary.code),
+    independently_verified_as_unique_issuer:false,eligible_for_ranking:false});
+  }
+  if(rows.length!==41||allCodes.size!==82||
+     rows.filter(x=>x.primary_third_party||x.secondary_third_party).length!==4||
+     rows.some(x=>x.secondary_third_party))
+    throw Error("Official subset/candidate counts have drifted");
+  return rows;
+ }
  async function render(){
   const status=document.getElementById("officialCurrencyPairStatus");
   const tbody=document.getElementById("officialCurrencyPairRows");
   if(!status||!tbody)return;
   try{
-   const [a,b,c,d]=await Promise.all(
+   const [a,b,c,d,e]=await Promise.all(
     ["./data/sgx-official-multicurrency-subset-v220.json",
      "./data/sgx-universe-candidates.json","./data/latest.json",
-     "./data/sgx-dual-currency-research-v224.json"].map(async p=>{
+     "./data/sgx-dual-currency-research-v224.json",
+     "./data/sgx-dual-currency-extra-v227.json"].map(async p=>{
       const res=await fetch(p,{cache:"no-store"});
       if(!res.ok)throw Error("Source HTTP "+res.status);
       return res.json();
      }));
-   const rows=validateExpanded(a,d,b,c),frag=document.createDocumentFragment();
+   const rows=validateAll(a,d,e,b,c),frag=document.createDocumentFragment();
    for(const x of rows){
     const tr=document.createElement("tr");
     for(const v of [x.instrument,x.category,
@@ -118,7 +171,7 @@
     frag.append(tr);
    }
    tbody.replaceChildren(frag);
-   status.textContent="SGX取引案内からの限定的な21商品・42通貨別カウンター。第三者182候補と一致するコードはAWX・BS6・CFAの3件。42カウンターを42発行体と数えない。全銘柄一覧ではなく株価・許諾付き投資ランキングの証拠でもない。";
+   status.textContent="SGX取引案内からの限定的な41商品・82通貨別カウンター。第三者182候補と一致するコードはAWX・BS6・CFA・MXNUの4件。82カウンターを82発行体と数えない。全銘柄一覧ではなく株価・許諾付き投資ランキングの証拠でもない。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;
    td.textContent="公式カウンターと候補台帳が一致しないため非表示";
@@ -126,6 +179,6 @@
    status.textContent="台帳の再照合が必要";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={validate,validateExpanded};
+ if(typeof module!=="undefined"&&module.exports)module.exports={validate,validateExpanded,validateAll};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
