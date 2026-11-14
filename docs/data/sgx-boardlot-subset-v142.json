@@ -2,5 +2,13 @@
   "schema_version": "sgx-boardlot-subset-probe-v142",
   "status": "NOT_VERIFIED",
   "record": null,
-  "error": "ValueError: Original historical board-lot date absent"
+  "error": "ValueError: Original historical board-lot date absent",
+  "response_diagnostics": {
+    "response_bytes": 15338,
+    "response_sha256": "82b50cdb6fe73c6dabed0f47c55e962780e73d971c18193e10a85f4b90addb76",
+    "contains_2026_effective_date": false,
+    "has_securities_table_label": false,
+    "has_D05_label": false,
+    "has_loading_fallback": false
+  }
 }
