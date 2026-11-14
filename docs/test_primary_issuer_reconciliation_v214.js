@@ -13,6 +13,9 @@ function verify(f,h,v){
  assert.deepEqual(rows.map(x=>[x.symbol,x.assets,x.liabilities,x.total_equity]),[
    ["H02",4417906,126830,4291076],["V03",3602219,804386,2797833]]);
  assert.deepEqual(rows.map(x=>x.noncontrolling_equity),[null,5092]);
+ assert.deepEqual(rows.map(x=>x.parent_equity),[null,2792741]);
+ assert.equal(rows[0].total_equity,4291076);
+ assert.equal(rows[0].owner_profit,null);
  assert.deepEqual(rows.map(x=>x.owner_profit),[null,226958]);
  assert.deepEqual(rows.map(x=>x.group_profit),[265462,227635]);
  assert.ok(rows.every(x=>x.source.startsWith("https://links.sgx.com/")));
