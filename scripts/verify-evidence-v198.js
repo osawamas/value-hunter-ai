@@ -19,7 +19,8 @@ const tests=[
  "docs/test_stage_classification_pipeline_v203.js",
  "docs/test_sgx_isin_linkage_v204.js",
  "docs/test_universe_coverage_audit_v205.js",
- "docs/test_additional_issuer_fy2025_v206.js"
+ "docs/test_additional_issuer_fy2025_v206.js",
+ "docs/test_remaining_issuer_research_v207.js"
 ];
 let failed=0;
 for(const test of tests){
