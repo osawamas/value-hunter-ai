@@ -1,0 +1,57 @@
+name: VALUE HUNTER v140 audited annual statement arithmetic
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/annual_statement_arithmetic_v140.py'
+      - 'SGX_PDF_connection_probe/test_annual_statement_arithmetic_v140.py'
+      - '.github/workflows/value-hunter-v140.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v140
+  cancel-in-progress: false
+jobs:
+  arithmetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test issuer accounting arithmetic and negative cases
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_annual_statement_arithmetic_v140
+      - name: Recalculate G13 and S63 audited statement arithmetic
+        run: |
+          python SGX_PDF_connection_probe/annual_statement_arithmetic_v140.py --feed docs/data/latest.json --assurance docs/data/sgx-fy2025-audit-assurance-v132.json --output docs/data/sgx-annual-arithmetic-v140.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-annual-arithmetic-v140.json").read_text())
+          assert r["arithmetically_reconciled_count"]==2
+          assert r["independent_numerical_verification_count"]==0
+          assert r["eligible_count"]==0
+          assert all(x["ranking_eligible"] is False for x in r["records"])
+          PY
+      - name: Save sidecar after revalidating fresh financial feed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/annual_statement_arithmetic_v140.py --feed docs/data/latest.json --assurance docs/data/sgx-fy2025-audit-assurance-v132.json --output docs/data/sgx-annual-arithmetic-v140.json
+            git add docs/data/sgx-annual-arithmetic-v140.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v140): 2025 statement arithmetic, never independent market verification'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
