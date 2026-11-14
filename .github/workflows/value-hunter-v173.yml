@@ -1,0 +1,35 @@
+name: VALUE HUNTER v173 three banks SGX quarter coverage
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/bank-coverage-v169.js'
+      - 'docs/test_bank_coverage_v169.js'
+      - '.github/workflows/value-hunter-v173.yml'
+permissions:
+  contents: read
+jobs:
+  three-banks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate 3Q26 UOB and DBS SGX source alongside OCBC PDF
+        run: |
+          node --check docs/bank-coverage-v169.js
+          node docs/test_bank_coverage_v169.js
+          node docs/test_reference_valuation_guard_v168.js
+          node docs/test_ocbc_bundle_summary_v167.js
+      - name: Keep 2026 bank quarterly data outside valuation ranking
+        run: |
+          node - <<'JS'
+          const f=require('./docs/data/latest.json'),u=require('./docs/data/sgx-uob-2026q3-cfo-v172.json');
+          if(f.ranking_eligible_count!==0||u.record.nov13_buyback_announcement_original_verified!==false||
+             u.record.current_sgx_quote_verified!==false||u.record.ranking_eligible!==false)
+           throw Error('Invalid market-data promotion');
+          console.log('Three bank issuer research presentations, no current rank');
+          JS
