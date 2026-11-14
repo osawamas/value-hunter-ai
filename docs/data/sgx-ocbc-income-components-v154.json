@@ -1,0 +1,52 @@
+{
+  "schema_version": "sgx-ocbc-bank-components-probe-v154",
+  "status": "OCBC_3Q26_9M26_PRIMARY_BANK_INCOME_COMPONENTS_PARSED",
+  "record": {
+    "schema_version": "sgx-ocbc-bank-income-components-v154",
+    "symbol": "O39",
+    "period_end_date": "2026-09-30",
+    "original_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "original_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "bank_statements": {
+      "3Q26": {
+        "pdf_page": 2,
+        "unit": "SGD_millions",
+        "net_interest_income": 2313,
+        "non_interest_income": 1420,
+        "combined_interest_and_noninterest_income": 3733,
+        "operating_profit_before_allowances": 2211,
+        "allowances_charged": 52,
+        "original_line_locations": {
+          "net_interest_income": 11,
+          "non_interest_income": 17,
+          "operating_profit_before_allowances": 53,
+          "allowances_charged": 59
+        }
+      },
+      "9M26": {
+        "pdf_page": 4,
+        "unit": "SGD_millions",
+        "net_interest_income": 6798,
+        "non_interest_income": 4933,
+        "combined_interest_and_noninterest_income": 11731,
+        "operating_profit_before_allowances": 7129,
+        "allowances_charged": 424,
+        "original_line_locations": {
+          "net_interest_income": 9,
+          "non_interest_income": 13,
+          "operating_profit_before_allowances": 37,
+          "allowances_charged": 41
+        }
+      }
+    },
+    "reported_income_components_arithmetically_added": true,
+    "does_not_claim_all_income_is_interest_income": true,
+    "same_issuer_primary_unaudited_2026_research": true,
+    "independent_third_party_numerical_verification": false,
+    "bank_loan_loss_full_reperformance": false,
+    "validated_fy2025_audited_per": false,
+    "current_quote_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
