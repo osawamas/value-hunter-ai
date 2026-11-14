@@ -1,0 +1,32 @@
+name: VALUE HUNTER expanded candidate coverage v102
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/sgx_companies_api_v98.py
+      - SGX_PDF_connection_probe/sgx_companies_publish_v99.py
+      - SGX_PDF_connection_probe/test_sgx_companies_expanded_v102.py
+      - .github/workflows/value-hunter-v102.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test 200-limit partial company directory provenance and original finance separation
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_sgx_companies_api_v98.py test_sgx_companies_publish_v99.py test_sgx_companies_expanded_v102.py
+      - name: Fetch actual provider data using limit=200, research only
+        run: python SGX_PDF_connection_probe/sgx_companies_api_v98.py --output sgx-expanded-v102/discovery.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: expanded-sgx-directory-v102
+          path: sgx-expanded-v102/
+          if-no-files-found: warn
