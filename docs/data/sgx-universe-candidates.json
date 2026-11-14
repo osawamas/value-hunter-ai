@@ -1,6 +1,6 @@
 {
   "schema_version": "sgx-third-party-company-candidates-v99",
-  "generated_at_utc": "2026-11-14T10:33:35.200454+00:00",
+  "generated_at_utc": "2026-11-14T10:37:25.585283+00:00",
   "source_url": "https://stocks.com.sg/api/v1/companies?limit=200",
   "source_json_sha256": "6b1960255db3d66d8937aeaf7376bcb532c7c606be4b4149fae4e19523f3cd0e",
   "source_kind": "THIRD_PARTY_LISTED_COMPANY_API_FREE_TIER",
