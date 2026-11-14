@@ -46,7 +46,8 @@ const tests=[
  "docs/test_sgx_pdf_sha_ui_v234.js",
  "docs/test_evidence_unique_paths_v235.js",
  "docs/test_issuer_annual_pdf_v236.js",
- "docs/test_sgx_annual_report_sha_v237.js"
+ "docs/test_sgx_annual_report_sha_v237.js",
+ "docs/test_sgx_two_document_crosscheck_v238.js"
 ];
 let failed=0;
 const results=[];
