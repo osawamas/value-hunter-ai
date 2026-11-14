@@ -1,0 +1,42 @@
+name: VALUE HUNTER v123 G13 Q3 audited-status warning UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/app.js'
+      - 'docs/g13-quarter-warning-v123.js'
+      - 'docs/test_g13_quarter_warning_v123.js'
+      - '.github/workflows/value-hunter-v123.yml'
+permissions:
+  contents: read
+jobs:
+  q3-risk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run all existing risk-warning and UI guards
+        run: |
+          node --check docs/app.js
+          node --check docs/g13-quarter-warning-v123.js
+          node docs/test_g13_quarter_warning_v123.js
+          node docs/test_share_warning_v111.js
+          node docs/test_ranking_readiness_v118.js
+      - name: Test genuine G13 Q3 evidence against published feed
+        run: |
+          node - <<'JS'
+          const fs=require("node:fs");
+          const assert=require("node:assert/strict");
+          const {validate}=require("./docs/g13-quarter-warning-v123.js");
+          const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+          const q=JSON.parse(fs.readFileSync("docs/data/sgx-g13-2026q3-v121.json","utf8"));
+          const r=validate(feed,q);
+          assert.equal(r.profitYoY,-42.16);
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log("G13 official Q3 warning safely compatible");
+          JS
