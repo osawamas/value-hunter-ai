@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - 'docs/test_bank_corporate_actions_v190.js'
+      - 'docs/test_bank_cross_evidence_v192.js'
       - 'docs/data/sgx-bank-corporate-actions-v190.json'
+      - 'docs/data/sgx-big3-bank-research-v186.json'
+      - 'docs/data/latest.json'
       - '.github/workflows/bank-corporate-actions-v191.yml'
 permissions:
   contents: read
@@ -20,5 +23,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Validate source-bound bank corporate actions and unverified-data gates
+      - name: Validate official bank share evidence gates
         run: node docs/test_bank_corporate_actions_v190.js
+      - name: Cross-check original-bank aggregates, dated shares and ranking gate
+        run: node docs/test_bank_cross_evidence_v192.js
