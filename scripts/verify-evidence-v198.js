@@ -27,7 +27,8 @@ const tests=[
  "docs/test_parent_equity_research_v211.js",
  "docs/test_h02_primary_filing_v212.js",
  "docs/test_v03_primary_statements_v213.js",
- "docs/test_primary_issuer_reconciliation_v214.js"
+ "docs/test_primary_issuer_reconciliation_v214.js",
+ "docs/test_uob_buyback_chain_v216.js"
 ];
 let failed=0;
 for(const test of tests){
