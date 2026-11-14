@@ -27,6 +27,8 @@ on:
       - 'docs/test_v03_balance_v209.js'
       - 'scripts/probe-issuer-financial-pdf-v210.js'
       - 'docs/test_issuer_pdf_probe_v210.js'
+      - 'docs/data/sgx-parent-equity-research-v211.json'
+      - 'docs/test_parent_equity_research_v211.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
