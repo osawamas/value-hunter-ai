@@ -7,6 +7,8 @@ on:
       - 'docs/test_bank_corporate_actions_v190.js'
       - 'docs/test_bank_cross_evidence_v192.js'
       - 'docs/test_bank_share_evidence_v193.js'
+      - 'docs/test_bank_fy_interim_bridge_v195.js'
+      - 'docs/bank-fy-interim-bridge-v195.js'
       - 'docs/bank-share-evidence-v193.js'
       - 'docs/index.html'
       - 'docs/data/sgx-bank-corporate-actions-v190.json'
@@ -32,3 +34,5 @@ jobs:
         run: node docs/test_bank_cross_evidence_v192.js
       - name: Verify bank share provenance UI fails closed
         run: node docs/test_bank_share_evidence_v193.js
+      - name: Validate bank annual and interim source evidence bridge
+        run: node docs/test_bank_fy_interim_bridge_v195.js
