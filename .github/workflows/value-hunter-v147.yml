@@ -1,0 +1,39 @@
+name: VALUE HUNTER v147 OCBC Q3 Japanese banking context
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ocbc-quarter-v147.js'
+      - 'docs/test_ocbc_quarter_v147.js'
+      - '.github/workflows/value-hunter-v147.yml'
+permissions:
+  contents: read
+jobs:
+  bank-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Bank-specific quarterly state tests
+        run: |
+          node --check docs/ocbc-quarter-v147.js
+          node docs/test_ocbc_quarter_v147.js
+          node docs/test_annual_arithmetic_v141.js
+          node docs/test_first_issuer_gate_v138.js
+      - name: Validate genuine SGX OCBC Q3 profit sidecar
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const {validate}=require('./docs/ocbc-quarter-v147.js');
+          const f=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const q=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-2026q3-bank-profit-v146.json','utf8'));
+          const result=validate(f,q);
+          assert.equal(result.profitQuarter,"2.04");
+          assert.equal(f.ranking_eligible_count,0);
+          console.log('OCBC Q3 official earnings research panel verified');
+          JS
