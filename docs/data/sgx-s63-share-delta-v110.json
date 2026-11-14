@@ -1,0 +1,22 @@
+{
+  "schema_version": "sgx-share-snapshot-difference-v110",
+  "symbol": "S63",
+  "published_financial_record_as_of_date": "2026-06-30",
+  "published_financial_shares": 3119304988,
+  "new_sgx_primary_snapshot_date": "2026-11-13",
+  "new_sgx_primary_issued_ex_treasury": 3115847115,
+  "new_sgx_primary_treasury_shares": 6648082,
+  "new_sgx_primary_buyback_shares": 500000,
+  "new_sgx_primary_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92",
+  "new_sgx_primary_announcement_reference": "SG261113OTHRPXGV",
+  "new_sgx_primary_html_sha256": "f0ee6c50c8aab4861df79a0e0e8d86c3db7bb85e8b4f8d48011ac9ffbe06fc13",
+  "new_minus_published_shares": -3457873,
+  "relative_change_pct": -0.110854,
+  "published_reference_is_older": true,
+  "price_timestamp_not_independently_reconciled": true,
+  "current_shares_verified": false,
+  "price_or_per_pbr_recomputed": false,
+  "financial_feed_modified": false,
+  "warning": "Existing reference market capitalization and PER may use an older share denominator; do not treat as independently verified valuation",
+  "ranking_eligible": false
+}
