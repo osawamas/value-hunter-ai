@@ -1,0 +1,76 @@
+{
+  "schema_version": "sgx-official-js-discovery-v136",
+  "attempted_at_utc": "2026-11-14T06:05:23.014470+00:00",
+  "public_sgx_js_assets_inspected": 2,
+  "official_quote_api_confirmed": false,
+  "official_complete_master_confirmed": false,
+  "ranking_eligible": false,
+  "records": [
+    {
+      "url": "https://www.sgx.com/securities/runtime.a74dd797f16f2d3b774e.chunk.js",
+      "status": "PUBLIC_SGX_JS_LITERAL_PATHS_EXTRACTED",
+      "evidence": {
+        "source_script_url": "https://www.sgx.com/securities/runtime.a74dd797f16f2d3b774e.chunk.js",
+        "public_js_sha256": "216ef407d4074bd9cba2407de8c0e0d103b61470dfd6b8b6695fea88a454dd8e",
+        "public_js_bytes": 12271,
+        "keyword_occurrences": {
+          "api.sgx.com": 0,
+          "api2.sgx.com": 0,
+          "marketdata": 0,
+          "stockcode": 0,
+          "securitytype": 0,
+          "securities": 0,
+          "tradingcode": 0,
+          "quote": 3,
+          "equities": 0,
+          "stocks": 0
+        },
+        "official_domain_literal_paths": [
+          "engage.sgx.com/p/82P6-3AV/sign-up",
+          "www.sgx.com",
+          "www.sgx.com/assets/static/images/sgx-logo-share.png"
+        ],
+        "potential_relative_data_paths": [],
+        "official_json_api_confirmed": false,
+        "market_data_endpoint_called": false,
+        "complete_security_master_retrieved": false,
+        "quote_verified": false,
+        "ranking_eligible": false
+      },
+      "error": null
+    },
+    {
+      "url": "https://www.sgx.com/securities/index.32e3899753ae86309a56.chunk.js",
+      "status": "PUBLIC_SGX_JS_LITERAL_PATHS_EXTRACTED",
+      "evidence": {
+        "source_script_url": "https://www.sgx.com/securities/index.32e3899753ae86309a56.chunk.js",
+        "public_js_sha256": "216ef407d4074bd9cba2407de8c0e0d103b61470dfd6b8b6695fea88a454dd8e",
+        "public_js_bytes": 12271,
+        "keyword_occurrences": {
+          "api.sgx.com": 0,
+          "api2.sgx.com": 0,
+          "marketdata": 0,
+          "stockcode": 0,
+          "securitytype": 0,
+          "securities": 0,
+          "tradingcode": 0,
+          "quote": 3,
+          "equities": 0,
+          "stocks": 0
+        },
+        "official_domain_literal_paths": [
+          "engage.sgx.com/p/82P6-3AV/sign-up",
+          "www.sgx.com",
+          "www.sgx.com/assets/static/images/sgx-logo-share.png"
+        ],
+        "potential_relative_data_paths": [],
+        "official_json_api_confirmed": false,
+        "market_data_endpoint_called": false,
+        "complete_security_master_retrieved": false,
+        "quote_verified": false,
+        "ranking_eligible": false
+      },
+      "error": null
+    }
+  ]
+}
