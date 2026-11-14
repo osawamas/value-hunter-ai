@@ -1,0 +1,7 @@
+{
+  "schema_version": "sgx-ocbc-q3-original-probe-v143",
+  "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/",
+  "status": "NOT_VERIFIED",
+  "record": null,
+  "error": "ValueError: Ambiguous/missing report type"
+}
