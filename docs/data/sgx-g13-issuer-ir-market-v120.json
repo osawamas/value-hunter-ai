@@ -1,8 +1,16 @@
 {
   "schema_version": "g13-issuer-ir-market-research-v120",
-  "attempted_utc": "2026-11-14T05:19:37.794075+00:00",
+  "attempted_utc": "2026-11-14T05:20:15.191727+00:00",
   "requested_url": "https://gentingsingapore.listedcompany.com/share-quote-and-chart.html",
   "status": "NOT_VERIFIED",
   "record": null,
-  "error": "ValueError: Missing or ambiguous symbol/currency"
+  "error": "ValueError: Missing or ambiguous symbol/currency",
+  "page_structure_diagnostics": {
+    "SGX Symbol": "NOT_FOUND",
+    "Currency": "NOT_FOUND",
+    "Last Done": "NOT_FOUND",
+    "Issued": "NOT_FOUND",
+    "Updated": "NOT_FOUND",
+    "Quotes Delayed": "NOT_FOUND"
+  }
 }
