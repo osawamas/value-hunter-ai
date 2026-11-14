@@ -1,0 +1,39 @@
+name: VALUE HUNTER v160 OCBC bank assets ordinary equity UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ocbc-balance-v160.js'
+      - 'docs/test_ocbc_balance_v160.js'
+      - '.github/workflows/value-hunter-v160.yml'
+permissions:
+  contents: read
+jobs:
+  bank-balance-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate bank-specific original balance table and regression
+        run: |
+          node --check docs/ocbc-balance-v160.js
+          node docs/test_ocbc_balance_v160.js
+          node docs/test_ocbc-allowance_v157.js 2>/dev/null || node docs/test_ocbc_allowance_v157.js
+          node docs/test_ocbc_income_v155.js
+      - name: Test actual September 2026 original bank values
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const {validate}=require('./docs/ocbc-balance-v160.js');
+          const feed=JSON.parse(fs.readFileSync('docs/data/latest.json','utf8'));
+          const doc=JSON.parse(fs.readFileSync('docs/data/sgx-ocbc-bank-balance-v159.json','utf8'));
+          const out=validate(feed,doc);
+          assert.equal(out.attributable-out.ordinary,2448);
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log('Source-bound OCBC ordinary equity and assets verified');
+          JS
