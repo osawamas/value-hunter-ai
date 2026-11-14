@@ -1,8 +1,15 @@
 {
   "schema_version": "sgx-g13-2026q3-original-v121",
-  "attempted_at_utc": "2026-11-14T05:22:28.987001+00:00",
+  "attempted_at_utc": "2026-11-14T05:23:49.483689+00:00",
   "source_url": "https://links.sgx.com/FileOpen/Q3%202026%20GENS%20Quarterly%20Business%20Overview.ashx?App=Announcement&FileID=911200",
   "status": "NOT_VERIFIED",
   "record": null,
-  "error": "ValueError: Missing/ambiguous quarterly row Total Revenue"
+  "error": "ValueError: Missing/ambiguous quarterly row Total Revenue",
+  "pdf_content_debug": {
+    "text_length": 7142,
+    "row_lines": [
+      "Net profit after taxation                                54,731            94,618           (42)                90,884          (40)",
+      "and the same has not been audited nor reviewed by the Company’s auditors. Potential investors and shareholders of the Company"
+    ]
+  }
 }
