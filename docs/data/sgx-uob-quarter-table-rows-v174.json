@@ -1,0 +1,102 @@
+{
+  "schema_version": "sgx-uob-financial-row-probe-v174",
+  "status": "UOB_PRIMARY_CFO_FINANCIAL_ROW_CONTEXTS_IDENTIFIED",
+  "record": {
+    "schema_version": "sgx-uob-quarter-financial-row-discovery-v174",
+    "symbol": "U11",
+    "official_pdf_sha256": "d3b474aa87a2f2741bf68754a2f38b7189d905a8ff2bf6c51f88b758c867ec18",
+    "financial_period_end": "2026-09-30",
+    "line_contexts": [
+      {
+        "pdf_page": 2,
+        "row_label": "Net Fee Income",
+        "before": "Key Highlights",
+        "following": [
+          "CET 1 ratio",
+          "Net Interest Margin",
+          "NPL ratio",
+          "Trading & Investment Income",
+          "- 15% QoQ",
+          "NM YoY",
+          "1.68%",
+          "- 0.06%pt QoQ",
+          "- 0.14%pt YoY",
+          "$733m"
+        ]
+      },
+      {
+        "pdf_page": 3,
+        "row_label": "Net interest income",
+        "before": "+/(-)%",
+        "following": [
+          "6,900",
+          "7,009",
+          "(2)",
+          "2,278",
+          "2,297",
+          "(1)",
+          "2,265",
+          "1",
+          "Net fee income",
+          "2,035"
+        ]
+      },
+      {
+        "pdf_page": 3,
+        "row_label": "Net fee income",
+        "before": "1",
+        "following": [
+          "2,035",
+          "1,945",
+          "5",
+          "733",
+          "665",
+          "10",
+          "615",
+          "19",
+          "Other non-interest income",
+          "1,464"
+        ]
+      },
+      {
+        "pdf_page": 3,
+        "row_label": "Total income",
+        "before": "(29)",
+        "following": [
+          "10,398",
+          "10,519",
+          "(1)",
+          "3,381",
+          "3,595",
+          "(6)",
+          "3,398",
+          "(0)",
+          "Less: Total expenses",
+          "4,722"
+        ]
+      },
+      {
+        "pdf_page": 3,
+        "row_label": "Net profit",
+        "before": ">100",
+        "following": [
+          "4,165",
+          "3,271",
+          "27",
+          "1,250",
+          "1,478",
+          "(15)",
+          "443",
+          ">100",
+          "3Q26 net profit at $1.3 billion",
+          "Underlying earnings stable following prior-quarter divestment gains"
+        ]
+      }
+    ],
+    "strict_row_column_mapping_done": false,
+    "independent_third_party_reperformance": false,
+    "current_treasury_shares_or_quote_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
