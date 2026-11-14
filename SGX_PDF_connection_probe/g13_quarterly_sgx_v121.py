@@ -77,7 +77,18 @@ def run(path):
   b=fetch()
   z["record"]=parse_text(extract_pdf(b),hashlib.sha256(b).hexdigest())
   z["status"]=z["record"]["status"]
- except Exception as e:z["error"]=type(e).__name__+": "+str(e)[:300]
+ except Exception as e:
+  z["error"]=type(e).__name__+": "+str(e)[:300]
+  try:
+   raw=fetch()
+   content=extract_pdf(raw)
+   z["pdf_content_debug"]={
+      "text_length":len(content),
+      "row_lines":[line.strip()[:240] for line in content.splitlines()
+                   if any(term in line.lower() for term in
+                          ("total revenue","net profit after taxation","not been audited"))][:12]}
+  except Exception as debug_error:
+   z["pdf_content_debug_error"]=type(debug_error).__name__+": "+str(debug_error)[:180]
  target=Path(path);target.parent.mkdir(parents=True,exist_ok=True)
  target.write_text(json.dumps(z,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  return z
