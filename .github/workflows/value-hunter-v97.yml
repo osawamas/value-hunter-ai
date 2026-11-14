@@ -1,0 +1,44 @@
+name: VALUE HUNTER SGX universe candidate discovery v97
+on:
+  push:
+    branches: [main]
+    paths:
+      - SGX_PDF_connection_probe/sgx_universe_candidates_v97.py
+      - SGX_PDF_connection_probe/test_sgx_universe_candidates_v97.py
+      - .github/workflows/value-hunter-v97.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test duplicate/partial SGX ticker discovery safety
+        working-directory: SGX_PDF_connection_probe
+        run: python -m unittest -v test_sgx_universe_candidates_v97.py
+      - name: Discover real secondary ticker list, never promote to verified universe
+        shell: bash
+        run: |
+          if python SGX_PDF_connection_probe/sgx_universe_candidates_v97.py --output universe-v97/candidates.json; then
+            echo "Secondary directory candidates extracted, NOT an authoritative exchange list." >> "$GITHUB_STEP_SUMMARY"
+          else
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("universe-v97/candidates.json").read_text())
+          assert d["status"]=="NOT_VERIFIED" and d["record"] is None
+          print("Candidate universe source unavailable or incomplete; no ticker list promoted")
+          PY
+            echo "Secondary directory inaccessible / incomplete, candidates NOT published." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sgx-secondary-universe-v97
+          path: universe-v97/
+          if-no-files-found: warn
