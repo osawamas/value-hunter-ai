@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.request import Request,urlopen
 
 URL="https://stocks.com.sg/api/v1/companies"
+FETCH_URL=URL+"?limit=200"
 KNOWN=("S68","G13","S20","S63","D05","O39","U11")
 SYMBOL=re.compile(r"^[A-Z0-9]{1,6}$")
 
@@ -42,9 +43,11 @@ def parse(raw):
  known=sorted(set(KNOWN)&set(found))
  return {
   "status":"THIRD_PARTY_COMPANY_JSON_CANDIDATES_DIAGNOSTIC_ONLY",
-  "source_url":URL,"source_response_sha256":hashlib.sha256(raw).hexdigest(),
+  "source_url":FETCH_URL,"source_response_sha256":hashlib.sha256(raw).hexdigest(),
   "provider":"StocksSG",
   "raw_rows_count":len(rows),
+  "provider_reported_total":data.get("meta",{}).get("total") if isinstance(data.get("meta"),dict) else None,
+  "provider_next_offset":data.get("meta",{}).get("next_offset") if isinstance(data.get("meta"),dict) else None,
   "accepted_candidates":len(found),"rejected_rows_count":rejected,
   "all_7_known_present":len(known)==7,
   "known_symbols_present":known,
@@ -60,10 +63,10 @@ def parse(raw):
  }
 
 def fetch():
- req=Request(URL,headers={"User-Agent":"VALUE-HUNTER-AI/1.0 research-only",
+ req=Request(FETCH_URL,headers={"User-Agent":"VALUE-HUNTER-AI/1.0 research-only",
                           "Accept":"application/json"})
  with urlopen(req,timeout=25) as resp:
-  if resp.geturl()!=URL:raise ValueError("Companies API redirect not approved")
+  if resp.geturl()!=FETCH_URL:raise ValueError("Companies API redirect not approved")
   raw=resp.read(8_000_001)
   ctype=resp.headers.get("Content-Type","")
   if "json" not in ctype.lower():raise ValueError("Provider did not respond with JSON")
@@ -71,7 +74,7 @@ def fetch():
  return raw
 
 def run(output,raw=None):
- record={"status":"NOT_VERIFIED","source_url":URL,"record":None,"error":None}
+ record={"status":"NOT_VERIFIED","source_url":FETCH_URL,"record":None,"error":None}
  try:
   body=fetch() if raw is None else raw
   record["record"]=parse(body)
