@@ -1,0 +1,37 @@
+name: VALUE HUNTER v181 three-bank exact 3Q issuer profits
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/bank-coverage-v169.js'
+      - 'docs/test_bank_coverage_v169.js'
+      - '.github/workflows/value-hunter-v181.yml'
+permissions:
+  contents: read
+jobs:
+  exact-bank-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual original DBS OCBC UOB quarter profit sources and guard tests
+        run: |
+          node --check docs/bank-coverage-v169.js
+          node docs/test_bank_coverage_v169.js
+          node docs/test_bank_nii_v178.js
+          node docs/test_reference_valuation_guard_v168.js
+      - name: Assert original banking source period and rank protection
+        run: |
+          node - <<'JS'
+          const a=require('./docs/data/sgx-dbs-exact-table-v180.json');
+          const f=require('./docs/data/latest.json');
+          if(a.status!=='DBS_3Q26_9M26_PRIMARY_SGX_TABLE_COLUMNS_RECONCILED'||
+             a.record.net_profit_3q26_sgd_millions!==2813||
+             a.record.independent_numerical_verification!==false||
+             a.record.ranking_eligible!==false||f.ranking_eligible_count!==0)throw Error('Invalid bank source promotion');
+          console.log('Three SGX source bank earnings are historical research only');
+          JS
