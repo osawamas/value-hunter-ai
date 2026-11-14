@@ -1,0 +1,16 @@
+"use strict";
+const assert=require("node:assert/strict"),{validate}=require("./bank-coverage-v169.js");
+const fs=require("node:fs");
+const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+const bundle=JSON.parse(fs.readFileSync("docs/data/sgx-ocbc-bank-research-v166.json","utf8"));
+const got=validate(feed,bundle);
+assert.deepEqual(got.map(x=>x.symbol),["D05","O39","U11"]);
+assert.equal(got[0].fy,"10,933");assert.equal(got[0].q3,"未照合");
+assert.equal(got[1].fy,"未照合");assert.equal(got[1].q3,"2,042");
+assert.equal(got[2].fy,"未照合");assert.equal(got[2].q3,"未照合");
+const fake=JSON.parse(JSON.stringify(bundle));
+fake.per_pbr_and_ranking_permitted=true;assert.throws(()=>validate(feed,fake));
+const wrong=JSON.parse(JSON.stringify(bundle));
+wrong.income_statement_sgd_millions["3Q26"].group_net_profit=999;assert.throws(()=>validate(feed,wrong));
+const ranked=JSON.parse(JSON.stringify(feed));ranked.ranking_eligible_count=1;assert.throws(()=>validate(ranked,bundle));
+console.log("v169 real DBS/OCBC/UOB source coverage distinguished by period");
