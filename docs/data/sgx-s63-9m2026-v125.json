@@ -1,0 +1,26 @@
+{
+  "schema_version": "sgx-s63-9m2026-update-v125",
+  "attempted_at_utc": "2026-11-14T05:34:31.145370+00:00",
+  "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%209M2026%20Market%20Update.ashx?App=Announcement&FileID=911321",
+  "status": "SGX_S63_OFFICIAL_NINE_MONTH_2026_PRESENTATION",
+  "record": {
+    "status": "SGX_S63_OFFICIAL_NINE_MONTH_2026_PRESENTATION",
+    "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%209M2026%20Market%20Update.ashx?App=Announcement&FileID=911321",
+    "source_pdf_sha256": "5100bd6dca4541a28fd813ee21aec7729b554148ccc1d82fd9507465698744cd",
+    "issuer": "Singapore Technologies Engineering Ltd",
+    "symbol": "S63",
+    "report_date": "2026-11-13",
+    "period_end_date": "2026-09-30",
+    "nine_month_revenue_sgd_billion_rounded": 10.0,
+    "nine_month_reported_revenue_yoy_pct": 10,
+    "nine_month_rebased_revenue_yoy_pct": 13,
+    "nine_month_contract_wins_sgd_billion_rounded": 13.2,
+    "order_book_2026_09_sgd_billion_rounded": 37.7,
+    "all_figures_rounding_disclosed": true,
+    "audited_income_and_profit_for_new_per_verified": false,
+    "current_price_or_shares_verified": false,
+    "ranking_eligible": false,
+    "valuation_recomputed": false
+  },
+  "error": null
+}
