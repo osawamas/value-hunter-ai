@@ -45,8 +45,10 @@ async function download(url){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),20000);
   let res;
-  try{res=await fetch(current,{redirect:"manual",signal:controller.signal,headers:{"User-Agent":"VALUE-HUNTER-AI-source-provenance/1.0","Accept":"application/pdf"}})}
-  finally{clearTimeout(timeout)}
+  try{
+   res=await fetch(current,{redirect:"manual",signal:controller.signal,headers:{"User-Agent":"VALUE-HUNTER-AI-source-provenance/1.0","Accept":"application/pdf"}});
+  }catch(err){clearTimeout(timeout);throw err}
+  try{
   if([301,302,303,307,308].includes(res.status)){
    if(redirect===MAX_REDIRECTS)throw Error("Too many redirects");
    const loc=res.headers.get("location");if(!loc)throw Error("Redirect missing location");
@@ -64,6 +66,7 @@ async function download(url){
    parts.push(chunk);
   }
   return {bytes:Buffer.concat(parts),finalUrl:current};
+  }finally{clearTimeout(timeout)}
  }
  throw Error("SGX PDF not retrieved");
 }
