@@ -1,0 +1,306 @@
+{
+  "schema_version": "sgx-dual-currency-identity-research-v224",
+  "reviewed_date": "2026-11-14",
+  "source_url": "https://www.sgx.com/securities/trading",
+  "source_section": "Dual Currency Trading — Securities with Dual Currency Trading",
+  "scope": "SELECTED_OFFICIAL_PAIRS_NOT_EXHAUSTIVE",
+  "complete_official_sgx_security_master": false,
+  "quote_fields_collected": false,
+  "public_redistribution_rights_verified": false,
+  "original_issuer_entity_relationship_independently_verified": false,
+  "financial_feed_modified": false,
+  "ranking_eligible_count": 0,
+  "base_examples_file": "docs/data/sgx-official-multicurrency-subset-v220.json",
+  "new_pairs": [
+    {
+      "underlying_name": "Hutchison Port Holdings Trust",
+      "instrument_category": "BUSINESS_TRUST",
+      "primary": {
+        "code": "NS8U",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "P7VU",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "PRINCIPAL FTSE ASEAN40",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "M62",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "QS0",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "PRINCIPAL S&P APAC DIVIDEND",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "P5P",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "QR9",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "ISHARES USD ASIA HY BOND ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "O9P",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "QL3",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "ISHARES USD ASIA BOND ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "N6M",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "QL2",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "iShares MSCI India Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "I98",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "QK9",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Yangzijiang Shipbuilding Holdings Ltd",
+      "instrument_category": "POTENTIAL_EQUITY",
+      "primary": {
+        "code": "BS6",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "SO7",
+        "currency": "RMB"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Phillip SGX APAC Dividend Leaders REIT ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "BYI",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "BYJ",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "NikkoAM-StraitsTrading Asia ex Japan REIT ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "CFA",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "COI",
+        "currency": "USD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "STONEWEG EUROPE STAPLED TRUST",
+      "instrument_category": "STAPLED_SECURITY",
+      "primary": {
+        "code": "SET",
+        "currency": "EUR"
+      },
+      "secondary": {
+        "code": "SEB",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Xtrackers MSCI China UCITS ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "LG9",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "TID",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "ICBC CSOP FTSE Chinese Government Bond Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "CYC",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "CYB",
+        "currency": "USD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Phillip SGD Money Market ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "MMS",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "MMT",
+        "currency": "USD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "NikkoAM-ICBCSG China Bond ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "ZHY",
+        "currency": "RMB"
+      },
+      "secondary": {
+        "code": "ZHD",
+        "currency": "USD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-OCBC Securities Hang Seng TECH ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "HST",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "HSS",
+        "currency": "USD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "SPDR GOLD SHARES",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "O87",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "GSD",
+        "currency": "SGD"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-OCBC Securities China Leaders ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "YYY",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "YYR",
+        "currency": "RMB"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "IREIT Global",
+      "instrument_category": "REIT",
+      "primary": {
+        "code": "UD1U",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "8U7U",
+        "currency": "EUR"
+      },
+      "same_instrument_pair_source": "SGX_OFFICIAL_STATIC_TRADING_TABLE",
+      "official_current_listing_independently_verified": false,
+      "issuer_financial_data_verified": false,
+      "ranking_eligible": false
+    }
+  ],
+  "new_pair_count": 18,
+  "new_counter_count": 36
+}
