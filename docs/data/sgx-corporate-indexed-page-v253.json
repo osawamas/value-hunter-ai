@@ -1,0 +1,201 @@
+{
+  "schema_version": "sgx-corporate-information-indexed-page-v253",
+  "observed_on": "2026-11-15",
+  "origin_url": "https://www.sgx.com/securities/corporate-information?page=24",
+  "evidence_kind": "SEARCH_ENGINE_INDEXED_OFFICIAL_SGX_PAGE_NOT_RAW_DOCUMENT",
+  "page_number": 24,
+  "source_displayed_range": "461-480",
+  "source_displayed_total_records": 727,
+  "source_count_asof_date_verified": false,
+  "source_records_preserved": 20,
+  "scope": "COMPANY_NAMES_AND_LISTING_BOARDS_ONLY",
+  "trading_codes_extracted": false,
+  "source_page_direct_html_verified": false,
+  "full_official_security_master_verified": false,
+  "license_for_public_redistribution_verified": false,
+  "price_feed_available": false,
+  "financial_feed_modified": false,
+  "ranking_eligible": false,
+  "records": [
+    {
+      "page_ordinal": 461,
+      "issuer_name": "OCEANUS GROUP LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 462,
+      "issuer_name": "OCTOPUS (APAC) HOLDINGS LTD.",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 463,
+      "issuer_name": "OILTEK INTERNATIONAL LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 464,
+      "issuer_name": "OIO HOLDINGS LIMITED",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 465,
+      "issuer_name": "OKP HOLDINGS LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 466,
+      "issuer_name": "OLAM GROUP LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 467,
+      "issuer_name": "OLD CHANG KEE LTD.",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 468,
+      "issuer_name": "ONEAPEX LIMITED",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 469,
+      "issuer_name": "OSSIA INTERNATIONAL LTD",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 470,
+      "issuer_name": "OTS HOLDINGS LIMITED",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 471,
+      "issuer_name": "OUE HEALTHCARE LIMITED",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 472,
+      "issuer_name": "OUE LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 473,
+      "issuer_name": "OUE REIT",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 474,
+      "issuer_name": "OUHUA ENERGY HOLDINGS LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 475,
+      "issuer_name": "OVERSEA-CHINESE BANKING CORP",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 476,
+      "issuer_name": "OVERSEAS EDUCATION LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 477,
+      "issuer_name": "OXLEY HOLDINGS LIMITED",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 478,
+      "issuer_name": "OXPAY FINANCIAL LIMITED",
+      "listing_board": "CATALIST",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 479,
+      "issuer_name": "PACIFIC ANDES RESOURCES DEVLTD",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    },
+    {
+      "page_ordinal": 480,
+      "issuer_name": "PACIFIC CENTURY REGIONAL DEVTS",
+      "listing_board": "MAINBOARD",
+      "trading_code": null,
+      "trading_currency": null,
+      "issuer_specific_official_filing_matched": false,
+      "ranking_eligible": false
+    }
+  ]
+}
