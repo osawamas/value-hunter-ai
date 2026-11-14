@@ -65,6 +65,8 @@ jobs:
           node docs/test_bank_coverage_v169.js
           node --check docs/bank-nii-v178.js
           node docs/test_bank_nii_v178.js
+          node --check docs/bank-profit-yoy-v182.js
+          node docs/test_bank_profit_yoy_v182.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
