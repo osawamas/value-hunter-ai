@@ -13,6 +13,9 @@ class Tests(unittest.TestCase):
   raw=b'const a="https://example.com/private/token";const b="some securities stockcode";'
   out=parse(raw,URL)
   self.assertEqual(out["official_domain_literal_paths"],[])
+ def test_html_fallback_never_treated_as_js(self):
+  page=(b"<!DOCTYPE html><html><body>Quote</body></html>"*5)
+  with self.assertRaises(ValueError):parse(page,URL)
  def test_bad_script_source_refused(self):
   with self.assertRaises(ValueError):parse(b"const quote = 123;"*6,"https://evil.example/quote.js")
 if __name__=="__main__":unittest.main()
