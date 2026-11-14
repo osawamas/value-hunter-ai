@@ -47,7 +47,7 @@ const reasons = {
   VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE: "株価または株式数の日時が古い／不明のため評価値を非表示"
 };
 const $ = id => document.getElementById(id);
-const state = { feed: null, selected: null, visible: [] };
+const state = { feed: null, selected: null, visible: [], shareAudit: null };
 
 function el(tag, cls = "", text = null) {
   const node = document.createElement(tag);
@@ -166,6 +166,8 @@ function render() {
       el("div", "issuer", r.issuer || names[r.symbol] || ""));
     if (r.bank_financial_state?.status === "AUDITED_ISSUER_GROUP_BANK_FINANCIALS_EXTRACTED")
       id.append(el("div", "issuer", "銀行連結財務解析済・市場データ未検証"));
+    if (r.symbol === "S63" && state.shareAudit)
+      id.append(el("div", "issuer caution", "株式数：新しいSGX原本あり・評価未更新"));
     tr.append(id);
     addTextCell(tr, fmt(r.price_sgd), "num");
     addTextCell(tr, fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null), "num");
@@ -226,6 +228,17 @@ function showDetail(r) {
   top.append(title, el("span", r.ranking_eligible ? "status good" : "status",
     r.ranking_eligible ? "ランキング対象" : "ランキングから除外"));
   parent.append(top);
+  if (r.symbol === "S63" && state.shareAudit) {
+    const a=state.shareAudit;
+    const note=el("section", "share-evidence-warning");
+    note.append(el("strong", "", "S63の参考評価値には古い株式数が使用されている"));
+    note.append(el("p", "", "公開株式数（"+a.oldDate+"）："+
+      a.oldShares.toLocaleString("ja-JP")+"株。SGX原本（"+a.newDate+"）："+
+      a.newShares.toLocaleString("ja-JP")+"株。差分："+
+      a.delta.toLocaleString("ja-JP")+"株。基準日が異なるため、現在の時価総額・PER・PBRとして採用しない。"));
+    note.append(safeLink(a.sourceUrl,"SGX公式の買戻し原本を開く ↗"));
+    parent.append(note);
+  }
   const grid = el("div", "detailgrid");
   grid.append(
     field("財務", "財務資料と指標", [
@@ -630,6 +643,17 @@ async function start() {
     const response = await fetch("./data/latest.json", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
     setFeed(await response.json(), "GitHub上の公開データ");
+    try {
+      const shareResponse=await fetch("./data/sgx-s63-share-delta-v110.json",{cache:"no-store"});
+      if (!shareResponse.ok) throw new Error("HTTP "+shareResponse.status);
+      state.shareAudit=window.ShareAuditV111.validateShareWarning(
+        state.feed,await shareResponse.json());
+      render();
+    } catch(error) {
+      state.shareAudit=null;
+      // A missing or contradictory sidecar must not certify the financial feed.
+      console.warn("S63 historical share audit unavailable:",error.message);
+    }
   } catch (error) {
     $("stockRows").replaceChildren();
     $("totalCount").textContent = "0"; $("eligibleCount").textContent = "0";
