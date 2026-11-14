@@ -14,3 +14,18 @@
 .share-evidence-warning strong{font-size:13px}
 .share-evidence-warning p{margin:7px 0}
 .share-evidence-warning a{color:#e9d3b4;text-decoration:underline}
+
+
+/* v165: compact issuer research section without hiding provenance from the DOM. */
+.ocbc-research-group{margin:0 0 24px;border:1px solid #36566b;border-radius:14px;background:#102333;overflow:hidden}
+.ocbc-group-summary{display:flex;flex-direction:column;gap:7px;cursor:pointer;list-style:none;padding:22px 24px;position:relative;padding-right:55px}
+.ocbc-group-summary::-webkit-details-marker{display:none}
+.ocbc-group-summary:after{content:"+";position:absolute;right:24px;top:25px;font-size:25px;color:#aad9d4;line-height:1}
+.ocbc-research-group[open] .ocbc-group-summary:after{content:"−"}
+.ocbc-group-summary:focus-visible{outline:2px solid #b3efe1;outline-offset:-3px}
+.ocbc-group-label{font-size:11px;letter-spacing:.11em;color:#8db4c0;font-weight:700}
+.ocbc-group-summary strong{font-size:18px;line-height:1.5;color:#e5f6f4}
+.ocbc-group-description{font-size:12px;line-height:1.7;color:#a4bac7}
+.ocbc-group-panels{padding:0 14px 8px}
+.ocbc-group-panels>.workspace{margin:0 0 12px}
+@media(max-width:620px){.ocbc-group-summary{padding:18px 42px 18px 16px}.ocbc-group-summary:after{right:15px;top:20px}.ocbc-group-panels{padding:0 8px 6px}.ocbc-group-summary strong{font-size:16px}}
