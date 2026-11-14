@@ -21,6 +21,8 @@ on:
       - 'docs/data/sgx-remaining-issuer-research-v207.json'
       - 'docs/remaining-issuer-research-v207.js'
       - 'docs/test_remaining_issuer_research_v207.js'
+      - 'docs/data/sgx-h02-group-statement-v208.json'
+      - 'docs/test_h02_group_statement_v208.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
