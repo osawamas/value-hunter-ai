@@ -1,0 +1,139 @@
+{
+  "schema_version": "sgx-remaining-official-seed-fy2025-research-v207",
+  "review_date": "2026-11-14",
+  "period_end": "2025-12-31",
+  "source_kind": "ISSUER_ANNUAL_FINANCIAL_HIGHLIGHTS_RESEARCH",
+  "all_sources_externally_audited_independently": false,
+  "primary_pdf_bytes_and_sha_checked": false,
+  "financial_feed_registered_increment": 0,
+  "ranking_eligible_increment": 0,
+  "cross_currency_peer_ranking_allowed": false,
+  "market_price_license_verified": false,
+  "current_ex_treasury_shares_verified": false,
+  "items": [
+    {
+      "symbol": "G07",
+      "issuer": "Great Eastern Holdings Limited",
+      "trading_currency": "SGD",
+      "reporting_currency": "SGD",
+      "accounting_scope": "INSURANCE_GROUP",
+      "source_url": "https://www.greateasternlife.com/sg/en/about-us/media-centre/media-releases/fy-25-financial-results.html",
+      "source_label": "ISSUER_FY2025_MEDIA_RELEASE",
+      "metrics": [
+        {
+          "name": "PROFIT_ATTRIBUTABLE_TO_SHAREHOLDERS",
+          "unit": "SGD_millions",
+          "y2025": 1207.1,
+          "y2024": 995.3
+        }
+      ],
+      "general_industrial_revenue_not_assumed": true,
+      "independently_verified": false,
+      "financial_feed_registered": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H02",
+      "issuer": "Haw Par Corporation Limited",
+      "trading_currency": "SGD",
+      "reporting_currency": "SGD",
+      "accounting_scope": "CONSOLIDATED_GROUP",
+      "source_url": "https://hawpar.listedcompany.com/newsroom/20260227_172327_H02_R2V7WFBB9WQMBBP4.1.pdf",
+      "source_label": "ISSUER_FY2025_RESULTS_PDF",
+      "metrics": [
+        {
+          "name": "GROUP_REVENUE",
+          "unit": "SGD_millions",
+          "y2025": 229.967,
+          "y2024": 244.824
+        },
+        {
+          "name": "PROFIT_FOR_YEAR_AFTER_TAX",
+          "unit": "SGD_millions",
+          "y2025": 265.462,
+          "y2024": 228.274
+        }
+      ],
+      "parent_attribution_unverified": true,
+      "independently_verified": false,
+      "financial_feed_registered": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C07",
+      "issuer": "Jardine Cycle & Carriage Limited",
+      "trading_currency": "SGD",
+      "reporting_currency": "USD",
+      "accounting_scope": "GROUP_UNDERLYING_PROFIT",
+      "source_url": "https://ar.jardines.com/2025/JardineCycleCarriage.html",
+      "source_label": "JARDINE_MATHESON_2025_ANNUAL_GROUP_SUBSIDIARY_HIGHLIGHTS",
+      "metrics": [
+        {
+          "name": "UNDERLYING_NET_PROFIT",
+          "unit": "USD_millions",
+          "y2025": 1110,
+          "y2024": 1102
+        }
+      ],
+      "reported_net_profit_not_inferred": true,
+      "independently_verified": false,
+      "financial_feed_registered": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "J36",
+      "issuer": "Jardine Matheson Holdings Limited",
+      "trading_currency": "USD",
+      "reporting_currency": "USD",
+      "accounting_scope": "GROUP_REPORTING",
+      "source_url": "https://ar.jardines.com/2025/CFOStatement.html",
+      "source_label": "ISSUER_FY2025_CFO_STATEMENT",
+      "metrics": [
+        {
+          "name": "UNDERLYING_PROFIT_ATTRIBUTABLE_SHAREHOLDERS",
+          "unit": "USD_millions",
+          "y2025": 1681,
+          "y2024": 1518
+        },
+        {
+          "name": "REPORTED_NET_PROFIT_OR_LOSS",
+          "unit": "USD_millions",
+          "y2025": 1109,
+          "y2024": -468
+        }
+      ],
+      "underlying_and_reported_not_interchangeable": true,
+      "independently_verified": false,
+      "financial_feed_registered": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "K6S",
+      "issuer": "Prudential plc",
+      "trading_currency": "USD",
+      "reporting_currency": "USD",
+      "accounting_scope": "INSURANCE_GROUP",
+      "source_url": "https://www.prudentialplc.com/en/newsroom/company-news/2026/prudential-plc-2026-half-year-results/",
+      "source_label": "ISSUER_H1_2026_RELEASE_WITH_FY2025_COMPARATOR",
+      "metrics": [
+        {
+          "name": "FY2025_IFRS_PROFIT_AFTER_TAX",
+          "unit": "USD_millions",
+          "y2025": 4119,
+          "y2024": null
+        },
+        {
+          "name": "FY2025_ADJUSTED_OPERATING_PROFIT_BEFORE_TAX",
+          "unit": "USD_millions",
+          "y2025": 3306,
+          "y2024": null
+        }
+      ],
+      "comparative_2024_not_transcribed_from_this_source": true,
+      "ifrs_and_adjusted_metrics_not_comparable": true,
+      "independently_verified": false,
+      "financial_feed_registered": false,
+      "ranking_eligible": false
+    }
+  ]
+}
