@@ -24,6 +24,7 @@
   <script src="./additional-issuer-research-v206.js" defer></script>
   <script src="./remaining-issuer-research-v207.js" defer></script>
   <script src="./primary-issuer-reconciliation-v214.js" defer></script>
+  <script src="./pdf-sha-evidence-v234.js" defer></script>
   <script src="./fy-third-party-figure-v197.js" defer></script>
   <script src="./share-warning-v111.js" defer></script>
   <script src="./bank-quote-research-v116.js" defer></script>
@@ -211,6 +212,18 @@
           <tbody id="officialCurrencyPairRows"><tr><td colspan="6">照合中…</td></tr></tbody></table></div>
         <div class="tablefoot"><span>証券コードと通貨を別々に管理。ETFは一般企業の投資ランキング対象とみなさない。</span>
           <span>公式資料：<a href="https://www.sgx.com/securities/trading" target="_blank" rel="noopener noreferrer">SGX Trading</a>。これは全銘柄マスターではない。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="issuerPdfDigestTitle">
+        <div class="section-heading"><div><div class="eyebrow">PRIMARY PDF BYTES / SOURCE PROVENANCE</div>
+          <h2 id="issuerPdfDigestTitle">Haw Par・Venture SGX原本PDFのSHA-256照合</h2></div>
+          <p>SGX原本ファイルを別々のGitHub Actionsで取得した結果。会計数値の独立監査とは別。</p></div>
+        <p id="issuerPdfDigestStatus" class="status-message" role="status">原本バイト列の照合記録を読み込み中…</p>
+        <div class="tablewrap"><table><thead><tr><th>証券</th><th>ファイルサイズ (bytes)</th>
+          <th>SHA-256</th><th>再取得の照合</th><th>独立財務監査</th><th>SGX原本</th></tr></thead>
+          <tbody id="issuerPdfDigestRows"><tr><td colspan="6">照合中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>SHA-256は原本の同一性追跡に使う。PER/PBR/ランキングに必要な財務・株価の信頼性を自動保証しない。</span>
+          <span>取得履歴：<a href="https://github.com/osawamas/value-hunter-ai/actions/runs/43603411759" target="_blank" rel="noopener noreferrer">GitHub Actions 原本検証</a></span></div>
       </section>
 
       <section class="workspace" aria-labelledby="secondaryBankResearchTitle">
