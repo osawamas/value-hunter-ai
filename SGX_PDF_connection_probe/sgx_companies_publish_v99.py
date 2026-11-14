@@ -8,6 +8,7 @@ full SGX list, and never attach price/market-cap/financial fields.
 import argparse,hashlib,json,re
 from datetime import datetime,timezone
 from pathlib import Path
+from sgx_companies_api_v98 import FETCH_URL
 
 STATUS="THIRD_PARTY_COMPANY_JSON_CANDIDATES_DIAGNOSTIC_ONLY"
 CODE=re.compile(r"^[A-Z0-9]{1,6}$")
@@ -20,7 +21,7 @@ def publish(feed,discovery):
  verified=[x.get("symbol") for x in existing]
  if len(verified)!=7 or len(verified)!=len(set(verified)):
   raise ValueError("Expected existing 7 verified issuer records")
- if (discovery.get("status")!=STATUS or discovery.get("source_url")!="https://stocks.com.sg/api/v1/companies"
+ if (discovery.get("status")!=STATUS or discovery.get("source_url")!=FETCH_URL
      or not SHA.fullmatch(discovery.get("source_response_sha256",""))
      or discovery.get("all_sgx_listings_verified") is not False
      or discovery.get("current_market_price_verified") is not False
@@ -58,6 +59,9 @@ def publish(feed,discovery):
   "source_kind":"THIRD_PARTY_LISTED_COMPANY_API_FREE_TIER",
   "coverage":"PARTIAL_UNVERIFIED",
   "provider_raw_rows":discovery["raw_rows_count"],
+  "provider_reported_total":discovery.get("provider_reported_total"),
+  "provider_unaccepted_rows":discovery.get("rejected_rows_count"),
+  "provider_next_offset":discovery.get("provider_next_offset"),
   "provider_accepted_candidate_count":len(rows),
   "known_verified_issuer_count":len(verified),
   "known_verified_issuer_overlap":len(set(verified)&seen),
