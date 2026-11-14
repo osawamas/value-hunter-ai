@@ -1,16 +1,30 @@
 {
   "schema_version": "sgx-s63-auditor-probe-v131",
-  "attempted_at_utc": "2026-11-14T05:55:30.748708+00:00",
-  "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20FY2025%20Auditors%20Report.ashx?App=Announcement&FileID=876452",
-  "status": "NOT_VERIFIED",
-  "record": null,
-  "error": "ValueError: Unrelated or missing audit report",
-  "pdf_text_diagnostics": {
-    "page_count": 7,
-    "first_page_start": "",
-    "contains_opinion": false,
-    "contains_auditor": false,
-    "contains_pwc": false,
-    "revenue_context": []
-  }
+  "attempted_at_utc": "2026-11-14T05:56:18.101886+00:00",
+  "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
+  "status": "SGX_INDEPENDENT_S63_FY2025_AUDITOR_REPORT_CONFIRMED",
+  "record": {
+    "schema_version": "sgx-s63-fy2025-independent-audit-proof-v131",
+    "symbol": "S63",
+    "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
+    "auditor_document_sha256": "eb39428ba51c1c39463eea983648e2b7f7cfb1bf84a1da02d2ef3d5b8ecf989b",
+    "auditor": "PricewaterhouseCoopers LLP",
+    "audit_fiscal_year": 2025,
+    "audit_reporting_period_end": "2025-12-31",
+    "auditor_report_date": "2026-02-26",
+    "audit_partner": "Lee Chian Yorn",
+    "audit_opinion_scope_verified": true,
+    "auditor_independence_statement_verified": true,
+    "auditor_KAM_mentions_revenue_sgd": 12346426000,
+    "published_revenue_matches_auditor_KAM": true,
+    "report_text_pages": 261,
+    "independent_arithmetic_reperformance_completed": false,
+    "parent_equity_independently_reconciled": false,
+    "2026_nine_month_management_numbers_audited_by_this_opinion": false,
+    "share_count_as_of_today_verified": false,
+    "exchange_quote_verified": false,
+    "ranking_eligible": false,
+    "financial_feed_modified": false
+  },
+  "error": null
 }
