@@ -1,0 +1,55 @@
+name: VALUE HUNTER v125 S63 9M2026 SGX market update
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/s63_9m2026_sgx_v125.py'
+      - 'SGX_PDF_connection_probe/test_s63_9m2026_sgx_v125.py'
+      - '.github/workflows/value-hunter-v125.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v125
+  cancel-in-progress: false
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PDF extractor and run tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_s63_9m2026_sgx_v125
+      - name: Fetch SGX original nine-month performance update
+        run: |
+          python SGX_PDF_connection_probe/s63_9m2026_sgx_v125.py --output docs/data/sgx-s63-9m2026-v125.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-s63-9m2026-v125.json").read_text())
+          assert r["schema_version"]=="sgx-s63-9m2026-update-v125"
+          if r["record"]:
+            assert r["record"]["audited_income_and_profit_for_new_per_verified"] is False
+            assert r["record"]["ranking_eligible"] is False
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          print(r["status"],r["error"])
+          PY
+      - name: Publish separate SGX original snapshot
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-s63-9m2026-v125.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v125): official S63 9M2026 market update evidence'
+            git push
+          fi
