@@ -1,0 +1,342 @@
+{
+  "schema_version": "sgx-official-dual-currency-extra-research-v227",
+  "source_url": "https://www.sgx.com/securities/trading",
+  "reviewed_date": "2026-11-14",
+  "scope": "SECOND_SELECTED_BATCH_STATIC_IDENTITY_ONLY",
+  "not_a_complete_sgx_security_master": true,
+  "free_public_market_data_redistribution_authorized": false,
+  "current_sgx_listing_independently_authenticated": false,
+  "ranking_eligible_count": 0,
+  "financial_feed_modified": false,
+  "prior_sources": [
+    "docs/data/sgx-official-multicurrency-subset-v220.json",
+    "docs/data/sgx-dual-currency-research-v224.json"
+  ],
+  "new_pair_count": 20,
+  "new_counter_count": 40,
+  "pairs": [
+    {
+      "underlying_name": "CSOP iEdge S-REITs Leaders ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "SRT",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "SRU",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-OCBC Securities SG Low Carbon ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "ESG",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "ESU",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "CSOP CGS-CIMB FTSE Asia Pacific Low Carbon Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "LCU",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "LCS",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "UOBAM Ping An ChiNext ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "CXS",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "CXU",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "CSOP iEdge Southeast Asia+ TECH Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "SQU",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "SQQ",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "CGS Fullgoal Vietnam 30 Sector Cap ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "VND",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "VNM",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "iShares MSCI Asia Ex Japan Climate Action ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "ICU",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "ICM",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "CGS Fullgoal CSI1000 ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "GRO",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "GRU",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-Nomura Japan Active ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "JJJ",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "JUS",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Phillip-China Universal MSCI China A 50 Connect ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "MCN",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "MCS",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-OCBC Securities APAC Financials Dividend Plus ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "YLD",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "YLU",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "UOBAM FTSE China A50 Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "JK8",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "VK8",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-China Merchants EM Asia Select Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "EAA",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "EAU",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Lion-China Merchants CSI Dividend Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "INC",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "ICH",
+        "currency": "CNH"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Amova MSCI AC Asia Ex Japan Ex China Index ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "A93",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "A94",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Amova E Fund ChiNext Index ETF RMB Class",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "CXN",
+        "currency": "RMB"
+      },
+      "secondary": {
+        "code": "CXO",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "LionGlobal Short Duration Bond Fund Active ETF SGD Class",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "SBO",
+        "currency": "SGD"
+      },
+      "secondary": {
+        "code": "SBV",
+        "currency": "USD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "EliteUK REIT",
+      "instrument_category": "REIT",
+      "primary": {
+        "code": "MXNU",
+        "currency": "GBP"
+      },
+      "secondary": {
+        "code": "MENU",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "LionGlobal Singapore Physical Gold ETF",
+      "instrument_category": "ETF",
+      "primary": {
+        "code": "GLU",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "GLS",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    },
+    {
+      "underlying_name": "Ultragreen.ai",
+      "instrument_category": "POTENTIAL_EQUITY",
+      "primary": {
+        "code": "ULG",
+        "currency": "USD"
+      },
+      "secondary": {
+        "code": "UGS",
+        "currency": "SGD"
+      },
+      "official_table_source": "SGX_SECURITIES_TRADING_DUAL_CURRENCY",
+      "issuer_entity_identity_independently_verified": false,
+      "valuation_ready": false,
+      "ranking_eligible": false
+    }
+  ],
+  "excluded_ambiguous_source_rows": [
+    "UPD/UPU row omitted pending verification of inconsistent secondary currency label on source page"
+  ]
+}
