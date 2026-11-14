@@ -17,7 +17,8 @@ const rows=[
 ];
 for(const item of sections)assert.equal((grouped.match(new RegExp('aria-labelledby="'+item+'"','g'))||[]).length,1,"missing evidence panel "+item);
 for(const id of rows)assert.equal((grouped.match(new RegExp('id="'+id+'"','g'))||[]).length,1,"missing row target "+id);
-assert.ok(grouped.includes("独立数値検証は未完"));
+assert.ok(grouped.includes('id="ocbcBundleHeadline"'),"source-driven summary must remain inside accordion");
+assert.ok(grouped.includes("第三者独立数値検証ではない"),"risk disclaimer must survive grouping");
 assert.ok(grouped.includes("OCBC（O39）"));
 assert.ok(html.indexOf('id="shareDateRows"')>end);
 assert.ok(css.includes(".ocbc-group-summary:focus-visible"),"accordion should be keyboard focus-visible");
