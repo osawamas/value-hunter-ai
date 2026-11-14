@@ -1,0 +1,36 @@
+name: VALUE HUNTER v171 DBS and OCBC 3Q original banking research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/bank-coverage-v169.js'
+      - 'docs/test_bank_coverage_v169.js'
+      - '.github/workflows/value-hunter-v171.yml'
+permissions:
+  contents: read
+jobs:
+  bank-period:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate direct D05 and O39 banking financial source periods
+        run: |
+          node --check docs/bank-coverage-v169.js
+          node docs/test_bank_coverage_v169.js
+          node docs/test_reference_valuation_guard_v168.js
+          node docs/test_ocbc_bundle_summary_v167.js
+      - name: Prevent SGX original quarter from becoming an audited annual price rank
+        run: |
+          node - <<'JS'
+          const f=require("./docs/data/latest.json"),d=require("./docs/data/sgx-dbs-2026q3-original-v170.json");
+          if(f.ranking_eligible_count!==0||d.status!=="DBS_3Q26_PRIMARY_SGX_ANNOUNCEMENT_AND_PDF_VERIFIED"||
+            d.record.independent_earnings_reperformance!==false||
+            d.record.per_pbr_ranking_permitted!==false)
+            throw Error("Unverified valuation promotion");
+          console.log("3Q26 issuer data remains research-only");
+          JS
