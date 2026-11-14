@@ -1,0 +1,47 @@
+{
+  "schema_version": "sgx-ocbc-bank-research-bundle-v166",
+  "symbol": "O39",
+  "bank": "Oversea-Chinese Banking Corporation Limited",
+  "quarter_end": "2026-09-30",
+  "sgx_original_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+  "sgx_original_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+  "sgx_original_attachment_count": 3,
+  "income_statement_sgd_millions": {
+    "3Q26": {
+      "group_net_profit": 2042,
+      "group_net_profit_previous_year": 1978,
+      "net_interest_income": 2313,
+      "non_interest_income": 1420,
+      "allowances_charged": 52
+    },
+    "9M26": {
+      "group_net_profit": 6237,
+      "group_net_profit_previous_year": 5677,
+      "net_interest_income": 6798,
+      "non_interest_income": 4933,
+      "allowances_charged": 424,
+      "allowances_impaired_assets": 190,
+      "allowances_non_impaired_assets": 234
+    }
+  },
+  "bank_quality_3q26_reported_pct": {
+    "net_interest_margin": "1.66",
+    "nonperforming_loan_ratio": "0.8",
+    "cet1_capital_ratio": "15.5",
+    "annualised_return_on_equity": "13.1"
+  },
+  "bank_balance_2026_09_30_sgd_millions": {
+    "ordinary_equity": 60899,
+    "equity_attributable_to_bank_equity_holders": 63347,
+    "total_assets": 731689,
+    "net_loans_to_customers": 366929,
+    "deposits_nonbank_customers": 461462
+  },
+  "periods_and_units_explicit": true,
+  "multiple_sgx_pdfs_same_issuer_not_independent_financial_verification": true,
+  "independent_third_party_financial_reperformance": false,
+  "2026_interim_covered_by_fy2025_audit": false,
+  "current_treasury_shares_verified": false,
+  "authenticated_current_exchange_quote_verified": false,
+  "per_pbr_and_ranking_permitted": false
+}
