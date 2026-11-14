@@ -1,0 +1,440 @@
+{
+  "schema_version": "sgx-ocbc-line-structure-probe-v151",
+  "status": "SGX_OCBC_ORIGINAL_TEXT_CONTEXTS_EXTRACTED",
+  "record": {
+    "schema_version": "sgx-ocbc-3q26-line-structure-v151",
+    "symbol": "O39",
+    "period_end_date": "2026-09-30",
+    "original_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "official_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+    "page_count": 9,
+    "keyword_context_count": 60,
+    "line_contexts": [
+      {
+        "pdf_page": 1,
+        "matching_line": "OCBC Group Third Quarter 2026 Net Profit at S$2.04 billion",
+        "line_before": "Third Quarter 2026 Results Press Release",
+        "line_after": "Nine-month Group net profit up 10% to a record S$6.24 billion",
+        "line_next2": "Singapore, 6 November 2026 – Oversea-Chinese Banking Corporation Limited (“OCBC”) reported a record net"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Nine-month Group net profit up 10% to a record S$6.24 billion",
+        "line_before": "OCBC Group Third Quarter 2026 Net Profit at S$2.04 billion",
+        "line_after": "Singapore, 6 November 2026 – Oversea-Chinese Banking Corporation Limited (“OCBC”) reported a record net",
+        "line_next2": "profit of S$6.24 billion for the first nine months of 2026 (“9M26”), 10% higher than a year ago (“9M25”). 9M26"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Banking and Insurance. 9M26 WM fees rose 25% to a record S$1.33 billion and non-interest income from",
+        "line_before": "total income reached a new high, driven by broad-based growth across Wealth Management (“WM”), Wholesale",
+        "line_after": "Wholesale Banking grew 24%.",
+        "line_next2": "Group net profit for the third quarter (“3Q26”) was S$2.04 billion, up 3% year-on-year. OCBC delivered record"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Group net profit for the third quarter (“3Q26”) was S$2.04 billion, up 3% year-on-year. OCBC delivered record",
+        "line_before": "Wholesale Banking grew 24%.",
+        "line_after": "Banking Operations profit for 3Q26, supported by its strong franchise, and disciplined cost and risk management.",
+        "line_next2": "Great Eastern Holdings (“GEH”) underlying business remained resilient, with New Business Embedded Value"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "(“NBEV”) up 14% for 3Q26. Quarter-on-quarter, Group net profit was down 8%, as record Banking Operations",
+        "line_before": "Great Eastern Holdings (“GEH”) underlying business remained resilient, with New Business Embedded Value",
+        "line_after": "profit was offset by weaker investment performance from GEH.",
+        "line_next2": "Net interest income (“NII”) was higher quarter-on-quarter in 3Q26, lifted by loan growth and improved yields,"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Net interest income (“NII”) was higher quarter-on-quarter in 3Q26, lifted by loan growth and improved yields,",
+        "line_before": "profit was offset by weaker investment performance from GEH.",
+        "line_after": "partly offset by higher funding costs. Higher SORA rates were a net positive to NII as asset yields rose faster",
+        "line_next2": "than funding costs, while the rise in US rates pressured margins this quarter as funding repriced faster than"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Asset quality stayed strong, with improved NPL ratio of 0.8% and lower allowances, reflecting continued prudent",
+        "line_before": "strong 3Q25 results although below the record high in 2Q26.",
+        "line_after": "risk management. The Group maintained sufficient buffers against potential risks with an NPA coverage ratio at",
+        "line_next2": "168%. Capital remained sound and well positioned to support business growth. Balance sheet management"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Net Interest Income",
+        "line_before": "-11%",
+        "line_after": "S$2.31b",
+        "line_next2": "+4%"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Non-Interest Income",
+        "line_before": "+2%",
+        "line_after": "S$1.42b",
+        "line_next2": "-10%"
+      },
+      {
+        "pdf_page": 1,
+        "matching_line": "Net Profit",
+        "line_before": "Group",
+        "line_after": "+3% YoY",
+        "line_next2": "S$1.78"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Net interest income",
+        "line_before": "QoQ (%)",
+        "line_after": "2,313",
+        "line_next2": "2,226"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Non-interest income",
+        "line_before": "+2",
+        "line_after": "1,420",
+        "line_next2": "1,570"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Operating profit before allowances",
+        "line_before": "-3",
+        "line_after": "2,211",
+        "line_next2": "2,277"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Allowances",
+        "line_before": "-15",
+        "line_after": "(52)",
+        "line_next2": "(139)"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Group net profit",
+        "line_before": "-18",
+        "line_after": "2,042",
+        "line_next2": "1,978"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Group net profit for 3Q26 was S$2.04 billion, 8% below the record level in 2Q26, mainly due to GEH’s weaker",
+        "line_before": "3Q26 Quarter-on-Quarter Performance",
+        "line_after": "investment performance in insurance and shareholders’ funds. Banking Operations profit rose 8% to a record",
+        "line_next2": "S$1.90 billion in 3Q26, supported by loan growth, continued momentum in customer flow trading income and"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "investment performance in insurance and shareholders’ funds. Banking Operations profit rose 8% to a record",
+        "line_before": "Group net profit for 3Q26 was S$2.04 billion, 8% below the record level in 2Q26, mainly due to GEH’s weaker",
+        "line_after": "S$1.90 billion in 3Q26, supported by loan growth, continued momentum in customer flow trading income and",
+        "line_next2": "resilient fees."
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "Non-interest income was S$1.42 billion, down 26% from 2Q26, impacted by GEH’s investment performance.",
+        "line_before": "➢",
+        "line_after": "Customer-driven income, particularly fees and customer flow trading income, remained strong.",
+        "line_next2": "•"
+      },
+      {
+        "pdf_page": 2,
+        "matching_line": "3Q26. This was mainly due to mark-to-market losses on GEH’s bond portfolio in its shareholders’ fund",
+        "line_before": "Trading income declined 33% from a high base in 2Q26 despite the record customer flow income in",
+        "line_after": "amid rising interest rates in 3Q26, as well as the absence of significant gains on its equity portfolio in",
+        "line_next2": "2Q26 that were not repeated this quarter."
+      },
+      {
+        "pdf_page": 3,
+        "matching_line": "Total allowances were lower at S$52 million, mainly from a decline in allowances for impaired assets. Credit",
+        "line_before": "➢",
+        "line_after": "costs were at 6 basis points on an annualised basis, compared to 14 basis points in 2Q26.",
+        "line_next2": "➢"
+      },
+      {
+        "pdf_page": 3,
+        "matching_line": "Group net profit rose 3% from the previous year, despite lower profit contribution from GEH.",
+        "line_before": "3Q26 Year-on-Year Performance",
+        "line_after": "➢",
+        "line_next2": "NII was 4% higher than a year ago, supported by a 15% growth in average assets, from an increase in both"
+      },
+      {
+        "pdf_page": 3,
+        "matching_line": "Total allowances were lower year-on-year, mainly from a decline in allowances for impaired assets.",
+        "line_before": "➢",
+        "line_after": "➢",
+        "line_next2": "Share of results of associates increased 19% to S$331 million."
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Net interest income",
+        "line_before": "YoY (%)",
+        "line_after": "6,798",
+        "line_next2": "6,854"
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Non-interest income",
+        "line_before": "-1",
+        "line_after": "4,933",
+        "line_next2": "4,144"
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Operating profit before allowances",
+        "line_before": "+6",
+        "line_after": "7,129",
+        "line_next2": "6,676"
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Allowances",
+        "line_before": "+7",
+        "line_after": "(424)",
+        "line_next2": "(466)"
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Group net profit",
+        "line_before": "+7",
+        "line_after": "6,237",
+        "line_next2": "5,677"
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Group net profit rose 10% from a year ago to a record S$6.24 billion.",
+        "line_before": "9M26 Year-on-Year Performance",
+        "line_after": "➢",
+        "line_next2": "NII was S$6.80 billion, down slightly by 1%, as a 12% growth in average assets supported NII amid a lower"
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "Non-interest income grew 19% to a new high of S$4.93 billion, driven by broad-based growth across fee,",
+        "line_before": "➢",
+        "line_after": "trading and insurance income. Strong growth in non-interest income raised its contribution to total income",
+        "line_next2": "to 42% in 9M26, up from 38% in the previous year."
+      },
+      {
+        "pdf_page": 4,
+        "matching_line": "trading and insurance income. Strong growth in non-interest income raised its contribution to total income",
+        "line_before": "Non-interest income grew 19% to a new high of S$4.93 billion, driven by broad-based growth across fee,",
+        "line_after": "to 42% in 9M26, up from 38% in the previous year.",
+        "line_next2": "•"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Total allowances of S$424 million were 9% lower than the previous year, mainly from lower allowances for",
+        "line_before": "➢",
+        "line_after": "impaired assets.",
+        "line_next2": "➢"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Asset Quality and Allowances",
+        "line_before": "S$1.83.",
+        "line_after": "S$ million",
+        "line_next2": "Sep 2026"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Allowances (S$ million)",
+        "line_before": "+5ppt",
+        "line_after": "9M26",
+        "line_next2": "9M25"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Allowances/(write-back)",
+        "line_before": "2Q26",
+        "line_after": "for loans and other assets",
+        "line_next2": "424"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "1/ Credit costs refer to allowances for loans as a percentage of average loans, on annualised basis.",
+        "line_before": "12",
+        "line_after": "Non-performing assets (“NPAs”)",
+        "line_next2": "➢"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Allowances",
+        "line_before": "NPL ratio was lower at 0.8%, and total NPA coverage was at 168%.",
+        "line_after": "➢",
+        "line_next2": "For 9M26, total allowances declined 9% to S$424 million and comprised:"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "For 9M26, total allowances declined 9% to S$424 million and comprised:",
+        "line_before": "➢",
+        "line_after": "•",
+        "line_next2": "Allowances for impaired assets of S$190 million, below S$299 million in 9M25."
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Allowances for impaired assets of S$190 million, below S$299 million in 9M25.",
+        "line_before": "•",
+        "line_after": "•",
+        "line_next2": "Allowances for non-impaired assets of S$234 million, which mainly comprised overlays for"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "Allowances for non-impaired assets of S$234 million, which mainly comprised overlays for",
+        "line_before": "•",
+        "line_after": "macroeconomic uncertainties, including Middle East conflicts and Indonesia, prudently set aside in the",
+        "line_next2": "first half of the year."
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "3Q26 allowances of S$52 million were lower quarter-on-quarter and year-on-year, mainly from a decline in",
+        "line_before": "➢",
+        "line_after": "allowances for impaired assets.",
+        "line_next2": "➢"
+      },
+      {
+        "pdf_page": 5,
+        "matching_line": "allowances for impaired assets.",
+        "line_before": "3Q26 allowances of S$52 million were lower quarter-on-quarter and year-on-year, mainly from a decline in",
+        "line_after": "➢",
+        "line_next2": "9M26 total credit costs were lower at 14 basis points on annualised basis, compared to 17 basis points a"
+      },
+      {
+        "pdf_page": 7,
+        "matching_line": "“Our strong third quarter 2026 results reflected our franchise strength and resiliency, with Group net profit rising",
+        "line_before": "Message from Group CEO, Tan Teck Long",
+        "line_after": "3% year-on-year to S$2.04 billion. This beat 3Q25, the strongest quarter last year. Banking operations total",
+        "line_next2": "income and net profit rose 7% and 16% year-on-year to record highs. This was underpinned by strong"
+      },
+      {
+        "pdf_page": 7,
+        "matching_line": "income and net profit rose 7% and 16% year-on-year to record highs. This was underpinned by strong",
+        "line_before": "3% year-on-year to S$2.04 billion. This beat 3Q25, the strongest quarter last year. Banking operations total",
+        "line_after": "performance across our Wealth Management and Wholesale Banking businesses as we continued to execute",
+        "line_next2": "our Next Frontier strategy. Great Eastern’s underlying insurance business remained resilient. New business"
+      },
+      {
+        "pdf_page": 7,
+        "matching_line": "insurance and shareholders’ funds.",
+        "line_before": "channels in Singapore, even though profit contribution was lower from weaker investment performance in its",
+        "line_after": "Net interest income grew 4% year-on-year to S$2.31 billion, the highest over six quarters. We achieved 13%",
+        "line_next2": "growth in non-interest income from Banking operations, anchored by strong growth in wholesale banking and"
+      },
+      {
+        "pdf_page": 7,
+        "matching_line": "Net interest income grew 4% year-on-year to S$2.31 billion, the highest over six quarters. We achieved 13%",
+        "line_before": "insurance and shareholders’ funds.",
+        "line_after": "growth in non-interest income from Banking operations, anchored by strong growth in wholesale banking and",
+        "line_next2": "wealth management fees. Customer flow trading income rose 29% to an all-time high."
+      },
+      {
+        "pdf_page": 7,
+        "matching_line": "growth in non-interest income from Banking operations, anchored by strong growth in wholesale banking and",
+        "line_before": "Net interest income grew 4% year-on-year to S$2.31 billion, the highest over six quarters. We achieved 13%",
+        "line_after": "wealth management fees. Customer flow trading income rose 29% to an all-time high.",
+        "line_next2": "Even as customer loans grew 14% year-on-year, asset quality remained sound, with our NPL ratio improving to"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "FINANCIAL HIGHLIGHTS (unaudited)",
+        "line_before": "8",
+        "line_after": "S$ million",
+        "line_next2": "9M26"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Selected Income Statement Items",
+        "line_before": "%",
+        "line_after": "Net interest income",
+        "line_next2": "6,798"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Net interest income",
+        "line_before": "Selected Income Statement Items",
+        "line_after": "6,798",
+        "line_next2": "6,854"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Non-interest income",
+        "line_before": "2",
+        "line_after": "4,933",
+        "line_next2": "4,144"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Operating profit before allowances and",
+        "line_before": "(3)",
+        "line_after": "amortisation",
+        "line_next2": "7,129"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Allowances for impaired assets",
+        "line_before": "(17)",
+        "line_after": "(190)",
+        "line_next2": "(299)"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Allowances (charge)/write-back for non-impaired",
+        "line_before": "(65)",
+        "line_after": "assets",
+        "line_next2": "(234)"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Operating profit after allowances and amortisation",
+        "line_before": "(73)",
+        "line_after": "6,692",
+        "line_next2": "6,194"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Net profit attributable to equity holders",
+        "line_before": "(10)",
+        "line_after": "6,237",
+        "line_next2": "5,677"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Total assets",
+        "line_before": "–",
+        "line_after": "731,689",
+        "line_next2": "647,812"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Return on equity 1/",
+        "line_before": "Key Financial Ratios (%)",
+        "line_after": "13.5",
+        "line_next2": "12.9"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Non-interest income to total income",
+        "line_before": "1.70",
+        "line_after": "42.0",
+        "line_next2": "37.7"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "Common Equity Tier 1 capital adequacy ratio",
+        "line_before": "0.9",
+        "line_after": "15.5",
+        "line_next2": "16.9"
+      },
+      {
+        "pdf_page": 8,
+        "matching_line": "For notes on the computation of the above ratios, information can be found in the Financial Highlights disclosed on a half-yearly basis.",
+        "line_before": "13.73",
+        "line_after": "1.",
+        "line_next2": "Computed on an annualised basis."
+      }
+    ],
+    "extracted_precise_bank_accounting_values_verified": false,
+    "any_independent_earnings_recalculation": false,
+    "current_price_or_shares_approved": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
