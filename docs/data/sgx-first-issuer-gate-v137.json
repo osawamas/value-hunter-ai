@@ -1,0 +1,84 @@
+{
+  "schema_version": "sgx-first-issuer-evidence-gate-v137",
+  "feed_updated_at_utc": "2026-11-14T06:00:11.138017+00:00",
+  "checked_issuers": 2,
+  "required_evidence_fields": [
+    "fy2025_external_auditor_opinion",
+    "parent_equity_independent_reperformance",
+    "financial_numerical_independent_reperformance",
+    "authenticated_sgx_execution_quote",
+    "authenticated_quote_exact_trade_time",
+    "latest_treasury_adjusted_shares",
+    "quote_share_effective_date_compatible",
+    "current_earnings_period_applicable"
+  ],
+  "eligible_count": 0,
+  "ranking_activation_permitted": false,
+  "no_financial_feed_changes": true,
+  "records": [
+    {
+      "symbol": "G13",
+      "issuer": "Genting Singapore Limited",
+      "fiscal_year": 2025,
+      "as_of_snapshot_for_shares": "2026-06-30",
+      "verified_historical_shares_ex_treasury": 12063642274,
+      "historical_reference_quote_provider": "YAHOO_FINANCE_UNOFFICIAL_CHART",
+      "evidence_requirements": {
+        "fy2025_external_auditor_opinion": true,
+        "parent_equity_independent_reperformance": false,
+        "financial_numerical_independent_reperformance": false,
+        "authenticated_sgx_execution_quote": false,
+        "authenticated_quote_exact_trade_time": false,
+        "latest_treasury_adjusted_shares": false,
+        "quote_share_effective_date_compatible": false,
+        "current_earnings_period_applicable": false
+      },
+      "unmet_requirements": [
+        "parent_equity_independent_reperformance",
+        "financial_numerical_independent_reperformance",
+        "authenticated_sgx_execution_quote",
+        "authenticated_quote_exact_trade_time",
+        "latest_treasury_adjusted_shares",
+        "quote_share_effective_date_compatible",
+        "current_earnings_period_applicable"
+      ],
+      "audit_opinion_fy2025_does_not_audit_2026_interim": true,
+      "separate_provider_quotes_are_not_primary_execution_tape": true,
+      "historical_share_snapshot_is_not_current": true,
+      "eligible_for_ranking": false,
+      "promoted_market_cap_per_pbr": false
+    },
+    {
+      "symbol": "S63",
+      "issuer": "Singapore Technologies Engineering Ltd",
+      "fiscal_year": 2025,
+      "as_of_snapshot_for_shares": "2026-11-13",
+      "verified_historical_shares_ex_treasury": 3115847115,
+      "historical_reference_quote_provider": "YAHOO_FINANCE_UNOFFICIAL_CHART",
+      "evidence_requirements": {
+        "fy2025_external_auditor_opinion": true,
+        "parent_equity_independent_reperformance": false,
+        "financial_numerical_independent_reperformance": false,
+        "authenticated_sgx_execution_quote": false,
+        "authenticated_quote_exact_trade_time": false,
+        "latest_treasury_adjusted_shares": false,
+        "quote_share_effective_date_compatible": false,
+        "current_earnings_period_applicable": false
+      },
+      "unmet_requirements": [
+        "parent_equity_independent_reperformance",
+        "financial_numerical_independent_reperformance",
+        "authenticated_sgx_execution_quote",
+        "authenticated_quote_exact_trade_time",
+        "latest_treasury_adjusted_shares",
+        "quote_share_effective_date_compatible",
+        "current_earnings_period_applicable"
+      ],
+      "audit_opinion_fy2025_does_not_audit_2026_interim": true,
+      "separate_provider_quotes_are_not_primary_execution_tape": true,
+      "historical_share_snapshot_is_not_current": true,
+      "eligible_for_ranking": false,
+      "promoted_market_cap_per_pbr": false
+    }
+  ]
+}
