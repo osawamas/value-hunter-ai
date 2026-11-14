@@ -1,0 +1,54 @@
+name: VALUE HUNTER v105 official SGX master reconciliation guard
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_master_reconcile_v105.py'
+      - 'SGX_PDF_connection_probe/test_sgx_master_reconcile_v105.py'
+      - '.github/workflows/value-hunter-v105.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v105-master
+  cancel-in-progress: false
+jobs:
+  reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run strict master-provenance tests
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_master_reconcile_v105
+      - name: Publish explicit official-master-unavailable audit result
+        run: |
+          python SGX_PDF_connection_probe/sgx_master_reconcile_v105.py --candidates docs/data/sgx-universe-candidates.json --output docs/data/sgx-master-reconciliation-v105.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("docs/data/sgx-master-reconciliation-v105.json").read_text())
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert x["official_master_status"]=="NOT_AVAILABLE"
+          assert x["official_confirmed_candidate_count"]==0
+          assert x["official_master_completeness_verified"] is False
+          assert x["ranking_eligible"] is False
+          assert x["candidate_count"]==182
+          assert feed["ranking_eligible_count"]==0
+          print("Official coverage is not inferred from third-party universe")
+          PY
+      - name: Commit separate diagnostic without touching financial feed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-master-reconciliation-v105.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v105): explicit unavailable SGX official master'
+            git push
+          fi
