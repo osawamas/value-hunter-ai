@@ -43,6 +43,8 @@ jobs:
           node docs/test_first_issuer_gate_v138.js
           node --check docs/annual-arithmetic-v141.js
           node docs/test_annual_arithmetic_v141.js
+          node --check docs/ocbc-quarter-v147.js
+          node docs/test_ocbc_quarter_v147.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
