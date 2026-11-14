@@ -1,0 +1,53 @@
+name: VALUE HUNTER v106 SGX issuer original probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_issuer_page_v106.py'
+      - 'SGX_PDF_connection_probe/test_sgx_issuer_page_v106.py'
+      - '.github/workflows/value-hunter-v106.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v106-sgx-issuer
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run issuer parsing regression
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_issuer_page_v106
+      - name: Fetch live original and preserve uncertainty
+        run: |
+          python SGX_PDF_connection_probe/sgx_issuer_page_v106.py --output docs/data/sgx-issuer-s68-v106.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-issuer-s68-v106.json").read_text())
+          assert r["schema_version"]=="sgx-individual-issuer-evidence-v106"
+          if r["record"]:
+            assert r["record"]["eligible_for_ranking"] is False
+            assert r["record"]["symbol_to_isin_official_master_join_verified"] is False
+          feed=json.loads(Path("docs/data/latest.json").read_text())
+          assert feed["ranking_eligible_count"]==0
+          print(r["status"],r["error"])
+          PY
+      - name: Save isolated issuer provenance
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-issuer-s68-v106.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v106): SGX individual issuer page provenance'
+            git push
+          fi
