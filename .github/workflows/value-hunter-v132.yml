@@ -1,0 +1,51 @@
+name: VALUE HUNTER v132 FY2025 external audit assurance integration
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_fy2025_audit_assurance_v132.py'
+      - 'SGX_PDF_connection_probe/test_sgx_fy2025_audit_assurance_v132.py'
+      - '.github/workflows/value-hunter-v132.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v132
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Ensure audit evidence cannot promote rankings
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_fy2025_audit_assurance_v132
+      - name: Compare actual audited issuer PDFs to current published feed
+        run: |
+          python SGX_PDF_connection_probe/sgx_fy2025_audit_assurance_v132.py --feed docs/data/latest.json --g13 docs/data/sgx-g13-fy2025-auditor-v130.json --s63 docs/data/sgx-s63-fy2025-auditor-v131.json --output docs/data/sgx-fy2025-audit-assurance-v132.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("docs/data/sgx-fy2025-audit-assurance-v132.json").read_text())
+          assert r["external_auditor_fy2025_opinion_confirmed_count"]==2
+          assert r["numeric_recalculation_completed_count"]==0
+          assert r["ranking_eligible_count"]==0
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_eligible_count"]==0
+          PY
+      - name: Publish limited FY2025 audit assurance evidence only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/sgx-fy2025-audit-assurance-v132.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'data(v132): differentiate externally audited annuals from current market checks'
+            git push
+          fi
