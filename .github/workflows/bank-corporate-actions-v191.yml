@@ -33,6 +33,8 @@ on:
       - 'docs/test_h02_primary_filing_v212.js'
       - 'docs/data/sgx-v03-primary-statements-v213.json'
       - 'docs/test_v03_primary_statements_v213.js'
+      - 'docs/primary-issuer-reconciliation-v214.js'
+      - 'docs/test_primary_issuer_reconciliation_v214.js'
       - 'docs/data/sgx-universe-candidates.json'
       - 'docs/data/uob-share-display-research-v201.json'
       - 'docs/test_bank_corporate_actions_v190.js'
