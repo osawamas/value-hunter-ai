@@ -31,7 +31,7 @@ function verify(d,h,v,a,o,f){
   for(const [year,fields] of Object.entries(row.fields)){
    const ref=symbol==="H02"?
     {revenue:h.income[year].revenue,gross_profit:h.income[year].gross_profit,
-     profit_after_tax:h.income[year].profit_after_tax,...h.balance[year]}:
+     profit_after_tax:h.income[year].profit_after_tax,total_assets:h.balance[year].total_assets,total_liabilities:h.balance[year].total_liabilities,total_equity:h.balance[year].total_equity}:
     {revenue:v.group[year].revenue,profit_before_tax:v.group[year].profit_before_tax,
      profit_for_year:v.group[year].profit_for_year,
      profit_attributable_to_owners:v.group[year].profit_attributable_to_owners,
