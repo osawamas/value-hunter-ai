@@ -1,0 +1,37 @@
+name: VALUE HUNTER v139 qualify unverified valuation labels
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/app.js'
+      - 'docs/test_unverified_valuation_labels_v139.js'
+      - '.github/workflows/value-hunter-v139.yml'
+permissions:
+  contents: read
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate nonofficial valuation references
+        run: |
+          node --check docs/app.js
+          node docs/test_unverified_valuation_labels_v139.js
+          node docs/test_first_issuer_gate_v138.js
+          node docs/test_external_audit_v133.js
+      - name: Reject ranking promotion in current public feed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          f=json.loads(Path("docs/data/latest.json").read_text())
+          assert f["ranking_enabled"] is False
+          assert f["ranking_eligible_count"]==0
+          assert all(x["ranking_eligible"] is False for x in f["records"])
+          PY
