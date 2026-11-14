@@ -1,0 +1,84 @@
+{
+  "schema_version": "sgx-dbs-exact-table-probe-v180",
+  "status": "DBS_3Q26_9M26_PRIMARY_SGX_TABLE_COLUMNS_RECONCILED",
+  "record": {
+    "schema_version": "sgx-dbs-exact-3q-9m-original-v180",
+    "symbol": "D05",
+    "financial_period_end": "2026-09-30",
+    "unit": "SGD_millions",
+    "original_sgx_pdf_url": "https://links.sgx.com/FileOpen/3Q26_trading_update.ashx?App=Announcement&FileID=910439",
+    "original_pdf_sha256": "c8d55126a0ad0702771ac74ab2f2b79a0f7721223de53faae1197974eca617d6",
+    "statement_pdf_page": 7,
+    "official_table_column_order": [
+      "3Q26",
+      "3Q25",
+      "3Q26_YOY_PCT",
+      "2Q26",
+      "3Q26_QOQ_PCT",
+      "9M26",
+      "9M25",
+      "9M26_YOY_PCT"
+    ],
+    "net_interest_row_only_first_six_column_values_authenticated": true,
+    "exact_original_table_rows": {
+      "Of which: Net interest income": {
+        "original_pdf_page": 7,
+        "label": "Of which: Net interest income",
+        "row_index": 90,
+        "source_column_values": [
+          "3,711",
+          "3,578",
+          "4",
+          "3,581",
+          "4",
+          "10,786"
+        ]
+      },
+      "Net profit": {
+        "original_pdf_page": 7,
+        "label": "Net profit",
+        "row_index": 171,
+        "source_column_values": [
+          "2,813",
+          "2,954",
+          "(5)",
+          "3,079",
+          "(9)",
+          "8,822",
+          "8,675",
+          "2"
+        ]
+      },
+      "Total income": {
+        "original_pdf_page": 7,
+        "label": "Total income",
+        "row_index": 81,
+        "source_column_values": [
+          "5,845",
+          "5,932",
+          "(1)",
+          "6,093",
+          "(4)",
+          "17,886",
+          "17,569",
+          "2"
+        ]
+      }
+    },
+    "net_interest_income_3q26_components_sgd_millions": [
+      3576,
+      135
+    ],
+    "net_interest_income_3q26_sgd_millions": 3711,
+    "net_profit_3q26_sgd_millions": 2813,
+    "net_profit_9m26_sgd_millions": 8822,
+    "income_3q26_sgd_millions": 5845,
+    "issuer_original_row_and_column_positions_verified": true,
+    "independent_numerical_verification": false,
+    "fy2025_auditor_opinion_does_not_certify_2026_interim": true,
+    "official_execution_quote_verified": false,
+    "latest_treasury_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
