@@ -7,6 +7,7 @@
   <meta name="description" content="VALUE HUNTER AI — SGX上場銘柄の財務・株価・データ検証状況を日本語で比較。">
   <title>安物で割安 | VALUE HUNTER AI</title>
   <link rel="stylesheet" href="./style.css">
+  <script src="./bank-coverage-v169.js" defer></script>
   <script src="./reference-valuation-guard-v168.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./universe.js" defer></script>
@@ -188,6 +189,19 @@
           <th>銘柄</th><th>総資産</th><th>総負債</th><th>連結純資産</th><th>親会社株主持分</th><th>非支配株主持分（差額）</th><th>照合結果</th>
         </tr></thead><tbody id="annualArithmeticRows"><tr><td colspan="7">読み込み中…</td></tr></tbody></table></div>
         <div class="tablefoot"><span>金額は千SGD、連結財務諸表の算術一致のみ。</span><span>第三者の独立再計算や現在のPBR認証とは別。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="bankCoverageTitle">
+        <div class="section-heading"><div><div class="eyebrow">BANK RESEARCH / PERIOD-SAFE COVERAGE</div>
+          <h2 id="bankCoverageTitle">銀行3社・原本データの取得状況</h2></div>
+          <p>DBS・OCBC・UOBで年度や株主持分の定義が異なるため、横並びの投資順位にはしない。</p></div>
+        <p id="bankCoverageStatus" class="status-message" role="status">銀行の原本資料を照合中…</p>
+        <div class="tablewrap"><table><thead><tr>
+          <th>銘柄</th><th>FY2025帰属利益</th><th>2026年第3四半期純利益</th>
+          <th>確認できた株主持分</th><th>検証区分</th><th>原本</th>
+        </tr></thead><tbody id="bankCoverageRows"><tr><td colspan="6">読み込み中…</td></tr></tbody></table></div>
+        <div class="tablefoot"><span>金額単位：百万SGD。空欄の数字は推測で補わない。</span>
+          <span>現在のPER・PBR・時価総額ランキングは未認証。</span></div>
       </section>
 
       <details class="ocbc-research-group" id="ocbcResearchGroup">
