@@ -60,12 +60,12 @@
         <div class="metric"><span>比較銘柄</span><strong id="totalCount">—</strong><small>SGX / テスト対象</small></div>
         <div class="metric"><span>ランキング対象</span><strong id="eligibleCount">—</strong><small>必要データ・検証済みに限定</small></div>
         <div class="metric"><span>データ不足・除外</span><strong id="excludedCount">—</strong><small>除外理由を個別表示</small></div>
-        <div class="metric"><span>市場データ取得済み</span><strong id="pricedCount">—</strong><small>株価の取得日を個別に表示</small></div>
+        <div class="metric"><span>非公式参考株価</span><strong id="pricedCount">—</strong><small>取引所の正式価格認証とは別</small></div>
       </section>
 
       <section class="workspace" aria-labelledby="listTitle">
         <div class="section-heading"><div><div class="eyebrow">STOCK SCREENER</div><h2 id="listTitle">銘柄スクリーナー</h2></div>
-          <p class="aside">数値は参考値。検証状況を必ず確認。</p>
+          <p class="aside">未認証の時価総額・PER・PBRは一覧非表示。比較順位にも使用しない。</p>
         </div>
         <div class="toolbar">
           <label class="search">
@@ -79,9 +79,9 @@
           </label>
           <label class="control">並び替え
             <select id="sortBy" aria-label="並び替え">
-              <option value="symbol">銘柄コード</option><option value="market_cap_sgd">参考時価総額（未検証・大きい順）</option>
+              <option value="symbol">銘柄コード</option>
               <option value="revenue_growth_pct">売上成長率（高い順）</option>
-              <option value="per_reference">参考PER（未検証・低い順）</option><option value="pbr_reference_unverified">参考PBR（未検証・低い順）</option>
+              
             </select>
           </label>
           <button id="exportCsv" class="secondary-button" type="button">CSV出力 ↓</button>
@@ -343,6 +343,19 @@
         <div class="history-panel">
           <p id="historyStatus" class="history-note" role="status">履歴を読み込み中…</p>
           <div id="historyChart" class="history-chart" aria-label="記録された取得日の時系列チャート"></div>
+        </div>
+      </section>
+
+      <section class="workspace" aria-labelledby="marketDataTitle">
+        <div class="section-heading"><div><div class="eyebrow">SGX MARKET DATA / SOURCE & LICENCE</div>
+          <h2 id="marketDataTitle">正規株価の取得と利用条件</h2></div>
+          <p>公式サイトでの閲覧、機械取得、再配信は区別する。</p></div>
+        <p>SGX公式の株価閲覧ページは約2分遅延の取引価格を案内している。ただし、表示されている価格を自動収集して当アプリで再配信できる利用許諾が確認されたわけではない。</p>
+        <p>現在のランキングは、正規SGX約定価格・正確な取引時刻・同日時点の自己株式控除後株数が確認できるまで有効化しない。</p>
+        <div class="tablefoot">
+          <span><a href="https://www.sgx.com/securities/securities-prices?code=stocks" target="_blank" rel="noopener noreferrer">SGX公式・株価閲覧 ↗</a></span>
+          <span><a href="https://www.datadirect.sgx.com/Market-Data-Policy" target="_blank" rel="noopener noreferrer">SGXデータ利用規則（2026年7月1日版） ↗</a></span>
+          <span><a href="https://www.sgx.com/data-connectivity/our-data-vendors" target="_blank" rel="noopener noreferrer">SGX認定データ事業者 ↗</a></span>
         </div>
       </section>
 
