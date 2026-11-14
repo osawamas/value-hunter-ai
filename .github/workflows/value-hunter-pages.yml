@@ -33,6 +33,8 @@ jobs:
           node docs/test_bank_quote_research_v116.js
           node --check docs/ranking-readiness-v118.js
           node docs/test_ranking_readiness_v118.js
+          node --check docs/g13-quarter-warning-v123.js
+          node docs/test_g13_quarter_warning_v123.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
