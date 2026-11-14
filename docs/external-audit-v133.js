@@ -27,7 +27,7 @@
       a.annual_report_primary_source_url!==f.financial_source_url||
       a.annual_report_primary_sha256!==f.financial_pdf_sha256||
       a.reperformed_independent_financial_calculations!==false||
-      a.2026_interim_audited_by_same_fy2025_opinion!==false||
+      a["2026_interim_audited_by_same_fy2025_opinion"]!==false||
       a.current_shares_and_quote_independently_verified!==false||
       a.parent_equity_independently_reperformed!==false||
       a.eligible_for_ranking!==false||f.ranking_eligible!==false)
