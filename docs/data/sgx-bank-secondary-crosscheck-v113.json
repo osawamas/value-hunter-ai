@@ -1,0 +1,53 @@
+{
+  "schema_version": "sgx-bank-secondary-crosscheck-v113",
+  "source_kind": "MULTIPLE_SECONDARY_SOURCES_NO_PRIMARY_EXCHANGE_VALIDATION",
+  "all_three_research_closes_match": true,
+  "reference_close_count": 3,
+  "official_sgx_price_verified_count": 0,
+  "published_financial_feed_modified": false,
+  "ranking_eligible": false,
+  "records": [
+    {
+      "symbol": "D05",
+      "trade_date_sgt": "2026-11-13",
+      "stored_third_party_close_sgd": "69.90",
+      "live_yahoo_daily_chart_close_sgd": "69.90",
+      "two_secondary_research_values_equal_to_cent": true,
+      "yahoo_source_url": "https://query1.finance.yahoo.com/v8/finance/chart/D05.SI?interval=1d&range=5d",
+      "yahoo_chart_raw_sha256": "ee12420ebd6b46f497c7afe787fdd42b186d57222048e0e30cd1df8cb887993d",
+      "chart_daily_bar_timestamp_not_last_trade_time": true,
+      "exchange_execution_price_verified": false,
+      "independent_exchange_confirmation": false,
+      "eligible_for_market_cap_per_pbr": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "O39",
+      "trade_date_sgt": "2026-11-13",
+      "stored_third_party_close_sgd": "28.53",
+      "live_yahoo_daily_chart_close_sgd": "28.53",
+      "two_secondary_research_values_equal_to_cent": true,
+      "yahoo_source_url": "https://query1.finance.yahoo.com/v8/finance/chart/O39.SI?interval=1d&range=5d",
+      "yahoo_chart_raw_sha256": "6c43968bdaf16f84b99c154aaaafeec475c90276e36c3728332f2c102271ae26",
+      "chart_daily_bar_timestamp_not_last_trade_time": true,
+      "exchange_execution_price_verified": false,
+      "independent_exchange_confirmation": false,
+      "eligible_for_market_cap_per_pbr": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U11",
+      "trade_date_sgt": "2026-11-13",
+      "stored_third_party_close_sgd": "37.75",
+      "live_yahoo_daily_chart_close_sgd": "37.75",
+      "two_secondary_research_values_equal_to_cent": true,
+      "yahoo_source_url": "https://query1.finance.yahoo.com/v8/finance/chart/U11.SI?interval=1d&range=5d",
+      "yahoo_chart_raw_sha256": "7db4e4e3e2bf7472401c87cf32896881ab578dd3dcf601c7fee8cbbb9db524ee",
+      "chart_daily_bar_timestamp_not_last_trade_time": true,
+      "exchange_execution_price_verified": false,
+      "independent_exchange_confirmation": false,
+      "eligible_for_market_cap_per_pbr": false,
+      "ranking_eligible": false
+    }
+  ]
+}
