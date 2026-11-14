@@ -1,20 +1,26 @@
 {
   "schema_version": "sgx-g13-2026q3-original-v121",
-  "attempted_at_utc": "2026-11-14T05:24:59.795014+00:00",
+  "attempted_at_utc": "2026-11-14T05:26:56.383929+00:00",
   "source_url": "https://links.sgx.com/FileOpen/Q3%202026%20GENS%20Quarterly%20Business%20Overview.ashx?App=Announcement&FileID=911200",
-  "status": "NOT_VERIFIED",
-  "record": null,
-  "error": "ValueError: Missing/ambiguous quarterly row Total Revenue",
-  "pdf_content_debug": {
-    "text_length": 7142,
-    "row_lines": [
-      "Revenue",
-      "566,096           649,790           (13)               595,951           (5)",
-      "Net profit after taxation                                54,731            94,618           (42)                90,884          (40)",
-      "and the same has not been audited nor reviewed by the Company’s auditors. Potential investors and shareholders of the Company",
-      "For the third quarter ended 30 September 2026, the Group reported revenue of $566.1 million and adjusted",
-      "regional key markets. An unfavourable rolling win rate in September further impacted revenue. On a",
-      "gaming performance remained resilient, with revenue increasing 1% year-on-year despite reduced hotel"
-    ]
-  }
+  "status": "SGX_PRIMARY_2026Q3_UNAUDITED_BUSINESS_UPDATE",
+  "record": {
+    "status": "SGX_PRIMARY_2026Q3_UNAUDITED_BUSINESS_UPDATE",
+    "source_url": "https://links.sgx.com/FileOpen/Q3%202026%20GENS%20Quarterly%20Business%20Overview.ashx?App=Announcement&FileID=911200",
+    "source_pdf_sha256": "8ebef146c7b16cab1003fea562970cb554a43c3ba428dfadc291a577bfc32b9d",
+    "announcement_reference_from_issuer_news_page": "SG261112OTHRSMFB",
+    "quarter_end_date": "2026-09-30",
+    "revenue_2026q3_sgd_thousands": 566096,
+    "revenue_2025q3_sgd_thousands": 649790,
+    "net_profit_after_tax_2026q3_sgd_thousands": 54731,
+    "net_profit_after_tax_2025q3_sgd_thousands": 94618,
+    "revenue_yoy_pct": -12.88,
+    "net_profit_yoy_pct": -42.16,
+    "financials_audited": false,
+    "financials_reviewed": false,
+    "annual_profit_period_compatible_for_repricing": false,
+    "older_fy_per_cannot_be_described_as_current": true,
+    "shares_or_quote_validated": false,
+    "ranking_eligible": false
+  },
+  "error": null
 }
