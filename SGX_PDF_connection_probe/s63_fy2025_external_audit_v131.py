@@ -85,7 +85,25 @@ def main():
  try:
   out["record"]=parse(fetch(),feed)
   out["status"]="SGX_INDEPENDENT_S63_FY2025_AUDITOR_REPORT_CONFIRMED"
- except Exception as e:out["error"]=type(e).__name__+": "+str(e)[:250]
+ except Exception as e:
+  out["error"]=type(e).__name__+": "+str(e)[:250]
+  try:
+   import fitz
+   pdf=fitz.open(stream=fetch(),filetype="pdf")
+   try:
+    raw_pages=[ " ".join(page.get_text("text").split()) for page in pdf ]
+   finally:pdf.close()
+   out["pdf_text_diagnostics"]={
+    "page_count":len(raw_pages),
+    "first_page_start":raw_pages[0][:1400] if raw_pages else "",
+    "contains_opinion":any("opinion" in p.lower() for p in raw_pages),
+    "contains_auditor":any("auditor" in p.lower() for p in raw_pages),
+    "contains_pwc":any("PricewaterhouseCoopers" in p for p in raw_pages),
+    "revenue_context":[p[max(0,p.find("12,346,426")-80):p.find("12,346,426")+120]
+       for p in raw_pages if "12,346,426" in p][:3]
+   }
+  except Exception as inner:
+   out["diagnostics_error"]=type(inner).__name__+": "+str(inner)[:200]
  dest=Path(a.output);dest.parent.mkdir(parents=True,exist_ok=True)
  dest.write_text(json.dumps(out,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
  print(out["status"],out["error"])
