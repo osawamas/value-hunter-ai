@@ -5,7 +5,6 @@
  * Do not publish, count as official complete coverage, or derive tickers from names. */
 const fs=require("node:fs"),path=require("node:path");
 const {csvRows,decodeOriginalCsv}=require("./stage-sgx-csv-v199.js");
-const {typeCategory}=require("./classify-sgx-counters-v202.js");
 function stage(raw,{as_of_date,source_url,original_csv_sha256}={}){
  if(typeof raw!=="string"||raw.length>10_000_000)throw Error("CSV too large or invalid");
  if(!/^\d{4}-\d{2}-\d{2}$/.test(as_of_date||"")||
