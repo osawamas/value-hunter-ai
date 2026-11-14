@@ -7,6 +7,9 @@ on:
       - 'SGX_PDF_connection_probe/sgx_ranking_readiness_v117.py'
       - 'SGX_PDF_connection_probe/test_sgx_ranking_readiness_v117.py'
       - '.github/workflows/value-hunter-v117.yml'
+  workflow_run:
+    workflows: ["VALUE HUNTER SGX dashboard data refresh v29"]
+    types: [completed]
 permissions:
   contents: write
 concurrency:
@@ -14,11 +17,13 @@ concurrency:
   cancel-in-progress: false
 jobs:
   audit:
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           persist-credentials: true
       - uses: actions/setup-python@v5
         with:
