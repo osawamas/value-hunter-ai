@@ -56,6 +56,7 @@
      uob.ranking_eligible!==false||
      ocbc?.schema_version!=="sgx-ocbc-official-issuer-identity-v244"||
      ocbc.symbol!=="O39"||ocbc.isin!=="SG1S04926220"||
+     ocbc.source_url!=="https://links.sgx.com/1.0.0/corporate-information/1943"||
      ocbc.company_information_source!=="SGX_OFFICIAL_CORPORATE_INFORMATION"||
      ocbc.official_treasury_attachment_2026_11_12_obtained!==false||
      ocbc.latest_issued_excluding_treasury_shares_verified!==false||
@@ -114,7 +115,7 @@
       const td=document.createElement("td");td.textContent=value;tr.append(td);
     }
     const td=document.createElement("td");
-    if(source){const a=document.createElement("a");a.href=source;a.textContent="SGX発表";a.target="_blank";a.rel="noopener noreferrer";td.append(a);}
+    if(source){const a=document.createElement("a");a.href=source;a.textContent=symbol==="OCBC / O39"?"SGX会社情報":"SGX発表";a.target="_blank";a.rel="noopener noreferrer";td.append(a);}
     else td.textContent="未取得";
     tr.append(td);frag.append(tr);
    }
