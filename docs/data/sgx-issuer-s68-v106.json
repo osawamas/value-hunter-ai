@@ -1,0 +1,22 @@
+{
+  "schema_version": "sgx-individual-issuer-evidence-v106",
+  "fetched_at_utc": "2026-11-14T02:51:08.887538+00:00",
+  "requested_url": "https://links.sgx.com/1.0.0/corporate-information/1637",
+  "status": "SGX_HOSTED_ISSUER_PAGE_CONTENT_MATCHED",
+  "record": {
+    "status": "SGX_HOSTED_ISSUER_PAGE_CONTENT_MATCHED",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-information/1637",
+    "source_sha256": "d8bfdf8ef4c227cc3b03700ef2fb36613042b68843a8b0b73a6e0a3b6ffb6008",
+    "issuer_name": "SINGAPORE EXCHANGE LIMITED",
+    "isin": "SG1J26887955",
+    "board": "MAINBOARD",
+    "page_updated_local_text": "11/11/2026 08:45:30 AM",
+    "candidate_symbol": "S68",
+    "symbol_directly_observed_on_sgx_page": false,
+    "symbol_to_isin_official_master_join_verified": false,
+    "scope": "INDIVIDUAL_ISSUER_ONLY_NOT_FULL_MASTER",
+    "eligible_for_financial_promotion": false,
+    "eligible_for_ranking": false
+  },
+  "error": null
+}
