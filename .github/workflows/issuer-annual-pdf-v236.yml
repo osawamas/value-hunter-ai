@@ -1,0 +1,33 @@
+name: SGX issuer FY2025 annual report provenance v236
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe-issuer-annual-pdf-v236.js'
+      - 'docs/test_issuer_annual_pdf_v236.js'
+      - '.github/workflows/issuer-annual-pdf-v236.yml'
+permissions:
+  contents: read
+jobs:
+  issuer-annual-byte-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Test source boundary and annual report provenance model
+        run: node docs/test_issuer_annual_pdf_v236.js
+      - name: Download official issuer FY2025 annual PDFs and compute raw SHA or record explicit failure
+        continue-on-error: true
+        run: node scripts/probe-issuer-annual-pdf-v236.js
+      - name: Preserve evidence JSON only, no copyrighted PDF bytes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-issuer-annual-report-v236-provenance
+          path: build/research/sgx-annual-report-probe-v236.json
+          if-no-files-found: warn
+          retention-days: 14
