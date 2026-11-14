@@ -20,7 +20,7 @@ function fixture(){
    annual_report_primary_source_url:"https://links.sgx.com/annual/"+symbol,
    annual_report_primary_sha256:"a".repeat(64),
    reperformed_independent_financial_calculations:false,
-   2026_interim_audited_by_same_fy2025_opinion:false,
+   "2026_interim_audited_by_same_fy2025_opinion":false,
    current_shares_and_quote_independently_verified:false,
    parent_equity_independently_reperformed:false,eligible_for_ranking:false
   }))};
