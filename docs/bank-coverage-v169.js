@@ -1,7 +1,7 @@
 /* v169: Bank evidence coverage, not an annual/interim earnings comparison. */
 "use strict";
 (function(root) {
- function validate(feed, bundle, dbsQ3) {
+ function validate(feed, bundle, dbsQ3, uobQ3) {
   if(feed?.schema_version!=="value_hunter_web_v29"||feed.ranking_enabled!==false||
     feed.ranking_eligible_count!==0||!Array.isArray(feed.records)||
     bundle?.schema_version!=="sgx-ocbc-bank-research-bundle-v166"||
@@ -39,6 +39,24 @@
      !/^[a-f0-9]{64}$/.test(dbsQ3.record.official_pdf_sha256)||
      !/^https:\/\/links\.sgx\.com\/FileOpen\//.test(dbsQ3.record.official_pdf_url))
     throw Error("DBS 3Q official SGX source not independently validated");
+  if(uobQ3?.schema_version!=="sgx-uob-q3-cfo-probe-v172"||
+     uobQ3.status!=="UOB_Q3_CFO_PRIMARY_SGX_PDF_VERIFIED"||
+     uobQ3.record?.schema_version!=="sgx-uob-q3-cfo-original-v172"||
+     uobQ3.record.symbol!=="U11"||uobQ3.record.financial_period_end!=="2026-09-30"||
+     uobQ3.record.cfo_pdf_observed_group_net_profit_3q26_sgd_millions!==1250||
+     uobQ3.record.cfo_pdf_observed_group_net_profit_9m26_sgd_millions!==4165||
+     uobQ3.record.issuer_original_sgx_pdf_verified!==true||
+     uobQ3.record.announcement_landing_page_and_ref_verified!==false||
+     uobQ3.record.exact_table_row_column_scoping_independently_reperformed!==false||
+     uobQ3.record.issuer_2026_interim_independently_audited!==false||
+     uobQ3.record.nov13_buyback_announcement_original_verified!==false||
+     uobQ3.record.independent_third_party_financial_verification!==false||
+     uobQ3.record.current_sgx_quote_verified!==false||
+     uobQ3.record.current_treasury_adjusted_shares_verified!==false||
+     uobQ3.record.ranking_eligible!==false||
+     !/^[0-9a-f]{64}$/.test(uobQ3.record.source_pdf_sha256)||
+     !/^https:\/\/links\.sgx\.com\/FileOpen\//.test(uobQ3.record.source_pdf_url))
+    throw Error("UOB original attachment may not be treated as SGX announcement/trading verification");
   const dbs=banks.D05.banking_evidence;
   if(dbs?.status!=="BANK_ISSUER_FY2025_GROUP_STATEMENTS_RECONCILED"||
      dbs.scope!=="GROUP_BANKING_NOT_INDUSTRIAL_FINANCIALS"||
@@ -57,8 +75,8 @@
     note:"FY2025と2026年3Qは別原本。四半期は概数・独立検証待ち"},
    {symbol:"O39",name:"OCBC",fy:"未照合",q3:"2,042",equity:"60,899（2026年9月末・普通株主持分）",source:bundle.sgx_original_pdf_url,
     note:"2026年3Q発行会社資料・FY2025とは比較不可"},
-   {symbol:"U11",name:"UOB",fy:"未照合",q3:"未照合",equity:"未照合",source:banks.U11.bank_financial_state.source_url,
-    note:"年次資料は登録済み・同条件の数値照合待ち"}
+   {symbol:"U11",name:"UOB",fy:"未照合",q3:"1,250（PDF表示値）",equity:"未照合",source:uobQ3.record.source_pdf_url,
+    note:"SGX公式添付PDFを取得済・表の列を独立再照合する前"}
   ];
  }
  async function render() {
@@ -66,11 +84,11 @@
   const info=document.getElementById("bankCoverageStatus");
   if(!body||!info)return;
   try {
-   const [f,b,d]=await Promise.all(["./data/latest.json","./data/sgx-ocbc-bank-research-v166.json","./data/sgx-dbs-2026q3-original-v170.json"].map(async url=>{
+   const [f,b,d,u]=await Promise.all(["./data/latest.json","./data/sgx-ocbc-bank-research-v166.json","./data/sgx-dbs-2026q3-original-v170.json","./data/sgx-uob-2026q3-cfo-v172.json"].map(async url=>{
      const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error("HTTP");return r.json();
    }));
    body.replaceChildren();
-   for(const item of validate(f,b,d)){
+   for(const item of validate(f,b,d,u)){
      const tr=document.createElement("tr");
      for(const value of [item.symbol+" / "+item.name,item.fy,item.q3,item.equity,item.note]){
        const td=document.createElement("td");td.textContent=value;tr.append(td);
@@ -82,7 +100,7 @@
      }else td.textContent="未登録";
      tr.append(td);body.append(tr);
    }
-   info.textContent="単位：百万SGD。DBSの3Q26は会社公表の概数、OCBCは表の精密値。2025年度と3Q26は直接比較しない。独立数値検証・最新株式数と株価認証は未完。";
+   info.textContent="単位：百万SGD。3社の2026年3Q発行会社原本は確認済み。ただしDBSは概数、OCBCは表の精密値、UOBはPDF本文表示値で精度が異なる。2025年度とは別期間。独立数値検証・最新株価と株数は未完。";
   } catch(e) {
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=6;td.textContent="資料の照合待ちのため非表示";tr.append(td);
