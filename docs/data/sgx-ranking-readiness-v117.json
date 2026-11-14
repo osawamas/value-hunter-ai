@@ -1,0 +1,288 @@
+{
+  "schema_version": "sgx-ranking-readiness-evidence-v117",
+  "generated_at_utc": "2026-11-14T05:12:56.043418+00:00",
+  "published_feed_updated_at_utc": "2026-11-14T05:06:38.830123+00:00",
+  "registered_issuers": 7,
+  "third_party_candidate_count_is_not_registered_count": true,
+  "issuer_source_evidence_not_independent_numerical_verification": true,
+  "safe_candidate_first_industrial_order": [
+    "G13",
+    "S63",
+    "S68",
+    "S20"
+  ],
+  "priority_reason": "G13 has three issuer-to-issuer financial matches; S63 has three and newer dated official share snapshot. This is work ordering, not investment merit.",
+  "ranking_eligible_count": 0,
+  "all_issuers_still_blocked": true,
+  "changes_to_financial_feed": false,
+  "records": [
+    {
+      "symbol": "S68",
+      "sector_model": "INDUSTRIAL",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
+      ],
+      "observed_evidence_signals": {
+        "issuer_primary_financial_pdf": true,
+        "issuer_two_document_revenue_crosscheck": true,
+        "issuer_two_document_profit_crosscheck": true,
+        "parent_equity_independently_checked": false,
+        "financials_independently_checked": false,
+        "quote_independently_exchange_verified": false,
+        "updated_treasury_adjusted_shares_independently_checked": false,
+        "same_date_quote_shares_compatible": false,
+        "valid_earnings_for_positive_per": true,
+        "dated_primary_buyback_snapshot_available": false
+      },
+      "remaining_verification_tasks": [
+        "parent_equity_independently_checked",
+        "financials_independently_checked",
+        "quote_independently_exchange_verified",
+        "updated_treasury_adjusted_shares_independently_checked",
+        "same_date_quote_shares_compatible"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    },
+    {
+      "symbol": "G13",
+      "sector_model": "INDUSTRIAL",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
+      ],
+      "observed_evidence_signals": {
+        "issuer_primary_financial_pdf": true,
+        "issuer_two_document_revenue_crosscheck": true,
+        "issuer_two_document_profit_crosscheck": true,
+        "parent_equity_independently_checked": false,
+        "financials_independently_checked": false,
+        "quote_independently_exchange_verified": false,
+        "updated_treasury_adjusted_shares_independently_checked": false,
+        "same_date_quote_shares_compatible": false,
+        "valid_earnings_for_positive_per": true,
+        "dated_primary_buyback_snapshot_available": false
+      },
+      "remaining_verification_tasks": [
+        "parent_equity_independently_checked",
+        "financials_independently_checked",
+        "quote_independently_exchange_verified",
+        "updated_treasury_adjusted_shares_independently_checked",
+        "same_date_quote_shares_compatible"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    },
+    {
+      "symbol": "S20",
+      "sector_model": "INDUSTRIAL",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "NEGATIVE_EARNINGS_PER_NOT_APPLICABLE",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
+      ],
+      "observed_evidence_signals": {
+        "issuer_primary_financial_pdf": true,
+        "issuer_two_document_revenue_crosscheck": true,
+        "issuer_two_document_profit_crosscheck": true,
+        "parent_equity_independently_checked": false,
+        "financials_independently_checked": false,
+        "quote_independently_exchange_verified": false,
+        "updated_treasury_adjusted_shares_independently_checked": false,
+        "same_date_quote_shares_compatible": false,
+        "valid_earnings_for_positive_per": false,
+        "dated_primary_buyback_snapshot_available": false
+      },
+      "remaining_verification_tasks": [
+        "parent_equity_independently_checked",
+        "financials_independently_checked",
+        "quote_independently_exchange_verified",
+        "updated_treasury_adjusted_shares_independently_checked",
+        "same_date_quote_shares_compatible",
+        "valid_earnings_for_positive_per"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    },
+    {
+      "symbol": "S63",
+      "sector_model": "INDUSTRIAL",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"
+      ],
+      "observed_evidence_signals": {
+        "issuer_primary_financial_pdf": true,
+        "issuer_two_document_revenue_crosscheck": true,
+        "issuer_two_document_profit_crosscheck": true,
+        "parent_equity_independently_checked": false,
+        "financials_independently_checked": false,
+        "quote_independently_exchange_verified": false,
+        "updated_treasury_adjusted_shares_independently_checked": false,
+        "same_date_quote_shares_compatible": false,
+        "valid_earnings_for_positive_per": true,
+        "dated_primary_buyback_snapshot_available": true
+      },
+      "remaining_verification_tasks": [
+        "parent_equity_independently_checked",
+        "financials_independently_checked",
+        "quote_independently_exchange_verified",
+        "updated_treasury_adjusted_shares_independently_checked",
+        "same_date_quote_shares_compatible"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    },
+    {
+      "symbol": "D05",
+      "sector_model": "BANKING",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "FINANCIAL_MISSING_REVENUE",
+        "FINANCIAL_MISSING_ATTRIBUTABLE_PROFIT",
+        "FINANCIAL_MISSING_ASSETS",
+        "FINANCIAL_MISSING_LIABILITIES",
+        "FINANCIAL_MISSING_EQUITY",
+        "FISCAL_YEAR_UNKNOWN",
+        "BALANCE_UNVERIFIED_OR_MISMATCH",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PRICE_MISSING",
+        "QUOTE_OLD_OR_UNDATED",
+        "SHARES_MISSING",
+        "SHARES_OLD_OR_UNDATED",
+        "SHARES_SOURCE_MISSING",
+        "TREASURY_SHARE_BASIS_UNCONFIRMED",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
+        "FINANCIAL_SOURCE_REGISTERED_NOT_PARSED",
+        "QUOTE_NOT_AVAILABLE",
+        "QUOTE_TIMESTAMP_MISSING",
+        "SHARES_NOT_AVAILABLE",
+        "SHARES_DATE_MISSING",
+        "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+      ],
+      "observed_evidence_signals": {
+        "issuer_bank_financials_parsed": true,
+        "bank_independent_financial_check": false,
+        "current_bank_quote_verified": false,
+        "current_bank_shares_verified": false,
+        "dated_primary_buyback_snapshot_available": false
+      },
+      "remaining_verification_tasks": [
+        "bank_independent_financial_check",
+        "current_bank_quote_verified",
+        "current_bank_shares_verified"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    },
+    {
+      "symbol": "O39",
+      "sector_model": "BANKING",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "FINANCIAL_MISSING_REVENUE",
+        "FINANCIAL_MISSING_ATTRIBUTABLE_PROFIT",
+        "FINANCIAL_MISSING_ASSETS",
+        "FINANCIAL_MISSING_LIABILITIES",
+        "FINANCIAL_MISSING_EQUITY",
+        "FISCAL_YEAR_UNKNOWN",
+        "BALANCE_UNVERIFIED_OR_MISMATCH",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PRICE_MISSING",
+        "QUOTE_OLD_OR_UNDATED",
+        "SHARES_MISSING",
+        "SHARES_OLD_OR_UNDATED",
+        "SHARES_SOURCE_MISSING",
+        "TREASURY_SHARE_BASIS_UNCONFIRMED",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
+        "FINANCIAL_SOURCE_REGISTERED_NOT_PARSED",
+        "QUOTE_NOT_AVAILABLE",
+        "QUOTE_TIMESTAMP_MISSING",
+        "SHARES_NOT_AVAILABLE",
+        "SHARES_DATE_MISSING",
+        "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+      ],
+      "observed_evidence_signals": {
+        "issuer_bank_financials_parsed": true,
+        "bank_independent_financial_check": false,
+        "current_bank_quote_verified": false,
+        "current_bank_shares_verified": false,
+        "dated_primary_buyback_snapshot_available": false
+      },
+      "remaining_verification_tasks": [
+        "bank_independent_financial_check",
+        "current_bank_quote_verified",
+        "current_bank_shares_verified"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    },
+    {
+      "symbol": "U11",
+      "sector_model": "BANKING",
+      "published_issuer_financial_state": "PARTIAL_UNVERIFIED",
+      "original_ranking_exclusion_reasons": [
+        "FINANCIAL_MISSING_REVENUE",
+        "FINANCIAL_MISSING_ATTRIBUTABLE_PROFIT",
+        "FINANCIAL_MISSING_ASSETS",
+        "FINANCIAL_MISSING_LIABILITIES",
+        "FINANCIAL_MISSING_EQUITY",
+        "FISCAL_YEAR_UNKNOWN",
+        "BALANCE_UNVERIFIED_OR_MISMATCH",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_REVENUE",
+        "SECOND_ISSUER_DOCUMENT_NOT_MATCHED_ATTRIBUTABLE_PROFIT",
+        "INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE",
+        "PRICE_MISSING",
+        "QUOTE_OLD_OR_UNDATED",
+        "SHARES_MISSING",
+        "SHARES_OLD_OR_UNDATED",
+        "SHARES_SOURCE_MISSING",
+        "TREASURY_SHARE_BASIS_UNCONFIRMED",
+        "PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
+        "FINANCIAL_SOURCE_REGISTERED_NOT_PARSED",
+        "QUOTE_NOT_AVAILABLE",
+        "QUOTE_TIMESTAMP_MISSING",
+        "SHARES_NOT_AVAILABLE",
+        "SHARES_DATE_MISSING",
+        "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+      ],
+      "observed_evidence_signals": {
+        "issuer_bank_financials_parsed": true,
+        "bank_independent_financial_check": false,
+        "current_bank_quote_verified": false,
+        "current_bank_shares_verified": false,
+        "dated_primary_buyback_snapshot_available": false
+      },
+      "remaining_verification_tasks": [
+        "bank_independent_financial_check",
+        "current_bank_quote_verified",
+        "current_bank_shares_verified"
+      ],
+      "issuer_document_checks_are_not_third_party_independence": true,
+      "eligible_for_ranking": false,
+      "estimated_completion_percentage": null,
+      "market_cap_or_per_pbr_promoted": false
+    }
+  ]
+}
