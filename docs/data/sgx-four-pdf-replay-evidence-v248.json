@@ -1,0 +1,25 @@
+{
+  "schema_version": "sgx-four-original-pdf-live-replay-evidence-v248",
+  "observed_at_utc": "2026-11-14T16:12:48Z",
+  "source_kind": "GITHUB_ACTIONS_REDOWNLOADED_PRIMARY_SGX_ORIGINAL_BYTES",
+  "github_run_id": 43614340513,
+  "github_job_id": 132506000885,
+  "github_artifact_id": 14121073878,
+  "github_url": "https://github.com/osawamas/value-hunter-ai/actions/runs/43614340513",
+  "github_workflow_commit": "40141240e032a6e52910a39518184cac642c163f",
+  "github_log_message": "v247 VERIFIED: 4 SGX original PDFs have expected SHA256 and length. No ranking promotion.",
+  "comparison_scope": "FOUR_REDOWNLOADED_PDF_SHA256_VS_PREVIOUS_V233_V237_PROVENANCE",
+  "matching_original_pdf_count": 4,
+  "source_pdf_data_files": [
+    "docs/data/sgx-original-pdf-sha-v233.json",
+    "docs/data/sgx-annual-report-sha-v237.json"
+  ],
+  "original_pdfs_redistributed": false,
+  "source_pdf_sha256_recomputed_in_real_actions": true,
+  "financial_fields_independently_recalculated": false,
+  "independent_external_financial_audit_complete": false,
+  "licensed_timed_quote_verified": false,
+  "current_outstanding_shares_verified": false,
+  "rankings_enabled": false,
+  "ranking_eligible_count": 0
+}
