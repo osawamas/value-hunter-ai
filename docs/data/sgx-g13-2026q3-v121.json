@@ -1,0 +1,8 @@
+{
+  "schema_version": "sgx-g13-2026q3-original-v121",
+  "attempted_at_utc": "2026-11-14T05:22:28.987001+00:00",
+  "source_url": "https://links.sgx.com/FileOpen/Q3%202026%20GENS%20Quarterly%20Business%20Overview.ashx?App=Announcement&FileID=911200",
+  "status": "NOT_VERIFIED",
+  "record": null,
+  "error": "ValueError: Missing/ambiguous quarterly row Total Revenue"
+}
