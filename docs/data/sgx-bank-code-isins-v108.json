@@ -1,0 +1,54 @@
+{
+  "schema_version": "sgx-bank-counter-isins-v108",
+  "attempted_at_utc": "2026-11-14T04:48:07.095212+00:00",
+  "official_historical_links_verified": 2,
+  "official_master_complete": false,
+  "financial_feed_modified": false,
+  "ranking_eligible": false,
+  "records": [
+    {
+      "symbol": "U11",
+      "requested_url": "https://links.sgx.com/1.0.0/corporate-announcements/EVZ7PV6QP0P5BMW5/e2580790f6fa4d225394e792ccd026674a9ed767eddb6a18355f1d4b3dadeb22",
+      "status": "SGX_PRIMARY_HISTORICAL_COUNTER_ISIN_LINK_VERIFIED",
+      "record": {
+        "status": "SGX_PRIMARY_HISTORICAL_COUNTER_ISIN_LINK_VERIFIED",
+        "symbol": "U11",
+        "issuer": "UNITED OVERSEAS BANK LIMITED",
+        "isin": "SG1M31001969",
+        "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/EVZ7PV6QP0P5BMW5/e2580790f6fa4d225394e792ccd026674a9ed767eddb6a18355f1d4b3dadeb22",
+        "source_html_sha256": "00a36cdba1337dd9e90c01e1c6e7c3b8c8d9df4752e6b972febbfd9606b27ca2",
+        "announcement_reference": "SG261015OTHR6VTS",
+        "broadcast_sgt_text": "15-Oct-2026 17:24:00",
+        "historical_identity_link_only": true,
+        "today_listing_status_verified": false,
+        "official_complete_master_verified": false,
+        "quote_or_current_shares_verified": false,
+        "eligible_for_market_cap_per_pbr": false,
+        "eligible_for_ranking": false
+      },
+      "error": null
+    },
+    {
+      "symbol": "O39",
+      "requested_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/50dad2d3f2e1374d94921a9cad3497846885577d0c43cf2e1fe14c8c7f4764a6",
+      "status": "SGX_PRIMARY_HISTORICAL_COUNTER_ISIN_LINK_VERIFIED",
+      "record": {
+        "status": "SGX_PRIMARY_HISTORICAL_COUNTER_ISIN_LINK_VERIFIED",
+        "symbol": "O39",
+        "issuer": "OVERSEA-CHINESE BANKING CORPORATION LIMITED",
+        "isin": "SG1S04926220",
+        "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/50dad2d3f2e1374d94921a9cad3497846885577d0c43cf2e1fe14c8c7f4764a6",
+        "source_html_sha256": "98e2729dd1889476a360afdafe10f038995584155d58012662ba30b31acd4348",
+        "announcement_reference": "SG261106OTHRI4L9",
+        "broadcast_sgt_text": "06-Nov-2026 06:59:27",
+        "historical_identity_link_only": true,
+        "today_listing_status_verified": false,
+        "official_complete_master_verified": false,
+        "quote_or_current_shares_verified": false,
+        "eligible_for_market_cap_per_pbr": false,
+        "eligible_for_ranking": false
+      },
+      "error": null
+    }
+  ]
+}
