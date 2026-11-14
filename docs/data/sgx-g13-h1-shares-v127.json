@@ -1,0 +1,21 @@
+{
+  "schema_version": "sgx-g13-h1-direct-primary-share-confirmation-v127",
+  "symbol": "G13",
+  "published_share_date": "2026-06-30",
+  "official_h1_report_date": "2026-06-30",
+  "official_june10_buyback_date": "2026-06-10",
+  "published_june30_count_original_primary_supported": true,
+  "june10_primary_count_matches_june30_primary": true,
+  "issued_gross_at_june30": 12094026824,
+  "treasury_at_june30": 30384550,
+  "issued_ex_treasury_at_june30": 12063642274,
+  "june10_notice_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/CHP29KEV0YJ4ZBNY/",
+  "june30_halfyear_source_url": "https://links.sgx.com/FileOpen/2.%20GENS%201H2026%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=900902",
+  "june30_primary_pdf_sha256": "3b7f3ce3ebc648f419b5077c85386673cfa8d10d6025dfc8e6c437fad6144a77",
+  "same_issuer_documents_not_independent_third_party_verification": true,
+  "shares_after_june30_unchanged_verified": false,
+  "live_market_quote_verified": false,
+  "market_cap_per_pbr_promoted": false,
+  "ranking_eligible": false,
+  "financial_feed_modified": false
+}
