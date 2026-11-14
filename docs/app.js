@@ -47,7 +47,7 @@ const reasons = {
   VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE: "株価または株式数の日時が古い／不明のため評価値を非表示"
 };
 const $ = id => document.getElementById(id);
-const state = { feed: null, selected: null, visible: [], shareAudit: null };
+const state = { feed: null, selected: null, visible: [], shareAudit: null, g13QuarterRisk: null };
 
 function el(tag, cls = "", text = null) {
   const node = document.createElement(tag);
@@ -228,6 +228,16 @@ function showDetail(r) {
   top.append(title, el("span", r.ranking_eligible ? "status good" : "status",
     r.ranking_eligible ? "ランキング対象" : "ランキングから除外"));
   parent.append(top);
+  if (r.symbol === "G13" && state.g13QuarterRisk) {
+    const q=state.g13QuarterRisk;
+    const note=el("section","share-evidence-warning");
+    note.append(el("strong","","G13：2026年第3四半期の業績悪化（未監査）"));
+    note.append(el("p","",q.note+" 売上高前年同期比 "+
+      q.revenueYoY.toFixed(2)+"%、税引後利益前年同期比 "+
+      q.profitYoY.toFixed(2)+"%。ランキング適格とは認めない。"));
+    note.append(safeLink(q.source,"SGX公式の第3四半期報告を開く ↗"));
+    parent.append(note);
+  }
   if (r.symbol === "S63" && state.shareAudit) {
     const a=state.shareAudit;
     const note=el("section", "share-evidence-warning");
@@ -643,6 +653,15 @@ async function start() {
     const response = await fetch("./data/latest.json", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
     setFeed(await response.json(), "GitHub上の公開データ");
+    try {
+      const q=await fetch("./data/sgx-g13-2026q3-v121.json",{cache:"no-store"});
+      if(!q.ok)throw new Error("HTTP "+q.status);
+      state.g13QuarterRisk=window.G13QuarterWarningV123.validate(state.feed,await q.json());
+      render();
+    }catch(error){
+      state.g13QuarterRisk=null;
+      console.warn("G13 2026 Q3 evidence unavailable:",error.message);
+    }
     try {
       const shareResponse=await fetch("./data/sgx-s63-share-delta-v110.json",{cache:"no-store"});
       if (!shareResponse.ok) throw new Error("HTTP "+shareResponse.status);
