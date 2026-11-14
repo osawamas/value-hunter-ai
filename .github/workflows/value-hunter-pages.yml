@@ -47,6 +47,8 @@ jobs:
           node docs/test_ocbc_quarter_v147.js
           node --check docs/ocbc-bank-ratios-v150.js
           node docs/test_ocbc_bank_ratios_v150.js
+          node --check docs/ocbc-exact-profit-v153.js
+          node docs/test_ocbc_exact_profit_v153.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
