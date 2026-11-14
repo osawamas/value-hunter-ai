@@ -38,7 +38,9 @@ def parse(raw):
   ("period",r"For Financial Period Ended\s+30/09/2026")
  ]
  for name,pattern in required:
-  if len(re.findall(pattern,s,re.I))!=1:raise ValueError("Ambiguous/missing "+name)
+  found=re.findall(pattern,s,re.I)
+  if not found or (name!="report type" and len(found)!=1):
+   raise ValueError("Ambiguous/missing "+name)
  for name in ATTACHMENTS:
   if len(re.findall(re.escape(name),s,re.I))!=1:raise ValueError("Ambiguous/missing attachment "+name)
  return {"schema_version":"sgx-ocbc-2026q3-original-manifest-v143",
