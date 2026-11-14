@@ -1,0 +1,41 @@
+name: VALUE HUNTER v126 S63 historical 9M context UI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/app.js'
+      - 'docs/index.html'
+      - 'docs/s63-nine-month-v126.js'
+      - 'docs/test_s63_nine_month_v126.js'
+      - '.github/workflows/value-hunter-v126.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run historical risk presentation regression
+        run: |
+          node --check docs/app.js
+          node --check docs/s63-nine-month-v126.js
+          node docs/test_s63_nine_month_v126.js
+          node docs/test_g13_quarter_warning_v123.js
+          node docs/test_share_warning_v111.js
+      - name: Check current feed with real SGX original snapshot
+        run: |
+          node - <<'JS'
+          const fs=require("node:fs"),assert=require("node:assert/strict");
+          const {validate}=require("./docs/s63-nine-month-v126.js");
+          const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+          const q=JSON.parse(fs.readFileSync("docs/data/sgx-s63-9m2026-v125.json","utf8"));
+          const x=validate(feed,q);
+          assert.equal(x.orderBookSgdBillion,37.7);
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log("Safe S63 9M context compatible with current feed");
+          JS
