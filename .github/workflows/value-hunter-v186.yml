@@ -1,0 +1,58 @@
+name: VALUE HUNTER v186 normalized SGX three bank original research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/sgx_big3_bank_bundle_v186.py'
+      - 'SGX_PDF_connection_probe/test_sgx_big3_bank_bundle_v186.py'
+      - '.github/workflows/value-hunter-v186.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v186
+  cancel-in-progress: false
+jobs:
+  normalized:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate original-only normalized bank financial contract
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_sgx_big3_bank_bundle_v186
+      - name: Recompute full bank source record from real SGX documents
+        run: |
+          python SGX_PDF_connection_probe/sgx_big3_bank_bundle_v186.py --dbs docs/data/sgx-dbs-exact-table-v180.json --ocbc docs/data/sgx-ocbc-bank-research-v166.json --uob docs/data/sgx-uob-exact-bank-table-v175.json --nii docs/data/sgx-big3-nii-v177.json --output docs/data/sgx-big3-bank-research-v186.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('docs/data/sgx-big3-bank-research-v186.json').read_text())
+          assert x['total_3q26_bank_net_profit']==6105
+          assert x['total_9m26_bank_net_profit']==19224
+          assert x['total_3q26_net_interest_income']==8302
+          assert x['total_9m26_net_interest_income']==24484
+          assert x['ranking_eligible'] is False
+          assert json.loads(Path('docs/data/latest.json').read_text())['ranking_eligible_count']==0
+          PY
+      - name: Save research-only normalized full bank evidence safely
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/sgx_big3_bank_bundle_v186.py --dbs docs/data/sgx-dbs-exact-table-v180.json --ocbc docs/data/sgx-ocbc-bank-research-v166.json --uob docs/data/sgx-uob-exact-bank-table-v175.json --nii docs/data/sgx-big3-nii-v177.json --output docs/data/sgx-big3-bank-research-v186.json
+            git add docs/data/sgx-big3-bank-research-v186.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v186): normalize three SGX primary bank quarters without price/rank certification'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt*2))"
+          done
+          exit 1
