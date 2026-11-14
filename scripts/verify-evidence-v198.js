@@ -26,7 +26,8 @@ const tests=[
  "docs/test_issuer_pdf_probe_v210.js",
  "docs/test_parent_equity_research_v211.js",
  "docs/test_h02_primary_filing_v212.js",
- "docs/test_v03_primary_statements_v213.js"
+ "docs/test_v03_primary_statements_v213.js",
+ "docs/test_primary_issuer_reconciliation_v214.js"
 ];
 let failed=0;
 for(const test of tests){
