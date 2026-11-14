@@ -52,7 +52,8 @@ const tests=[
  "docs/test_sgx_uob_official_buyback_v242.js",
  "docs/test_bank_evidence_readiness_v243.js",
  "docs/test_sgx_ocbc_identity_v244.js",
- "docs/test_bank_share_supplemental_v245.js"
+ "docs/test_bank_share_supplemental_v245.js",
+ "docs/test_probe_sgx_original_v246.js"
 ];
 let failed=0;
 const results=[];
