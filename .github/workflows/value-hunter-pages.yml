@@ -67,6 +67,8 @@ jobs:
           node docs/test_bank_nii_v178.js
           node --check docs/bank-profit-yoy-v182.js
           node docs/test_bank_profit_yoy_v182.js
+          node --check docs/bank-nine-month-v184.js
+          node docs/test_bank_nine_month_v184.js
   pages-setup:
     runs-on: ubuntu-latest
     outputs:
