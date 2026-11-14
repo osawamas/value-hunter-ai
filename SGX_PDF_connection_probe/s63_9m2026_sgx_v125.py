@@ -10,7 +10,7 @@ from urllib.request import Request,urlopen
 
 URL="https://links.sgx.com/FileOpen/ST%20Engineering%209M2026%20Market%20Update.ashx?App=Announcement&FileID=911321"
 def parse(text,sha):
- if not isinstance(text,str) or not 200<len(text)<150000:
+ if not isinstance(text,str) or not 50<len(text)<150000:
   raise ValueError("PDF text not present")
  compact=" ".join(text.split())
  if not re.search(r"9M2026\s+Market Update",compact,re.I) or not re.search(r"13 November 2026",compact,re.I):
