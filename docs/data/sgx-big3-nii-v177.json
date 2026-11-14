@@ -1,0 +1,29 @@
+{
+  "schema_version": "sgx-big3-nii-probe-v177",
+  "status": "SGX_THREE_BANK_3Q26_NII_PRIMARY_SUM_RECONCILED",
+  "record": {
+    "schema_version": "sgx-big3-nii-source-consistency-v177",
+    "financial_period_end": "2026-09-30",
+    "unit": "SGD_millions",
+    "dbs_official_trading_pdf_url": "https://links.sgx.com/FileOpen/3Q26_trading_update.ashx?App=Announcement&FileID=910439",
+    "dbs_official_trading_pdf_sha256": "c8d55126a0ad0702771ac74ab2f2b79a0f7721223de53faae1197974eca617d6",
+    "dbs_original_slide_source_sha256": "bd9351bfeef24f5345848c574017b25c3ff5b4e292c78d6950aebd7cde761695",
+    "ocbc_official_pdf_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+    "uob_official_pdf_sha256": "d3b474aa87a2f2741bf68754a2f38b7189d905a8ff2bf6c51f88b758c867ec18",
+    "bank_net_interest_income_3q26": {
+      "D05": 3711,
+      "O39": 2313,
+      "U11": 2278
+    },
+    "three_bank_3q26_nii_sum_sgd_millions": 8302,
+    "source_date_and_unit_consistent": true,
+    "dbs_trading_pdf_exact_amount_observed": true,
+    "dbs_trading_pdf_single_table_row_column_reperformance_completed": false,
+    "sgx_editorial_market_update_reference": "https://www.sgx.com/research-education/market-updates/20261106-sti-banks-report-16th-consecutive-quarter-s8b-nii",
+    "sgx_editorial_update_html_fetched_by_pipeline": false,
+    "independent_third_party_earnings_audit": false,
+    "current_sgx_trade_quote_or_treasury_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
+}
