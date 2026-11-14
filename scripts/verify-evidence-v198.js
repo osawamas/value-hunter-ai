@@ -64,7 +64,8 @@ const tests=[
  "docs/test_sgx_official_code_join_v254.js",
  "docs/test_sgx_filing_codes_v255.js",
  "docs/test_sgx_twenties_v256.js",
- "docs/test_sgx_listing_event_watch_v257.js"
+ "docs/test_sgx_listing_event_watch_v257.js",
+ "docs/test_sgx_historical_code_search_v258.js"
 ];
 let failed=0;
 const results=[];
