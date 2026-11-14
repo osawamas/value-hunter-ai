@@ -91,6 +91,14 @@ function validFeed(json) {
   }
   return true;
 }
+function referenceValuationLabel(r) {
+  const guard=window.VALUE_HUNTER_REF_VALUATION;
+  return guard ? guard.label(r) : "—（評価出典の検証待ち）";
+}
+function referenceValuationDisplayPermitted(r) {
+  const guard=window.VALUE_HUNTER_REF_VALUATION;
+  return guard?.canDisplayReferenceValuation(r)===true && r.ranking_eligible===true;
+}
 function freshnessState(value, maxDays, nowMs = Date.now()) {
   if (typeof value !== "string" || !value.length) return "MISSING";
   const parsed = Date.parse(value);
@@ -170,9 +178,10 @@ function render() {
       id.append(el("div", "issuer caution", "株式数：新しいSGX原本あり・評価未更新"));
     tr.append(id);
     addTextCell(tr, fmt(r.price_sgd), "num");
-    addTextCell(tr, fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null), "num");
-    addTextCell(tr, fmt(r.per_reference), "num");
-    addTextCell(tr, fmt(r.pbr_verified ?? r.pbr_reference_unverified), "num caution");
+    const showValuation = referenceValuationDisplayPermitted(r);
+    addTextCell(tr, showValuation ? fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null) : referenceValuationLabel(r), "num caution");
+    addTextCell(tr, showValuation ? fmt(r.per_reference) : referenceValuationLabel(r), "num caution");
+    addTextCell(tr, showValuation ? fmt(r.pbr_verified) : referenceValuationLabel(r), "num caution");
     for (const value of [r.revenue_growth_pct, r.operating_margin_pct, r.equity_ratio_pct]) {
       const cls = hasNum(value) && value < 0 ? "num negative" : "num";
       addTextCell(tr, hasNum(value) ? fmt(value) + "%" : "—", cls);
@@ -292,7 +301,9 @@ function showDetail(r) {
       ["株式数出典", r.shares_source_url, true],
       ["株式数のPDF識別子（SHA256）", r.shares_pdf_sha256 || "未取得"],
     ]),
-    field("評価", "旧期間の財務・非公式株価による未検証の参考計算（正式な評価値ではない）", [
+    field("評価", "異なる基準日の参考計算（正式な評価値ではない・表の比較から除外）", [
+      ["正式な評価値の表示可否", "不可：独立したSGX約定株価と株式数の時点整合が未検証"],
+      ["基準日照合の結果", referenceValuationLabel(r)],
       ["参考時価総額（未検証・SGD）", fmt(r.market_cap_sgd, 0)],
       ["参考PER（未検証）", fmt(r.per_reference) + (hasNum(r.per_reference) ? " 倍" : "")],
       ["参考PBR（未検証）", fmt(r.pbr_reference_unverified) + (hasNum(r.pbr_reference_unverified) ? " 倍" : "")],
