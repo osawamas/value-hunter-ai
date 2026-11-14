@@ -1,23 +1,18 @@
 {
   "schema_version": "sgx-third-party-company-candidates-v99",
-  "generated_at_utc": "2026-11-14T00:21:07.441669+00:00",
-  "source_url": "https://stocks.com.sg/api/v1/companies",
-  "source_json_sha256": "fd99f1e3e3890788cd46c66a337cc05a8401242ea3493c0c60772939e44221b0",
+  "generated_at_utc": "2026-11-14T00:23:58.352694+00:00",
+  "source_url": "https://stocks.com.sg/api/v1/companies?limit=200",
+  "source_json_sha256": "6b1960255db3d66d8937aeaf7376bcb532c7c606be4b4149fae4e19523f3cd0e",
   "source_kind": "THIRD_PARTY_LISTED_COMPANY_API_FREE_TIER",
   "coverage": "PARTIAL_UNVERIFIED",
-  "provider_raw_rows": 50,
-  "provider_accepted_candidate_count": 49,
+  "provider_raw_rows": 183,
+  "provider_reported_total": 183,
+  "provider_unaccepted_rows": 1,
+  "provider_next_offset": null,
+  "provider_accepted_candidate_count": 182,
   "known_verified_issuer_count": 7,
-  "known_verified_issuer_overlap": 0,
-  "known_verified_issuer_missing": [
-    "D05",
-    "G13",
-    "O39",
-    "S20",
-    "S63",
-    "S68",
-    "U11"
-  ],
+  "known_verified_issuer_overlap": 7,
+  "known_verified_issuer_missing": [],
   "full_sgx_listing_completeness_verified": false,
   "records_not_added_to_verified_financial_feed": true,
   "stock_quote_or_financial_metrics_fetched": false,
@@ -362,6 +357,937 @@
     {
       "symbol": "BRS",
       "display_name": "Top Glove Corporation Bhd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BS6",
+      "display_name": "Yangzijiang Shipbuilding Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BSL",
+      "display_name": "Raffles Medical Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BTOU",
+      "display_name": "Manulife US REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "BUOU",
+      "display_name": "Frasers Logistics & Commercial Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C05",
+      "display_name": "CDL Investments New Zealand Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C07",
+      "display_name": "Jardine Cycle & Carriage Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C09",
+      "display_name": "City Developments Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C2PU",
+      "display_name": "Parkway Life Real Estate Investment Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C33",
+      "display_name": "Tat Seng Packaging Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C38U",
+      "display_name": "CapitaLand Integrated Commercial Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C52",
+      "display_name": "ComfortDelGro Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C6L",
+      "display_name": "Singapore Airlines Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C76",
+      "display_name": "Singapore Land Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "C8R",
+      "display_name": "Jiutian Chemical Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CC3",
+      "display_name": "StarHub Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CFA",
+      "display_name": "NikkoAM-StraitsTrading Asia ex Japan REIT ETF",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CJLU",
+      "display_name": "NetLink NBN Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CMOU",
+      "display_name": "Keppel Pacific Oak US REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CRPU",
+      "display_name": "Sasseur REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CWCU",
+      "display_name": "CapitaLand India Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "CY6U",
+      "display_name": "Dasin Retail Trust (Units)",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "D01",
+      "display_name": "DFI Retail Group Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "D03",
+      "display_name": "Del Monte Pacific Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "D05",
+      "display_name": "DBS Group Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "D5IU",
+      "display_name": "Lippo Malls Indonesia Retail Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "D8DU",
+      "display_name": "ARA US Hospitality Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "DCRU",
+      "display_name": "Digital Core REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "DHLU",
+      "display_name": "Daiwa House Logistics Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "E16",
+      "display_name": "China Yuchai International Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "E28",
+      "display_name": "Frencken Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "E5G",
+      "display_name": "China Sunsine Chemical Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "E5H",
+      "display_name": "Golden Agri-Resources Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "EB5",
+      "display_name": "First Resources Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "EMI",
+      "display_name": "Emperador Inc",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "F03",
+      "display_name": "Food Empire Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "F10",
+      "display_name": "Frasers Centrepoint Asset Management Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "F17",
+      "display_name": "Guocoland Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "F34",
+      "display_name": "Wilmar International Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "F9D",
+      "display_name": "Boustead Singapore Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "G07",
+      "display_name": "Great Eastern Life Assurance Company Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "G13",
+      "display_name": "Genting Singapore Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "G92",
+      "display_name": "China Aviation Oil (Singapore) Corp Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "GKY",
+      "display_name": "Japfa Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H02",
+      "display_name": "Haw Par Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H07",
+      "display_name": "Hiap Hoe Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H13",
+      "display_name": "Ho Bee Land Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H15",
+      "display_name": "Hotel Properties Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H17",
+      "display_name": "Hi-P International Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H30",
+      "display_name": "Hutchison Port Holdings Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "H78",
+      "display_name": "Hongkong Land Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "HMN",
+      "display_name": "Ascott Residence Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "I07",
+      "display_name": "ISDN Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "J2T",
+      "display_name": "Japfa Comfeed Indonesia Tbk",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "J36",
+      "display_name": "Jardine Matheson Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "J69U",
+      "display_name": "Frasers Centrepoint Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "J85",
+      "display_name": "CDL Hospitality Trusts",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "J91U",
+      "display_name": "ESR-LOGOS REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "JYEU",
+      "display_name": "Lendlease Global Commercial REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "K03",
+      "display_name": "Koda Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "K29",
+      "display_name": "KORI Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "K71U",
+      "display_name": "Keppel REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "L38",
+      "display_name": "Leverage Shares PLC",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "LJ3",
+      "display_name": "Keppel Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "M01",
+      "display_name": "Great Eastern Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "M14",
+      "display_name": "InnoTek Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "M1GU",
+      "display_name": "Sabana Industrial REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "M44U",
+      "display_name": "Mapletree Logistics Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "ME8U",
+      "display_name": "Mapletree Industrial Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "MR7",
+      "display_name": "Moya Holdings Asia Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "MV4",
+      "display_name": "Strides Pharma Science Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "MXNU",
+      "display_name": "Elite Commercial REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "MZH",
+      "display_name": "Nanofilm Technologies International Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "N21",
+      "display_name": "NetLink Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "N2IU",
+      "display_name": "Mapletree Pan Asia Commercial Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "N32",
+      "display_name": "Nera Telecommunications Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "NC2",
+      "display_name": "RH Petrogas Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "NR7",
+      "display_name": "NIO Inc",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "O39",
+      "display_name": "Oversea-Chinese Banking Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "O5RU",
+      "display_name": "AIMS APAC REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "ODBU",
+      "display_name": "United Hampshire US REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "OU8",
+      "display_name": "Centurion Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "OV8",
+      "display_name": "Sheng Siong Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "OXMU",
+      "display_name": "Prime US REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "OYY",
+      "display_name": "PropNex Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "P15",
+      "display_name": "Pacific Century Regional Developments Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "P34",
+      "display_name": "Delfi Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "P40U",
+      "display_name": "Starhill Global REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "P52",
+      "display_name": "Singapore O&G Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "P8Z",
+      "display_name": "Bumitama Agri Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "P9D",
+      "display_name": "Pan Jit International Inc",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "Q0F",
+      "display_name": "IHH Healthcare Berhad",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "Q5T",
+      "display_name": "Far East Hospitality Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "QES",
+      "display_name": "QES Group Berhad",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "R14",
+      "display_name": "Resources Prima Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "RE4",
+      "display_name": "Geo Energy Resources Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S07",
+      "display_name": "Singapore Finance Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S08",
+      "display_name": "Singapore Post Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S20",
+      "display_name": "Straits Trading Company Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S56",
+      "display_name": "Singapore Reinsurance Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S58",
+      "display_name": "SATS Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S59",
+      "display_name": "SIA Engineering Company Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S61",
+      "display_name": "SBS Transit Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S63",
+      "display_name": "Singapore Technologies Engineering Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S68",
+      "display_name": "Singapore Exchange Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S71",
+      "display_name": "Sunningdale Tech Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "S85",
+      "display_name": "Straco Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "SK6U",
+      "display_name": "SPH REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T12",
+      "display_name": "TSH Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T14",
+      "display_name": "Tuan Sing Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T24",
+      "display_name": "Tye Soon Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T39",
+      "display_name": "Singapore Press Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T55",
+      "display_name": "Travelodge Hotels Asia Pte Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T6I",
+      "display_name": "Tiong Seng Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "T82U",
+      "display_name": "Suntec Real Estate Investment Trust",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "TQ5",
+      "display_name": "Frasers Property Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "TS0U",
+      "display_name": "OUE REIT",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U06",
+      "display_name": "United Overseas Land Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U11",
+      "display_name": "United Overseas Bank Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U13",
+      "display_name": "United Industrial Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U14",
+      "display_name": "UOL Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U77",
+      "display_name": "SingHaiyi Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "U96",
+      "display_name": "SembCorp Industries Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "V03",
+      "display_name": "Venture Corporation Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "VC2",
+      "display_name": "Olam Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "VL6",
+      "display_name": "Koufu Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "W05",
+      "display_name": "Wing Tai Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "WJP",
+      "display_name": "Vicom Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "Y92",
+      "display_name": "Thai Beverage Public Company Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "YF8",
+      "display_name": "YZJ Financial Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "YK9",
+      "display_name": "Yangzijiang Financial Holding Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "Z25",
+      "display_name": "Yanlord Land Group Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "Z59",
+      "display_name": "Yongnam Holdings Ltd",
+      "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
+      "financial_verification": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "Z74",
+      "display_name": "Singapore Telecommunications Ltd",
       "source_verification": "THIRD_PARTY_CANDIDATE_NOT_EXCHANGE_VERIFIED",
       "financial_verification": false,
       "ranking_eligible": false
