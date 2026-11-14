@@ -1,0 +1,25 @@
+name: FY2025 external figure research integrity v197
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/data/sgx-independent-figure-research-v197.json'
+      - 'docs/fy-third-party-figure-v197.js'
+      - 'docs/test_fy_third_party_figure_v197.js'
+      - 'docs/data/latest.json'
+      - 'docs/index.html'
+      - '.github/workflows/fy-external-crosscheck-v197.yml'
+permissions:
+  contents: read
+jobs:
+  fy-external-figure-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify source-specific FY2025 rounding, noncomparable definitions and no ranking promotion
+        run: node docs/test_fy_third_party_figure_v197.js
