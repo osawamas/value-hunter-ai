@@ -1,0 +1,57 @@
+name: VALUE HUNTER v163 UOB issuer IR Nov13 source discovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'SGX_PDF_connection_probe/uob_ir_nov13_v163.py'
+      - 'SGX_PDF_connection_probe/test_uob_ir_nov13_v163.py'
+      - '.github/workflows/value-hunter-v163.yml'
+permissions:
+  contents: write
+concurrency:
+  group: value-hunter-v163
+  cancel-in-progress: false
+jobs:
+  ir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Negative proof about issuer-hosted source
+        run: |
+          cd SGX_PDF_connection_probe
+          python -m unittest -v test_uob_ir_nov13_v163
+      - name: Probe actual UOB issuer IR November 13 daily buyback
+        run: |
+          python SGX_PDF_connection_probe/uob_ir_nov13_v163.py --output docs/data/sgx-uob-issuer-ir-nov13-v163.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('docs/data/sgx-uob-issuer-ir-nov13-v163.json').read_text())
+          if r['record']:
+            assert r['record']['sgx_original_announcement_verified'] is False
+            assert r['record']['ranking_eligible'] is False
+          assert json.loads(Path('docs/data/latest.json').read_text())['ranking_eligible_count']==0
+          print(r['status'],r['error'])
+          PY
+      - name: Save read-only UOB IR source research safely
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            python SGX_PDF_connection_probe/uob_ir_nov13_v163.py --output docs/data/sgx-uob-issuer-ir-nov13-v163.json
+            git add docs/data/sgx-uob-issuer-ir-nov13-v163.json
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m 'data(v163): UOB Nov13 issuer IR reference and SGX original search leads'
+            if git push origin HEAD:main; then exit 0; fi
+            sleep "$((attempt * 2))"
+          done
+          exit 1
