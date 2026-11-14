@@ -75,6 +75,8 @@ on:
       - 'docs/test_bank_evidence_readiness_v243.js'
       - 'docs/data/sgx-ocbc-issuer-identity-v244.json'
       - 'docs/test_sgx_ocbc_identity_v244.js'
+      - 'docs/bank-share-evidence-v193.js'
+      - 'docs/test_bank_share_supplemental_v245.js'
       - 'docs/data/sgx-original-pdf-sha-v233.json'
       - 'docs/test_sgx_pdf_sha_evidence_v233.js'
       - 'scripts/classify-sgx-counters-v202.js'
