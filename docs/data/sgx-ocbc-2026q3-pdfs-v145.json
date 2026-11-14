@@ -1,32 +1,46 @@
 {
   "schema_version": "sgx-ocbc-q3-pdfs-probe-v145",
-  "status": "NOT_VERIFIED",
-  "record": null,
-  "error": "ValueError: Original SGX PDF not returned",
-  "response_diagnostics": [
-    {
-      "filename": "OCBC_3Q26_Results_Press_Release.pdf",
-      "url_host": "links.sgx.com",
-      "final_path": "/FileOpen/OCBC_3Q26_Results_Press_Release.ashx?App=Announcement&FileID=910569",
-      "content_type": "application/pdf",
-      "sample_pdf_magic": true,
-      "sample_html_magic": false
-    },
-    {
-      "filename": "OCBC_3Q26_CEO_Presentation.pdf",
-      "url_host": "links.sgx.com",
-      "final_path": "/FileOpen/OCBC_3Q26_CEO_Presentation.ashx?App=Announcement&FileID=910570",
-      "content_type": "application/pdf",
-      "sample_pdf_magic": true,
-      "sample_html_magic": false
-    },
-    {
-      "filename": "OCBC_3Q26_Results_Highlights.pdf",
-      "url_host": "links.sgx.com",
-      "final_path": "/FileOpen/OCBC_3Q26_Results_Highlights.ashx?App=Announcement&FileID=910571",
-      "content_type": "application/pdf",
-      "sample_pdf_magic": true,
-      "sample_html_magic": false
-    }
-  ]
+  "status": "SGX_OCBC_Q3_THREE_ORIGINAL_PDFS_VERIFIED",
+  "record": {
+    "schema_version": "sgx-ocbc-q3-pdf-originals-v145",
+    "symbol": "O39",
+    "financial_period_end": "2026-09-30",
+    "original_attachment_count": 3,
+    "records": [
+      {
+        "filename": "OCBC_3Q26_Results_Press_Release.pdf",
+        "official_sgx_original_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+        "sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+        "bytes": 401720,
+        "page_count": 9,
+        "extracted_text_chars": 19683,
+        "issuer_and_2026_period_text_observed": true,
+        "individual_numerical_metrics_parsed_and_verified": false
+      },
+      {
+        "filename": "OCBC_3Q26_CEO_Presentation.pdf",
+        "official_sgx_original_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910570_OCBC_3Q26_CEO_Presentation.pdf",
+        "sha256": "1a2a289b9fb6b59e9b49b1865abbde173332bbfe5569e975c21e6a236180ab12",
+        "bytes": 1002190,
+        "page_count": 4,
+        "extracted_text_chars": 4388,
+        "issuer_and_2026_period_text_observed": true,
+        "individual_numerical_metrics_parsed_and_verified": false
+      },
+      {
+        "filename": "OCBC_3Q26_Results_Highlights.pdf",
+        "official_sgx_original_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910571_OCBC_3Q26_Results_Highlights.pdf",
+        "sha256": "1111632e69e5dd3fdacbab8c6febc21f723949b5240b2e7c7947e4a675dbde16",
+        "bytes": 1298232,
+        "page_count": 20,
+        "extracted_text_chars": 17742,
+        "issuer_and_2026_period_text_observed": true,
+        "individual_numerical_metrics_parsed_and_verified": false
+      }
+    ],
+    "financial_metrics_independently_reperformed": false,
+    "current_quote_or_shares_verified": false,
+    "ranking_eligible": false
+  },
+  "error": null
 }
