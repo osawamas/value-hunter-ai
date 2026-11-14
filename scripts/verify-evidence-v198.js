@@ -36,7 +36,9 @@ const tests=[
  "docs/test_sgx_source_rights_v222.js",
  "docs/test_dual_currency_expansion_v224.js",
  "docs/test_expanded_currency_ui_v225.js",
- "docs/test_sgx_instrument_types_v226.js"
+ "docs/test_sgx_instrument_types_v226.js",
+ "docs/test_sgx_dual_currency_second_batch_v227.js",
+ "docs/test_dual_currency_ui_v228.js"
 ];
 let failed=0;
 const results=[];
