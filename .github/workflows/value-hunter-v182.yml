@@ -1,0 +1,36 @@
+name: VALUE HUNTER v182 comparable bank Q3 year-over-year source research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/bank-profit-yoy-v182.js'
+      - 'docs/test_bank_profit_yoy_v182.js'
+      - '.github/workflows/value-hunter-v182.yml'
+permissions:
+  contents: read
+jobs:
+  original-profit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Quarter specific bank growth and source integrity
+        run: |
+          node --check docs/bank-profit-yoy-v182.js
+          node docs/test_bank_profit_yoy_v182.js
+          node docs/test_bank_coverage_v169.js
+          node docs/test_bank_nii_v178.js
+          node docs/test_reference_valuation_guard_v168.js
+      - name: No source profits can activate per-pbr rank
+        run: |
+          node - <<'JS'
+          const a=require('./docs/data/latest.json'),d=require('./docs/data/sgx-dbs-exact-table-v180.json');
+          if(a.ranking_eligible_count!==0||d.record.independent_numerical_verification!==false||
+            d.record.ranking_eligible!==false)throw Error("False financial assurance");
+          console.log("2026 bank issuer profit YoY is not stock-valuation guidance");
+          JS
