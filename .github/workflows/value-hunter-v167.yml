@@ -1,0 +1,38 @@
+name: VALUE HUNTER v167 consolidated OCBC bank headline
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/index.html'
+      - 'docs/ocbc-bundle-summary-v167.js'
+      - 'docs/test_ocbc_bundle_summary_v167.js'
+      - '.github/workflows/value-hunter-v167.yml'
+permissions:
+  contents: read
+jobs:
+  bank-headline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate collapsed source-driven summary
+        run: |
+          node --check docs/ocbc-bundle-summary-v167.js
+          node docs/test_ocbc_bundle_summary_v167.js
+          node docs/test_ocbc_group_v165.js
+          node docs/test_share_date_v162.js
+      - name: Validate actual v166 original source bundle and no ranking
+        run: |
+          node - <<'JS'
+          const fs=require("node:fs"),assert=require("node:assert/strict");
+          const {validate}=require("./docs/ocbc-bundle-summary-v167.js");
+          const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+          const b=JSON.parse(fs.readFileSync("docs/data/sgx-ocbc-bank-research-v166.json","utf8"));
+          assert.equal(validate(feed,b).profit,2042);
+          assert.equal(feed.ranking_eligible_count,0);
+          console.log("OCBC source-driven historical bank headline verified");
+          JS
