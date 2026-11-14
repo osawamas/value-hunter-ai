@@ -5,6 +5,7 @@
  */
 const fs=require("node:fs"),path=require("node:path");const root=path.resolve(__dirname,"..");
 const read=p=>JSON.parse(fs.readFileSync(path.join(root,p),"utf8"));
+const {derive:deriveV254}=require("./reconcile-sgx-official-code-v254.js");
 const expected=Object.freeze({
  "OCTOPUS (APAC) HOLDINGS LTD.":"43A|SG1CF0000001|SG260812OTHR3OBX",
  "OIO HOLDINGS LIMITED":"KUX|SGXE73993458|SG260410OTHRZ71Y",
@@ -86,7 +87,7 @@ function main(){
  const p=integrate(read("docs/data/sgx-corporate-indexed-page-v253.json"),
   read("docs/data/sgx-official-issuer-code-filings-v255.json"),
   read("docs/data/sgx-net-eleven-codes-v256.json"),
-  read("build/research/sgx-indexed-to-official-code-v254.json"),
+  deriveV254(read("docs/data/sgx-corporate-indexed-page-v253.json"),read("docs/data/sgx-official-batch-seed-v196.json"),read("docs/data/latest.json")),
   read("docs/data/latest.json"));
  const out=path.join(root,"build/research/sgx-twenty-codes-v256.json");
  fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,JSON.stringify(p,null,2)+"\n");
