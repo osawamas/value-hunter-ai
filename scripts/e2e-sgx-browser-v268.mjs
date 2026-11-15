@@ -34,6 +34,19 @@ try {
  }
  assert.match(await page.locator("#bankAnnualCompareStatus").innerText(),/正式ランキング未対応/);
 
+ // v286: verified OCBC issuer-hosted HTML original linked to SGX PDF.
+ const secondaryStatus=page.locator("#ocbcSecondIssuerSourceStatus");
+ await secondaryStatus.getByText(/OCBC公式サイトの原本HTML/).waitFor({timeout:25000});
+ const ocbcRows=page.locator("#ocbcSecondIssuerSourceRows tr");
+ assert.equal(await ocbcRows.count(),4);
+ assert.match(await ocbcRows.first().innerText(),/2\.04 billion SGD/);
+ assert.match(await ocbcRows.nth(1).innerText(),/6\.24 billion SGD/);
+ assert.match(await secondaryStatus.innerText(),/第三者の独立監査ではない/);
+ const ocbcWeb=page.locator("#ocbcSecondIssuerWeb");
+ assert.match(await ocbcWeb.getAttribute("title"),/原本HTML SHA-256：[0-9a-f]{64}/);
+ assert.match(await ocbcWeb.getAttribute("href"),/^https:\/\/www\.ocbc\.com\//);
+
+
  // v285 local-only three-bank comparison, separate from the investment ranking.
  await page.locator("#manualBankCompareStatus").getByText(/株価と自己株式控除後の株数/).waitFor({timeout:25000});
  for(const [symbol,price,shares] of [
