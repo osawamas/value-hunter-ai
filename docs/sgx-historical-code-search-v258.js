@@ -155,6 +155,29 @@
     throw Error("SGX counter-finance overlap does not match provenance");
   return joined;
  }
+ // v266: download only the records currently visible after search/filter.
+ // Original official source URLs are metadata; no SGX quote prices exported.
+ function exportDirectoryCsv(rows){
+  const columns=["code","name","isin","board","kind","source","filingDate",
+    "directHtmlIdentityMatched","financialRegistered","financialExclusionReasons",
+    "warning","ranking_eligible"];
+  const escapeField=value=>{
+   const raw=Array.isArray(value)?value.join(" / "):String(value??"");
+   const escaped=/^[=+@-]/.test(raw.trimStart())?"'"+raw:raw;
+   return '"'+escaped.replace(/"/g,'""')+'"';
+  };
+  const result=[columns.map(escapeField).join(",")];
+  for(const r of rows){
+   if(!/^[A-Z0-9]{2,6}$/.test(r.code)||
+      r.ranking_eligible!==false||
+      r.financialRankingEligible!==false||
+      r.all_current_trading_verified!==false)
+    throw Error("Research CSV cannot export promoted security status");
+   result.push(columns.map(key=>escapeField(key==="financialExclusionReasons"?
+     r.financialExclusionReasons:key==="ranking_eligible"?false:r[key])).join(","));
+  }
+  return "\\uFEFF"+result.join("\\r\\n")+"\\r\\n";
+ }
  function search(rows,query,boardFilter,financialFilter="ALL"){
   const q=String(query||"").trim().toLocaleUpperCase("en");
   return rows.filter(x=>(boardFilter==="ALL"||x.board===boardFilter)&&
@@ -169,7 +192,8 @@
   const board=document.getElementById("sgxHistoricalCodeBoard");
   const count=document.getElementById("sgxHistoricalCodeShown");
   const financeFilter=document.getElementById("sgxHistoricalCodeFinance");
-  if(!status||!body||!input||!board||!count||!financeFilter)return;
+  const exportBtn=document.getElementById("sgxHistoricalCodeExport");
+  if(!status||!body||!input||!board||!count||!financeFilter||!exportBtn)return;
   try{
    const names=["./data/sgx-corporate-indexed-page-v253.json",
      "./data/sgx-official-issuer-code-filings-v255.json",
@@ -221,6 +245,16 @@
    };
    input.addEventListener("input",paint);board.addEventListener("change",paint);
    financeFilter.addEventListener("change",paint);
+   exportBtn.addEventListener("click",()=>{
+    const shown=search(items,input.value,board.value,financeFilter.value);
+    const csv=exportDirectoryCsv(shown);
+    const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;link.download="value-hunter-sgx-research-counters.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+   });
    paint();
    status.textContent="SGXNet原本HTMLの直接再取得で19銘柄を本文・SHA照合。SGX公式静的資料11銘柄と合わせた限定30銘柄を財務登録7社と照合し、共通4社もランキングは全て除外。";
   }catch(e){
@@ -231,6 +265,6 @@
    count.textContent="取得不可";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={build,buildExpanded,buildWithOriginalProof,search,quoteViewer};
+ if(typeof module!=="undefined"&&module.exports)module.exports={build,buildExpanded,buildWithOriginalProof,search,exportDirectoryCsv,quoteViewer};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
