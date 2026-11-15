@@ -25,6 +25,18 @@
     "status": "SECONDARY_REPOST_NOT_SGX_ORIGINAL_PDF_VERIFIED",
     "source_url": "https://www-web.itiger.com/news/1107557934"
   },
+  "sgx_monthly_statistics_mirror": {
+    "period": "2026-10",
+    "status": "THIRD_PARTY_PDF_BYTES_VERIFIED_SGX_HOST_UNCONFIRMED",
+    "source_url": "https://repository.shareinvestor.com/rpt_view.pl/id/515671391.2/type/sgxnet/original_filename/1",
+    "sha256": "e1e185b8b6031fc790d704050c21346517e4c6ecdf0ee18b1577b6b9a650980e",
+    "bytes": 966695,
+    "summary_pdf_page": 2,
+    "listing_table_pdf_page": 45,
+    "scope": "LISTED_SECURITIES_EXCLUDING_GDR_HEDGE_FUNDS_DEBT",
+    "sep_2026": {"mainboard": 406, "catalist": 198, "total": 604},
+    "oct_2026": {"mainboard": 408, "catalist": 197, "total": 605}
+  },
   "sgx_original_aug_report_url": "https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Aug%202026.ashx?App=Announcement&FileID=903915",
   "sgx_original_aug_2026_listings": {
     "mainboard": 406,
