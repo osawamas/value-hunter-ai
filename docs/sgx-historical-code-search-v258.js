@@ -159,22 +159,30 @@
  // Original official source URLs are metadata; no SGX quote prices exported.
  function exportDirectoryCsv(rows){
   const columns=["code","name","isin","board","kind","source","filingDate",
-    "directHtmlIdentityMatched","financialRegistered","financialExclusionReasons",
+    "directHtmlIdentityMatched","originalHtmlSHA256","financialRegistered",
+    "financialExclusionReasons","financialExclusionReasonsJa",
     "warning","ranking_eligible"];
   const escapeField=value=>{
    const raw=Array.isArray(value)?value.join(" / "):String(value??"");
    const escaped=/^[=+@-]/.test(raw.trimStart())?"'"+raw:raw;
    return '"'+escaped.replace(/"/g,'""')+'"';
   };
+  const jpReasonLabels=root?.VALUE_HUNTER_EXCLUSION_LABELS||{};
+  const reasonJa=codes=>codes.map(code=>typeof jpReasonLabels[code]==="string"?
+    jpReasonLabels[code]:"要確認（"+code+"）").join(" / ");
   const result=[columns.map(escapeField).join(",")];
   for(const r of rows){
    if(!/^[A-Z0-9]{2,6}$/.test(r.code)||
       r.ranking_eligible!==false||
       r.financialRankingEligible!==false||
-      r.all_current_trading_verified!==false)
+      r.all_current_trading_verified!==false||
+      (r.kind==="SGXNET" && (!/^[0-9a-f]{64}$/.test(r.originalHtmlSHA256||"")||
+        r.directHtmlIdentityMatched!==true))||
+      (r.kind==="SGX_STATIC" && r.directHtmlIdentityMatched!==false))
     throw Error("Research CSV cannot export promoted security status");
    result.push(columns.map(key=>escapeField(key==="financialExclusionReasons"?
-     r.financialExclusionReasons:key==="ranking_eligible"?false:r[key])).join(","));
+     r.financialExclusionReasons:key==="financialExclusionReasonsJa"?
+     reasonJa(r.financialExclusionReasons):key==="ranking_eligible"?false:r[key])).join(","));
   }
   return "\uFEFF"+result.join("\r\n")+"\r\n";
  }
