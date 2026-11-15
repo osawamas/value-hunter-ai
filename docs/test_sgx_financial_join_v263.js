@@ -31,5 +31,5 @@ const html=fs.readFileSync("docs/index.html","utf8");
 const ui=fs.readFileSync("docs/sgx-historical-code-search-v258.js","utf8");
 assert.match(html,/根拠の確認状態<\/th><th>財務登録/);
 assert.match(ui,/financeTd\.textContent=item\.financialRegistered/);
-assert.match(ui,/financialExclusionReasons\.join/);
+assert.match(ui,/financialExclusionReasons\.map/);
 console.log("v263 PASS: research SGX codes joined by exact symbol to four financial records, exclusion reasons remain guarded");
