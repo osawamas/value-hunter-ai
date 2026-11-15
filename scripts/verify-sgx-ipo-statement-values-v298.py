@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 import urllib.request
+from urllib.parse import urlsplit
 import datetime
 
 ROOT=pathlib.Path(__file__).resolve().parent.parent
@@ -121,25 +122,33 @@ def verify_section(text,record):
   "audit_scope_safe":True,"pro_forma_investment_figures_used":False,
   "rank_eligible":False}
 
-def download(source):
- req=urllib.request.Request(source["url"],headers={
+def download(url, sha256, size):
+ original=urlsplit(url)
+ if original.scheme!="https" or original.netloc not in {"links.sgx.com","miequipment.listedcompany.com"}:
+  raise ValueError("Unexpected PDF source")
+ req=urllib.request.Request(url,headers={
   "User-Agent":"VALUE-HUNTER-AI-source-validation/1.0 (+https://github.com/osawamas/value-hunter-ai)",
   "Accept":"application/pdf"})
  with urllib.request.urlopen(req,timeout=45) as reply:
-  if not reply.geturl().startswith("https://links.sgx.com/"):
-   raise ValueError("Unexpected non-SGX redirect")
+  final=urlsplit(reply.geturl())
+  if (final.scheme,final.netloc)!=(original.scheme,original.netloc):
+   raise ValueError("Unexpected redirect to another host")
   blob=reply.read(v297.MAX_BYTES+1)
- if hashlib.sha256(blob).hexdigest()!=source["github_actions_confirmed_sha256"] or len(blob)!=source["github_actions_confirmed_original_bytes"]:
+ if hashlib.sha256(blob).hexdigest()!=sha256 or len(blob)!=size:
   raise ValueError("Verified PDF checksum drift")
  return blob
 
-def original_text(source):
- raw=download(source)
+def original_text(source, pages=()):
+ raw=download(source["url"],source["sha256"],source["bytes"])
  with tempfile.TemporaryDirectory() as temp:
   pdf=pathlib.Path(temp)/"original.pdf"
   pdf.write_bytes(raw)
-  proc=subprocess.run(["pdftotext","-layout",str(pdf),"-"],capture_output=True,timeout=65,check=True)
+  proc=subprocess.run(["pdftotext","-layout",*pages,str(pdf),"-"],capture_output=True,timeout=65,check=True)
  return proc.stdout.decode("utf-8",errors="replace")
+
+def manifest_text(source):
+ return original_text({"url":source["url"],"sha256":source["github_actions_confirmed_sha256"],
+  "bytes":source["github_actions_confirmed_original_bytes"]})
 
 def verify_mim_business_update(source, update):
  if (update["source_pdf_url"]!=source["url"]
@@ -147,7 +156,7 @@ def verify_mim_business_update(source, update):
      or update["period_end"]!="2026-09-30"
      or update["prior_year_same_period_revenue"] is not None):
   raise ValueError("MIM 9M2026 source or comparison period mismatch")
- content=" ".join(original_text(source).split())
+ content=" ".join(manifest_text(source).split())
  expected=[
   "nine months ended 30 September 2026",
   f'Revenue reached US${update["revenue_usd_millions"]:.1f} million in 9M2026',
@@ -157,10 +166,31 @@ def verify_mim_business_update(source, update):
  ]
  if any(row not in content for row in expected):
   raise ValueError("MIM 9M2026 issuer figures did not match original release")
- print("MIM VERIFIED original 9M2026 issuer release and quarter-on-quarter comparison")
+ presentation=update["presentation_source"]
+ deck=original_text(presentation,("-f","14","-l","14"))
+ if not re.search(r"Adjustments to PAT[\s\S]*?FY2023\s+FY2024\s+FY2025\s+9MFY26",deck):
+  raise ValueError("MIM PAT adjustment table is absent")
+ for label, field in [("Revenue","revenue_usd_millions"),("PAT","pat_usd_millions"),("Adj. PAT","adjusted_pat_usd_millions")]:
+  pattern=rf"^\s*{re.escape(label)}(?:\s+\d+\.\d+){{3}}\s+{re.escape(f'{update[field]:.1f}')}\s*$"
+  if not re.search(pattern,deck,re.MULTILINE):
+   raise ValueError(f"MIM 9M2026 presentation row mismatch: {label}")
+ segment=update["parent_segment_comparison"]
+ if segment["basis"]!="MITB_SMBU_EXTERNAL_CUSTOMER_REVENUE" or segment["currency"]!="MYR":
+  raise ValueError("Mi Technovation SMBU comparison scope mismatch")
+ tables=original_text(segment["source"],("-f","13","-l","15")).split("\f")
+ for label,year,page in [("prior",2025,15),("current",2026,13)]:
+  if segment[f"{label}_period_end"]!=f"{year}-09-30":
+   raise ValueError("Mi Technovation SMBU comparison period mismatch")
+  table=tables[page-13]
+  heading=rf"Results for the financial period ended 30 September {year}[^\n]*\n\s*SEBU\s+SMBU"
+  values=rf"^\s*Revenue from external customers\s+[\d,]+\s+{segment[f'{label}_revenue_thousands']:,}\s+"
+  if not re.search(heading,table) or not re.search(values,table,re.MULTILINE):
+   raise ValueError(f"Mi Technovation 9M{year} SMBU external revenue mismatch")
+ print("MIM VERIFIED issuer release, reported and adjusted PAT, and separate parent segment revenue")
  return {"original_pdf_sha256":source["github_actions_confirmed_sha256"],
   "period_end":update["period_end"],"audit_status":update["audit_status"],
-  "prior_year_same_period_revenue":None,"values_confirmed":4}
+  "prior_year_same_period_revenue":None,"values_confirmed":5,
+  "issuer_presentation_sha256":presentation["sha256"],"parent_segment_comparison":segment}
 
 def main():
  manifest=json.loads((ROOT/"docs/data/sgx-ipo-financial-documents-v297.json").read_text())
@@ -173,7 +203,7 @@ def main():
   source=next(x for x in sources if x["symbol"]==record["symbol"] and x["document_type"]=="REGISTERED_IPO_PROSPECTUS")
   if record["source_pdf_sha256"]!=source["github_actions_confirmed_sha256"] or record["source_pdf_url"]!=source["url"]:
    raise ValueError("Audited statement evidence mismatch")
-  result=verify_section(original_text(source),record)
+  result=verify_section(manifest_text(source),record)
   if record["symbol"]=="MIM":
    update_source=next(x for x in sources if x["document_type"]=="ISSUER_9M2026_BUSINESS_UPDATE")
    result["business_update"]=verify_mim_business_update(update_source,record["business_update"])

@@ -136,7 +136,26 @@
         "gross_margin_percent": 46.6,
         "adjusted_pat_usd_millions": 25.7,
         "q3_revenue_qoq_percent": 15.6,
-        "source_pdf_url": "https://links.sgx.com/FileOpen/MiM_9M2026_Press_Release_29102026.ashx?App=Announcement&FileID=909744"
+        "source_pdf_url": "https://links.sgx.com/FileOpen/MiM_9M2026_Press_Release_29102026.ashx?App=Announcement&FileID=909744",
+        "pat_usd_millions": 25.5,
+        "presentation_source": {
+          "url": "https://links.sgx.com/1.0.0/corporate-announcements/3AIVVBSFGPZO8KPG/909743_MiMH%20-%20Business%20Update%20Presentation%20-%2029%20Oct%202026.pdf",
+          "sha256": "4faeeb00668c87f3d0d6bb67d4a9e783c6bd0962ed0ea3004f9f68da0daf3851",
+          "bytes": 1958063
+        },
+        "parent_segment_comparison": {
+          "basis": "MITB_SMBU_EXTERNAL_CUSTOMER_REVENUE",
+          "currency": "MYR",
+          "prior_period_end": "2025-09-30",
+          "current_period_end": "2026-09-30",
+          "prior_revenue_thousands": 185667,
+          "current_revenue_thousands": 368216,
+          "source": {
+            "url": "https://miequipment.listedcompany.com/newsroom/MiTB_3Q_FYE2026%2829Oct2026%29_20261029.pdf",
+            "sha256": "d02c1a76ad342acb796d33e8ee6ed0894e3736102e95e027d8233aa1c3bebea4",
+            "bytes": 1133755
+          }
+        }
       }
     }
   ]

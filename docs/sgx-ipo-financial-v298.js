@@ -89,9 +89,16 @@
       update.prior_year_same_period_revenue!==null||
       !/^https:\/\/links\.sgx\.com\/FileOpen\//.test(update.source_pdf_url||"")||
       [update.revenue_usd_millions,update.gross_margin_percent,update.adjusted_pat_usd_millions,
-       update.q3_revenue_qoq_percent].some(x=>!Number.isFinite(x)))
+       update.pat_usd_millions,update.q3_revenue_qoq_percent].some(x=>!Number.isFinite(x))||
+      !/^https:\/\/links\.sgx\.com\/1\.0\.0\/corporate-announcements\//.test(update.presentation_source?.url||""))
      throw Error("MIMの9か月の発行体業績資料に不一致");
-    businessUpdate=update;
+    const segment=update.parent_segment_comparison;
+    if(segment?.basis!=="MITB_SMBU_EXTERNAL_CUSTOMER_REVENUE"||segment.currency!=="MYR"||
+       segment.prior_period_end!=="2025-09-30"||segment.current_period_end!==update.period_end||
+       !/^https:\/\/miequipment\.listedcompany\.com\/newsroom\//.test(segment.source?.url||"")||
+       [segment.prior_revenue_thousands,segment.current_revenue_thousands].some(x=>!Number.isSafeInteger(x)||x<=0))
+     throw Error("親会社の半導体材料部門データに不一致");
+    businessUpdate={...update,segmentRevenueYoY:compare(segment.prior_revenue_thousands,segment.current_revenue_thousands)};
    }
    result.push({symbol:s.symbol,issuer:s.name,currency:s.currency,unit:"thousand",
     source:s.source_pdf_url,sha:s.source_pdf_sha256,
@@ -125,14 +132,24 @@
    const {interim,businessUpdate:update}=rows.find(x=>x.symbol==="MIM");
    status.textContent="SGX原本PDFの監査済み実績。MIMの2026年上期（未監査）は売上前年比"+
      pct(interim.revenueYoY)+"、6月末の自己資本比率"+ratio(interim.equityRatio)+"。";
-   const source=root.document.createElement("a");
-   source.href=update.source_pdf_url;
-   source.textContent="SGX掲載の発行体資料（PDF）";
+   const sourceLink=(url,label)=>{
+    const link=root.document.createElement("a");
+    link.href=url;
+    link.textContent=label;
+    return link;
+   };
+   const segment=update.parent_segment_comparison;
    business.replaceChildren(
     "MIM 2026年1–9月（発行体公表・未監査）。売上 "+update.revenue_usd_millions.toFixed(1)+
-    "百万USD、粗利益率 "+ratio(update.gross_margin_percent)+"、調整後税引後利益 "+
+    "百万USD、粗利益率 "+ratio(update.gross_margin_percent)+"、税引後利益 "+update.pat_usd_millions.toFixed(1)+
+    "百万USD、調整後税引後利益 "+
     update.adjusted_pat_usd_millions.toFixed(1)+"百万USD。2026年第3四半期の売上は前四半期比 "+
-    pct(update.q3_revenue_qoq_percent)+"。前年同期の9か月実績は資料に記載なし。 ",source);
+    pct(update.q3_revenue_qoq_percent)+"。MIMの米ドル建て前年同期売上は資料に記載なし。 ",
+    sourceLink(update.source_pdf_url,"発表資料PDF"),"・",sourceLink(update.presentation_source.url,"業績説明資料PDF"),
+    root.document.createElement("br"),
+    "親会社Mi Technovationの半導体材料部門（SMBU）の外部顧客売上。2025年1–9月 "+
+    money(segment.prior_revenue_thousands)+"千MYR、2026年1–9月 "+money(segment.current_revenue_thousands)+
+    "千MYR、前年同期比 "+pct(update.segmentRevenueYoY)+"。 ",sourceLink(segment.source.url,"親会社の四半期報告書PDF"));
   }).catch(e=>{body.replaceChildren();status.textContent="資料照合エラー："+e.message;});
  }
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);

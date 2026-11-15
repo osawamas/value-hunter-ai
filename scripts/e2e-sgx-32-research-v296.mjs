@@ -29,8 +29,11 @@ try{
   ["73.2%","—","—","—"]);
  assert.match(await page.locator("#sgxIpoFinancialStatus").innerText(),/未監査.*70\.6%/);
  const businessUpdate=page.locator("#sgxIpoBusinessUpdate");
- assert.match(await businessUpdate.innerText(),/未監査.*91\.5百万USD.*前四半期比 \+15\.6%.*前年同期の9か月実績は資料に記載なし/);
- assert.match(await businessUpdate.locator("a").getAttribute("href"),/FileID=909744$/);
+ const updateText=await businessUpdate.innerText();
+ assert.match(updateText,/未監査.*91\.5百万USD.*税引後利益 25\.5百万USD.*調整後税引後利益 25\.7百万USD.*前四半期比 \+15\.6%/);
+ assert.match(updateText,/MIMの米ドル建て前年同期売上は資料に記載なし/);
+ assert.match(updateText,/半導体材料部門.*185,667千MYR.*368,216千MYR.*前年同期比 \+98\.3%/);
+ assert.match(await businessUpdate.getByRole("link",{name:"発表資料PDF",exact:true}).getAttribute("href"),/FileID=909744$/);
 
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/2 \/ 32件/).waitFor();
