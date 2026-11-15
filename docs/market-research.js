@@ -341,7 +341,16 @@ function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
     pbr: last.parent_equity > 0 ? cap / last.parent_equity : null,
     currency, periodEnd: last.end,
     annualNetIncome: last.net_income, annualParentEquity: last.parent_equity,
+    perUnavailableReason: last.net_income <= 0 ? "non_positive_net_income" : undefined,
+    pbrUnavailableReason: last.parent_equity <= 0 ? "non_positive_parent_equity" : undefined,
   };
+}
+
+function valuationNotes(result) {
+  return [
+    result?.perUnavailableReason && "PERは年次純利益がゼロ以下のため算出対象外",
+    result?.pbrUnavailableReason && "PBRは親会社持分がゼロ以下のため算出対象外",
+  ].filter(Boolean);
 }
 
 function describeClassQuotes(row, quote, quotes, history) {
@@ -525,14 +534,15 @@ function personalBatchCsv(results) {
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
     "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date",
     "share_disclosed_at", "share_disclosure_timing", "prior_share_reference_date", "prior_share_reference_source",
-    "annual_net_income", "annual_parent_equity"];
+    "annual_net_income", "annual_parent_equity", "per_unavailable_reason", "pbr_unavailable_reason"];
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
     Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
     Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate,
     row.shareDisclosedAt, row.shareDisclosureTiming, row.referenceShareDate, row.referenceShareSource,
-    row.result?.annualNetIncome, row.result?.annualParentEquity].map(csvCell).join(","));
+    row.result?.annualNetIncome, row.result?.annualParentEquity,
+    row.result?.perUnavailableReason, row.result?.pbrUnavailableReason].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -659,7 +669,8 @@ async function initMarketResearch() {
       const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
         quote.date, quote.currency, money.format(quote.price), row.shares ? money.format(row.shares) : "—",
         result ? money.format(result.cap) : "—", result ? multiple(result.per) : "—",
-        result ? multiple(result.pbr) : "—", row.financialPeriodEnd || "—", row.detail || batchLabels[row.state],
+        result ? multiple(result.pbr) : "—", row.financialPeriodEnd || "—",
+        [row.detail || batchLabels[row.state], ...valuationNotes(result)].join("／"),
         row.classValue === undefined ? "—" : money.format(row.classValue),
         pct(row.salesGrowth ?? null), pct(row.equityRatio ?? null)];
       const tr = document.createElement("tr");
@@ -824,7 +835,7 @@ async function initMarketResearch() {
       });
       scenarioResult.textContent = "参考時価総額 " + money.format(result.cap) + " " + result.currency +
         "、PER " + multiple(result.per) + "、PBR " + multiple(result.pbr) +
-        "。財務基準日 " + result.periodEnd + "。";
+        "。財務基準日 " + result.periodEnd + "。" + valuationNotes(result).join("。");
     } catch (error) {
       scenarioResult.textContent = error.message;
     }

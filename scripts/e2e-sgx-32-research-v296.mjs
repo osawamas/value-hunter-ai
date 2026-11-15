@@ -149,6 +149,7 @@ try{
  await page.locator("#scenarioShares").fill("3496382520");
  await page.getByRole("button",{name:"試算する"}).click();
  assert.match(await page.locator("#marketScenarioResult").innerText(),/参考時価総額 1,048,914,756,000 JPY、PER —、PBR 0\.22倍/);
+ assert.match(await page.locator("#marketScenarioResult").innerText(),/PERは年次純利益がゼロ以下のため算出対象外/);
  await page.getByText("株数の開示がある日を探す",{exact:true}).click();
  await page.locator("#publishedShareDate").selectOption("2026-09-30");
  const shareDay = page.locator("#publishedShareItems");
@@ -228,8 +229,8 @@ try{
  await page.locator("#personalBatchDownload").click();
  const growthCsv = fs.readFileSync(await (await growthDownload).path(),"utf8");
  assert.match(growthCsv,/annual_sales_growth_pct,annual_parent_equity_ratio_pct/);
- assert.match(growthCsv,/annual_net_income,annual_parent_equity\r?\n/);
- assert.match(growthCsv,/"JP:7203"[^\r\n]*,3848098000000,39918854000000\r?\n/);
+ assert.match(growthCsv,/annual_net_income,annual_parent_equity,per_unavailable_reason,pbr_unavailable_reason\r?\n/);
+ assert.match(growthCsv,/"JP:7203"[^\r\n]*,3848098000000,39918854000000,,\r?\n/);
  assert.doesNotMatch(growthCsv,/"US:AAPL"/);
  await page.locator("#personalBatchMinSales").fill("");
  await page.locator("#personalBatchMinEquity").fill("");

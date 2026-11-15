@@ -14,6 +14,16 @@ const shares = require("../docs/data/sgx-s63-two-website-close-v129.json");
 const rows = buildMarketRows(research, sgx);
 const equityReview = require("../docs/data/sgx-s63-parent-equity-v395.json");
 const s63Issuer = rows.find(row => row.id === "SG:S63");
+const toyota = structuredClone(rows.find(row => row.id === "JP:7203"));
+const latestToyota = toyota.financials.periods.at(-1);
+latestToyota.net_income = -1;
+latestToyota.parent_equity = 0;
+const [undefinedRatios] = evaluatePersonalQuotes([toyota],
+  new Map([["JP:7203", {date: "2026-09-30", currency: "JPY", price: 2500}]]), new Map(), shares);
+assert.equal(undefinedRatios.result.cap, 2500 * 11778247313);
+assert.equal(undefinedRatios.result.per, null);
+assert.equal(undefinedRatios.result.pbr, null);
+assert.match(personalBatchCsv([undefinedRatios]), /-1,0,"non_positive_net_income","non_positive_parent_equity"\r\n/);
 assert.equal(rankingEvidence(s63Issuer, shares, equityReview).matchedEquity.parent_equity, 2573638);
 for (const mismatch of [{period_end: "2024-12-31"}, {parent_equity: 2921245},
   {non_controlling_interests: 0}, {independent_verification: true}]) {
