@@ -5,12 +5,14 @@ const data=JSON.parse(fs.readFileSync("docs/data/sgx-material-listing-events-v25
 const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
 function check(d,f){
  const rows=validate(d,f);
- assert.equal(rows.length,2);
- assert.deepEqual(rows.map(x=>x.symbol),["5WA","P11"]);
+ assert.equal(rows.length,3);
+ assert.deepEqual(rows.map(x=>x.symbol),["5WA","P11","5WG"]);
  assert.equal(rows[0].status,"PENDING_COURT_AND_EXCHANGE_APPROVAL");
  assert.equal(rows[0].provisionalDelist,"2026-12-17");
  assert.equal(rows[1].status,"RESTRUCTURING_MONITOR");
  assert.equal(rows[1].provisionalDelist,null);
+ assert.equal(rows[2].status,"PENDING_SGX_DECISION");
+ assert.equal(rows[2].provisionalLast,null);
  assert.ok(rows.every(x=>x.eligible===false));
 }
 check(data,feed);

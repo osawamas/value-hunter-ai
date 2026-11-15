@@ -230,7 +230,8 @@ def sgx_announcement(record):
  sgx_html.validate_url(source["url"])
  raw=download(source["url"],source["sha256"],source["bytes"])
  clean=sgx_html.clean_text(raw)
- if not re.search(rf"\b{record['isin']}\s*-\s*{record['symbol']}\b",clean) or record["reference"] not in clean:
+ reference=record.get("announcement_reference") or record["reference"]
+ if not re.search(rf"\b{record['isin']}\s*-\s*{record['symbol']}\b",clean) or reference not in clean:
   raise ValueError(f"SGX announcement identity mismatch: {record['symbol']}")
  return raw,clean
 
@@ -282,13 +283,15 @@ def verify_metasurface_listing(record):
  print("SGX VERIFIED MET Catalist admission, ISIN, effective date and board lot")
  return record
 
-def verify_oue_hearing(record):
+def listing_event_attachment(record, heading):
  raw,html=sgx_announcement(record)
- if (urlsplit(record["source_url"]).path.encode() not in raw
-     or "NOTICE OF COURT HEARING DATE TO SANCTION THE SCHEME" not in html):
-  raise ValueError("OUE Healthcare hearing attachment mismatch")
- text=" ".join(original_text({"url":record["source_url"],"sha256":record["source_sha256"],
+ if urlsplit(record["source_url"]).path.encode() not in raw or heading not in html:
+  raise ValueError(f"SGX listing-event attachment mismatch: {record['symbol']}")
+ return " ".join(original_text({"url":record["source_url"],"sha256":record["source_sha256"],
   "bytes":record["source_bytes"]}).split())
+
+def verify_oue_hearing(record):
+ text=listing_event_attachment(record,"NOTICE OF COURT HEARING DATE TO SANCTION THE SCHEME")
  labels={
   "court_hearing_date":r"Court Hearing Date\s*:\s*",
   "indicative_last_trading_date":r"Expected last day for trading of Shares\(A\)\s*:\s*On or around\s+",
@@ -301,6 +304,17 @@ def verify_oue_hearing(record):
  if "the above dates are indicative only" not in text or record["delisted_confirmed"] is not False:
   raise ValueError("OUE Healthcare provisional dates cannot confirm delisting")
  print("SGX VERIFIED OUE Healthcare hearing and updated indicative timetable")
+ return record
+
+def verify_ske_resumption(record):
+ text=listing_event_attachment(record,"SUBMISSION OF TRADING RESUMPTION PROPOSAL")
+ day=datetime.date.fromisoformat(record["event_date"])
+ if (f"it has submitted the Resumption Proposal on {day.day} {day:%B %Y}" not in text
+     or "make further announcement on the outcome of the Resumption Proposal" not in text
+     or record["status"]!="PENDING_SGX_DECISION"
+     or record["active_listing_today_confirmed"] is not False or record["delisted_confirmed"] is not False):
+  raise ValueError("5WG resumption proposal scope mismatch")
+ print("SGX VERIFIED 5WG resumption proposal submission with decision pending")
  return record
 
 def main():
@@ -325,15 +339,16 @@ def main():
  october=json.loads((ROOT/"docs/data/sgx-october-release-v292.json").read_text())
  notices=json.loads((ROOT/"docs/data/sgx-bank-share-notices-v303.json").read_text())
  met=json.loads((ROOT/"docs/data/sgx-metasurface-listing-v304.json").read_text())
- oue=next(row for row in json.loads((ROOT/"docs/data/sgx-material-listing-events-v257.json").read_text())["events"]
-  if row["symbol"]=="5WA")
+ listing_events={row["symbol"]:row for row in
+  json.loads((ROOT/"docs/data/sgx-material-listing-events-v257.json").read_text())["events"]}
  report={"schema_version":"sgx-ipo-original-audited-financial-reconciliation-v298",
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
   "october_statistics":verify_october_statistics(october),
   "bank_share_notices":verify_bank_share_notices(notices),
   "metasurface_listing":verify_metasurface_listing(met),
-  "oue_healthcare_hearing":verify_oue_hearing(oue),
+  "oue_healthcare_hearing":verify_oue_hearing(listing_events["5WA"]),
+  "ske_resumption_proposal":verify_ske_resumption(listing_events["5WG"]),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,
   "independent_current_financial_reverification":False,"ranking_eligible_count":0}
  dest=ROOT/"build/research/sgx-ipo-audited-reconciliation-v298.json"

@@ -20,7 +20,7 @@
     boardLot.official_full_security_master_obtained!==false||
     boardLot.rows?.length!==11||
     events?.schema_version!=="sgx-listing-event-watch-v257"||
-    events.events?.length!==2||
+    !Array.isArray(events.events)||
     feed?.ranking_enabled!==false||feed.ranking_eligible_count!==0)
     throw Error("SGX 20-issuer lookup source boundary changed");
   const joined=new Map();
@@ -47,7 +47,7 @@
     throw Error("OCBC counter source changed");
   add("OVERSEA-CHINESE BANKING CORP","O39",null,boardLot.source_url,boardLot.effective_date,"SGX_STATIC");
   const risk=new Map(events.events.map(e=>[e.symbol,e]));
-  if(risk.size!==2||!risk.has("5WA")||!risk.has("P11")||
+  if(risk.size!==events.events.length||!risk.has("5WA")||!risk.has("P11")||
     [...risk.values()].some(e=>e.delisted_confirmed!==false||e.ranking_eligible!==false))
     throw Error("Event alert source changed");
   const codes=new Set(),rows=[];

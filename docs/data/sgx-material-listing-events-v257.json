@@ -1,7 +1,7 @@
 {
   "schema_version": "sgx-listing-event-watch-v257",
   "as_of_date": "2026-11-15",
-  "scope": "TWO_SELECTED_ISSUERS_WITH_MATERIAL_CORPORATE_EVENTS_NOT_FULL_SGX_STATUS",
+  "scope": "SELECTED_ISSUERS_WITH_MATERIAL_CORPORATE_EVENTS",
   "source_policy": "SGX_ISSUER_ANNOUNCEMENTS_NOT_EXCHANGE_CURRENT_TICKER_MASTER",
   "investable_by_this_watch": false,
   "definitive_current_trading_status_verified": false,
@@ -32,8 +32,7 @@
         "url": "https://links.sgx.com/1.0.0/corporate-announcements/FABRCJWVAL4JHHGC/6df0e0e565db5a83fba50af7698f525141c618d6f4c17df99816603398408333",
         "sha256": "829146aa482357e2beaa6513b751d08676a976ab31a27860d84abb8d8cf5d2a7",
         "bytes": 6252
-      },
-      "reference": "SG261110OTHR59DA"
+      }
     },
     {
       "symbol": "P11",
@@ -45,6 +44,30 @@
       "event_code": "CHAPTER_11_PLAN_ADMINISTRATION_UPDATE",
       "status": "RESTRUCTURING_MONITOR",
       "detail_ja": "Chapter 11再建計画の管理状況に関する更新。売買再開・上場廃止確定の証明ではない。",
+      "indicative_last_trading_date": null,
+      "indicative_delisting_date": null,
+      "dates_are_firm": false,
+      "delisted_confirmed": false,
+      "active_listing_today_confirmed": false,
+      "ranking_eligible": false
+    },
+    {
+      "symbol": "5WG",
+      "issuer": "SINGAPORE KITCHEN EQUIPMENT LIMITED",
+      "isin": "SG2F97994568",
+      "event_date": "2026-11-09",
+      "announcement_reference": "SG261109OTHRP5H7",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/JXY7TCQ5AEATIVMP/910773_SKE%20Submission%20of%20RTP.pdf",
+      "source_sha256": "6b3720531bb1f3ec55f9016713ca15302f79c2f3ddbeb2c548ac7e75de286acb",
+      "source_bytes": 147593,
+      "source": {
+        "url": "https://links.sgx.com/1.0.0/corporate-announcements/JXY7TCQ5AEATIVMP/f6c573a8122ed57b766f44ac4d9a66c71b635d92762e378b3356812d76861f9e",
+        "sha256": "5ddda208f0fd158ed494e550a9a6bc8ac474f92955898bfeb0378aefdb3721b9",
+        "bytes": 6086
+      },
+      "event_code": "TRADING_RESUMPTION_PROPOSAL_SUBMITTED",
+      "status": "PENDING_SGX_DECISION",
+      "detail_ja": "11月9日に売買再開の提案をSGXへ提出。売買再開の承認と再開日は未確認。",
       "indicative_last_trading_date": null,
       "indicative_delisting_date": null,
       "dates_are_firm": false,

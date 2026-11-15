@@ -4,18 +4,19 @@
  function validate(events,feed){
   if(events?.schema_version!=="sgx-listing-event-watch-v257"||
      events.as_of_date!=="2026-11-15"||
-     events.scope!=="TWO_SELECTED_ISSUERS_WITH_MATERIAL_CORPORATE_EVENTS_NOT_FULL_SGX_STATUS"||
+     events.scope!=="SELECTED_ISSUERS_WITH_MATERIAL_CORPORATE_EVENTS"||
      events.investable_by_this_watch!==false||
      events.definitive_current_trading_status_verified!==false||
      events.complete_master_covered!==false||
      events.latest_licensed_market_price_available!==false||
      events.ranking_eligible_count!==0||
      feed?.ranking_enabled!==false||feed.ranking_eligible_count!==0||
-     !Array.isArray(events.events)||events.events.length!==2)
+     !Array.isArray(events.events)||events.events.length!==3)
    throw Error("Current listing status evidence gate failed");
   const expected=[
    ["5WA","SG2F86994413","COURT_HEARING_SCHEDULED_FOR_PRIVATISATION_SCHEME","PENDING_COURT_AND_EXCHANGE_APPROVAL","SG261110OTHR59DA"],
-   ["P11","BMG6845B1046","CHAPTER_11_PLAN_ADMINISTRATION_UPDATE","RESTRUCTURING_MONITOR","SG261016OTHRODOS"]
+   ["P11","BMG6845B1046","CHAPTER_11_PLAN_ADMINISTRATION_UPDATE","RESTRUCTURING_MONITOR","SG261016OTHRODOS"],
+   ["5WG","SG2F97994568","TRADING_RESUMPTION_PROPOSAL_SUBMITTED","PENDING_SGX_DECISION","SG261109OTHRP5H7"]
   ];
   const seen=new Set();
   return events.events.map((item,i)=>{
@@ -32,8 +33,8 @@
     throw Error("Unverified delisting claim");
    if(i===0&&(item.court_hearing_date!=="2026-11-30"||item.indicative_last_trading_date!=="2026-12-01"||
                item.indicative_delisting_date!=="2026-12-17"))throw Error("OUEH expected dates changed");
-   if(i===1&&(item.indicative_last_trading_date!==null||
-               item.indicative_delisting_date!==null))throw Error("P11 dates invented");
+   if(i!==0&&(item.indicative_last_trading_date!==null||
+               item.indicative_delisting_date!==null))throw Error("日程は未確認");
    seen.add(item.symbol);
    return {symbol:item.symbol,issuer:item.issuer,detail:item.detail_ja,
     event:item.event_date,status:item.status,source:item.source_url,
@@ -60,7 +61,7 @@
     td.append(a);tr.append(td);frag.append(tr);
    }
    body.replaceChildren(frag);
-   status.textContent="2026年11月15日現在の開示確認。5WAは裁判所の審理日を通知済み、P11は再建計画の管理中。いずれも現在の取引可否・確定上場廃止日を保証せず、投資ランキングには含めない。";
+   status.textContent="2026年11月15日時点で確認した開示。5WAは裁判所の審理待ち、P11は再建計画の管理中、5WGは売買再開提案の結果待ち。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=4;td.textContent="重要な企業イベントの根拠を照合できないため非表示";tr.append(td);
