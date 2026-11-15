@@ -178,6 +178,19 @@ async function initMarketResearch() {
   let activeRow;
   let personalQuotes = new Map();
   let personalShares = new Map();
+  let importedClose = false;
+  let importedShares = false;
+  const dateInput = byId("scenarioDate");
+  const priceInput = byId("scenarioPrice");
+  const sharesInput = byId("scenarioShares");
+  const clearImportedShares = () => {
+    if (importedShares) sharesInput.value = "";
+    importedShares = false;
+  };
+  const clearImportedClose = () => {
+    if (importedClose) priceInput.value = "";
+    importedClose = false;
+  };
   const element = (tag, value) => Object.assign(document.createElement(tag), {textContent: value});
   const link = (url, label) => {
     if (!url.startsWith("https://") && !["./sgx-32-research.html", "./index.html"].includes(url)) throw Error("出典URLが不明");
@@ -228,18 +241,22 @@ async function initMarketResearch() {
   byId("activatePersonalQuote").addEventListener("click", () => {
     const {date, price} = personalQuotes.get(activeRow.id);
     const shares = matchScenarioShares(activeRow.id, date, selectedFinance.shares, personalShares);
-    byId("scenarioDate").value = date;
-    byId("scenarioPrice").value = price;
-    byId("scenarioShares").value = shares.value ?? "";
+    dateInput.value = date;
+    priceInput.value = price;
+    sharesInput.value = shares.value ?? "";
+    importedClose = true;
+    importedShares = shares.value !== null;
     scenarioResult.textContent = "";
   });
-  const bindCsv = (fileId, statusId, read, save, label) => {
+  const bindCsv = (fileId, statusId, read, save, label, clear) => {
     let sequence = 0;
     byId(fileId).addEventListener("change", async event => {
       const readId = ++sequence;
       const file = event.target.files[0];
       const message = byId(statusId);
       save(new Map());
+      clear();
+      scenarioResult.textContent = "";
       message.textContent = "";
       if (activeRow) applyPersonalQuote();
       try {
@@ -256,8 +273,8 @@ async function initMarketResearch() {
       }
     });
   };
-  bindCsv("personalQuoteFile", "personalQuoteStatus", readPersonalQuotes, rows => { personalQuotes = rows; }, "終値を ");
-  bindCsv("personalShareFile", "personalShareStatus", readPersonalShares, rows => { personalShares = rows; }, "株数を ");
+  bindCsv("personalQuoteFile", "personalQuoteStatus", readPersonalQuotes, rows => { personalQuotes = rows; }, "終値を ", clearImportedClose);
+  bindCsv("personalShareFile", "personalShareStatus", readPersonalShares, rows => { personalShares = rows; }, "株数を ", clearImportedShares);
   const show = row => {
     const finance = row.financials;
     const periods = compareAnnual(finance);
@@ -297,12 +314,20 @@ async function initMarketResearch() {
     selectedFinance = finance;
     activeRow = row;
     scenario.reset();
+    importedClose = false;
+    importedShares = false;
     scenarioResult.textContent = "";
     byId("scenarioCurrency").textContent = finance.currency;
     byId("scenarioDate").min = periods.at(-1).end;
     applyPersonalQuote();
     panel.hidden = false;
   };
+  dateInput.addEventListener("input", () => {
+    clearImportedClose();
+    clearImportedShares();
+  });
+  priceInput.addEventListener("input", () => { importedClose = false; });
+  sharesInput.addEventListener("input", () => { importedShares = false; });
   scenario.addEventListener("input", () => { scenarioResult.textContent = ""; });
   scenario.addEventListener("submit", event => {
     event.preventDefault();

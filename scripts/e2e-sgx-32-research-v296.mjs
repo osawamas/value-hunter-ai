@@ -112,6 +112,18 @@ try{
  await page.locator("#personalShareStatus").getByText(/株数を 3件/).waitFor();
  await page.getByRole("button",{name:"CSV終値を使う"}).click();
  assert.equal(await page.locator("#scenarioShares").inputValue(),"14500000000");
+ await page.locator("#scenarioDate").fill("2026-11-12");
+ assert.equal(await page.locator("#scenarioPrice").inputValue(),"");
+ assert.equal(await page.locator("#scenarioShares").inputValue(),"");
+ await page.getByRole("button",{name:"CSV終値を使う"}).click();
+ await page.locator("#personalShareFile").setInputFiles([]);
+ assert.equal(await page.locator("#scenarioShares").inputValue(),"");
+ assert.equal(await page.locator("#scenarioPrice").inputValue(),"356");
+ await page.locator("#personalShareFile").setInputFiles({
+  name:"conflict.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,shares_excluding_treasury\nJP:7201,2026-03-31,1"),
+ });
+ await page.locator("#personalShareStatus").getByText(/株数を 1件/).waitFor();
  await page.locator("#marketFilter").selectOption("JP");
  await page.locator("#marketQuery").fill("7201");
  await page.getByRole("button",{name:"財務を見る"}).click();
