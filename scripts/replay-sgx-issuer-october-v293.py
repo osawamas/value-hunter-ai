@@ -87,6 +87,7 @@ def retrieve():
     out.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
     print("v293 "+("ISSUER_LIVE_TEXT_PASS" if checks["all_required_text_matched"] else "ISSUER_NOT_RECONCILED")+
           " bytes="+str(len(body))+" sha256="+str(report["raw_html_sha256"]))
+    print("v293 clause_checks="+json.dumps(checks.get("checks",{}),sort_keys=True))
     if not checks["all_required_text_matched"]:
         raise SystemExit(1)
 
