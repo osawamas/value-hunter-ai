@@ -361,6 +361,23 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
   });
 }
 
+function screenPersonalBatch(rows, {market, limits, order}) {
+  const visible = rows.filter(row => {
+    if (market && !row.id.startsWith(market + ":")) return false;
+    return Object.entries(limits).every(([metric, max]) => {
+      const value = row.result?.[metric];
+      return max === null || (Number.isFinite(value) && value <= max);
+    });
+  });
+  if (order) visible.sort((a, b) => {
+    const left = a.result?.[order];
+    const right = b.result?.[order];
+    if (!Number.isFinite(left)) return Number.isFinite(right) ? 1 : 0;
+    return Number.isFinite(right) ? left - right : -1;
+  });
+  return visible;
+}
+
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
@@ -448,6 +465,8 @@ async function initMarketResearch() {
   const multiple = value => value === null ? "—" : value.toFixed(2) + "倍";
   const batchLabels = {...shareLabels, shareClasses: "株式クラスごとの評価が必要", unknown: "銘柄が調査一覧に未登録", noFinance: "一括試算用の年次財務が未接続",
     incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
+  const batchMarket = byId("personalBatchMarket"), maxPer = byId("personalBatchMaxPer");
+  const maxPbr = byId("personalBatchMaxPbr"), batchOrder = byId("personalBatchOrder");
   const paintBatch = () => {
     const batchDate = byId("personalBatchDate");
     batchDate.disabled = !personalQuoteHistory.size;
@@ -462,14 +481,19 @@ async function initMarketResearch() {
       class: hasClassValue,
       unresolved: row => !row.result && !hasClassValue(row),
     };
-    batchResults = results.filter(matches[statusFilter.value]);
+    for (const control of [batchMarket, maxPer, maxPbr, batchOrder]) control.disabled = !results.length;
+    const invalidLimit = results.length && (!maxPer.validity.valid || !maxPbr.validity.valid);
+    const limits = {per: maxPer.value ? maxPer.valueAsNumber : null, pbr: maxPbr.value ? maxPbr.valueAsNumber : null};
+    batchResults = invalidLimit ? [] : screenPersonalBatch(results.filter(matches[statusFilter.value]),
+      {market: batchMarket.value, limits, order: batchOrder.value});
     byId("personalBatchDownload").disabled = batchResults.length === 0;
     byId("personalBatchTable").hidden = batchResults.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
       " / " + results.length + "件を試算" : batchDate.value && personalQuoteHistory.size ? "指定日の終値がCSVにない" : "";
     const classCount = results.filter(hasClassValue).length;
     if (classCount) byId("personalBatchStatus").append("・上場クラス別の参考時価 " + classCount + "件");
-    if (results.length && statusFilter.value !== "all") {
+    if (invalidLimit) byId("personalBatchStatus").append("・PERとPBRの上限は0以上の数値を入力");
+    if (results.length && (statusFilter.value !== "all" || batchMarket.value || maxPer.value || maxPbr.value || invalidLimit)) {
       byId("personalBatchStatus").append("・表示 " + batchResults.length + "件");
     }
     byId("personalBatchRows").replaceChildren(...batchResults.map(row => {
@@ -490,6 +514,10 @@ async function initMarketResearch() {
   };
   byId("personalBatchDate").addEventListener("input", paintBatch);
   byId("personalBatchFilter").addEventListener("change", paintBatch);
+  batchMarket.addEventListener("change", paintBatch);
+  batchOrder.addEventListener("change", paintBatch);
+  maxPer.addEventListener("input", paintBatch);
+  maxPbr.addEventListener("input", paintBatch);
   byId("personalBatchDownload").addEventListener("click", () => {
     if (!batchResults.length) return;
     const csv = new Blob([personalBatchCsv(batchResults)], {type: "text/csv;charset=utf-8"});
@@ -752,4 +780,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, readQuoteHistory, selectQuoteDate};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, readQuoteHistory, selectQuoteDate};

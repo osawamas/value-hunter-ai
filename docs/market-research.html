@@ -71,6 +71,17 @@
 <option value="class">上場クラスの参考時価あり</option>
 <option value="unresolved">試算値なし</option>
 </select></label>
+<div class="toolbar">
+<label class="control">試算の市場<select id="personalBatchMarket" disabled>
+<option value="">全市場</option><option value="JP">日本</option><option value="US">米国</option>
+<option value="SG">シンガポール</option>
+</select></label>
+<label class="control">PER上限（倍）<input id="personalBatchMaxPer" type="number" min="0" step="any" disabled></label>
+<label class="control">PBR上限（倍）<input id="personalBatchMaxPbr" type="number" min="0" step="any" disabled></label>
+<label class="control">試算の並び順<select id="personalBatchOrder" disabled>
+<option value="">CSVの順</option><option value="per">PERが低い順</option><option value="pbr">PBRが低い順</option>
+</select></label>
+</div>
 <p id="personalBatchStatus" role="status"></p>
 <button id="personalBatchDownload" type="button" class="secondary-button" disabled>一括試算CSVを保存（表示中の行）</button>
 <div class="tablewrap" id="personalBatchTable" hidden><table>
