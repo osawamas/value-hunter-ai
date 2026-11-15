@@ -185,7 +185,7 @@
           <label><span>CSVの基準日</span><input type="date" name="asOf" required></label>
           <button type="submit" class="secondary-button">端末内で照合する</button>
         </form>
-        <p class="status-message" id="sgxManualMasterResult" role="status">Trading Code, Trading Name, Listing Board, Traded Currency の4列で構成されたCSVを使う。SGX公式の全銘柄を確認したことにはならない。</p>
+        <p class="status-message" id="sgxManualMasterResult" role="status">CSVにはTrading Code・Trading Nameの2列が必要。Listing Board・Traded Currencyは省略可（未指定と表示）。余分な株価列は無視し、SGX公式の全銘柄とはみなさない。</p>
         <div class="toolbar">
           <label class="search"><span aria-hidden="true">⌕</span>
             <input type="search" id="sgxManualMasterSearch" aria-label="取り込んだ銘柄を検索" placeholder="取り込んだ全銘柄から検索" autocomplete="off"></label>
