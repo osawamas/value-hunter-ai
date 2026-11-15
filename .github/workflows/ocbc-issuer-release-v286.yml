@@ -1,0 +1,30 @@
+name: OCBC official 3Q 2026 issuer cross-source v286
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ocbc-issuer-release-v286.yml'
+      - 'scripts/replay-ocbc-issuer-release-v286.py'
+      - 'scripts/test_ocbc_issuer_release_v286.py'
+      - 'docs/data/sgx-big3-bank-research-v186.json'
+permissions:
+  contents: read
+jobs:
+  issuer-cross-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate issuer-release rounded SGD values and audit disclaimers
+        run: python3 scripts/test_ocbc_issuer_release_v286.py
+      - name: Download OCBC-hosted 3Q26 original press release and calculate SHA
+        run: python3 scripts/replay-ocbc-issuer-release-v286.py
+      - name: Preserve exact result even when source unavailable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocbc-3q26-official-website-original-v286
+          path: build/research/ocbc-3q-website-cross-check-v286.json
+          if-no-files-found: warn
+          retention-days: 30
