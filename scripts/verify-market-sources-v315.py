@@ -12,6 +12,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from xml.etree import ElementTree
 
 import openpyxl
 
@@ -297,6 +298,37 @@ def check_sec_originals(records, source_bytes):
     return checked
 
 
+def check_ibm_share_filing(raw, record):
+    namespaces = {"ix": "http://www.xbrl.org/2013/inlineXBRL",
+                  "xbrli": "http://www.xbrl.org/2003/instance"}
+    root = ElementTree.fromstring(raw)
+    shares = record["quarterly"]["shares"]
+    contexts = {
+        context.get("id")
+        for context in root.findall(".//xbrli:context", namespaces)
+        if context.findtext("xbrli:entity/xbrli:identifier", namespaces=namespaces) == "0000051143"
+        and context.findtext("xbrli:period/xbrli:instant", namespaces=namespaces) == shares["as_of"]
+        and context.find("xbrli:entity/xbrli:segment", namespaces) is None
+        and context.find("xbrli:scenario", namespaces) is None
+    }
+    units = {
+        unit.get("id") for unit in root.findall(".//xbrli:unit", namespaces)
+        if unit.findtext("xbrli:measure", namespaces=namespaces) == "xbrli:shares"
+    }
+    values = set()
+    for fact in root.findall(".//ix:nonFraction", namespaces):
+        if (fact.get("name") != "dei:EntityCommonStockSharesOutstanding"
+                or fact.get("contextRef") not in contexts or fact.get("unitRef") not in units):
+            continue
+        digits = "".join(fact.itertext()).strip().replace(",", "")
+        if (fact.get("scale", "0") != "0" or fact.get("decimals") != "0"
+                or fact.get("sign") is not None or not re.fullmatch(r"[0-9]+", digits)):
+            raise ValueError("IBM share fact is not an exact positive share count")
+        values.add(int(digits))
+    if shares["rounded"] is not False or shares["value"] <= 0 or values != {shares["value"]}:
+        raise ValueError("IBM share count or filing date differs from the stored evidence")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
@@ -306,6 +338,7 @@ def main():
     modes.add_argument("--jp-interim-only", action="store_true", help="Replay Japanese interim filing originals")
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
     modes.add_argument("--sgx-s63-equity-only", action="store_true", help="Replay both S63 FY2025 issuer PDFs")
+    modes.add_argument("--sec-ibm-shares-only", action="store_true", help="Reconcile IBM shares against its original SEC 10-Q")
     args = parser.parse_args()
     snapshot = json.loads(DATA.read_text())
     if args.check_sec_excerpts:
@@ -324,6 +357,13 @@ def main():
     if args.sgx_s63_equity_only:
         equity = json.loads((ROOT / "docs/data/sgx-s63-parent-equity-v395.json").read_text())
         check_s63_parent_equity(equity, source_bytes)
+        return
+
+    if args.sec_ibm_shares_only:
+        record = next(record for record in snapshot["records"] if record["id"] == "US:IBM")
+        raw = source_bytes(record["quarterly"]["source"], "IBM-10Q.html")
+        check_ibm_share_filing(raw, record)
+        print(f"US:IBM SEC 10-Q shares matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
         return
 
     if args.jp_interim_only:
