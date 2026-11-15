@@ -10,6 +10,8 @@ on:
       - 'docs/*.css'
       - 'docs/*.html'
       - 'docs/data/*.json'
+      - 'scripts/check-ranking-provenance-v289.js'
+      - 'scripts/check-ranking-license-evidence-v290.js'
       - 'docs/README-PREVIEW-v249.md'
   workflow_run:
     workflows: ["VALUE HUNTER SGX dashboard data refresh v29"]
@@ -28,6 +30,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: Validate ranking data before packaging or deployment
+        run: node scripts/check-ranking-license-evidence-v290.js
       - name: Validate dashboard JavaScript and non-investable candidate browser
         run: |
           node --check docs/app.js

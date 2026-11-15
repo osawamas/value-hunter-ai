@@ -22,8 +22,22 @@ r.quote_source_type="LICENSED_SGX_EQUITY";
 r.quote_license_display_allowed=true;
 r.quote_license_non_display_analytics_allowed=true;
 r.independent_cross_source_verification=true;
+r.shares_as_of_date="2026-11-13";
 clean.ranking_eligible_count=1;clean.ranking_enabled=true;
 assert.deepEqual(checkFeed(clean), [], "fully evidenced synthetic record accepted");
+r.quote_timestamp_utc="2026-11-12T16:00:00Z";
+assert.deepEqual(checkFeed(clean), [], "Singapore quote day rolls over at midnight local time");
+r.shares_as_of_date="2026-11-12";
+assert.ok(checkFeed(clean).some(e=>e.includes("same Singapore date")));
+r.shares_as_of_date="2026-11-13";
+for (const bad of ["2026-02-30T09:00:00Z", "2026-11-13T09:00:00", "2026-11-13T24:00:00Z"]) {
+  r.quote_timestamp_utc=bad;
+  assert.ok(checkFeed(clean).some(e=>e.includes("missing dated quote/shares")), bad);
+}
+r.quote_timestamp_utc="2026-11-13T09:00:00Z";
+r.shares_as_of_date="2026-11-31";
+assert.ok(checkFeed(clean).some(e=>e.includes("missing dated quote/shares")));
+r.shares_as_of_date="2026-11-13";
 r.quote_license_non_display_analytics_allowed=false;
 assert.ok(checkFeed(clean).some(e=>e.includes("non-display")));
 console.log("v289 PASS: published feed and negative/positive ranking-provenance mutations");

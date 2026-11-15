@@ -13,6 +13,11 @@ on:
       - 'scripts/verify-market-sources-v315.py'
       - 'scripts/check-representative-valuations.js'
       - 'tests/test_representative_valuations.js'
+      - 'scripts/check-ranking-provenance-v289.js'
+      - 'scripts/check-ranking-license-evidence-v290.js'
+      - 'docs/test_ranking_provenance_v289.js'
+      - 'docs/test_ranking_license_evidence_v290.js'
+      - 'docs/data/sgx-market-license-review-v290.json'
       - 'docs/market-research.js'
       - 'docs/data/latest.json'
       - 'docs/data/sgx-s63-two-website-close-v129.json'
@@ -34,6 +39,9 @@ jobs:
         with:
           node-version: "22"
       - run: node tests/test_representative_valuations.js
+      - run: |
+          node docs/test_ranking_provenance_v289.js
+          node docs/test_ranking_license_evidence_v290.js
   japan-originals:
     runs-on: ubuntu-latest
     timeout-minutes: 10

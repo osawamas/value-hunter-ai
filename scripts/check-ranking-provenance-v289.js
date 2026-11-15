@@ -4,6 +4,19 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const UNOFFICIAL = /YAHOO|UNOFFICIAL|SCRAP|COMMUNITY|MANUAL|USER_INPUT/i;
+const singaporeDate = new Intl.DateTimeFormat("sv-SE", {timeZone: "Asia/Singapore"});
+function validDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(value + "T00:00:00Z");
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+function sgxQuoteDate(value) {
+  if (typeof value !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ||
+      !validDate(value.slice(0, 10))) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? singaporeDate.format(time) : null;
+}
 function checkFeed(feed) {
   const errors = [];
   if (!feed || !Array.isArray(feed.records)) return ["Missing records array"];
@@ -28,9 +41,11 @@ function checkFeed(feed) {
       if (!Number.isInteger(r.shares_outstanding) || r.shares_outstanding <= 0 ||
           r.shares_count_basis !== "issued_excluding_treasury")
         errors.push(id + ": ex-treasury share count not verified");
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.shares_as_of_date || "")) ||
-          !/^\d{4}-\d{2}-\d{2}T/.test(String(r.quote_timestamp_utc || "")))
+      const quoteDate = sgxQuoteDate(r.quote_timestamp_utc);
+      if (!quoteDate || !validDate(r.shares_as_of_date))
         errors.push(id + ": missing dated quote/shares");
+      else if (r.shares_as_of_date !== quoteDate)
+        errors.push(id + ": quote and shares are not on the same Singapore date");
       if (reasons.length) errors.push(id + ": eligible while exclusion reasons remain");
     } else {
       if (r.ranking_score != null) errors.push(id + ": excluded record has ranking score");
@@ -49,4 +64,4 @@ if (require.main === module) {
   if (errors.length) { console.error(errors.join("\\n")); process.exitCode = 1; }
   else console.log("v289 PASS: published feed ranking requires licensed quote plus independently verified financials");
 }
-module.exports = {checkFeed};
+module.exports = {checkFeed, sgxQuoteDate, validDate};

@@ -5,13 +5,7 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
-const {checkFeed: checkV289} = require("./check-ranking-provenance-v289.js");
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-function validDate(value) {
-  if (typeof value !== "string" || !ISO.test(value)) return false;
-  const date = new Date(value + "T00:00:00Z");
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === value;
-}
+const {checkFeed: checkV289, sgxQuoteDate, validDate} = require("./check-ranking-provenance-v289.js");
 function validHTTPS(v) {
   if (typeof v !== "string" || !/^https:\/\//i.test(v)) return false;
   try { const u = new URL(v); return Boolean(u.hostname && !u.username && !u.password); }
@@ -43,8 +37,8 @@ function checkFeed(feed) {
        proof.valid_from > proof.valid_until)
       errors.push(id+": license validity dates incorrect");
     else {
-      const quoteDate=String(r.quote_timestamp_utc||"").slice(0,10);
-      if(!validDate(quoteDate) || quoteDate<proof.valid_from || quoteDate>proof.valid_until)
+      const quoteDate=sgxQuoteDate(r.quote_timestamp_utc);
+      if(!quoteDate || quoteDate<proof.valid_from || quoteDate>proof.valid_until)
         errors.push(id+": quote timestamp outside license validity");
     }
     if(!validHTTPS(r.quote_url))

@@ -18,6 +18,7 @@ row.quote_source_type="LICENSED_SGX_EQUITY";
 row.quote_license_display_allowed=true;
 row.quote_license_non_display_analytics_allowed=true;
 row.independent_cross_source_verification=true;
+row.shares_as_of_date="2026-11-13";
 data.ranking_eligible_count=1;data.ranking_enabled=true;
 assert.ok(checkFeed(data).some(x=>x.includes("dated grant evidence missing")));
 row.market_data_license_evidence={
@@ -27,6 +28,10 @@ row.market_data_license_evidence={
  valid_from:"2026-01-01",valid_until:"2026-12-31"
 };
 assert.deepEqual(checkFeed(data),[],"synthetic structurally valid licensed record");
+const midnight=structuredClone(data);
+midnight.records[0].quote_timestamp_utc="2026-11-12T16:00:00Z";
+midnight.records[0].market_data_license_evidence.valid_from="2026-11-13";
+assert.deepEqual(checkFeed(midnight),[],"grant starts on Singapore trading date");
 function reject(mutator,phrase){const a=structuredClone(data);mutator(a.records[0]);assert.ok(checkFeed(a).some(x=>x.includes(phrase)),phrase)}
 reject(r=>{r.market_data_license_evidence.grant_status="PENDING"},"provenance incomplete");
 reject(r=>{r.market_data_license_evidence.grant_evidence_url="http://example.org/proof"},"provenance incomplete");
