@@ -591,6 +591,35 @@
           "rounded": true
         },
         "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax"
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/50863/000005086326000191/intc-20260926.htm",
+        "form": "10-Q",
+        "accession": "0000050863-26-000191",
+        "filed": "2026-10-30",
+        "companyfacts_sha256": "9c568557a91cfbc234c999183d6434f8bbf7b8ebf2f29577f28d761a9becb59d",
+        "periods": [
+          {
+            "start": "2025-06-29",
+            "end": "2025-09-27",
+            "revenue": 13653000000,
+            "operating_income": 683000000,
+            "net_income": 4063000000
+          },
+          {
+            "start": "2026-06-28",
+            "end": "2026-09-26",
+            "revenue": 16513000000,
+            "operating_income": 2522000000,
+            "net_income": 3320000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-10-23",
+          "value": 5315000000,
+          "rounded": true
+        }
       }
     }
   ]
