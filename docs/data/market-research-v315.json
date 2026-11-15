@@ -692,6 +692,119 @@
           "rounded": false
         }
       }
+    },
+    {
+      "id": "US:META",
+      "market": "US",
+      "symbol": "META",
+      "name": "Meta Platforms, Inc.",
+      "label": "Meta Platforms",
+      "cik": 1326801,
+      "exchange": "Nasdaq",
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json",
+      "financials": {
+        "currency": "USD",
+        "basis": "US GAAP",
+        "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001326801.json",
+        "accession": "0001628280-26-003942",
+        "filing_url": "https://www.sec.gov/Archives/edgar/data/1326801/000162828026003942/meta-20251231.htm",
+        "periods": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-12-31",
+            "revenue": 164501000000,
+            "net_income": 62360000000,
+            "operating_income": 69380000000,
+            "assets": 276054000000,
+            "parent_equity": 182637000000
+          },
+          {
+            "start": "2025-01-01",
+            "end": "2025-12-31",
+            "revenue": 200966000000,
+            "net_income": 60458000000,
+            "operating_income": 83276000000,
+            "assets": 366021000000,
+            "parent_equity": 217243000000
+          }
+        ],
+        "share_classes": {
+          "as_of": "2026-01-23",
+          "rounded": false,
+          "classes": [
+            {
+              "label": "A",
+              "symbol": "META",
+              "value": 2187177748
+            },
+            {
+              "label": "B",
+              "symbol": null,
+              "value": 342377716
+            }
+          ]
+        },
+        "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax"
+      }
+    },
+    {
+      "id": "US:GOOGL",
+      "market": "US",
+      "symbol": "GOOGL",
+      "name": "Alphabet Inc.",
+      "label": "Alphabet（クラスA）",
+      "cik": 1652044,
+      "exchange": "Nasdaq",
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json",
+      "financials": {
+        "currency": "USD",
+        "basis": "US GAAP",
+        "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001652044.json",
+        "accession": "0001652044-26-000018",
+        "filing_url": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm",
+        "periods": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-12-31",
+            "revenue": 350018000000,
+            "net_income": 100118000000,
+            "operating_income": 112390000000,
+            "assets": 450256000000,
+            "parent_equity": 325084000000
+          },
+          {
+            "start": "2025-01-01",
+            "end": "2025-12-31",
+            "revenue": 402836000000,
+            "net_income": 132170000000,
+            "operating_income": 129039000000,
+            "assets": 595281000000,
+            "parent_equity": 415265000000
+          }
+        ],
+        "share_classes": {
+          "as_of": "2026-01-28",
+          "rounded": true,
+          "classes": [
+            {
+              "label": "A",
+              "symbol": "GOOGL",
+              "value": 5822000000
+            },
+            {
+              "label": "B",
+              "symbol": null,
+              "value": 837000000
+            },
+            {
+              "label": "C",
+              "symbol": "GOOG",
+              "value": 5438000000
+            }
+          ]
+        },
+        "revenue_tag": "Revenues"
+      }
     }
   ]
 }

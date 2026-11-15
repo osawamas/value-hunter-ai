@@ -35,14 +35,15 @@ function buildMarketRows(research, sgx) {
 function rankingEvidence(row, shareReview) {
   const sgx = row.sgxEvidence;
   const finance = row.financials;
-  const shares = row.quarterly?.shares || finance?.shares;
+  const shares = row.quarterly?.shares || finance?.shares || finance?.share_classes;
   if (!sgx) {
     return {
       quote: "未接続",
-      share: shares ? shares.as_of + (shares.rounded ? "（概数）" : "（開示資料）") : "未取得",
+      share: shares ? shares.as_of + (finance?.share_classes ? "（クラス別開示）" : shares.rounded ? "（概数）" : "（開示資料）") : "未取得",
       shareSource: row.quarterly?.shares ? row.quarterly.source : finance?.filing_url || finance?.source,
       reasons: [finance ? "正式順位の財務審査が未実装" : "年次財務が未取得",
-        "公開用の株価データが未接続", "株価と株数の同日照合が未完了"],
+        "公開用の株価データが未接続", "株価と株数の同日照合が未完了",
+        ...(finance?.share_classes ? ["株式クラスごとの評価が必要"] : [])],
     };
   }
 
@@ -115,7 +116,8 @@ function filterMarketRows(rows, market, query, evidence = "all") {
       (evidence === "annual" && Boolean(row.financials || row.sgxAnnual)) ||
       (evidence === "quarterly" && Boolean(row.quarterly)) ||
       (evidence === "missing" && !row.financials && !row.sgxAnnual)) &&
-    [row.id, row.symbol, row.label, row.name].some(value =>
+    [row.id, row.symbol, row.label, row.name,
+      ...(row.financials?.share_classes?.classes.map(item => item.symbol) || [])].some(value =>
       value?.normalize("NFKC").toUpperCase().includes(term)));
 }
 
@@ -258,6 +260,7 @@ function matchScenarioShares(id, date, published, personalShares) {
 }
 
 function calculateMarketScenario(finance, {date, price, shares}) {
+  if (finance.share_classes) throw Error("クラス別株式の評価が必要");
   return calculateWithAnnualPeriod(finance.currency, compareAnnual(finance).at(-1), {date, price, shares});
 }
 
@@ -277,11 +280,18 @@ function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
 
 function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
   const issuers = new Map(rows.map(row => [row.id, row]));
+  for (const row of rows) {
+    for (const share of row.financials?.share_classes?.classes || []) {
+      const classId = row.market + ":" + share.symbol;
+      if (share.symbol && !issuers.has(classId)) issuers.set(classId, row);
+    }
+  }
   return Array.from(quotes, ([id, quote]) => {
     const row = issuers.get(id);
     const entry = {id, label: row?.label || id, quote};
     if (!row) return {...entry, state: "unknown"};
     const finance = row.financials;
+    if (finance?.share_classes) return {...entry, state: "shareClasses"};
     const sgx = sgxValuationFinance(row);
     if (!finance && !sgx) return {...entry, state: "noFinance"};
     const currency = finance?.currency || sgx.currency;
@@ -387,7 +397,7 @@ async function initMarketResearch() {
     missing: "同日の株数が未取得",
   };
   const multiple = value => value === null ? "—" : value.toFixed(2) + "倍";
-  const batchLabels = {...shareLabels, unknown: "銘柄が調査一覧に未登録", noFinance: "一括試算用の年次財務が未接続",
+  const batchLabels = {...shareLabels, shareClasses: "株式クラスごとの評価が必要", unknown: "銘柄が調査一覧に未登録", noFinance: "一括試算用の年次財務が未接続",
     incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
   const paintBatch = () => {
     const batchDate = byId("personalBatchDate");
@@ -428,7 +438,7 @@ async function initMarketResearch() {
   const applyPersonalQuote = () => {
     const quote = personalQuotes.get(activeRow.id);
     const lastEnd = byId("scenarioDate").min;
-    const eligible = quote && quote.currency === selectedFinance.currency && quote.date >= lastEnd;
+    const eligible = !selectedFinance.share_classes && quote && quote.currency === selectedFinance.currency && quote.date >= lastEnd;
     byId("activatePersonalQuote").disabled = !eligible;
     const match = eligible && matchScenarioShares(activeRow.id, quote.date, filingSharesOn(activeRow, quote.date), personalShares);
     byId("personalQuoteMatch").textContent = eligible ? "CSV終値 " + money.format(quote.price) +
@@ -489,8 +499,16 @@ async function initMarketResearch() {
       tr.append(...values.map(value => element("td", value)));
       return tr;
     }));
-    byId("marketShareCount").textContent = "発行済普通株式（自己株式控除後） " + (finance.shares.rounded ? "約" : "") +
-      money.format(finance.shares.value) + " 株（" + finance.shares.as_of + "時点）";
+    const shareClasses = finance.share_classes;
+    byId("marketShareCount").textContent = shareClasses
+      ? "普通株式数（" + shareClasses.as_of + "時点） " + shareClasses.classes.map(item =>
+        "クラス" + item.label + (item.symbol ? "（" + item.symbol + "）" : "") + " " +
+        (shareClasses.rounded ? "約" : "") + money.format(item.value) + "株").join(" / ")
+      : "発行済普通株式（自己株式控除後） " + (finance.shares.rounded ? "約" : "") +
+        money.format(finance.shares.value) + " 株（" + finance.shares.as_of + "時点）";
+    scenario.hidden = Boolean(shareClasses);
+    byId("marketScenarioHelp").hidden = Boolean(shareClasses);
+    byId("marketClassValuation").hidden = !shareClasses;
     const sources = byId("marketFinancialSources");
     sources.replaceChildren(link(finance.source, "財務データの出典"));
     if (finance.filing_url) sources.append(" · ", link(finance.filing_url, "SEC提出書類"));

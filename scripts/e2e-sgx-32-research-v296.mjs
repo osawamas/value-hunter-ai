@@ -73,9 +73,9 @@ try{
  await page.locator("#research32Count").getByText(/4 \/ 33件/).waitFor();
  assert.equal(await page.locator("#research32Rows tr").count(),4);
  await page.goto(base+"/market-research.html",{waitUntil:"domcontentloaded"});
- await page.locator("#marketCount").getByText(/18 \/ 18件/).waitFor({timeout:25000});
+ await page.locator("#marketCount").getByText(/20 \/ 20件/).waitFor({timeout:25000});
  assert.deepEqual(await page.locator("#marketCoverageRows td").allTextContents(),
-  ["5","4","0","6","6","0","7","4","0"]);
+  ["5","4","0","8","8","0","7","4","0"]);
  const sgxUpdates = page.locator("#sgxBusinessRows tr");
  assert.match(await sgxUpdates.first().innerText(),/G13.*3か月.*566,096,000.*54,731,000.*未監査/s);
  assert.match(await sgxUpdates.last().innerText(),/S63.*9か月累計.*約10,000,000,000.*10%.*—/s);
@@ -203,6 +203,16 @@ try{
  const ibmQuarter = await page.locator("#marketQuarterlyRows tr").last().locator("td").allTextContents();
  assert.deepEqual(ibmQuarter.slice(0,4),["2026-09-30","17,103,000,000","—","2,190,000,000"]);
  assert.match(await page.locator("#marketInterimShareCount").innerText(),/945,120,805 株（2026-09-30時点）/);
+ await page.locator("#marketQuery").fill("US:GOOGL");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ assert.match(await page.locator("#marketShareCount").innerText(),/クラスA（GOOGL） 約5,822,000,000株.*クラスB 約837,000,000株.*クラスC（GOOG） 約5,438,000,000株/s);
+ assert.equal(await page.locator("#marketScenario").isVisible(),false);
+ await page.locator("#marketQuery").fill("GOOG");
+ assert.equal(await page.locator("#marketRows tr").count(),1);
+ await page.locator("#marketQuery").fill("META");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/200,966,000,000/);
+ assert.match(await page.locator("#marketShareCount").innerText(),/2,187,177,748株.*342,377,716株/);
  await page.locator("#marketQuery").fill("NVDA");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);

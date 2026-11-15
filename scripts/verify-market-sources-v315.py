@@ -113,6 +113,18 @@ def sec_financials(raw, record):
             value = tag_value(entries, accession, period["end"], start)
             if value != period[field]:
                 raise ValueError(f"{record['symbol']} {field} mismatch at {period['end']}")
+    if "share_classes" in filing:
+        cover = filing["share_classes"]
+        classes = cover["classes"]
+        if ("shares" in filing or len(classes) < 2 or len({c["label"] for c in classes}) != len(classes)
+                or sum(c["symbol"] == record["symbol"] for c in classes) != 1
+                or any(type(c["value"]) is not int or c["value"] <= 0 for c in classes)
+                or type(cover["rounded"]) is not bool):
+            raise ValueError("Invalid SEC multi-class share data")
+        dt.date.fromisoformat(cover["as_of"])
+        if "reviewed_cover" in obj and obj["reviewed_cover"] != cover:
+            raise ValueError("SEC share class counts differ from the reviewed cover")
+        return
     shares = filing["shares"]
     if tag_value(facts["dei"]["EntityCommonStockSharesOutstanding"]["units"]["shares"],
                  accession, shares["as_of"]) != shares["value"]:
