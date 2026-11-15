@@ -46,6 +46,7 @@ const reasons = {
   PBR_DENOMINATOR_MISSING_OR_ARITHMETIC_MISMATCH: "親会社株主持分を使ったPBR計算が不一致",
   VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE: "株価または株式数の日時が古い／不明のため評価値を非表示"
 };
+if (typeof window !== "undefined") window.VALUE_HUNTER_EXCLUSION_LABELS = Object.freeze({...reasons});
 const $ = id => document.getElementById(id);
 const state = { feed: null, selected: null, visible: [], shareAudit: null, g13QuarterRisk: null, s63NineMonth: null };
 
