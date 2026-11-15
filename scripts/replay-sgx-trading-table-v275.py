@@ -78,6 +78,16 @@ def replay():
             content_type=response.headers.get("Content-Type","")
             if not content_type.lower().startswith("text/html"):raise ValueError("Not HTML")
             matched=verify(body,expected())
+            # Diagnostic only: SGX site often renders tabular content via
+            # JavaScript/structured blocks instead of <table><tr><td>.
+            # Report counts and booleans, never copy page content or quotes.
+            decoded=body.decode("utf-8",errors="replace")
+            parser=TableRows();parser.feed(decoded)
+            print("v275 source diagnostics: html_bytes="+str(len(body))+
+                  " html_rows="+str(len(parser.rows))+
+                  " names_in_html="+str(sum(x["name"] in decoded for x in expected()))+
+                  " symbols_in_html="+str(sum(x["symbol"] in decoded for x in expected()))+
+                  " first_name_position="+str(decoded.find(expected()[0]["name"])))
             status="ELEVEN_ROW_EXACT_MATCH" if all(x["exact_table_row_verified"] for x in matched) else "PARTIAL_TABLE_MATCH"
             digest=hashlib.sha256(body).hexdigest()
             byte_length=len(body)
