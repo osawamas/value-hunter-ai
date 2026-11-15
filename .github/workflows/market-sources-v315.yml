@@ -11,6 +11,11 @@ on:
     paths:
       - 'docs/data/market-research-v315.json'
       - 'scripts/verify-market-sources-v315.py'
+      - 'scripts/check-representative-valuations.js'
+      - 'tests/test_representative_valuations.js'
+      - 'docs/market-research.js'
+      - 'docs/data/latest.json'
+      - 'docs/data/sgx-s63-two-website-close-v129.json'
       - 'scripts/export-jquants-personal-quotes.py'
       - 'tests/test_jquants_personal_quotes.py'
       - 'tests/fixtures/sec-filing-excerpts-v316.json'
@@ -21,6 +26,14 @@ on:
 permissions:
   contents: read
 jobs:
+  representative-valuations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node tests/test_representative_valuations.js
   japan-originals:
     runs-on: ubuntu-latest
     timeout-minutes: 10

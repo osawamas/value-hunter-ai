@@ -1,0 +1,34 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const {buildMarketRows, readQuoteHistory} = require("../docs/market-research.js");
+const {reviewRepresentativeValuations} = require("../scripts/check-representative-valuations.js");
+const research = require("../docs/data/market-research-v315.json");
+const sgx = require("../docs/data/latest.json");
+const shares = require("../docs/data/sgx-s63-two-website-close-v129.json");
+const rows = buildMarketRows(research, sgx);
+const noQuotes = reviewRepresentativeValuations(rows, shares);
+assert.deepEqual(noQuotes.results.map(row => [row.id, row.date, row.status]), [
+  ["JP:7203", "2026-09-30", "missing_exact_close"],
+  ["US:IBM", "2026-09-30", "missing_exact_close"],
+  ["SG:S63", "2026-11-13", "missing_exact_close"],
+]);
+
+const quotes = readQuoteHistory([
+  "market_id,date,currency,close",
+  "JP:7203,2026-09-30,JPY,2500",
+  "JP:7203,2026-10-01,JPY,3000",
+  "US:IBM,2026-09-30,USD,200",
+  "SG:S63,2026-11-12,SGD,11",
+  "SG:S63,2026-11-13,SGD,10",
+].join("\n"));
+const calculated = reviewRepresentativeValuations(rows, shares, quotes);
+assert.equal(calculated.scope, "local_trial");
+assert.deepEqual(calculated.results.map(row => [row.price, row.valuation.cap]), [
+  [2500, 29445618282500], [200, 189024161000], [10, 31158471150],
+]);
+assert.ok(calculated.results.every(row => row.status === "trial_calculated" &&
+  row.valuation.per > 0 && row.valuation.pbr > 0 && row.financeSource.startsWith("https://")));
+quotes.delete("SG:S63:2026-11-13");
+assert.equal(reviewRepresentativeValuations(rows, shares, quotes).results[2].status, "missing_exact_close");
+console.log("Representative valuation checks passed for JP, US and SG.");
