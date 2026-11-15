@@ -79,6 +79,7 @@ try{
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
  assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/50,684,952,000,000/);
+ await page.getByRole("checkbox",{name:"トヨタ自動車を比較"}).check();
  await page.locator("#marketQuery").fill("7201");
  await page.getByRole("button",{name:"財務を見る"}).click();
  await page.locator("#scenarioDate").fill("2026-03-31");
@@ -90,6 +91,12 @@ try{
  await page.locator("#marketQuery").fill("AAPL");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailCurrency").innerText(),/USD/);
+ await page.getByRole("checkbox",{name:"Appleを比較"}).check();
+ assert.equal(await page.locator("#marketCompareRows tr").count(),2);
+ assert.match(await page.locator("#marketCompareRows tr").first().innerText(),/トヨタ.*JPY/s);
+ assert.match(await page.locator("#marketCompareRows tr").last().innerText(),/Apple.*USD/s);
+ await page.getByRole("button",{name:"トヨタ自動車を比較から外す"}).click();
+ assert.equal(await page.locator("#marketCompareRows tr").count(),1);
  assert.match(await page.locator("#marketShareCount").innerText(),/14,532,182,000.*2026-10-23/);
  await page.locator("#marketQuery").fill("NVDA");
  await page.getByRole("button",{name:"財務を見る"}).click();

@@ -81,6 +81,7 @@ async function initMarketResearch() {
   const panel = byId("marketDetails");
   const scenario = byId("marketScenario");
   const scenarioResult = byId("marketScenarioResult");
+  const selected = new Map();
   let selectedFinance;
   const element = (tag, value) => Object.assign(document.createElement(tag), {textContent: value});
   const link = (url, label) => {
@@ -88,6 +89,29 @@ async function initMarketResearch() {
     return Object.assign(element("a", label), {href: url});
   };
   const pct = value => value === null ? "—" : percent.format(value);
+  const paintComparison = () => {
+    byId("marketCompareEmpty").hidden = selected.size > 0;
+    byId("marketCompareTable").hidden = selected.size === 0;
+    byId("marketCompareRows").replaceChildren(...[...selected.values()].map(row => {
+      const finance = row.financials;
+      const p = compareAnnual(finance).at(-1);
+      const tr = document.createElement("tr");
+      const values = [row.label + "（" + row.symbol + "）", p.end, finance.currency, money.format(p.revenue),
+        pct(p.salesGrowth), pct(p.operatingMargin), pct(p.equityRatio)];
+      const remove = Object.assign(element("button", "外す"), {type: "button", className: "secondary-button"});
+      remove.setAttribute("aria-label", row.label + "を比較から外す");
+      remove.addEventListener("click", () => {
+        selected.delete(row.id);
+        const checkbox = [...body.querySelectorAll("input[type=checkbox]")].find(x => x.dataset.marketId === row.id);
+        if (checkbox) checkbox.checked = false;
+        paintComparison();
+      });
+      const action = element("td", "");
+      action.append(remove);
+      tr.append(...values.map(v => element("td", v)), action);
+      return tr;
+    }));
+  };
   const show = row => {
     const finance = row.financials;
     const periods = compareAnnual(finance);
@@ -148,7 +172,17 @@ async function initMarketResearch() {
         if (row.financials) {
           const button = Object.assign(element("button", "財務を見る"), {type: "button", className: "secondary-button"});
           button.addEventListener("click", () => show(row));
-          finance.append(button);
+          const compare = Object.assign(element("input", ""), {type: "checkbox", checked: selected.has(row.id)});
+          const label = element("label", "");
+          compare.setAttribute("aria-label", row.label + "を比較");
+          compare.dataset.marketId = row.id;
+          compare.addEventListener("change", () => {
+            if (compare.checked) selected.set(row.id, row);
+            else selected.delete(row.id);
+            paintComparison();
+          });
+          label.append(compare, " 比較");
+          finance.append(button, " ", label);
         } else if (row.market === "SG") finance.append(link("./index.html", "SGX財務画面"));
         else finance.textContent = "財務取り込み待ち";
         const source = element("td", "");
@@ -156,6 +190,7 @@ async function initMarketResearch() {
         tr.append(finance, source);
         return tr;
       }));
+      paintComparison();
     };
     filter.addEventListener("change", paint);
     query.addEventListener("input", paint);
