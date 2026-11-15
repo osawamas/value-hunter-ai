@@ -18,6 +18,7 @@
   <script src="./reference-valuation-guard-v168.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./bank-scenario-v277.js" defer></script>
+  <script src="./sgx-manual-master-v278.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./official-batch-v196.js" defer></script>
   <script src="./official-multicurrency-v221.js" defer></script>
@@ -172,6 +173,25 @@
         <div class="tablefoot"><span id="universeCandidateShown">0件</span>
           <span>掲載候補は財務未取得・投資ランキング対象外。SGX公式全銘柄の完全な一覧ではない。</span>
         </div>
+      </section>
+
+      <section class="workspace" aria-labelledby="sgxManualMasterTitle">
+        <div class="section-heading"><div><div class="eyebrow">PRIVATE SGX DIRECTORY IMPORT / USER-PROVIDED CSV</div>
+          <h2 id="sgxManualMasterTitle">SGX銘柄台帳CSVを端末内で照合</h2></div>
+          <p>出典と基準日を自分で指定。公式ドメインのURLでも内容を自動検証したことにはならない。データの送信・財務登録はしない。</p></div>
+        <form id="sgxManualMasterForm" class="toolbar">
+          <label><span>CSV（最大4MB）</span><input type="file" name="masterFile" accept=".csv,text/csv" required></label>
+          <label><span>原本出典URL（SGX公式）</span><input type="url" name="sourceURL" placeholder="https://www.sgx.com/..." required></label>
+          <label><span>CSVの基準日</span><input type="date" name="asOf" required></label>
+          <button type="submit" class="secondary-button">端末内で照合する</button>
+        </form>
+        <p class="status-message" id="sgxManualMasterResult" role="status">Trading Code, Trading Name, Listing Board, Traded Currency の4列で構成されたCSVを使う。SGX公式の全銘柄を確認したことにはならない。</p>
+        <div class="tablewrap" style="max-height:300px;overflow:auto"><table>
+          <thead><tr><th>コード</th><th>名称</th><th>市場区分</th><th>通貨</th><th>検証状態</th></tr></thead>
+          <tbody id="sgxManualMasterRows"><tr><td colspan="5">CSV未指定</td></tr></tbody>
+        </table></div>
+        <div class="tablefoot"><span>表示は最大100件。解析結果はブラウザ内だけで保持。</span>
+          <span>公式原本・現在の上場状態・市場データ利用権・財務数値は自動で承認されない。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="sgxListingEventTitle">
