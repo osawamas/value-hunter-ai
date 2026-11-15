@@ -18,6 +18,9 @@ ROOT=pathlib.Path(__file__).resolve().parent.parent
 spec=importlib.util.spec_from_file_location("v297",ROOT/"scripts/replay-sgx-ipo-financial-pdfs-v297.py")
 v297=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(v297)
+spec=importlib.util.spec_from_file_location("sgx_html",ROOT/"scripts/replay-sgx-issuer-html-v260.py")
+sgx_html=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sgx_html)
 
 LABELS={
  "revenue":r"^\s*Revenue\s+",
@@ -222,6 +225,50 @@ def verify_october_statistics(research):
  return {"period":"2026-10","source_pdf_sha256":research["original_monthly_statistics_sha256"],
   "sep_2026":counts["sep_2026"],"oct_2026":counts["oct_2026"],"scope":counts["scope"]}
 
+def sgx_announcement(record):
+ source=record["source"]
+ sgx_html.validate_url(source["url"])
+ raw=download(source["url"],source["sha256"],source["bytes"])
+ clean=sgx_html.clean_text(raw)
+ if not re.search(rf"\b{record['isin']}\s*-\s*{record['symbol']}\b",clean) or record["reference"] not in clean:
+  raise ValueError(f"SGX announcement identity mismatch: {record['symbol']}")
+ return raw,clean
+
+def verify_bank_share_notices(notices):
+ uob,ocbc=(notices[x] for x in ("uob","ocbc"))
+ _,text=sgx_announcement(uob)
+ day=datetime.date.fromisoformat(uob["event_date"])
+ for pattern in [
+  r"UNITED OVERSEAS BANK LIMITED",
+  rf"DATE OF PURCHASE\s+{day:%d/%m/%Y}",
+  rf"TOTAL NUMBER OF SHARES PURCHASED\s+{uob['purchased']:,}\b",
+  rf"NUMBER OF SHARES CANCELLED\s+{uob['cancelled']:,}\b",
+  rf"NUMBER OF ISSUED SHARES EXCLUDING TREASURY SHARES AFTER PURCHASE\s+{uob['issued_ex_treasury']:,}\b",
+  rf"NUMBER OF TREASURY SHARES HELD AFTER PURCHASE\s+{uob['treasury_after']:,}\b",
+ ]:
+  if not re.search(pattern,text):
+   raise ValueError(f"UOB share notice row mismatch: {pattern}")
+ raw,text=sgx_announcement(ocbc)
+ attachment=ocbc["attachment"]
+ if (urlsplit(attachment["url"]).path.encode() not in raw
+     or "NOTICE OF USE OF TREASURY SHARES" not in text):
+  raise ValueError("OCBC notice attachment mismatch")
+ text=" ".join(original_text(attachment).split())
+ day=datetime.date.fromisoformat(ocbc["event_date"])
+ for pattern in [
+  r"Oversea-Chinese Banking Corporation Limited",
+  rf"use:\s+{day:%d %B %Y}",
+  rf"Number of treasury shares sold, transferred,\s+{ocbc['treasury_used']:,}\b",
+  rf"Before change\s+{ocbc['treasury_before']:,}\b",
+  rf"After change\s+{ocbc['treasury_after']:,}\b",
+ ]:
+  if not re.search(pattern,text):
+   raise ValueError(f"OCBC treasury notice row mismatch: {pattern}")
+ if ocbc["treasury_before"]-ocbc["treasury_after"]!=ocbc["treasury_used"] or ocbc["issued_ex_treasury"] is not None:
+  raise ValueError("OCBC treasury movement or outstanding-share scope mismatch")
+ print("SGX VERIFIED UOB 13 November share count and OCBC 12 November treasury notice")
+ return notices
+
 def main():
  manifest=json.loads((ROOT/"docs/data/sgx-ipo-financial-documents-v297.json").read_text())
  sources=v297.validate_manifest(manifest)
@@ -242,10 +289,12 @@ def main():
   print(f'{result["symbol"]} VERIFIED original SHA and rows {result["rows_confirmed"]}; '
         f'{result["fiscal_years"]} annual and {result["interim_periods"]} interim periods')
  october=json.loads((ROOT/"docs/data/sgx-october-release-v292.json").read_text())
+ notices=json.loads((ROOT/"docs/data/sgx-bank-share-notices-v303.json").read_text())
  report={"schema_version":"sgx-ipo-original-audited-financial-reconciliation-v298",
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
   "october_statistics":verify_october_statistics(october),
+  "bank_share_notices":verify_bank_share_notices(notices),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,
   "independent_current_financial_reverification":False,"ranking_eligible_count":0}
  dest=ROOT/"build/research/sgx-ipo-audited-reconciliation-v298.json"

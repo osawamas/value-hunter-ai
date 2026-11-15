@@ -97,16 +97,17 @@ try {
  assert.match(await page.locator("#manualBankCompareStatus").innerText(),/正式ランキング適格0社/);
 
 
- // v284: source-hash UOB buyback original is exposed only as 12-Nov historical.
- await page.locator("#bankShareEvidenceStatus").getByText(/v284で11月12日のUOB SGXNet原本本文とSHA256/).waitFor({timeout:25000});
+ await page.locator("#bankShareEvidenceStatus").getByText(/UOBの11月12・13日とOCBCの11月12日/).waitFor({timeout:25000});
  const buyback=page.locator("#bankShareEvidenceRows tr").filter({hasText:"2026-11-12"}).filter({hasText:"UOB"});
  assert.equal(await buyback.count(),1);
  assert.match(await buyback.innerText(),/1,646,711,591/);
- assert.match(await buyback.innerText(),/SGX原本本文・SHA256照合済み/);
+ assert.match(await buyback.innerText(),/自己株式控除後・通知時点/);
  assert.match(await buyback.locator("a").getAttribute("title"),/原本SHA-256：[0-9a-f]{64}/);
- const unverified=page.locator("#bankShareEvidenceRows tr").filter({hasText:"2026-11-13"}).filter({hasText:"UOB"});
- assert.equal(await unverified.count(),1);
- assert.match(await unverified.innerText(),/SGX原本未取得/);
+ const november13=page.locator("#bankShareEvidenceRows tr").filter({hasText:"2026-11-13"}).filter({hasText:"UOB"});
+ assert.match(await november13.innerText(),/1,646,677,591/);
+ const treasuryNotice=page.locator("#bankShareEvidenceRows tr").filter({hasText:"OCBC"});
+ assert.equal(await treasuryNotice.locator("td").nth(2).innerText(),"—");
+ assert.match(await treasuryNotice.innerText(),/5,817,529.*控除後発行済株数は記載なし/);
 
 
  // v278 user-supplied SGX research CSV stays inside Chrome and must never

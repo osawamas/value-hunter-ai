@@ -1,0 +1,40 @@
+{
+  "schema_version": "sgx-bank-share-notices-v303",
+  "ranking_enabled": false,
+  "ranking_eligible_count": 0,
+  "uob": {
+    "symbol": "U11",
+    "isin": "SG1M31001969",
+    "event_date": "2026-11-13",
+    "reference": "SG261113OTHRHOAF",
+    "purchased": 34000,
+    "cancelled": 34000,
+    "issued_ex_treasury": 1646677591,
+    "treasury_after": 14548000,
+    "source": {
+      "url": "https://links.sgx.com/1.0.0/corporate-announcements/C67B067JET5IP1XO/3a65887b8b044cbf943855154f1fcbaba0baf6e86ed7b192eaf10772bc581e28",
+      "sha256": "25a621e2ac646fb86515a0a7ced1c18787936bfc1fb8288bdf62a218ae778f03",
+      "bytes": 7610
+    }
+  },
+  "ocbc": {
+    "symbol": "O39",
+    "isin": "SG1S04926220",
+    "event_date": "2026-11-12",
+    "reference": "SG261112OTHRXH64",
+    "treasury_used": 4474,
+    "treasury_before": 5822003,
+    "treasury_after": 5817529,
+    "issued_ex_treasury": null,
+    "source": {
+      "url": "https://links.sgx.com/1.0.0/corporate-announcements/R4T9TGACZZTGKRF6/183675d8dea8373c111331c687be2b1651cfe21c968905b06e9418c2d6c04207",
+      "sha256": "9c28a75c851f5a1f37848137e0759e1151656d0503c1d6f07cf1bf12f49a22f7",
+      "bytes": 5577
+    },
+    "attachment": {
+      "url": "https://links.sgx.com/1.0.0/corporate-announcements/R4T9TGACZZTGKRF6/911229_Anno_12Nov2026.pdf",
+      "sha256": "6222b985ab68d86c7070334b07e29af40bf8625b8543bac4be57e9bd6ac77104",
+      "bytes": 108783
+    }
+  }
+}

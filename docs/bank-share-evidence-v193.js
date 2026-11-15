@@ -125,37 +125,48 @@
   const tbody=document.getElementById("bankShareEvidenceRows");
   if(!status||!tbody)return;
   try{
-   const [feed,actions,uobOriginal,ocbcIssuer,rights,replayed]=await Promise.all(
+   const [feed,actions,uobOriginal,ocbcIssuer,rights,replayed,notices]=await Promise.all(
     ["./data/latest.json","./data/sgx-bank-corporate-actions-v190.json",
      "./data/sgx-uob-official-buyback-v242.json","./data/sgx-ocbc-issuer-identity-v244.json",
      "./data/sgx-source-rights-review-v222.json",
-     "./data/uob-original-12nov-share-count-v284.json"].map(async url=>{
+     "./data/uob-original-12nov-share-count-v284.json","./data/sgx-bank-share-notices-v303.json"].map(async url=>{
       const response=await fetch(url,{cache:"no-store"});
       if(!response.ok)throw Error("HTTP "+response.status);
       return response.json();
     }));
-   const verified=validateSupplemental(feed,actions,uobOriginal,ocbcIssuer,rights);
-   const u=verified.uob;
+   validateSupplemental(feed,actions,uobOriginal,ocbcIssuer,rights);
    const original=validateReplayedOriginal(replayed,actions,uobOriginal,feed);
+   const {uob,ocbc}=notices;
+   const sourceValid=s=>/^https:\/\/links\.sgx\.com\/1\.0\.0\/corporate-announcements\//.test(s?.url||"")&&
+    /^[a-f0-9]{64}$/.test(s?.sha256||"");
+   if(notices.schema_version!=="sgx-bank-share-notices-v303"||notices.ranking_enabled!==false||
+      notices.ranking_eligible_count!==0||uob.symbol!=="U11"||uob.event_date!=="2026-11-13"||
+      uob.reference!=="SG261113OTHRHOAF"||uob.purchased!==uob.cancelled||
+      original.count-uob.cancelled!==uob.issued_ex_treasury||
+      !Number.isSafeInteger(uob.issued_ex_treasury)||uob.issued_ex_treasury<=0||
+      ocbc.symbol!=="O39"||ocbc.event_date!=="2026-11-12"||ocbc.reference!=="SG261112OTHRXH64"||
+      ocbc.issued_ex_treasury!==null||!Number.isSafeInteger(ocbc.treasury_after)||ocbc.treasury_after<0||
+      ocbc.treasury_before-ocbc.treasury_used!==ocbc.treasury_after||
+      ![uob.source,ocbc.source,ocbc.attachment].every(sourceValid))
+    throw Error("SGX株数・自己株式通知の照合条件が不一致");
    const rows=[
-    ["UOB / U11",original.date,original.count.toLocaleString("ja-JP")+" 株","SGX原本本文・SHA256照合済み（過去日付）",original.source],
-    ["UOB / U11","2026-11-13","—","SGX原本未取得・第三者掲載のみ",null],
-    ["OCBC / O39","2026-11-12","—","公式銘柄識別確認・SGX添付PDF未取得",verified.ocbc.source_url]
+    ["UOB / U11",uob.event_date,uob.issued_ex_treasury.toLocaleString("ja-JP")+" 株","自己株式控除後・通知時点",uob.source.url,uob.source.sha256],
+    ["UOB / U11",original.date,original.count.toLocaleString("ja-JP")+" 株","自己株式控除後・通知時点",original.source,original.sha],
+    ["OCBC / O39",ocbc.event_date,"—","使用後の自己株式 "+ocbc.treasury_after.toLocaleString("ja-JP")+" 株。控除後発行済株数は記載なし",ocbc.attachment.url,ocbc.attachment.sha256]
    ];
    const frag=document.createDocumentFragment();
-   for(const [symbol,date,count,kind,source] of rows){
+   for(const [symbol,date,count,kind,source,sha] of rows){
     const tr=document.createElement("tr");
     for(const value of [symbol,date,count,kind]){
       const td=document.createElement("td");td.textContent=value;tr.append(td);
     }
     const td=document.createElement("td");
-    if(source){const a=document.createElement("a");a.href=source;a.textContent=symbol==="OCBC / O39"?"SGX会社情報":"SGX原本";
-      if(symbol==="UOB / U11"&&date==="2026-11-12")a.title="原本SHA-256："+original.sha;a.target="_blank";a.rel="noopener noreferrer";td.append(a);}
-    else td.textContent="未取得";
+    const a=document.createElement("a");a.href=source;a.textContent="SGX原本";
+    a.title="原本SHA-256："+sha;a.target="_blank";a.rel="noopener noreferrer";td.append(a);
     tr.append(td);frag.append(tr);
    }
    tbody.replaceChildren(frag);
-   status.textContent="v284で11月12日のUOB SGXNet原本本文とSHA256を再取得検証。11月13日原本は未取得、12日の株数は過去の記録。OCBCはSGX公式銘柄識別のみ確認済み・株数原本未取得。正規株価利用許諾なし。PER・PBR・ランキングには使わない。";
+   status.textContent="UOBの11月12・13日とOCBCの11月12日のSGX原本を照合済み。表示値は通知時点。株価利用許諾が未確認のため、PER・PBR・正式ランキングへの反映は保留。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=5;td.textContent="株式数の根拠データが一致しないため非表示";tr.append(td);
