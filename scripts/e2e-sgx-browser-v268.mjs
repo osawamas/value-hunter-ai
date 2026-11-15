@@ -65,6 +65,18 @@ try {
  await second.goto(base+"/index.html#issuer=FAKE",{waitUntil:"domcontentloaded"});
  await second.locator("#sgxHistoricalCodeShown").getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal((await second.locator("#detailContent h3").allInnerTexts()).some(s=>s.includes("FAKE")),false);
+ // v274: a failed SGX original-source request may suppress evidence badges,
+ // but must NOT erase the third-party discovery directory.
+ const degraded=await browser.newPage();
+ degraded.on("pageerror",e=>failures.push(e.message));
+ await degraded.route("**/data/sgx-nineteen-original-html-sha-v262.json",route=>route.abort());
+ await degraded.goto(base+"/index.html",{waitUntil:"domcontentloaded"});
+ await degraded.locator("#universeCandidateCount").getByText("182").waitFor({timeout:25000});
+ assert.equal(await degraded.locator("#universeCandidateRows tr").count(),182);
+ assert.equal(await degraded.locator("#universeCandidateRows a:has-text('コード根拠を開く')").count(),0);
+ assert.equal(await degraded.locator("#universeCandidateRows a:has-text('財務詳細を見る')").count(),0);
+ assert.match(await degraded.locator("#universeCandidateStatus").innerText(),/一時停止/);
+ await degraded.close();
  assert.deepEqual(failures,[],"JavaScript browser errors");
  console.log("v268 PASS: real Chromium HTTP page, 30 originals, 19 SHA proofs, finance filter, mobile Japanese exclusions, hash navigation, CSV download and invalid deep links");
  console.log("v268 screenshot "+screenshot);
