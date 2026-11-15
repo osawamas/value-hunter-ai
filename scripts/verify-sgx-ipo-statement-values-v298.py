@@ -282,6 +282,27 @@ def verify_metasurface_listing(record):
  print("SGX VERIFIED MET Catalist admission, ISIN, effective date and board lot")
  return record
 
+def verify_oue_hearing(record):
+ raw,html=sgx_announcement(record)
+ if (urlsplit(record["source_url"]).path.encode() not in raw
+     or "NOTICE OF COURT HEARING DATE TO SANCTION THE SCHEME" not in html):
+  raise ValueError("OUE Healthcare hearing attachment mismatch")
+ text=" ".join(original_text({"url":record["source_url"],"sha256":record["source_sha256"],
+  "bytes":record["source_bytes"]}).split())
+ labels={
+  "court_hearing_date":r"Court Hearing Date\s*:\s*",
+  "indicative_last_trading_date":r"Expected last day for trading of Shares\(A\)\s*:\s*On or around\s+",
+  "indicative_delisting_date":r"Expected date for the Delisting of Shares\(E\)\s*:\s*",
+ }
+ for key,heading in labels.items():
+  day=datetime.date.fromisoformat(record[key])
+  if not re.search(heading+day.strftime("%A, ")+str(day.day)+day.strftime(" %B %Y"),text):
+   raise ValueError(f"OUE Healthcare schedule mismatch: {key}")
+ if "the above dates are indicative only" not in text or record["delisted_confirmed"] is not False:
+  raise ValueError("OUE Healthcare provisional dates cannot confirm delisting")
+ print("SGX VERIFIED OUE Healthcare hearing and updated indicative timetable")
+ return record
+
 def main():
  manifest=json.loads((ROOT/"docs/data/sgx-ipo-financial-documents-v297.json").read_text())
  sources=v297.validate_manifest(manifest)
@@ -304,12 +325,15 @@ def main():
  october=json.loads((ROOT/"docs/data/sgx-october-release-v292.json").read_text())
  notices=json.loads((ROOT/"docs/data/sgx-bank-share-notices-v303.json").read_text())
  met=json.loads((ROOT/"docs/data/sgx-metasurface-listing-v304.json").read_text())
+ oue=next(row for row in json.loads((ROOT/"docs/data/sgx-material-listing-events-v257.json").read_text())["events"]
+  if row["symbol"]=="5WA")
  report={"schema_version":"sgx-ipo-original-audited-financial-reconciliation-v298",
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
   "october_statistics":verify_october_statistics(october),
   "bank_share_notices":verify_bank_share_notices(notices),
   "metasurface_listing":verify_metasurface_listing(met),
+  "oue_healthcare_hearing":verify_oue_hearing(oue),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,
   "independent_current_financial_reverification":False,"ranking_eligible_count":0}
  dest=ROOT/"build/research/sgx-ipo-audited-reconciliation-v298.json"

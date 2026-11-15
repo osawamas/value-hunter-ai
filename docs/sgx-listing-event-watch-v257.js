@@ -14,7 +14,7 @@
      !Array.isArray(events.events)||events.events.length!==2)
    throw Error("Current listing status evidence gate failed");
   const expected=[
-   ["5WA","SG2F86994413","SHAREHOLDERS_APPROVED_PRIVATISATION_SCHEME","PENDING_COURT_AND_EXCHANGE_APPROVAL","SG261102OTHR9KQT"],
+   ["5WA","SG2F86994413","COURT_HEARING_SCHEDULED_FOR_PRIVATISATION_SCHEME","PENDING_COURT_AND_EXCHANGE_APPROVAL","SG261110OTHR59DA"],
    ["P11","BMG6845B1046","CHAPTER_11_PLAN_ADMINISTRATION_UPDATE","RESTRUCTURING_MONITOR","SG261016OTHRODOS"]
   ];
   const seen=new Set();
@@ -30,8 +30,8 @@
       item.dates_are_firm!==false||
       item.ranking_eligible!==false)
     throw Error("Unverified delisting claim");
-   if(i===0&&(item.indicative_last_trading_date!=="2026-12-01"||
-               item.indicative_delisting_date!=="2026-12-23"))throw Error("OUEH expected dates changed");
+   if(i===0&&(item.court_hearing_date!=="2026-11-30"||item.indicative_last_trading_date!=="2026-12-01"||
+               item.indicative_delisting_date!=="2026-12-17"))throw Error("OUEH expected dates changed");
    if(i===1&&(item.indicative_last_trading_date!==null||
                item.indicative_delisting_date!==null))throw Error("P11 dates invented");
    seen.add(item.symbol);
@@ -60,7 +60,7 @@
     td.append(a);tr.append(td);frag.append(tr);
    }
    body.replaceChildren(frag);
-   status.textContent="2026年11月15日現在の開示確認。5WAは株主承認後の追加条件待ち、P11は再建計画の管理中。いずれも現在の取引可否・確定上場廃止日を保証せず、投資ランキングには含めない。";
+   status.textContent="2026年11月15日現在の開示確認。5WAは裁判所の審理日を通知済み、P11は再建計画の管理中。いずれも現在の取引可否・確定上場廃止日を保証せず、投資ランキングには含めない。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=4;td.textContent="重要な企業イベントの根拠を照合できないため非表示";tr.append(td);

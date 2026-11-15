@@ -33,6 +33,6 @@ for(const alter of [
 }
 const ui=fs.readFileSync("docs/bank-share-evidence-v193.js","utf8");
 assert.match(ui,/uob-original-12nov-share-count-v284\.json/);
-assert.match(ui,/v284で11月12日のUOB SGXNet原本本文とSHA256/);
+assert.match(ui,/UOBの11月12・13日とOCBCの11月12日のSGX原本/);
 assert.match(ui,/原本SHA-256/);
 console.log("v284 PASS: real UOB Nov12 raw-SGXNet SHA provenance, labelled share count and guarded unverified Nov13/latest ranking");

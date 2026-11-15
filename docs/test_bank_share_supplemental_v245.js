@@ -37,7 +37,7 @@ for(const bad of [
 }
 const ui=fs.readFileSync("docs/bank-share-evidence-v193.js","utf8");
 assert.match(ui,/validateSupplemental\(feed,actions,uobOriginal,ocbcIssuer,rights\)/);
-assert.match(ui,/公式銘柄識別確認・SGX添付PDF未取得/);
-assert.match(ui,/正規株価利用許諾なし/);
-assert.match(ui,/SGX会社情報/);
-console.log("v245 PASS: browser displays source-reconciled dated UOB and OCBC issuer-only proof, rejects unlicensed valuation");
+assert.match(ui,/控除後発行済株数は記載なし/);
+assert.match(ui,/株価利用許諾が未確認/);
+assert.match(ui,/SGX原本/);
+console.log("v245 PASS: browser displays source-reconciled dated UOB and OCBC treasury notice, rejects unlicensed valuation");

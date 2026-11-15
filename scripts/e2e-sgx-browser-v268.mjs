@@ -19,6 +19,10 @@ try {
  await octoberListings.waitFor({state:"attached"});
  assert.match(await octoberListings.innerText(),/605（Mainboard 408 \/ Catalist 197）/);
  assert.match(await octoberListings.getByText("SGX原本PDF").getAttribute("href"),/911153_/);
+ const oueHearing=page.locator("#sgxListingEventRows tr").filter({hasText:"5WA"});
+ await oueHearing.waitFor({state:"attached"});
+ assert.match(await oueHearing.innerText(),/11月30日予定.*2026-12-17/);
+ assert.match(await oueHearing.locator("a").getAttribute("href"),/910907_/);
  const count=page.locator("#sgxHistoricalCodeShown");
  await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");

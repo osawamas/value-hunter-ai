@@ -8,6 +8,7 @@ on:
       - 'docs/data/sgx-october-release-v292.json'
       - 'docs/data/sgx-bank-share-notices-v303.json'
       - 'docs/data/sgx-metasurface-listing-v304.json'
+      - 'docs/data/sgx-material-listing-events-v257.json'
       - 'scripts/verify-sgx-ipo-statement-values-v298.py'
       - '.github/workflows/sgx-ipo-audited-values-v298.yml'
 permissions:

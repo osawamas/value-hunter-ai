@@ -8,7 +8,7 @@ function check(d,f){
  assert.equal(rows.length,2);
  assert.deepEqual(rows.map(x=>x.symbol),["5WA","P11"]);
  assert.equal(rows[0].status,"PENDING_COURT_AND_EXCHANGE_APPROVAL");
- assert.equal(rows[0].provisionalDelist,"2026-12-23");
+ assert.equal(rows[0].provisionalDelist,"2026-12-17");
  assert.equal(rows[1].status,"RESTRUCTURING_MONITOR");
  assert.equal(rows[1].provisionalDelist,null);
  assert.ok(rows.every(x=>x.eligible===false));
