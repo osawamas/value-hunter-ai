@@ -37,7 +37,7 @@ def verify_section(text,record):
   anchor="SELECTED COMBINED FINANCIAL INFORMATION"
   start=next((i for i,x in enumerate(lines) if x.strip()==anchor),-1)
   if start<0:raise ValueError("9DC audited financial section missing")
-  end=next((i for i in range(start+1,len(lines)) if "SELECTED PRO FORMA COMBINED FINANCIAL INFORMATION" in lines[i]),-1)
+  end=next((i for i in range(start+1,len(lines)) if lines[i].strip()=="SELECTED PRO FORMA COMBINED FINANCIAL INFORMATION"),-1)
   if end<0 or end-start>450:raise ValueError("Audited/pro forma boundary missing")
   scope=lines[start:end]
   top=" ".join(scope[:24])
