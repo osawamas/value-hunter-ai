@@ -34,6 +34,24 @@ try {
  }
  assert.match(await page.locator("#bankAnnualCompareStatus").innerText(),/正式ランキング未対応/);
 
+ // v285 local-only three-bank comparison, separate from the investment ranking.
+ await page.locator("#manualBankCompareStatus").getByText(/株価と自己株式控除後の株数/).waitFor({timeout:25000});
+ for(const [symbol,price,shares] of [
+  ["D05","38.5","1800000000"],["O39","18.5","4300000000"],["U11","35.5","1646711591"]]){
+  await page.locator('#manualBankCompareForm input[name="price'+symbol+'"]').fill(price);
+  await page.locator('#manualBankCompareForm input[name="shares'+symbol+'"]').fill(shares);
+  await page.locator('#manualBankCompareForm input[name="priceDate'+symbol+'"]').fill("2026-11-13");
+  await page.locator('#manualBankCompareForm input[name="sharesDate'+symbol+'"]').fill(symbol==="U11"?"2026-11-12":"2026-11-13");
+ }
+ await page.locator('#manualBankCompareForm button[type="submit"]').click();
+ const comparison=page.locator("#manualBankCompareResults");
+ await comparison.getByText(/手入力による参考PBRの低い順/).waitFor({timeout:15000});
+ assert.equal(await comparison.locator("tbody tr").count(),3);
+ assert.match(await comparison.innerText(),/時点が異なる/);
+ assert.match(await comparison.innerText(),/正式な投資ランキングには反映しない/);
+ assert.match(await page.locator("#manualBankCompareStatus").innerText(),/正式ランキング適格0社/);
+
+
  // v284: source-hash UOB buyback original is exposed only as 12-Nov historical.
  await page.locator("#bankShareEvidenceStatus").getByText(/v284で11月12日のUOB SGXNet原本本文とSHA256/).waitFor({timeout:25000});
  const buyback=page.locator("#bankShareEvidenceRows tr").filter({hasText:"2026-11-12"}).filter({hasText:"UOB"});
