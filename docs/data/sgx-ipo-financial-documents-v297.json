@@ -1,0 +1,62 @@
+{
+  "schema_version": "sgx-ipo-original-pdf-replay-v297",
+  "researched_on": "2026-11-15",
+  "purpose": "Acquire original issuer/SGX-hosted IPO documents for 9DC/MIM; distinguish audited historical from unaudited interim and press release",
+  "sources": [
+    {
+      "symbol": "9DC",
+      "issuer": "DELUGE CORPORATION LIMITED",
+      "document_type": "REGISTERED_IPO_PROSPECTUS",
+      "document_date": "2026-10-06",
+      "url": "https://links.sgx.com/FileOpen/Deluge%20Corporation%20Limited%20-Final%20Prospectus%20%286%20October%202026%29.ashx?App=IPO&FileID=6803",
+      "expected_headline_terms": [
+        "DELUGE CORPORATION LIMITED",
+        "PROSPECTUS DATED 6 OCTOBER 2026",
+        "INDEPENDENT AUDITOR"
+      ],
+      "historical_audited_periods": [
+        "2024-03-31",
+        "2025-03-31",
+        "2026-03-31"
+      ],
+      "notes": "IPO prospectus contains independent auditor report and FY financial statements; verify exact amounts from document before publishing; historical statements not up-to-date 2026 November audit."
+    },
+    {
+      "symbol": "MIM",
+      "issuer": "MI MATERIAL HOLDING LIMITED",
+      "document_type": "REGISTERED_IPO_PROSPECTUS",
+      "document_date": "2026-10-19",
+      "url": "https://links.sgx.com/FileOpen/Mi%20Material%20Holding%20Limited-MASRegistration-Appendix%28Final%20Prospectus%29.ashx?App=IPO&FileID=6809",
+      "expected_headline_terms": [
+        "Mi Material Holding Limited",
+        "PROSPECTUS DATED 19 OCTOBER 2026",
+        "AUDITED"
+      ],
+      "historical_audited_periods": [
+        "2023-12-31",
+        "2024-12-31",
+        "2025-12-31"
+      ],
+      "notes": "IPO prospectus audited annual figures through 2025 and unaudited six-month 2026; respect different fiscal periods and currencies."
+    },
+    {
+      "symbol": "MIM",
+      "issuer": "MI MATERIAL HOLDING LIMITED",
+      "document_type": "ISSUER_9M2026_BUSINESS_UPDATE",
+      "document_date": "2026-10-29",
+      "url": "https://links.sgx.com/FileOpen/MiM_9M2026_Press_Release_29102026.ashx?App=Announcement&FileID=909744",
+      "expected_headline_terms": [
+        "Mi Material",
+        "9M2026",
+        "91.5"
+      ],
+      "historical_audited_periods": [],
+      "notes": "Issuer press release, nine months ended Sep 2026, USD $91.5m reported revenue and adjusted PAT $25.7m; NOT independent audit or comparable to 2025 full-year growth."
+    }
+  ],
+  "quote_feed_license_verified": false,
+  "up_to_date_independent_financial_verification_complete": false,
+  "full_current_sgx_master_verified": false,
+  "ranking_enabled": false,
+  "ranking_eligible_count": 0
+}
