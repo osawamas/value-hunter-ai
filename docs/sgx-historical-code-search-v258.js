@@ -211,7 +211,7 @@
    };
    input.addEventListener("input",paint);board.addEventListener("change",paint);
    paint();
-   status.textContent="SGX原本・静的資料の限定30銘柄を財務登録7社と銘柄コードで照合。共通4社もランキングは全て除外。19社のSGXNet原本HTMLはSHA検証済み。";
+   status.textContent="SGXNet原本HTMLの直接再取得で19銘柄を本文・SHA照合。SGX公式静的資料11銘柄と合わせた限定30銘柄を財務登録7社と照合し、共通4社もランキングは全て除外。";
   }catch(e){
    body.replaceChildren();
    const tr=document.createElement("tr"),td=document.createElement("td");
