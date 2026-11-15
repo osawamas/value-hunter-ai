@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
+import urllib.error
 import urllib.request
 
 import openpyxl
@@ -18,12 +20,10 @@ DATA = ROOT / "docs/data/market-research-v315.json"
 SOURCES = {
     "jpx": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_e.xlsx",
     "sec": "https://www.sec.gov/files/company_tickers_exchange.json",
-    "apple": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
     "toyota": "https://global.toyota/pages/global_toyota/ir/financial-results/2026_4q_summary_en.pdf",
 }
 MAX_BYTES = 12_000_000
-APPLE_TAGS = {
-    "revenue": "RevenueFromContractWithCustomerExcludingAssessedTax",
+SEC_TAGS = {
     "operating_income": "OperatingIncomeLoss",
     "net_income": "NetIncomeLoss",
     "assets": "Assets",
@@ -35,10 +35,13 @@ def fetch(url):
     request = urllib.request.Request(url, headers={
         "User-Agent": "VALUE HUNTER AI research https://github.com/osawamas/value-hunter-ai",
     })
-    with urllib.request.urlopen(request, timeout=35) as response:
-        if response.geturl() != url:
-            raise ValueError(f"Unexpected source redirect: {url}")
-        raw = response.read(MAX_BYTES + 1)
+    try:
+        with urllib.request.urlopen(request, timeout=35) as response:
+            if response.geturl() != url:
+                raise ValueError(f"Unexpected source redirect: {url}")
+            raw = response.read(MAX_BYTES + 1)
+    except urllib.error.HTTPError as error:
+        raise ValueError(f"HTTP {error.code} while retrieving {url}") from error
     if len(raw) > MAX_BYTES:
         raise ValueError(f"Source exceeds download limit: {url}")
     return raw
@@ -85,24 +88,28 @@ def tag_value(entries, accession, end, start=None):
     return candidates.pop()
 
 
-def apple_financials(raw, record):
+def sec_financials(raw, record):
     obj = json.loads(raw)
     if obj["cik"] != record["cik"]:
-        raise ValueError("Apple CIK mismatch")
+        raise ValueError("SEC CIK mismatch")
     facts = obj["facts"]
     filing = record["financials"]
     accession = filing["accession"]
     amounts = facts["us-gaap"]
+    approved_revenue = {"Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"}
+    if filing["revenue_tag"] not in approved_revenue:
+        raise ValueError("Unrecognized SEC revenue concept")
+    tags = {"revenue": filing["revenue_tag"], **SEC_TAGS}
     for period in filing["periods"]:
-        for field, tag in APPLE_TAGS.items():
+        for field, tag in tags.items():
             start = period["start"] if field in {"revenue", "operating_income", "net_income"} else None
             value = tag_value(amounts[tag]["units"]["USD"], accession, period["end"], start)
             if value != period[field]:
-                raise ValueError(f"Apple {field} mismatch at {period['end']}")
+                raise ValueError(f"{record['symbol']} {field} mismatch at {period['end']}")
     shares = filing["shares"]
     if tag_value(facts["dei"]["EntityCommonStockSharesOutstanding"]["units"]["shares"],
                  accession, shares["as_of"]) != shares["value"]:
-        raise ValueError("Apple outstanding common shares mismatch")
+        raise ValueError("SEC outstanding common shares mismatch")
 
 
 def toyota_financials(raw, record):
@@ -128,11 +135,24 @@ def toyota_financials(raw, record):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
+    parser.add_argument("--check-sec-excerpts", action="store_true", help="Check selected saved SEC facts offline")
     args = parser.parse_args()
-    raw = {k: (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(SOURCES[k])
-           for k, filename in (("jpx", "jpx.xlsx"), ("sec", "sec.json"),
-                               ("apple", "apple.json"), ("toyota", "toyota.pdf"))}
     snapshot = json.loads(DATA.read_text())
+    if args.check_sec_excerpts:
+        excerpts = json.loads((ROOT / "tests/fixtures/sec-filing-excerpts-v316.json").read_text())
+        for record in snapshot["records"]:
+            if record["market"] == "US" and record.get("financials"):
+                sec_financials(json.dumps(excerpts[record["symbol"]]), record)
+        print("Saved SEC filing excerpts match. Live sources were not checked in this step.")
+        return
+
+    def source_bytes(url, filename):
+        if not args.fixture_directory and "sec.gov/" in url:
+            time.sleep(0.25)
+        return (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(url)
+
+    raw = {k: source_bytes(SOURCES[k], filename)
+           for k, filename in (("jpx", "jpx.xlsx"), ("sec", "sec.json"), ("toyota", "toyota.pdf"))}
     date, jpx = jpx_directory(raw["jpx"])
     sec = sec_directory(raw["sec"])
     if date != snapshot["jpx_snapshot_date"]:
@@ -145,16 +165,25 @@ def main():
         elif sec.get((record["exchange"], record["symbol"], record["cik"])) != record["name"]:
             raise ValueError(f"SEC identity mismatch: {record['symbol']}")
     toyota = next(x for x in snapshot["records"] if x["id"] == "JP:7203")
-    apple = next(x for x in snapshot["records"] if x["id"] == "US:AAPL")
     toyota_financials(raw["toyota"], toyota)
-    apple_financials(raw["apple"], apple)
+    verified = [toyota["id"]]
+    for record in snapshot["records"]:
+        if record["market"] != "US" or not record.get("financials"):
+            continue
+        url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{record['cik']:010d}.json"
+        if record["financials"]["source"] != url:
+            raise ValueError("SEC company facts URL changed")
+        key = record["symbol"].lower()
+        raw[key] = source_bytes(url, key + ".json")
+        sec_financials(raw[key], record)
+        verified.append(record["id"])
     report = {
         "checked_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "jpx_snapshot_date": date,
         "jpx_domestic_prime_standard_growth_rows": len(jpx),
         "sec_nyse_nasdaq_ticker_cik_exchange_rows": len(sec),
         "source_sha256": {k: hashlib.sha256(v).hexdigest() for k, v in raw.items()},
-        "financials_verified": [toyota["id"], apple["id"]],
+        "financials_verified": verified,
         "quotes_verified": False,
     }
     destination = ROOT / "build/research/market-source-verification-v315.json"

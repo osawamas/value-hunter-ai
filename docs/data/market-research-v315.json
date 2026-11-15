@@ -117,7 +117,8 @@
         "shares": {
           "as_of": "2026-10-23",
           "value": 14532182000
-        }
+        },
+        "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax"
       }
     },
     {
@@ -128,7 +129,40 @@
       "label": "Microsoft",
       "cik": 789019,
       "exchange": "Nasdaq",
-      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json"
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json",
+      "financials": {
+        "currency": "USD",
+        "basis": "US GAAP",
+        "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json",
+        "accession": "0001193125-26-323660",
+        "filing_url": "https://www.sec.gov/Archives/edgar/data/789019/000119312526323660/msft-20260630.htm",
+        "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "periods": [
+          {
+            "start": "2024-07-01",
+            "end": "2025-06-30",
+            "revenue": 281724000000,
+            "operating_income": 128528000000,
+            "net_income": 101832000000,
+            "assets": 619003000000,
+            "parent_equity": 343479000000
+          },
+          {
+            "start": "2025-07-01",
+            "end": "2026-06-30",
+            "revenue": 331839000000,
+            "operating_income": 155237000000,
+            "net_income": 133749000000,
+            "assets": 758376000000,
+            "parent_equity": 442387000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-07-23",
+          "value": 7425545491,
+          "rounded": false
+        }
+      }
     },
     {
       "id": "US:NVDA",
@@ -138,7 +172,40 @@
       "label": "NVIDIA",
       "cik": 1045810,
       "exchange": "Nasdaq",
-      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json"
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json",
+      "financials": {
+        "currency": "USD",
+        "basis": "US GAAP",
+        "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json",
+        "accession": "0001045810-26-000021",
+        "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nvda-20260125.htm",
+        "revenue_tag": "Revenues",
+        "periods": [
+          {
+            "start": "2024-01-29",
+            "end": "2025-01-26",
+            "revenue": 130497000000,
+            "operating_income": 81453000000,
+            "net_income": 72880000000,
+            "assets": 111601000000,
+            "parent_equity": 79327000000
+          },
+          {
+            "start": "2025-01-27",
+            "end": "2026-01-25",
+            "revenue": 215938000000,
+            "operating_income": 130387000000,
+            "net_income": 120067000000,
+            "assets": 206803000000,
+            "parent_equity": 157293000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-02-20",
+          "value": 24300000000,
+          "rounded": true
+        }
+      }
     }
   ]
 }

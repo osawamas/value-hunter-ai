@@ -80,7 +80,7 @@ async function initMarketResearch() {
       tr.append(...values.map(value => element("td", value)));
       return tr;
     }));
-    byId("marketShareCount").textContent = "発行済普通株式（自己株式控除後） " +
+    byId("marketShareCount").textContent = "発行済普通株式（自己株式控除後） " + (finance.shares.rounded ? "約" : "") +
       money.format(finance.shares.value) + " 株（" + finance.shares.as_of + "時点）";
     const sources = byId("marketFinancialSources");
     sources.replaceChildren(link(finance.source, "財務データの出典"));

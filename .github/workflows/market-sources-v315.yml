@@ -6,6 +6,7 @@ on:
     paths:
       - 'docs/data/market-research-v315.json'
       - 'scripts/verify-market-sources-v315.py'
+      - 'tests/fixtures/sec-filing-excerpts-v316.json'
       - '.github/workflows/market-sources-v315.yml'
 permissions:
   contents: read
@@ -20,7 +21,9 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install openpyxl==3.1.5
       - run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
-      - run: python scripts/verify-market-sources-v315.py
+      - run: python scripts/verify-market-sources-v315.py --check-sec-excerpts
+      - name: Replay live originals
+        run: python scripts/verify-market-sources-v315.py
       - uses: actions/upload-artifact@v4
         with:
           name: market-source-verification-v315

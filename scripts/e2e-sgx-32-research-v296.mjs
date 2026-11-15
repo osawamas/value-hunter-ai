@@ -84,6 +84,9 @@ try{
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailCurrency").innerText(),/USD/);
  assert.match(await page.locator("#marketShareCount").innerText(),/14,532,182,000.*2026-10-23/);
+ await page.locator("#marketQuery").fill("NVDA");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);
  await page.locator("#marketFilter").selectOption("SG");
  await page.locator("#marketQuery").fill("U11");
  assert.match(await page.locator("#marketRows").innerText(),/U11.*SGX財務画面/s);
