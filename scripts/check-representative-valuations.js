@@ -125,30 +125,47 @@ function main(args) {
   const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
     const sha256 = createHash("sha256").update(bytes).digest("hex");
+    let receiptEvidence;
     if (receipt !== undefined) {
       const verifier = path.join(__dirname, "verify-jquants-personal-snapshot.py");
       const result = spawnSync("python3", [verifier, "--", filename, receipt], {encoding: "utf8"});
       if (result.error) throw result.error;
       if (result.status !== 0) throw Error(result.stderr.trim() || "J-Quants snapshot verification failed");
-      if (JSON.parse(result.stdout).csv_sha256 !== sha256) {
+      receiptEvidence = JSON.parse(result.stdout);
+      if (receiptEvidence.csv_sha256 !== sha256) {
         throw Error("CSV changed during snapshot verification");
       }
     }
     return {
       quotes: readQuoteHistory(bytes.toString("utf8")),
       sha256,
+      receiptEvidence,
     };
   };
   let report;
   if (refresh || verifiedRefresh) {
     const previous = loadQuotes(args[1], verifiedRefresh ? args[2] : undefined);
     const current = verifiedRefresh ? loadQuotes(args[3], args[4]) : loadQuotes(args[2]);
+    if (verifiedRefresh) {
+      const before = previous.receiptEvidence;
+      const after = current.receiptEvidence;
+      if (!before.retrieved_at_utc || !after.retrieved_at_utc || before.retrieved_at_utc >= after.retrieved_at_utc) {
+        throw Error("J-Quants receipts need UTC retrieval timestamps in strictly increasing order");
+      }
+      if (before.codes.join(",") !== after.codes.join(",")) {
+        throw Error("J-Quants receipts must cover the same requested securities");
+      }
+    }
     report = reviewQuoteRefresh(rows, shareReview, previous.quotes, current.quotes);
     if (verifiedRefresh) report.snapshotVerification = "jquants_personal_receipts_matched";
     report.snapshots = {
       previous: {sha256: previous.sha256, observations: previous.quotes.size},
       current: {sha256: current.sha256, observations: current.quotes.size},
     };
+    if (verifiedRefresh) {
+      report.snapshots.previous.retrievedAtUtc = previous.receiptEvidence.retrieved_at_utc;
+      report.snapshots.current.retrievedAtUtc = current.receiptEvidence.retrieved_at_utc;
+    }
   } else {
     report = reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]).quotes : new Map());
   }

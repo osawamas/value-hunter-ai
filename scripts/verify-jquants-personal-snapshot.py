@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 FIELDS = ['market_id', 'date', 'currency', 'close']
@@ -60,7 +60,15 @@ def validate(csv_path, receipt_path):
         raise ValueError('observation count mismatch or empty snapshot')
     if set(codes) != observed:
         raise ValueError('missing requested security')
-    return {'verified': True, 'observations': count, 'codes': sorted(observed), 'csv_sha256': receipt['csv_sha256']}
+    result = {'verified': True, 'observations': count, 'codes': sorted(observed), 'csv_sha256': receipt['csv_sha256']}
+    if 'retrieved_at_utc' in receipt:
+        stamp = receipt['retrieved_at_utc']
+        if not isinstance(stamp, str) or not re.fullmatch(
+                r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|\+00:00)', stamp):
+            raise ValueError('invalid UTC retrieval timestamp')
+        retrieved = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+        result['retrieved_at_utc'] = retrieved.astimezone(timezone.utc).isoformat(timespec='microseconds')
+    return result
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

@@ -21,7 +21,8 @@ class SnapshotTests(unittest.TestCase):
         self.csv.write_text('market_id,date,currency,close\nJP:7203,2026-09-30,JPY,2500\n', encoding='utf-8')
         self.record = {'provider':'J-Quants','purpose':'personal','price_basis':'unadjusted_close',
                        'requested_period':{'first':'2026-09-30','last':'2026-09-30'},
-                       'requested_codes':['7203'],'observations':1}
+                       'requested_codes':['7203'],'observations':1,
+                       'retrieved_at_utc':'2026-10-01T00:00:00.000001+00:00'}
         self.save()
     def save(self):
         self.record['csv_sha256'] = hashlib.sha256(self.csv.read_bytes()).hexdigest()
@@ -58,14 +59,17 @@ class SnapshotTests(unittest.TestCase):
         current = self.csv.with_name("current.csv")
         current_receipt = self.receipt.with_name("current.json")
         current.write_bytes(self.csv.read_bytes().replace(b"2500", b"2501"))
-        current_receipt.write_text(json.dumps({
-            **self.record, "csv_sha256": hashlib.sha256(current.read_bytes()).hexdigest()
-        }), encoding="utf-8")
+        current_record = {
+            **self.record, "csv_sha256": hashlib.sha256(current.read_bytes()).hexdigest(),
+            "retrieved_at_utc": "2026-10-01T00:00:00.000002Z",
+        }
+        current_receipt.write_text(json.dumps(current_record), encoding="utf-8")
         cli = Path(__file__).with_name("check-representative-valuations.js")
         args = ["node", cli, "--compare-jquants", self.csv, self.receipt, current, current_receipt]
         passed = subprocess.run(args, check=True, capture_output=True, text=True)
         report = json.loads(passed.stdout)
         self.assertEqual(report["snapshotVerification"], "jquants_personal_receipts_matched")
+        self.assertEqual(report["snapshots"]["current"]["retrievedAtUtc"], "2026-10-01T00:00:00.000002+00:00")
         toyota = report["results"][0]
         self.assertEqual(toyota["closeChange"], "revised")
         self.assertEqual(toyota["valuation"]["cap"], 2501 * 11778247313)
@@ -80,6 +84,25 @@ class SnapshotTests(unittest.TestCase):
                 self.assertEqual(rejected.stdout, "")
                 self.assertIn("SHA-256", rejected.stderr)
                 candidate.write_bytes(original)
+        for timestamp in ("2026-10-01T00:00:00.000001Z", "2026-09-30T23:00:00Z", None, ""):
+            with self.subTest(timestamp=timestamp):
+                receipt = {**current_record, "retrieved_at_utc": timestamp}
+                if timestamp is None:
+                    del receipt["retrieved_at_utc"]
+                current_receipt.write_text(json.dumps(receipt), encoding="utf-8")
+                rejected = subprocess.run(args, capture_output=True, text=True)
+                self.assertEqual(rejected.returncode, 1)
+                self.assertEqual(rejected.stdout, "")
+                self.assertIn("retrieval timestamp", rejected.stderr)
+        current.write_bytes(current.read_bytes().replace(b"7203", b"7201"))
+        current_receipt.write_text(json.dumps({
+            **current_record, "requested_codes": ["7201"],
+            "csv_sha256": hashlib.sha256(current.read_bytes()).hexdigest(),
+        }), encoding="utf-8")
+        rejected = subprocess.run(args, capture_output=True, text=True)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertEqual(rejected.stdout, "")
+        self.assertIn("same requested securities", rejected.stderr)
 
 if __name__=='__main__':
     unittest.main()
