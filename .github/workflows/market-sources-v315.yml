@@ -92,6 +92,7 @@ jobs:
       - run: python -m pip install openpyxl==3.1.5
       - run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
       - run: python scripts/verify-market-sources-v315.py --sgx-s63-equity-only
+      - run: python -m unittest discover -s SGX_PDF_connection_probe -p 'test_sgx_s63_buyback_v109.py'
       - run: python scripts/verify-market-sources-v315.py --sgx-s63-shares-only
   sec-ibm-filing-originals:
     if: github.event_name == 'workflow_dispatch' && inputs.check_sec_live

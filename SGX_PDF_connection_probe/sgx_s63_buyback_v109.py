@@ -3,6 +3,7 @@ import argparse,hashlib,json,re
 from datetime import datetime,timezone
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 from urllib.request import Request,urlopen
 
 URL="https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92"
@@ -27,29 +28,38 @@ def unique(pattern,plain,field):
  if len(matches)!=1:raise ValueError(field+" missing or ambiguous")
  return matches[0]
 
-def parse(raw):
+def validate_source_url(url):
+ u=urlsplit(url)
+ if (u.scheme!="https" or u.netloc!="links.sgx.com" or u.query or u.fragment
+     or not re.fullmatch(r"/1\.0\.0/corporate-announcements/[A-Z0-9]+/(?:[a-f0-9]{64}/?)?",u.path)):
+  raise ValueError("Expected an official SGXNet announcement URL")
+
+def parse_notice(raw,url):
+ validate_source_url(url)
  if not isinstance(raw,bytes) or not 300<=len(raw)<=3_000_000:
   raise ValueError("Invalid SGX notice")
  h=Text();h.feed(raw.decode("utf-8","replace"))
  s=" ".join(" ".join(h.t).split())
  unique(r"Issuer\s*/\s*Manager\s+SINGAPORE TECHNOLOGIES ENGINEERING LTD\s+Securities\s+SINGAPORE TECH ENGINEERING LTD\s*-\s*"+ISIN+r"\s*-\s*"+SYMBOL+r"\b",s,"SGX issuer security")
- unique(r"Announcement Reference\s+"+REF+r"\b",s,"announcement reference")
- unique(r"Date\s*&\s*Time of Broadcast\s+13-Nov-2026\s+18:21:18\b",s,"broadcast time")
- unique(r"Date of Purchase\s*\|?\s*13/11/2026\b",s,"purchase date")
+ unique(r"Announcement Title\s+Share Buy Back - Daily Share Buy-Back Notice\b",s,"announcement type")
+ reference=unique(r"Announcement Reference\s+(SG\d{6}OTHR[A-Z0-9]+)\b",s,"announcement reference")
+ broadcast_text=unique(r"Date\s*&\s*Time of Broadcast\s+(\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2})\b",s,"broadcast time")
+ broadcast=datetime.strptime(broadcast_text,"%d-%b-%Y %H:%M:%S")
+ purchase=datetime.strptime(unique(r"Date of Purchase\s*\|?\s*(\d{2}/\d{2}/\d{4})\b",s,"purchase date"),"%d/%m/%Y").date()
+ if purchase>broadcast.date() or reference[2:8]!=broadcast.strftime("%y%m%d"):
+  raise ValueError("SGX purchase date, broadcast date or reference is inconsistent")
  bought=int(unique(r"Total Number of shares purchased\s*\|?\s*([0-9,]+)\b",s,"bought shares").replace(",",""))
  cancelled=int(unique(r"Number of shares cancelled\s*\|?\s*([0-9,]+)\b",s,"cancelled shares").replace(",",""))
  treasury_add=int(unique(r"Number of shares held as treasury shares\s*\|?\s*([0-9,]+)\b",s,"treasury acquired").replace(",",""))
  issued=int(unique(r"Number of issued shares excluding treasury shares after purchase\s*([0-9,]+)\b",s,"issued ex treasury").replace(",",""))
  treasury=int(unique(r"Number of treasury shares held after purchase\s*([0-9,]+)\b",s,"treasury outstanding").replace(",",""))
- if not (bought==500000 and cancelled==0 and treasury_add==500000
-         and issued==3115847115 and treasury==6648082
-         and bought==cancelled+treasury_add):
-  raise ValueError("Actual SGX share count arithmetic/regression mismatch")
- return {"status":"SGX_PRIMARY_BUYBACK_13NOV2026_HISTORICAL_SNAPSHOT",
-         "source_url":URL,"source_sha256":hashlib.sha256(raw).hexdigest(),
-         "symbol":SYMBOL,"isin":ISIN,"reference":REF,
-         "broadcast_sgt_text":"13-Nov-2026 18:21:18",
-         "purchase_date":"2026-11-13","shares_purchased":bought,
+ if bought<=0 or bought!=cancelled+treasury_add or issued<=0 or treasury<treasury_add:
+  raise ValueError("SGX share count arithmetic mismatch")
+ return {"status":"SGX_PRIMARY_BUYBACK_DATED_SNAPSHOT",
+         "source_url":url,"source_sha256":hashlib.sha256(raw).hexdigest(),
+         "symbol":SYMBOL,"isin":ISIN,"reference":reference,
+         "broadcast_sgt_text":broadcast_text,
+         "purchase_date":purchase.isoformat(),"shares_purchased":bought,
          "shares_cancelled":cancelled,"purchased_as_treasury":treasury_add,
          "issued_excluding_treasury_after_purchase":issued,
          "treasury_shares_after_purchase":treasury,
@@ -59,9 +69,19 @@ def parse(raw):
          "allow_market_cap_or_per_pbr":False,
          "ranking_eligible":False}
 
-def fetch():
- with urlopen(Request(URL,headers={"User-Agent":"VALUE-HUNTER-AI/1.0 primary-research","Accept":"text/html"}),timeout=25) as resp:
-  if resp.geturl()!=URL or "html" not in resp.headers.get("Content-Type","").lower():
+def parse(raw):
+ notice=parse_notice(raw,URL)
+ fields=("reference","broadcast_sgt_text","purchase_date","shares_purchased","shares_cancelled",
+         "purchased_as_treasury","issued_excluding_treasury_after_purchase","treasury_shares_after_purchase")
+ if tuple(notice[field] for field in fields)!=(REF,"13-Nov-2026 18:21:18","2026-11-13",500000,0,500000,3115847115,6648082):
+  raise ValueError("Actual SGX share count arithmetic/regression mismatch")
+ notice["status"]="SGX_PRIMARY_BUYBACK_13NOV2026_HISTORICAL_SNAPSHOT"
+ return notice
+
+def fetch(url=URL):
+ validate_source_url(url)
+ with urlopen(Request(url,headers={"User-Agent":"VALUE-HUNTER-AI/1.0 primary-research","Accept":"text/html"}),timeout=25) as resp:
+  if resp.geturl()!=url or "html" not in resp.headers.get("Content-Type","").lower():
    raise ValueError("Unexpected SGX official HTML response")
   raw=resp.read(3_000_001)
  if len(raw)>3_000_000:raise ValueError("Oversized source")
@@ -80,4 +100,13 @@ def run(output):
 
 if __name__=="__main__":
  a=argparse.ArgumentParser();a.add_argument("--output",required=True)
- x=a.parse_args();r=run(x.output);print(r["status"],r["error"])
+ a.add_argument("--url",help="Read a dated S63 notice from the official SGXNet archive")
+ x=a.parse_args()
+ if x.url is None:
+  r=run(x.output);print(r["status"],r["error"])
+ else:
+  try:
+   notice=parse_notice(fetch(x.url),x.url)
+   Path(x.output).write_text(json.dumps(notice,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+  except (OSError,ValueError) as exc:
+   a.exit(1,f"S63 notice could not be verified: {exc}\n")

@@ -1,10 +1,11 @@
 import unittest
-from sgx_s63_buyback_v109 import parse
+from sgx_s63_buyback_v109 import URL,parse,parse_notice
 def sample():
  return ("""<html><body>Issuer/ Manager SINGAPORE TECHNOLOGIES ENGINEERING LTD
  Securities SINGAPORE TECH ENGINEERING LTD - SG1F60858221 - S63
  Date &amp;Time of Broadcast 13-Nov-2026 18:21:18
  Announcement Reference SG261113OTHRPXGV
+ Announcement Title Share Buy Back - Daily Share Buy-Back Notice
  Date of Purchase | 13/11/2026 |
  Total Number of shares purchased | 500,000 |
  Number of shares cancelled | 0 |
@@ -13,6 +14,21 @@ def sample():
  Number of treasury shares held after purchase 6,648,082
  </body></html>""").encode()
 class Tests(unittest.TestCase):
+ def test_dated_notice_has_no_hardcoded_amounts(self):
+  later=(sample().replace(b"SG261113OTHRPXGV",b"SG261116OTHRTEST")
+         .replace(b"13-Nov-2026",b"16-Nov-2026").replace(b"13/11/2026",b"16/11/2026")
+         .replace(b"3,115,847,115",b"3,115,347,115"))
+  result=parse_notice(later,URL)
+  self.assertEqual(result["purchase_date"],"2026-11-16")
+  self.assertEqual(result["issued_excluding_treasury_after_purchase"],3115347115)
+  self.assertFalse(result["ranking_eligible"])
+  for invalid in (later.replace(b"16/11/2026",b"17/11/2026"),
+                  later.replace(b"SG261116",b"SG261113"),
+                  later.replace(b"Daily Share Buy-Back Notice",b"Other Notice")):
+   with self.assertRaises(ValueError):
+    parse_notice(invalid,URL)
+  with self.assertRaises(ValueError):
+   parse_notice(later,URL.replace("links.sgx.com","example.org"))
  def test_historical_source_not_valuation(self):
   x=parse(sample())
   self.assertEqual(x["shares_purchased"],500000)
