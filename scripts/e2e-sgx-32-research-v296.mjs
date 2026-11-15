@@ -118,6 +118,10 @@ try{
  await page.locator("#financialFilter").selectOption("quarterly");
  await page.locator("#marketFilter").selectOption("US");
  await page.locator("#marketCount").getByText(/7 \/ 20件/).waitFor();
+ await page.locator("#marketQuery").fill("US:IBM");
+ await page.locator("#marketRows summary").click();
+ assert.match(await page.locator("#marketRows details").innerText(),/財務 2025-12-31.*株価の公開利用許諾が未確認/s);
+ assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/sec\.gov.*ibm-20251231\.htm/);
  await page.locator("#marketQuery").fill("GOOG");
  assert.equal(await page.locator("#marketRows tr").count(),1);
  await page.locator("#marketQuery").fill("");
@@ -131,6 +135,8 @@ try{
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
  await page.locator("#marketRows summary").click();
  assert.match(await page.locator("#marketRows details").innerText(),/2026-09-30.*公開用の株価データが未接続/s);
+ assert.match(await page.locator("#marketRows details").innerText(),/財務 2026-03-31.*株価の公開利用許諾が未確認/s);
+ assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/global\.toyota.*2026_4q_summary/);
  assert.match(await page.locator("#marketQuarterlyTitle").innerText(),/累計決算/);
  assert.match(await page.locator("#marketQuarterlyRows tr").last().innerText(),/2026-04-01〜2026-09-30.*26,962,462,000,000/s);
  assert.match(await page.locator("#marketInterimShareCount").innerText(),/11,778,247,313/);
@@ -347,6 +353,8 @@ try{
  await page.locator("#marketQuery").fill("S63");
  await page.locator("#marketRows summary").click();
  assert.match(await page.locator("#marketRows details").innerText(),/2026-06-30.*2026-11-13・3,115,847,115株/s);
+ assert.match(await page.locator("#marketRows details").innerText(),/財務 FY2025.*株価の公開利用許諾が未確認.*PBRに使う親会社持分の独立検証が未完了/s);
+ assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/FileID=880328/);
  assert.match(await page.getByRole("link",{name:"SGX自己株式取得報告"}).getAttribute("href"),/^https:\/\/links\.sgx\.com\//);
  await page.locator("#marketQuery").fill("U11");
  assert.equal(await page.locator("#marketRows").getByRole("checkbox").count(),0);

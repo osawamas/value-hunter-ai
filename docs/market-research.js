@@ -39,10 +39,12 @@ function rankingEvidence(row, shareReview) {
   if (!sgx) {
     return {
       quote: "未接続",
+      finance: finance?.periods?.at(-1)?.end || "未取得",
+      financeSource: finance?.filing_url || finance?.source,
       share: shares ? shares.as_of + (finance?.share_classes ? "（クラス別開示）" : shares.rounded ? "（概数）" : "（開示資料）") : "未取得",
       shareSource: (row.quarterly?.shares || row.quarterly?.share_classes) ? row.quarterly.source : finance?.filing_url || finance?.source,
       reasons: [finance ? "正式順位の財務審査が未実装" : "年次財務が未取得",
-        "公開用の株価データが未接続", "株価と株数の同日照合が未完了",
+        "公開用の株価データが未接続", "株価の公開利用許諾が未確認", "株価と株数の同日照合が未完了",
         ...(finance?.share_classes ? ["株式クラスごとの評価が必要"] : [])],
     };
   }
@@ -52,7 +54,11 @@ function rankingEvidence(row, shareReview) {
   const quoteDate = observed ? new Intl.DateTimeFormat("sv-SE", {timeZone: "Asia/Singapore"}).format(new Date(observedAt)) : null;
   const shareDate = isMarketDate(sgx.shares_as_of_date) ? sgx.shares_as_of_date : null;
   const reasons = [];
+  if (!row.sgxAnnual) reasons.push("年次財務が未取得");
+  if (sgx.quote_license_display_allowed !== true || sgx.quote_license_non_display_analytics_allowed !== true ||
+      sgx.market_data_license_evidence?.grant_status !== "EXECUTED") reasons.push("株価の公開利用許諾が未確認");
   if (sgx.exclusion_reasons?.includes("INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE")) reasons.push("財務の独立検証が未完了");
+  if (sgx.exclusion_reasons?.includes("PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED")) reasons.push("PBRに使う親会社持分の独立検証が未完了");
   if (sgx.exclusion_reasons?.includes("NEGATIVE_EARNINGS_PER_NOT_APPLICABLE")) reasons.push("赤字のためPER対象外");
   if (!observed) reasons.push("日付付き株価が未取得");
   if (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART") reasons.push("掲載株価は参考取得。取引所の照合が未完了");
@@ -62,6 +68,8 @@ function rankingEvidence(row, shareReview) {
     supplementalShare: sgxSupplementalShare(row, quoteDate, shareReview),
     quote: observed ? quoteDate + (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART" ? "（参考）" : "（掲載資料）") : "未取得",
     quoteSource: observed ? sgx.quote_url : null,
+    finance: row.sgxAnnual?.end || "未取得",
+    financeSource: row.sgxAnnual?.source,
     share: shareDate || "未取得",
     shareSource: shareDate ? sgx.shares_source_url : null,
     reasons,
@@ -995,7 +1003,8 @@ async function initMarketResearch() {
         const ranking = element("td", "");
         const detail = element("details", "");
         detail.append(element("summary", row.rankingEligible ? "対象" : "対象外の理由"));
-        for (const [label, value, url] of [["株価", evidence.quote, evidence.quoteSource],
+        for (const [label, value, url] of [["財務", evidence.finance, evidence.financeSource],
+          ["株価", evidence.quote, evidence.quoteSource],
           [row.market === "SG" ? "掲載株数の基準日" : "株数", evidence.share, evidence.shareSource]]) {
           const line = element("div", label + " " + value);
           if (url?.startsWith("https://")) line.append(" ", link(url, label + "出典"));
