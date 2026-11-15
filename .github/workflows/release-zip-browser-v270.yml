@@ -1,0 +1,62 @@
+name: VALUE HUNTER release ZIP browser verified v270
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-zip-browser-v270.yml'
+      - 'docs/**'
+      - 'scripts/e2e-sgx-browser-v268.mjs'
+permissions:
+  contents: read
+jobs:
+  verify-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble standalone static web app ZIP
+        run: |
+          mkdir -p build/release-v270
+          zip -q -r build/release-v270/value-hunter-ai-offline-preview-v270.zip docs
+          unzip -t build/release-v270/value-hunter-ai-offline-preview-v270.zip | tail -n 2
+          sha256sum build/release-v270/value-hunter-ai-offline-preview-v270.zip | tee build/release-v270/zip-sha256.txt
+          mkdir -p build/release-v270/unpacked
+          unzip -q build/release-v270/value-hunter-ai-offline-preview-v270.zip -d build/release-v270/unpacked
+          test -s build/release-v270/unpacked/docs/index.html
+          test -s build/release-v270/unpacked/docs/app.js
+          test -s build/release-v270/unpacked/docs/sgx-historical-code-search-v258.js
+          test -s build/release-v270/unpacked/docs/data/sgx-nineteen-original-html-sha-v262.json
+          test -s build/release-v270/unpacked/docs/data/latest.json
+      - name: Start server from EXTRACTED distribution ZIP, not repository docs
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory build/release-v270/unpacked/docs > /tmp/value-hunter-zip-v270-http.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8765/index.html > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/value-hunter-zip-v270-http.log; exit 1
+      - name: Control extracted ZIP in real Chromium
+        run: |
+          command -v google-chrome
+          npm install --no-save --no-package-lock playwright-core
+          VALUE_HUNTER_E2E_SCREENSHOT=build/release-v270/zip-mobile.png node scripts/e2e-sgx-browser-v268.mjs
+      - name: Save verified offline distribution and SHA256
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-offline-preview-zip-v270
+          path: |
+            build/release-v270/value-hunter-ai-offline-preview-v270.zip
+            build/release-v270/zip-sha256.txt
+            build/release-v270/zip-mobile.png
+          if-no-files-found: error
+          retention-days: 30
+      - name: Save extracted-zip server diagnostic on failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-zip-debug-v270
+          path: /tmp/value-hunter-zip-v270-http.log
+          if-no-files-found: warn
+          retention-days: 14
