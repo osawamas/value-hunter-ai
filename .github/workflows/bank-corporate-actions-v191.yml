@@ -132,6 +132,8 @@ on:
       - 'scripts/check-ranking-provenance-v289.js'
       - 'scripts/check-ranking-license-evidence-v290.js'
       - 'docs/test_ranking_license_evidence_v290.js'
+      - 'docs/test_sgx_snapshot_diff_v291.js'
+      - 'scripts/diff-sgx-snapshots-v291.js'
       - 'docs/data/sgx-market-license-review-v290.json'
       - 'docs/uob-second-source-v288.js'
       - 'docs/data/uob-issuer-pdf-q3-2026-v288.json'
