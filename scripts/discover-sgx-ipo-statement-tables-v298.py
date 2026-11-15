@@ -35,6 +35,13 @@ def main():
    inp=pathlib.Path(tmp)/"original.pdf";inp.write_bytes(raw)
    extracted=subprocess.run(["pdftotext","-layout",str(inp),"-"],capture_output=True,check=True,timeout=60).stdout.decode("utf8",errors="replace")
   rows=row_candidates(extracted)
+  if source["document_type"]=="REGISTERED_IPO_PROSPECTUS":
+   seq=extracted.splitlines()
+   positions=[5216,5506] if source["symbol"]=="9DC" else [2051,4681]
+   for pos in positions:
+    print("v298-context "+source["symbol"]+" lines "+str(pos-14)+".."+str(pos+14))
+    for idx in range(max(0,pos-15),min(len(seq),pos+14)):
+     print("v298-context-line "+str(idx+1)+" "+seq[idx][:190])
   files.append({"symbol":source["symbol"],"type":source["document_type"],
    "source_sha256":source["github_actions_confirmed_sha256"],
    "candidate_line_count":len(rows),"rows":rows[:140],
