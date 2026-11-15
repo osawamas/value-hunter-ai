@@ -1,0 +1,31 @@
+name: SGXNet original issuer HTML replay v260
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sgx-issuer-html-replay-v260.yml'
+      - 'scripts/replay-sgx-issuer-html-v260.py'
+      - 'scripts/test_sgx_issuer_html_v260.py'
+      - 'docs/data/sgx-official-issuer-code-filings-v255.json'
+      - 'docs/data/sgx-net-eleven-codes-v256.json'
+permissions:
+  contents: read
+jobs:
+  original-issuer-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify offline original-issuer identity and URL boundaries
+        run: python3 scripts/test_sgx_issuer_html_v260.py
+      - name: Fetch four bounded real SGXNet original HTML sources
+        run: python3 scripts/replay-sgx-issuer-html-v260.py
+      - name: Preserve actual observation log including any failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-net-direct-original-issuer-probe-v260
+          path: build/research/sgx-original-issuer-html-v260.json
+          if-no-files-found: warn
+          retention-days: 30
