@@ -60,7 +60,18 @@
         "not_used_in_audited_growth": true
       },
       "not_current_reverified_financials": true,
-      "operating_result_basis": "SEGMENT_NOTE_PROFIT_FROM_OPERATIONS"
+      "operating_result_basis": "SEGMENT_NOTE_PROFIT_FROM_OPERATIONS",
+      "listing_share_capital": {
+        "listing_date": "2026-10-16",
+        "shares": 145000000,
+        "basis": "POST_OFFERING_SHARE_CAPITAL",
+        "current_shares_verified": false,
+        "balloting_source": {
+          "url": "https://links.sgx.com/FileOpen/DCL%20-%20Balloting%20Press%20Release%20.ashx?App=Announcement&FileID=907214",
+          "sha256": "cbdf561aa56361650e048003b091cc2e8df14d45978326773136ed7e1826414e",
+          "bytes": 174349
+        }
+      }
     },
     {
       "symbol": "MIM",
@@ -157,6 +168,18 @@
             "byte_identical_mirror_url": "https://newsfile.futunn.com/public/NN-PersistNoticeAttachment/7781/20261029/910_MYX_3720073_en-us_1.pdf"
           }
         }
+      },
+      "listing_share_capital": {
+        "listing_date": "2026-10-28",
+        "shares": 495000000,
+        "basis": "PROSPECTUS_POST_OFFERING_OUTSTANDING",
+        "current_shares_verified": false,
+        "balloting_source": {
+          "url": "https://links.sgx.com/1.0.0/corporate-announcements/NTLWVDMK8SM5HMLL/909428_MiMH%20-%20Balloting%20Result.pdf",
+          "sha256": "2ab2755dc15466b83b5960a52eb8e3b7556816f01c247642769de6b1202cb8e5",
+          "bytes": 75875
+        },
+        "borrowed_overallotment_shares": 5000000
       }
     }
   ]

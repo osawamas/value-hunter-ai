@@ -102,17 +102,31 @@
    }
    result.push({symbol:s.symbol,issuer:s.name,currency:s.currency,unit:"thousand",
     source:s.source_pdf_url,sha:s.source_pdf_sha256,
-    historical:metrics,interim,businessUpdate,financials_independently_reverified_today:false,
+    historical:metrics,interim,businessUpdate,listingShareCapital:validateListingShareCapital(s),
+    financials_independently_reverified_today:false,
     current_shares_verified:false,market_quote_licensed:false,rankEligible:false});
   }
   if(result.length!==2)throw Error("SGX IPO2銘柄未照合");
   return result;
  }
+ function validateListingShareCapital(stock){
+  const capital=stock.listing_share_capital;
+  const mim=stock.symbol==="MIM";
+  if(capital?.basis!==(mim?"PROSPECTUS_POST_OFFERING_OUTSTANDING":"POST_OFFERING_SHARE_CAPITAL")||
+     capital.listing_date!==(mim?"2026-10-28":"2026-10-16")||
+     capital.current_shares_verified!==false||
+     !Number.isSafeInteger(capital.shares)||capital.shares<=0||
+     !/^https:\/\/links\.sgx\.com\//.test(capital.balloting_source?.url||"")||
+     (mim&&capital.borrowed_overallotment_shares!==5000000))
+   throw Error("上場時の株数資料に不一致");
+  return capital;
+ }
  function init(){
   const body=root.document.getElementById("sgxIpoFinancialRows");
   const status=root.document.getElementById("sgxIpoFinancialStatus");
   const business=root.document.getElementById("sgxIpoBusinessUpdate");
-  if(!body||!status||!business)return;
+  const capitalRows=root.document.getElementById("sgxIpoListingCapitalRows");
+  if(!body||!status||!business||!capitalRows)return;
   const td=v=>{const c=root.document.createElement("td");c.textContent=String(v);return c;};
   Promise.all(["./data/sgx-ipo-audited-historical-v298.json","./data/latest.json"].map(async u=>{
    const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw Error("データ HTTP "+r.status);return r.json();
@@ -138,6 +152,18 @@
     link.textContent=label;
     return link;
    };
+   const capitalFragment=root.document.createDocumentFragment();
+   for(const stock of rows){
+    const capital=stock.listingShareCapital;
+    const row=root.document.createElement("tr");
+    const proof=td("");
+    if(stock.symbol==="MIM")proof.append(sourceLink(stock.source,"目論見書PDF"),"・");
+    proof.append(sourceLink(capital.balloting_source.url,"割当結果PDF"));
+    row.append(td(stock.symbol),td(capital.listing_date),td(money(capital.shares)),
+     td(stock.symbol==="MIM"?"親会社から借りた追加割当500万株は加算しない":"募集・コーナーストーン割当後"),proof);
+    capitalFragment.append(row);
+   }
+   capitalRows.replaceChildren(capitalFragment);
    const segment=update.parent_segment_comparison;
    business.replaceChildren(
     "MIM 2026年1–9月（発行体公表・未監査）。売上 "+update.revenue_usd_millions.toFixed(1)+
@@ -150,7 +176,7 @@
     "親会社Mi Technovationの半導体材料部門（SMBU）の外部顧客売上。2025年1–9月 "+
     money(segment.prior_revenue_thousands)+"千MYR、2026年1–9月 "+money(segment.current_revenue_thousands)+
     "千MYR、前年同期比 "+pct(update.segmentRevenueYoY)+"。 ",sourceLink(segment.source.url,"親会社の四半期報告書PDF"));
-  }).catch(e=>{body.replaceChildren();status.textContent="資料照合エラー："+e.message;});
+  }).catch(e=>{body.replaceChildren();capitalRows.replaceChildren();status.textContent="資料照合エラー："+e.message;});
  }
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);
  if(typeof module!=="undefined"&&module.exports)module.exports={build,compare,pct};

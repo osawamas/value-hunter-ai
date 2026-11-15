@@ -161,6 +161,30 @@ def manifest_text(source):
  return original_text({"url":source["url"],"sha256":source["github_actions_confirmed_sha256"],
   "bytes":source["github_actions_confirmed_original_bytes"]})
 
+def verify_ipo_share_capital(record,prospectus):
+ capital=record["listing_share_capital"]
+ count=f"{capital['shares']:,}"
+ ballot=" ".join(original_text(capital["balloting_source"]).split())
+ if capital["current_shares_verified"] is not False:
+  raise ValueError("Listing share capital cannot confirm current shares")
+ if record["symbol"]=="9DC":
+  if (f"post-Offering share capital of {count} Shares" not in ballot
+      or "16 October 2026" not in ballot or '9DC' not in ballot
+      or capital["basis"]!="POST_OFFERING_SHARE_CAPITAL"):
+   raise ValueError("9DC IPO share capital mismatch")
+ else:
+  scope=" ".join(prospectus.split())
+  prefix=f"{count} Shares outstanding immediately after completion of the Offering and the issuance of the Cornerstone Shares"
+  borrowed=f"{capital['borrowed_overallotment_shares']:,}"
+  if (any(f"{prefix} (assuming the Over-allotment Option {term})" not in scope
+          for term in ("is not exercised","is exercised in full"))
+      or f"has over-allotted an additional {borrowed} Shares" not in ballot
+      or "Shares to be borrowed by the Stabilising Manager from Mi Technovation Berhad" not in ballot
+      or capital["basis"]!="PROSPECTUS_POST_OFFERING_OUTSTANDING"):
+   raise ValueError("MIM offering shares or borrowed overallotment mismatch")
+ print(f"SGX VERIFIED {record['symbol']} listing share capital {count}")
+ return capital
+
 def verify_mim_business_update(source, update):
  if (update["source_pdf_url"]!=source["url"]
      or update["audit_status"]!="UNAUDITED_ISSUER_UPDATE"
@@ -354,7 +378,9 @@ def main():
   source=next(x for x in sources if x["symbol"]==record["symbol"] and x["document_type"]=="REGISTERED_IPO_PROSPECTUS")
   if record["source_pdf_sha256"]!=source["github_actions_confirmed_sha256"] or record["source_pdf_url"]!=source["url"]:
    raise ValueError("Audited statement evidence mismatch")
-  result=verify_section(manifest_text(source),record)
+  prospectus=manifest_text(source)
+  result=verify_section(prospectus,record)
+  result["listing_share_capital"]=verify_ipo_share_capital(record,prospectus)
   if record["symbol"]=="MIM":
    update_source=next(x for x in sources if x["document_type"]=="ISSUER_9M2026_BUSINESS_UPDATE")
    result["business_update"]=verify_mim_business_update(update_source,record["business_update"])

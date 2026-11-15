@@ -34,6 +34,9 @@ try{
  assert.match(updateText,/MIMの米ドル建て前年同期売上は資料に記載なし/);
  assert.match(updateText,/半導体材料部門.*185,667千MYR.*368,216千MYR.*前年同期比 \+98\.3%/);
  assert.match(await businessUpdate.getByRole("link",{name:"発表資料PDF",exact:true}).getAttribute("href"),/FileID=909744$/);
+ const shareCapital=page.locator("#sgxIpoListingCapitalRows tr");
+ assert.match(await shareCapital.filter({hasText:"9DC"}).innerText(),/2026-10-16.*145,000,000/s);
+ assert.match(await shareCapital.filter({hasText:"MIM"}).innerText(),/2026-10-28.*495,000,000.*500万株は加算しない/s);
 
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/3 \/ 33件/).waitFor();
