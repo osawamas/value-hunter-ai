@@ -176,7 +176,7 @@
    result.push(columns.map(key=>escapeField(key==="financialExclusionReasons"?
      r.financialExclusionReasons:key==="ranking_eligible"?false:r[key])).join(","));
   }
-  return "\\uFEFF"+result.join("\\r\\n")+"\\r\\n";
+  return "\uFEFF"+result.join("\r\n")+"\r\n";
  }
  function search(rows,query,boardFilter,financialFilter="ALL"){
   const q=String(query||"").trim().toLocaleUpperCase("en");
