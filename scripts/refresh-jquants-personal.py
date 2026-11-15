@@ -30,11 +30,12 @@ def refresh(destination, previous, export_args):
             "--require-all", "--provenance", "--output", quotes, *export_args,
         ])
         receipt.write_text(exported.stderr, encoding="utf-8")
+        valuation_cli = ["node", SCRIPTS / "check-representative-valuations.js"]
         if previous is None:
-            report = capture([sys.executable, SCRIPTS / "verify-jquants-personal-snapshot.py", quotes, receipt])
+            report = capture([*valuation_cli, "--jquants", quotes, receipt])
         else:
             report = capture([
-                "node", SCRIPTS / "check-representative-valuations.js", "--compare-jquants",
+                *valuation_cli, "--compare-jquants",
                 previous / "quotes.csv", previous / "receipt.json", quotes, receipt,
             ])
         (snapshot / "report.json").write_text(report.stdout, encoding="utf-8")

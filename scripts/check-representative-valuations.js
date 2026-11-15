@@ -115,8 +115,9 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
 function main(args) {
   const refresh = args[0] === "--compare" && args.length === 3;
   const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
-  if (!refresh && !verifiedRefresh && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv], --compare previous.csv current.csv, or --compare-jquants previous.csv previous.json current.csv current.json");
+  const verifiedSnapshot = args[0] === "--jquants" && args.length === 3;
+  if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
+    throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv], --jquants quotes.csv receipt.json, --compare previous.csv current.csv, or --compare-jquants previous.csv previous.json current.csv current.json");
   }
   const research = loadSnapshot("market-research-v315.json");
   const sgx = loadSnapshot("latest.json");
@@ -166,6 +167,14 @@ function main(args) {
       report.snapshots.previous.retrievedAtUtc = previous.receiptEvidence.retrieved_at_utc;
       report.snapshots.current.retrievedAtUtc = current.receiptEvidence.retrieved_at_utc;
     }
+  } else if (verifiedSnapshot) {
+    const current = loadQuotes(args[1], args[2]);
+    report = reviewRepresentativeValuations(rows, shareReview, current.quotes);
+    report.snapshotVerification = "jquants_personal_receipt_matched";
+    report.snapshots = {current: {
+      sha256: current.sha256, observations: current.quotes.size,
+      retrievedAtUtc: current.receiptEvidence.retrieved_at_utc,
+    }};
   } else {
     report = reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]).quotes : new Map());
   }

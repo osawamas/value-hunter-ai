@@ -38,7 +38,14 @@ class SnapshotTests(unittest.TestCase):
 
         with patch.object(refresher, "capture", side_effect=capture):
             refresher.refresh(baseline, None, [])
-            self.assertTrue(json.loads((baseline / "report.json").read_text())["verified"])
+            first = json.loads((baseline / "report.json").read_text())
+            self.assertEqual(first["snapshotVerification"], "jquants_personal_receipt_matched")
+            self.assertEqual(first["snapshots"]["current"]["observations"], 1)
+            toyota = first["results"][0]
+            self.assertEqual(toyota["status"], "trial_calculated")
+            self.assertEqual(toyota["valuation"]["cap"], 2500 * 11778247313)
+            self.assertGreater(toyota["valuation"]["per"], 0)
+            self.assertGreater(toyota["valuation"]["pbr"], 0)
             original = (baseline / "quotes.csv").read_bytes()
             with self.assertRaisesRegex(ValueError, "increasing order"):
                 refresher.refresh(current, baseline, [])
@@ -72,6 +79,22 @@ class SnapshotTests(unittest.TestCase):
         self.receipt.write_text(json.dumps(self.record), encoding='utf-8')
     def test_valid(self):
         self.assertEqual(module.validate(self.csv,self.receipt)['observations'],1)
+
+    def test_single_snapshot_rejects_mismatch_and_reports_missing_exact_close(self):
+        cli = Path(__file__).with_name("check-representative-valuations.js")
+        args = ["node", cli, "--jquants", self.csv, self.receipt]
+        self.csv.write_bytes(self.csv.read_bytes().replace(b"2026-09-30", b"2026-10-01"))
+        rejected = subprocess.run(args, capture_output=True, text=True)
+        self.assertEqual(rejected.returncode, 1)
+        self.assertEqual(rejected.stdout, "")
+        self.assertIn("SHA-256", rejected.stderr)
+        self.record["requested_period"] = {"first": "2026-10-01", "last": "2026-10-01"}
+        self.save()
+        passed = subprocess.run(args, check=True, capture_output=True, text=True)
+        toyota = json.loads(passed.stdout)["results"][0]
+        self.assertEqual(toyota["status"], "missing_exact_close")
+        self.assertNotIn("valuation", toyota)
+
     def test_tampering(self):
         self.csv.write_text(self.csv.read_text().replace('2500','2501'))
         with self.assertRaisesRegex(ValueError,'SHA-256'):
