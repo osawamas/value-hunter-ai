@@ -89,5 +89,5 @@ def main():
     out=ROOT/"build/research/uob-12nov-share-original-v284.json"
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(result,indent=2,ensure_ascii=False)+"\n")
-    print("v284 "+status+" body_bytes="+str(len(body))+" sha_available="+str(bool(body)))
+    print("v284 "+status+" body_bytes="+str(len(body))+" sha256="+str(result["original_html_sha256"]))
 if __name__=="__main__":main()
