@@ -93,7 +93,8 @@ const tests=[
  "docs/test_sgx_october_ipo_v294.js",
  "docs/test_sgx_ipo_candidate_union_v295.js",
  "docs/test_sgx_32_research_v296.js",
- "docs/test_sgx_ipo_pdf_hashes_v297.js"
+ "docs/test_sgx_ipo_pdf_hashes_v297.js",
+ "docs/test_sgx_ipo_financial_v298.js"
 ];
 let failed=0;
 const results=[];
