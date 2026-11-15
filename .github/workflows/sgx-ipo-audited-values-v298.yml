@@ -1,0 +1,29 @@
+name: SGX original IPO audited statement row reconciliation v298
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/data/sgx-ipo-audited-historical-v298.json'
+      - 'scripts/verify-sgx-ipo-statement-values-v298.py'
+      - '.github/workflows/sgx-ipo-audited-values-v298.yml'
+permissions:
+  contents: read
+jobs:
+  audited-original-tables:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure PDF table text extraction
+        run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
+      - name: Independently re-download exact originals and verify audited table values and pro forma isolation
+        run: python3 scripts/verify-sgx-ipo-statement-values-v298.py
+      - name: Preserve success or failure verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-ipo-historical-audited-values-v298
+          path: build/research/sgx-ipo-audited-reconciliation-v298.json
+          if-no-files-found: warn
+          retention-days: 30
