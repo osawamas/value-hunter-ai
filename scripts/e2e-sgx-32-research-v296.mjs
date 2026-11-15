@@ -103,6 +103,18 @@ try{
  assert.equal(await page.getByRole("button",{name:"財務比較CSVを保存"}).isDisabled(),true);
  await annualForm.getByRole("button",{name:"財務の絞り込みを解除"}).click();
  await page.locator("#annualScreenStatus").getByText("16 / 16件").waitFor();
+ await annualForm.getByLabel("財務比較の市場").selectOption("JP");
+ await annualForm.getByLabel("売上前年比の下限（%）").fill("5");
+ await annualForm.getByLabel("親会社持分比率の下限（%）").fill("30");
+ await page.getByRole("link",{name:"この財務条件のリンクを表示"}).click();
+ const annualShareUrl = await page.locator("#annualScreenAddress").inputValue();
+ assert.match(annualShareUrl,/#market=JP&salesGrowth=5&equityRatio=30$/);
+ await page.goto(annualShareUrl,{waitUntil:"domcontentloaded"});
+ await page.locator("#annualScreenStatus").getByText("2 / 16件").waitFor();
+ await annualForm.getByRole("button",{name:"財務の絞り込みを解除"}).click();
+ await page.locator("#annualScreenStatus").getByText("16 / 16件").waitFor();
+ await page.goto(base+"/market-research.html",{waitUntil:"domcontentloaded"});
+ await page.locator("#marketCount").getByText(/20 \/ 20件/).waitFor();
  await page.locator("#financialFilter").selectOption("quarterly");
  await page.locator("#marketFilter").selectOption("US");
  await page.locator("#marketCount").getByText(/7 \/ 20件/).waitFor();

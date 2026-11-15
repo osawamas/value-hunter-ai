@@ -780,6 +780,21 @@ async function initMarketResearch() {
     const annualRows = annualScreenRows(rows);
     const marketRowsById = new Map(rows.map(row => [row.id, row]));
     const annualForm = byId("annualScreenForm");
+    const annualFields = ["market", ...annualScreenMetrics, "order"];
+    const annualLink = byId("annualScreenLink");
+    const applyAnnualLink = () => {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      for (const key of annualFields) {
+        const field = annualForm.elements.namedItem(key);
+        const value = params.get(key) || "";
+        if (field instanceof HTMLSelectElement) {
+          field.value = [...field.options].some(option => option.value === value) ? value : "";
+        } else {
+          field.value = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value) && Number.isFinite(Number(value)) ? value : "";
+        }
+      }
+    };
+    applyAnnualLink();
     const annualButton = byId("annualScreenDownload");
     let visibleAnnual = [];
     const paintAnnual = () => {
@@ -787,6 +802,12 @@ async function initMarketResearch() {
         const field = annualForm.elements.namedItem(metric);
         return [metric, field.value === "" ? null : field.valueAsNumber];
       }));
+      const params = new URLSearchParams();
+      for (const key of annualFields) {
+        const field = annualForm.elements.namedItem(key);
+        if (field.value && field.validity.valid) params.set(key, field.value);
+      }
+      annualLink.href = "#" + params.toString();
       const valid = annualForm.checkValidity();
       visibleAnnual = valid ? screenAnnualFinancials(annualRows, {
         market: annualForm.elements.namedItem("market").value, minimums,
@@ -807,9 +828,28 @@ async function initMarketResearch() {
         return tr;
       }));
     };
+    window.addEventListener("hashchange", () => {
+      applyAnnualLink();
+      paintAnnual();
+    });
     annualForm.addEventListener("input", paintAnnual);
     annualForm.addEventListener("reset", () => setTimeout(paintAnnual, 0));
     annualForm.addEventListener("submit", event => event.preventDefault());
+    annualLink.addEventListener("click", event => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      window.location.hash = annualLink.hash;
+      const address = byId("annualScreenAddress");
+      address.value = window.location.href;
+      address.hidden = false;
+      address.focus();
+      address.select();
+    });
+    annualForm.addEventListener("input", () => { byId("annualScreenAddress").hidden = true; });
+    annualForm.addEventListener("reset", () => {
+      byId("annualScreenAddress").hidden = true;
+      if (window.location.hash) window.location.hash = "";
+    });
     annualButton.addEventListener("click", () => {
       if (visibleAnnual.length) saveResearchCsv(annualScreenCsv(visibleAnnual), "value-hunter-annual-screen.csv");
     });
