@@ -1,0 +1,30 @@
+name: SGX official reduced-boardlot source HTML replay v275
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sgx-trading-table-replay-v275.yml'
+      - 'scripts/replay-sgx-trading-table-v275.py'
+      - 'scripts/test_sgx_trading_table_v275.py'
+      - 'docs/data/sgx-official-batch-seed-v196.json'
+permissions:
+  contents: read
+jobs:
+  actual-sgx-official-page:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact security/counter/currency parser without network
+        run: python3 scripts/test_sgx_trading_table_v275.py
+      - name: Replay official SGX trading table as independent body SHA research
+        run: python3 scripts/replay-sgx-trading-table-v275.py
+      - name: Store success and explicit non-verification separately
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-official-static-eleven-direct-html-v275
+          path: build/research/sgx-trading-original-eleven-v275.json
+          if-no-files-found: warn
+          retention-days: 30
