@@ -18,6 +18,20 @@ try {
  const count=page.locator("#sgxHistoricalCodeShown");
  await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
+ // v277: actual bank FY2025 what-if remains local-only even after input.
+ await page.locator("#scenarioBankStatus").getByText(/銀行3社の2025年/).waitFor({timeout:25000});
+ await page.locator("#scenarioBankSymbol").selectOption("O39");
+ await page.locator('#scenarioBankForm input[name="price"]').fill("40.50");
+ await page.locator('#scenarioBankForm input[name="shares"]').fill("1800000000");
+ await page.locator('#scenarioBankForm input[name="priceAsOf"]').fill("2026-11-13");
+ await page.locator('#scenarioBankForm input[name="sharesAsOf"]').fill("2026-11-12");
+ await page.locator('#scenarioBankForm button[type="submit"]').click();
+ const scenarioOutput=page.locator("#scenarioBankResult");
+ await scenarioOutput.getByText(/参考PER/).waitFor();
+ assert.match(await scenarioOutput.innerText(),/時点不一致/);
+ assert.match(await scenarioOutput.innerText(),/参考PBR/);
+ assert.match(await page.locator("#scenarioBankStatus").innerText(),/正式ランキング/);
+
  await page.locator("#universeCandidateCount").getByText("182").waitFor({timeout:25000});
  assert.equal(await page.locator("#universeCandidateRows tr").count(),182);
  await page.locator("#universeCandidateProvenance").selectOption("FINANCIAL");
