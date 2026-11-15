@@ -24,6 +24,10 @@ const quotes = readQuoteHistory([
 ].join("\n"));
 const calculated = reviewRepresentativeValuations(rows, shares, quotes);
 assert.equal(calculated.scope, "local_trial");
+assert.equal(calculated.basis, "retrospective");
+assert.deepEqual(calculated.results.map(row => [row.shareDisclosureDate, row.shareDisclosedAfterSession]), [
+  ["2026-11-05", true], ["2026-10-22", true], [undefined, undefined],
+]);
 assert.deepEqual(calculated.results.map(row => [row.price, row.valuation.cap]), [
   [2500, 29445618282500], [200, 189024161000], [10, 31158471150],
 ]);

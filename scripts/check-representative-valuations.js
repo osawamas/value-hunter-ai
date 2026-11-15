@@ -23,13 +23,19 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
     const shares = records.find(record => record.id === id);
     const observation = history.get(id + ":" + date);
     const evidence = {id, date, shares: shares.value, shareSource: shares.source};
+    const interim = issuer.quarterly;
+    if (interim?.shares?.as_of === date && interim.source === shares.source &&
+        /^\d{4}-\d{2}-\d{2}$/.test(interim.filed || "")) {
+      evidence.shareDisclosureDate = interim.filed;
+      evidence.shareDisclosedAfterSession = interim.filed > date;
+    }
     if (!observation) return {...evidence, status: "missing_exact_close"};
     const [valuation] = evaluatePersonalQuotes(rows, new Map([[id, observation]]), new Map(), shareReview);
     if (valuation.state !== "filing" || !valuation.result) return {...evidence, status: valuation.state};
     return {...evidence, status: "trial_calculated", price: observation.price,
       financeSource: valuation.financeSource, valuation: valuation.result};
   });
-  return {scope: "local_trial", results};
+  return {scope: "local_trial", basis: "retrospective", results};
 }
 
 function reviewQuoteRefresh(rows, shareReview, previous, current) {
@@ -49,7 +55,7 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     return {...result, closeChange: change, previousPrice: before?.price ?? null,
       newerUnmatchedDates: newer};
   });
-  return {scope: latest.scope, results: updates};
+  return {...latest, results: updates};
 }
 
 function main(args) {
