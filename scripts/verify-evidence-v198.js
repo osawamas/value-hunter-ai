@@ -78,7 +78,8 @@ const tests=[
  "docs/test_bank_scenario_v277.js",
  "docs/test_sgx_manual_master_v278.js",
  "docs/test_sgx_manual_master_pages_v280.js",
- "docs/test_sgx_manual_master_gaps_v281.js"
+ "docs/test_sgx_manual_master_gaps_v281.js",
+ "docs/test_sgx_flexible_csv_v282.js"
 ];
 let failed=0;
 const results=[];
