@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const {execFileSync} = require("node:child_process");
+const {execFileSync, spawnSync} = require("node:child_process");
 const {createHash} = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -216,6 +216,26 @@ try {
   assert.equal(report.results[1].valuation.cap, 201 * 945120805);
   assert.deepEqual(report.results[2].newTradingDates, ["2026-11-16"]);
   assert.deepEqual(report.results[2].newerUnmatchedDates, ["2026-11-16"]);
+  const strict = (...args) => {
+    const result = spawnSync(process.execPath, [cli, "--require-latest-trials", ...args], {encoding: "utf8"});
+    assert.equal(result.stderr, "");
+    return [result.status, JSON.parse(result.stdout)];
+  };
+  const [pass, matched] = strict(previous);
+  assert.equal(pass, 0);
+  assert.equal(matched.latestTrialCheck.passed, true);
+  assert.ok(matched.latestTrialCheck.results.every(row =>
+    row.valuation.cap === row.price * row.shares && row.shareSource && row.financeSource));
+  const [fail, missingShares] = strict("--compare", previous, current);
+  assert.equal(fail, 2);
+  assert.equal(missingShares.latestTrialCheck.passed, false);
+  assert.deepEqual(missingShares.latestTrialCheck.results.map(row => [row.id, row.status]), [
+    ["JP:7203", "trial_calculated"], ["US:IBM", "trial_calculated"], ["SG:S63", "missing"],
+  ]);
+  assert.equal(missingShares.latestTrialCheck.results[2].date, "2026-11-16");
+  const [noQuotes, empty] = strict();
+  assert.equal(noQuotes, 2);
+  assert.ok(empty.latestTrialCheck.results.every(row => row.status === "missing_close"));
 } finally {
   fs.rmSync(work, {recursive: true, force: true});
 }

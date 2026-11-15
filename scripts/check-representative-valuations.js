@@ -5,7 +5,7 @@ const path = require("node:path");
 const {createHash} = require("node:crypto");
 const {spawnSync} = require("node:child_process");
 const {
-  buildMarketRows, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory,
+  buildMarketRows, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory, selectQuoteDate,
 } = require("../docs/market-research.js");
 
 const data = path.join(__dirname, "../docs/data");
@@ -121,11 +121,13 @@ function main(args) {
     filingDirectory = args[1];
     args = args.slice(2);
   }
+  const requireLatestTrials = args[0] === "--require-latest-trials";
+  if (requireLatestTrials) args = args.slice(1);
   const refresh = args[0] === "--compare" && args.length === 3;
   const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
   const verifiedSnapshot = args[0] === "--jquants" && args.length === 3;
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--require-latest-trials] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
   const research = loadSnapshot(filingDirectory, "market-research-v315.json", filingDataSha256);
@@ -153,9 +155,11 @@ function main(args) {
     };
   };
   let report;
+  let currentQuotes;
   if (refresh || verifiedRefresh) {
     const previous = loadQuotes(args[1], verifiedRefresh ? args[2] : undefined);
     const current = verifiedRefresh ? loadQuotes(args[3], args[4]) : loadQuotes(args[2]);
+    currentQuotes = current.quotes;
     if (verifiedRefresh) {
       const before = previous.receiptEvidence;
       const after = current.receiptEvidence;
@@ -178,6 +182,7 @@ function main(args) {
     }
   } else if (verifiedSnapshot) {
     const current = loadQuotes(args[1], args[2]);
+    currentQuotes = current.quotes;
     report = reviewRepresentativeValuations(rows, shareReview, current.quotes);
     report.snapshotVerification = "jquants_personal_receipt_matched";
     report.snapshots = {current: {
@@ -185,7 +190,25 @@ function main(args) {
       retrievedAtUtc: current.receiptEvidence.retrieved_at_utc,
     }};
   } else {
-    report = reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]).quotes : new Map());
+    currentQuotes = args.length ? loadQuotes(args[0]).quotes : new Map();
+    report = reviewRepresentativeValuations(rows, shareReview, currentQuotes);
+  }
+  if (requireLatestTrials) {
+    const newest = selectQuoteDate(currentQuotes);
+    const checks = representatives.map(id => {
+      const quote = newest.get(id);
+      if (!quote) return {id, status: "missing_close"};
+      const [trial] = evaluatePersonalQuotes(rows, new Map([[id, quote]]), new Map(), shareReview);
+      const valuation = trial.result;
+      const status = trial.state !== "filing" ? trial.state :
+        Number.isFinite(valuation?.per) && Number.isFinite(valuation?.pbr) ?
+          "trial_calculated" : "incomplete_ratios";
+      return {id, date: quote.date, status, price: quote.price, shares: trial.shares,
+        shareSource: trial.shareSource, financeSource: trial.financeSource, valuation};
+    });
+    const passed = checks.every(check => check.status === "trial_calculated");
+    report.latestTrialCheck = {passed, results: checks};
+    if (!passed) process.exitCode = 2;
   }
   process.stdout.write(JSON.stringify({...report, filingDataSha256}, null, 2) + "\n");
 }
