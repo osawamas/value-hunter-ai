@@ -23,11 +23,9 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
     const shares = records.find(record => record.id === id);
     const observation = history.get(id + ":" + date);
     const evidence = {id, date, shares: shares.value, shareSource: shares.source};
-    const interim = issuer.quarterly;
-    if (interim?.shares?.as_of === date && interim.source === shares.source &&
-        /^\d{4}-\d{2}-\d{2}$/.test(interim.filed || "")) {
-      evidence.shareDisclosureDate = interim.filed;
-      evidence.shareDisclosedAfterSession = interim.filed > date;
+    if (shares.disclosedOn) {
+      evidence.shareDisclosureDate = shares.disclosedOn;
+      evidence.shareDisclosedAfterSession = shares.disclosedOn > date;
     }
     if (!observation) return {...evidence, status: "missing_exact_close"};
     const [valuation] = evaluatePersonalQuotes(rows, new Map([[id, observation]]), new Map(), shareReview);

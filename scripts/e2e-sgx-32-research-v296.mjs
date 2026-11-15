@@ -166,6 +166,7 @@ try{
  const batch = page.locator("#personalBatchRows tr");
  assert.equal(await batch.count(),1);
  assert.match(await batch.first().innerText(),/JP:7203.*35,334,741,939,000/s);
+ assert.match(await batch.first().innerText(),/2026-11-05（取引日より後）/);
  await page.locator("#personalBatchDate").fill("");
  assert.match(await page.locator("#personalBatchStatus").innerText(),/3 \/ 4件を試算/);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
@@ -227,6 +228,8 @@ try{
  assert.equal(savedBatch.suggestedFilename(),"value-hunter-trial-valuations.csv");
  const exportedBatch = fs.readFileSync(await savedBatch.path(),"utf8");
  assert.match(exportedBatch,/estimated_market_cap/);
+ assert.match(exportedBatch,/share_disclosure_date/);
+ assert.match(exportedBatch,/"JP:7203".*"2026-11-05"/);
  assert.match(exportedBatch,/"SG:S63".*3115847115,31158471150/);
  assert.match(exportedBatch,/"US:AAPL".*"missing"/);
  const s63Trial = batch.filter({hasText:"SG:S63"});

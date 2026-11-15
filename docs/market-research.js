@@ -242,6 +242,8 @@ function sgxValuationFinance(row) {
 function filingSharesOn(row, date, shareReview) {
   const withSource = (share, source) => share ? {...share, source} : null;
   const interim = withSource(row.quarterly?.shares, row.quarterly?.source);
+  const filed = row.quarterly?.filed;
+  if (interim && isMarketDate(filed) && filed >= interim.as_of) interim.disclosedOn = filed;
   const annual = withSource(row.financials?.shares, row.financials?.filing_url || row.financials?.source);
   const sgx = row.sgxEvidence;
   const currentShare = sgx?.shares_count_basis === "issued_excluding_treasury" &&
@@ -267,7 +269,7 @@ function publishedShareSessions(rows, shareReview) {
       const match = matchScenarioShares(row.id, date, evidence, new Map());
       if (match.state !== "filing") continue;
       if (!sessions.has(date)) sessions.set(date, []);
-      sessions.get(date).push({id: row.id, value: match.value, source: match.source});
+      sessions.get(date).push({id: row.id, value: match.value, source: match.source, disclosedOn: match.disclosedOn});
     }
   }
   return new Map([...sessions].sort(([a], [b]) => b.localeCompare(a)));
@@ -281,8 +283,10 @@ function matchScenarioShares(id, date, published, personalShares) {
   if (exactCounts.size > 1) return {value: null, state: "conflict"};
   const exact = exactCounts.values().next().value;
   if (exact !== undefined && csv !== undefined && exact !== csv) return {value: null, state: "conflict"};
-  if (exact !== undefined) return {value: exact, state: "filing",
-    source: filings.find(share => share?.as_of === date && !share.rounded && share.value === exact)?.source};
+  if (exact !== undefined) {
+    const filing = filings.find(share => share?.as_of === date && !share.rounded && share.value === exact);
+    return {value: exact, state: "filing", source: filing.source, disclosedOn: filing.disclosedOn};
+  }
   if (csv !== undefined) return {value: csv, state: "csv"};
   return {value: null, state: "missing"};
 }
@@ -336,7 +340,8 @@ function matchListedClassValue(row, id, quote) {
     if (cover?.as_of !== quote.date || cover.rounded !== false || !source) return [];
     const share = cover.classes.find(item => item.symbol && row.market + ":" + item.symbol === id);
     return share && Number.isSafeInteger(share.value) && share.value > 0 ?
-      [{shares: share.value, shareSource: source}] : [];
+      [{shares: share.value, shareSource: source, shareDisclosureDate: cover === updated?.share_classes &&
+        isMarketDate(updated.filed) && updated.filed >= quote.date ? updated.filed : undefined}] : [];
   });
   if (new Set(exact.map(item => item.shares)).size > 1) return {note: "クラス別開示株数が不一致"};
   if (!exact.length) return {note: "同日の正確なクラス別開示株数なし"};
@@ -392,7 +397,7 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
     try {
       const inputs = {...quote, shares: match.value};
       const result = calculateWithAnnualPeriod(currency, latest, inputs);
-      return {...entry, state: match.state, shares: match.value, shareSource: match.source,
+      return {...entry, state: match.state, shares: match.value, shareSource: match.source, shareDisclosureDate: match.disclosedOn,
         result};
     } catch {
       return {...entry, state: "invalid"};
@@ -475,12 +480,12 @@ function saveResearchCsv(content, filename) {
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
-    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct"];
+    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date"];
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
     Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
-    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null].map(csvCell).join(","));
+    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -615,7 +620,9 @@ async function initMarketResearch() {
       const sourceCell = element("td", "");
       if (row.financeSource?.startsWith("https://")) sourceCell.append(link(row.financeSource, "財務資料"));
       if (row.shareSource?.startsWith("https://")) sourceCell.append(" ", link(row.shareSource, "株数資料"));
-      tr.append(sourceCell);
+      tr.append(sourceCell, element("td", row.shareDisclosureDate
+        ? row.shareDisclosureDate + (row.shareDisclosureDate > quote.date ? "（取引日より後）" : "")
+        : "—"));
       return tr;
     }));
   };
@@ -638,7 +645,8 @@ async function initMarketResearch() {
     byId("activatePersonalQuote").disabled = !eligible;
     const match = eligible && matchScenarioShares(activeRow.id, quote.date, filingSharesOn(activeRow, quote.date), personalShares);
     byId("personalQuoteMatch").textContent = eligible ? "CSV終値 " + money.format(quote.price) +
-      " " + quote.currency + "（" + quote.date + "）。" + shareLabels[match.state] : "";
+      " " + quote.currency + "（" + quote.date + "）。" + shareLabels[match.state] +
+      (match.disclosedOn ? "。株数公表日 " + match.disclosedOn + (match.disclosedOn > quote.date ? "（取引日より後）" : "") : "") : "";
   };
   byId("activatePersonalQuote").addEventListener("click", () => {
     const {date, price} = personalQuotes.get(activeRow.id);
