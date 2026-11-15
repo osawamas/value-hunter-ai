@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c1424">
+<title>SGX公式資料32コードの調査 | VALUE HUNTER AI</title>
+<link rel="stylesheet" href="./style.css">
+<script src="./sgx-historical-code-search-v258.js" defer></script>
+<script src="./sgx-32-research-v296.js" defer></script>
+</head>
+<body>
+<div class="container">
+<header><a href="./index.html">VALUE HUNTER AI / 安物で割安</a></header>
+<main>
+<section class="workspace" aria-labelledby="research32Title">
+<div class="section-heading"><div><div class="eyebrow">SGX / HISTORICAL SOURCE DIRECTORY</div>
+<h1 id="research32Title">SGXの原本・公式資料で調べた32銘柄コード</h1></div>
+<p><a href="./index.html">メイン画面に戻る</a></p></div>
+<p>過去の開示資料に記載されたコードを検索する参考台帳。現在上場中の全銘柄一覧ではなく、投資可能な銘柄の推薦でもない。</p>
+<p id="research32Status" role="status" class="status-message">原本照合中…</p>
+<div class="toolbar">
+<label class="control">コード・企業名・ISIN
+<input id="research32Query" type="search" placeholder="例：9DC、MIM、SGXE..." autocomplete="off"></label>
+<label class="control">資料の種類
+<select id="research32Type"><option value="ALL">すべて</option><option value="IPO">2026年10月新規上場2社</option><option value="ORIGINAL">SGXNet原本19件</option><option value="STATIC">公式静的資料11件</option></select></label>
+<label class="control">財務データ
+<select id="research32Finance"><option value="ALL">すべて</option><option value="YES">登録済み（ランキング除外）</option><option value="NO">未登録</option></select></label>
+<button type="button" id="research32Export" class="secondary-button">表示中の銘柄をCSV保存</button>
+</div>
+<div class="tablewrap"><table><thead><tr><th>コード</th><th>企業名</th><th>ISIN</th><th>市場</th><th>出典区分</th><th>財務</th><th>原本</th></tr></thead>
+<tbody id="research32Rows"><tr><td colspan="7">読み込み中…</td></tr></tbody></table></div>
+<div class="tablefoot"><span id="research32Count" role="status">—</span><span>このページで株価・未許諾相場データは取得しない。正式ランキングは引き続き無効。</span></div>
+</section>
+</main><footer><span>© VALUE HUNTER AI / 安物で割安</span><span>SGX / HISTORICAL RESEARCH ONLY</span></footer>
+</div>
+</body></html>
