@@ -355,6 +355,8 @@ try{
  assert.match(await page.locator("#marketRows details").innerText(),/2026-06-30.*2026-11-13・3,115,847,115株/s);
  assert.match(await page.locator("#marketRows details").innerText(),/財務 FY2025.*株価の公開利用許諾が未確認.*PBRに使う親会社持分の独立検証が未完了/s);
  assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/FileID=880328/);
+ assert.match(await page.locator("#marketRows details").innerText(),/親会社持分 2,573,638,000 SGD（年次報告書と発行体決算資料で一致）/);
+ assert.match(await page.locator("#marketRows").getByRole("link",{name:"発行体決算資料"}).getAttribute("href"),/^https:\/\/www\.stengg\.com\/.*FY2025-Results-Financial-Statements\.pdf$/);
  assert.match(await page.getByRole("link",{name:"SGX自己株式取得報告"}).getAttribute("href"),/^https:\/\/links\.sgx\.com\//);
  await page.locator("#marketQuery").fill("U11");
  assert.equal(await page.locator("#marketRows").getByRole("checkbox").count(),0);

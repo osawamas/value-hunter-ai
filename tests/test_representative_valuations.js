@@ -1,12 +1,19 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const {buildMarketRows, evaluatePersonalQuotes, personalBatchCsv, readQuoteHistory} = require("../docs/market-research.js");
+const {buildMarketRows, evaluatePersonalQuotes, personalBatchCsv, rankingEvidence, readQuoteHistory} = require("../docs/market-research.js");
 const {reviewRepresentativeValuations, reviewQuoteRefresh} = require("../scripts/check-representative-valuations.js");
 const research = require("../docs/data/market-research-v315.json");
 const sgx = require("../docs/data/latest.json");
 const shares = require("../docs/data/sgx-s63-two-website-close-v129.json");
 const rows = buildMarketRows(research, sgx);
+const equityReview = require("../docs/data/sgx-s63-parent-equity-v395.json");
+const s63Issuer = rows.find(row => row.id === "SG:S63");
+assert.equal(rankingEvidence(s63Issuer, shares, equityReview).matchedEquity.parent_equity, 2573638);
+for (const mismatch of [{period_end: "2024-12-31"}, {parent_equity: 2921245},
+  {non_controlling_interests: 0}, {independent_verification: true}]) {
+  assert.equal(rankingEvidence(s63Issuer, shares, {...equityReview, ...mismatch}).matchedEquity, null);
+}
 const noQuotes = reviewRepresentativeValuations(rows, shares);
 assert.deepEqual(noQuotes.results.map(row => [row.id, row.date, row.status]), [
   ["JP:7203", "2026-09-30", "missing_exact_close"],

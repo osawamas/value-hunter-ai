@@ -21,6 +21,7 @@ on:
       - 'docs/market-research.js'
       - 'docs/data/latest.json'
       - 'docs/data/sgx-s63-two-website-close-v129.json'
+      - 'docs/data/sgx-s63-parent-equity-v395.json'
       - 'scripts/export-jquants-personal-quotes.py'
       - 'tests/test_jquants_personal_quotes.py'
       - 'tests/fixtures/sec-filing-excerpts-v316.json'

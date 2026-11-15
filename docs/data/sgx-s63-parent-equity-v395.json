@@ -1,0 +1,16 @@
+{
+  "symbol": "S63",
+  "period_end": "2025-12-31",
+  "unit": "SGD_thousands",
+  "status": "MATCHED_TWO_ISSUER_FILINGS",
+  "independent_verification": false,
+  "parent_equity": 2573638,
+  "non_controlling_interests": 347607,
+  "total_equity": 2921245,
+  "annual_report_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
+  "annual_report_printed_page": 129,
+  "annual_report_sha256": "eb39428ba51c1c39463eea983648e2b7f7cfb1bf84a1da02d2ef3d5b8ecf989b",
+  "results_url": "https://www.stengg.com/getmedia/636a7ee6-a8b8-4200-870f-09c626cfbec2/ST-Engineering-FY2025-Results-Financial-Statements.pdf",
+  "results_printed_page": 8,
+  "results_sha256": "1050e0c96599d3b1423c2d4271d1be43bc0557de6ade5957bf579b10b3a95366"
+}

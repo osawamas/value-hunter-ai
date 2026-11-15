@@ -32,7 +32,7 @@ function buildMarketRows(research, sgx) {
   return rows;
 }
 
-function rankingEvidence(row, shareReview) {
+function rankingEvidence(row, shareReview, equityReview) {
   const sgx = row.sgxEvidence;
   const finance = row.financials;
   const shares = row.quarterly?.share_classes || row.quarterly?.shares || finance?.shares || finance?.share_classes;
@@ -64,7 +64,17 @@ function rankingEvidence(row, shareReview) {
   if (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART") reasons.push("掲載株価は参考取得。取引所の照合が未完了");
   if (!shareDate) reasons.push("日付付き株数が未取得");
   if (shareDate && quoteDate && shareDate !== quoteDate) reasons.push("掲載データの株価と株数の基準日が異なる");
+  const matchedEquity = row.id === "SG:S63" && equityReview?.symbol === row.symbol &&
+    equityReview.status === "MATCHED_TWO_ISSUER_FILINGS" && equityReview.independent_verification === false &&
+    equityReview.period_end === sgx.fiscal_year + "-12-31" &&
+    equityReview.unit === "SGD_thousands" && equityReview.annual_report_url === row.sgxAnnual?.source &&
+    Number.isSafeInteger(equityReview.parent_equity) &&
+    equityReview.parent_equity === sgx.parent_equity_sgd_thousands &&
+    equityReview.total_equity === sgx.equity_sgd_thousands &&
+    equityReview.parent_equity + equityReview.non_controlling_interests === equityReview.total_equity &&
+    equityReview.results_url?.startsWith("https://www.stengg.com/") ? equityReview : null;
   return {
+    matchedEquity,
     supplementalShare: sgxSupplementalShare(row, quoteDate, shareReview),
     quote: observed ? quoteDate + (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART" ? "（参考）" : "（掲載資料）") : "未取得",
     quoteSource: observed ? sgx.quote_url : null,
@@ -822,11 +832,12 @@ async function initMarketResearch() {
       if (!response.ok) throw Error("資料取得 HTTP " + response.status);
       return response.json();
     };
-    const [research, sgx, g13, s63, s63ShareReview] = await Promise.all([
+    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview] = await Promise.all([
       load("market-research-v315.json"), load("latest.json"),
       load("sgx-g13-2026q3-v121.json").catch(() => null),
       load("sgx-s63-9m2026-v125.json").catch(() => null),
       load("sgx-s63-two-website-close-v129.json").catch(() => null),
+      load("sgx-s63-parent-equity-v395.json").catch(() => null),
     ]);
     const updateRows = [];
     const genting = g13?.record;
@@ -999,7 +1010,7 @@ async function initMarketResearch() {
         }
         const source = element("td", "");
         source.append(link(row.identity_source, row.market === "SG" ? "SGX調査" : "銘柄資料"));
-        const evidence = rankingEvidence(row, s63ShareReview);
+        const evidence = rankingEvidence(row, s63ShareReview, s63EquityReview);
         const ranking = element("td", "");
         const detail = element("details", "");
         detail.append(element("summary", row.rankingEligible ? "対象" : "対象外の理由"));
@@ -1014,6 +1025,12 @@ async function initMarketResearch() {
           const {as_of: date, value, source} = evidence.supplementalShare;
           const line = element("div", "別資料の同日株数 " + date + "・" + money.format(value) + "株 ");
           line.append(link(source, "SGX自己株式取得報告"));
+          detail.append(line);
+        }
+        if (evidence.matchedEquity) {
+          const equity = evidence.matchedEquity;
+          const line = element("div", "親会社持分 " + money.format(equity.parent_equity * 1000) + " SGD（年次報告書と発行体決算資料で一致） ");
+          line.append(link(equity.results_url, "発行体決算資料"));
           detail.append(line);
         }
         if (evidence.reasons.length) {
