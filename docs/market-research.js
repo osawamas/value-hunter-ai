@@ -18,6 +18,7 @@ function buildMarketRows(research, sgx) {
     label: record.issuer || record.name || record.company_name || record.symbol,
     identity_source: "./sgx-32-research.html",
     sgxAnnual: sgxComparison(sgx, record),
+    rankingEligible: sgx.ranking_enabled === true && record.ranking_eligible === true,
   }))];
   const ids = new Set();
   for (const row of rows) {
@@ -48,6 +49,18 @@ function sgxComparison(feed, record) {
     source: record.financial_source_url,
     sourceLabel: record.data_state === "VERIFIED" ? "SGX出典" : "SGX出典（照合途中）",
   };
+}
+
+function summarizeMarketCoverage(rows) {
+  return Object.entries(marketLabels).map(([market, label]) => {
+    const listed = rows.filter(row => row.market === market);
+    return {
+      label,
+      listed: listed.length,
+      comparable: listed.filter(row => row.financials || row.sgxAnnual).length,
+      rankable: listed.filter(row => row.rankingEligible === true).length,
+    };
+  });
 }
 
 function filterMarketRows(rows, market, query) {
@@ -253,6 +266,13 @@ async function initMarketResearch() {
       return response.json();
     }));
     const rows = buildMarketRows(research, sgx);
+    byId("marketCoverageRows").replaceChildren(...summarizeMarketCoverage(rows).map(row => {
+      const tr = document.createElement("tr");
+      const name = element("th", row.label);
+      name.scope = "row";
+      tr.append(name, ...[row.listed, row.comparable, row.rankable].map(value => element("td", value)));
+      return tr;
+    }));
     const paint = () => {
       panel.hidden = true;
       const visible = filterMarketRows(rows, filter.value, query.value);
@@ -296,4 +316,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, summarizeMarketCoverage};

@@ -74,6 +74,8 @@ try{
  assert.equal(await page.locator("#research32Rows tr").count(),4);
  await page.goto(base+"/market-research.html",{waitUntil:"domcontentloaded"});
  await page.locator("#marketCount").getByText(/15 \/ 15件/).waitFor({timeout:25000});
+ assert.deepEqual(await page.locator("#marketCoverageRows td").allTextContents(),
+  ["5","4","0","3","3","0","7","4","0"]);
  await page.locator("#marketFilter").selectOption("JP");
  await page.locator("#marketQuery").fill("７２０３");
  await page.getByRole("button",{name:"財務を見る"}).click();
