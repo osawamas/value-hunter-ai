@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="./style.css">
 <script src="./sgx-historical-code-search-v258.js" defer></script>
 <script src="./sgx-32-research-v296.js" defer></script>
+<script src="./sgx-ipo-financial-v298.js" defer></script>
 </head>
 <body>
 <div class="container">
@@ -31,6 +32,17 @@
 <div class="tablewrap"><table><thead><tr><th>コード</th><th>企業名</th><th>ISIN</th><th>市場</th><th>出典区分</th><th>財務</th><th>原本</th></tr></thead>
 <tbody id="research32Rows"><tr><td colspan="7">読み込み中…</td></tr></tbody></table></div>
 <div class="tablefoot"><span id="research32Count" role="status">—</span><span>このページで株価・未許諾相場データは取得しない。正式ランキングは引き続き無効。</span></div>
+</section>
+<section class="workspace" aria-labelledby="sgxIpoFinancialTitle">
+<div class="section-heading"><div><div class="eyebrow">AUDITED IPO PROSPECTUS / HISTORICAL FINANCIALS</div>
+<h2 id="sgxIpoFinancialTitle">9DC・MIMの監査済み過去財務（原本照合）</h2></div></div>
+<p>売上・粗利益・純利益の単位は各社の報告通貨による千単位。9DCは3月決算、MIMは12月決算。通貨を換算せず、企業ごとに連続する年度同士だけを比較する。</p>
+<p id="sgxIpoFinancialStatus" role="status" class="status-message">目論見書の年度表を照合中…</p>
+<div class="tablewrap"><table><thead><tr>
+<th>コード</th><th>年度末</th><th>通貨</th><th>売上（千）</th><th>粗利益（千）</th><th>純利益（千）</th><th>粗利益率</th><th>売上前年比</th><th>資料種別</th>
+</tr></thead><tbody id="sgxIpoFinancialRows"><tr><td colspan="9">原本情報を照合中…</td></tr></tbody></table></div>
+<div class="tablefoot"><span>監査済み過去年度と未監査中間期を混在させない。現在の適正株価・PER・PBR算定には使用しない。</span>
+<span>一次資料に含まれる監査意見は過去年度に関するもので、アプリ側による独立再監査ではない。</span></div>
 </section>
 </main><footer><span>© VALUE HUNTER AI / 安物で割安</span><span>SGX / HISTORICAL RESEARCH ONLY</span></footer>
 </div>
