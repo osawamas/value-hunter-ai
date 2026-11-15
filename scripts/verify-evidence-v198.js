@@ -66,7 +66,8 @@ const tests=[
  "docs/test_sgx_twenties_v256.js",
  "docs/test_sgx_listing_event_watch_v257.js",
  "docs/test_sgx_historical_code_search_v258.js",
- "docs/test_sgx_union_thirty_v259.js"
+ "docs/test_sgx_union_thirty_v259.js",
+ "docs/test_sgx_original_html_proof_v262.js"
 ];
 let failed=0;
 const results=[];
