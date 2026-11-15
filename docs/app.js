@@ -118,6 +118,27 @@ function liveQuality(feed, nowMs = Date.now()) {
       typeof flag === "string" && flag.includes("MISMATCH"))).length
   };
 }
+// v265: stable deep link from the SGX source-code directory to existing
+// financial details. A hash never supplies a financial record or unlocks ranking.
+function parseIssuerHash(hash) {
+  if (typeof hash !== "string") return null;
+  const m=/^#issuer=([A-Z0-9]{1,8})$/.exec(hash);
+  return m ? m[1] : null;
+}
+function openIssuerFromHash(){
+  const symbol=parseIssuerHash(window.location.hash);
+  if (!symbol || !state.feed) return false;
+  const rec=state.feed.records.find(x=>x.symbol===symbol);
+  if(!rec || rec.ranking_eligible!==false)return false;
+  state.selected=symbol;
+  const history=$("historySymbol");
+  if(history && [...history.options].some(x=>x.value===symbol)){
+    history.value=symbol;renderHistory();
+  }
+  showDetail(rec);
+  $("detailTitle").scrollIntoView({behavior:"smooth",block:"start"});
+  return true;
+}
 function setFeed(json, label) {
   if (!validFeed(json)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
   state.feed = json;
@@ -138,6 +159,7 @@ function setFeed(json, label) {
   warn(notes.length ? "データ品質警告：" + notes.join("。") + "。銘柄詳細を参照。" :
     "株価・財務は参考値。第三者独立検証が完了するまでランキング対象外。");
   render();
+  openIssuerFromHash();
 }
 function sortRows(items, key) {
   if (key === "symbol") return items.sort((a, b) => a.symbol.localeCompare(b.symbol));
@@ -828,11 +850,12 @@ async function loadHistory() {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = {historicalObservations, freshnessState, liveQuality};
+  module.exports = {historicalObservations, freshnessState, liveQuality, parseIssuerHash};
 }
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded",()=>{
   $("historySymbol").addEventListener("change",renderHistory);
   $("historyMetric").addEventListener("change",renderHistory);
+  window.addEventListener("hashchange",openIssuerFromHash);
   start();
   loadHistory();
 });
