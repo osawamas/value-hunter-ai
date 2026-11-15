@@ -80,6 +80,9 @@ try{
  await page.locator("#marketQuery").fill("７２０３");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
+ assert.match(await page.locator("#marketQuarterlyTitle").innerText(),/累計決算/);
+ assert.match(await page.locator("#marketQuarterlyRows tr").last().innerText(),/2026-04-01〜2026-09-30.*26,962,462,000,000/s);
+ assert.match(await page.locator("#marketInterimShareCount").innerText(),/11,778,247,313/);
  assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/50,684,952,000,000/);
  await page.getByRole("checkbox",{name:"トヨタ自動車を比較"}).check();
  await page.locator("#marketQuery").fill("7201");

@@ -189,6 +189,47 @@ def oji_financials(raw, record):
         raise ValueError("Oji year-end shares mismatch")
 
 
+def japanese_interim(raw, record):
+    from unicodedata import normalize
+
+    filing = record["quarterly"]
+    text = normalize("NFKC", pdf_text(raw, 2))
+    if not re.search(r"コ\s*ー\s*ド\s*番\s*号\s*" + record["symbol"] + r"\b", text):
+        raise ValueError(f"Interim issuer differs: {record['id']}")
+    if "連結経営成績(累計)" not in re.sub(r"\s+", "", text):
+        raise ValueError(f"Cumulative heading not found: {record['id']}")
+    start, end = (dt.date.fromisoformat(filing["periods"][-1][key]) for key in ("start", "end"))
+    start_label = f"{start.year}年{start.month}月{start.day}日"
+    end_label = f"{end.year}年{end.month}月{end.day}日"
+    compact = re.sub(r"\s+", "", text)
+    issued_on = dt.date.fromisoformat(filing["filed"])
+    if (f"{issued_on.year}年{issued_on.month}月{issued_on.day}日" not in compact or
+            start_label + "~" + end_label not in compact):
+        raise ValueError(f"Interim period or announcement date differs: {record['id']}")
+    term = r"3月期中間期" if start.month == 4 else r"12月期第3四半期"
+    fiscal_offset = int(start.month == 4)
+    for row in filing["periods"]:
+        label = str(int(row["start"][:4]) + fiscal_offset) + "年" + term
+        table = text.split("連結経営成績", 1)[1].split("連結財政状態", 1)[0]
+        match = re.search(r"^\s*" + label + r"\s+(.+)$", table, re.M)
+        if not match:
+            raise ValueError(f"Interim income row missing: {record['id']} {row['end']}")
+        cells = match[1].split()
+        net_column = 8 if record["symbol"] == "7203" else 6
+        values = [int(cells[index].replace(",", "").replace("△", "-")) * 1_000_000
+                  for index in (0, 2, net_column)]
+        if values != [row[key] for key in ("revenue", "operating_income", "net_income")]:
+            raise ValueError(f"Interim amounts differ: {record['id']}")
+    shares = filing["shares"]
+    share_label = str(start.year + fiscal_offset) + ("年3月期中間期" if fiscal_offset else "年12月期3Q")
+    for key, heading in (("issued", "期末発行済株式数"), ("treasury", "期末自己株式数")):
+        pattern = heading + r"[^\n]*?" + share_label + rf"\s+{shares[key]:,}株"
+        if not re.search(pattern, text):
+            raise ValueError(f"Interim shares differ: {record['id']} {key}")
+    if shares["value"] != shares["issued"] - shares["treasury"] or shares["as_of"] != end.isoformat():
+        raise ValueError(f"Interim share calculation/date differs: {record['id']}")
+
+
 def check_sec_originals(records, source_bytes):
     checked = {}
     for record in records:
@@ -209,6 +250,7 @@ def main():
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--check-sec-excerpts", action="store_true", help="Check selected saved SEC facts offline")
     modes.add_argument("--sec-originals-only", action="store_true", help="Replay original SEC company facts independently of the listing directory")
+    modes.add_argument("--jp-interim-only", action="store_true", help="Replay Japanese interim filing originals")
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
     args = parser.parse_args()
     snapshot = json.loads(DATA.read_text())
@@ -224,6 +266,14 @@ def main():
         if not args.fixture_directory and "sec.gov/" in url:
             time.sleep(0.25)
         return (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(url)
+
+    if args.jp_interim_only:
+        for record in snapshot["records"]:
+            if record["market"] == "JP" and record.get("quarterly"):
+                raw = source_bytes(record["quarterly"]["source"], record["symbol"] + ".pdf")
+                japanese_interim(raw, record)
+                print(f"{record['id']} interim matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
+        return
 
     if args.sec_originals_only:
         originals = check_sec_originals(snapshot["records"], source_bytes)

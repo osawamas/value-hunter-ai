@@ -229,18 +229,22 @@ async function initMarketResearch() {
     conflict: "株数CSVと掲載資料が不一致。原資料を照合してから入力",
     missing: "同日の株数が未取得",
   };
+  const filingShares = date => {
+    const interim = activeRow.quarterly?.shares;
+    return interim?.as_of === date ? interim : selectedFinance.shares;
+  };
   const applyPersonalQuote = () => {
     const quote = personalQuotes.get(activeRow.id);
     const lastEnd = byId("scenarioDate").min;
     const eligible = quote && quote.currency === selectedFinance.currency && quote.date >= lastEnd;
     byId("activatePersonalQuote").disabled = !eligible;
-    const match = eligible && matchScenarioShares(activeRow.id, quote.date, selectedFinance.shares, personalShares);
+    const match = eligible && matchScenarioShares(activeRow.id, quote.date, filingShares(quote.date), personalShares);
     byId("personalQuoteMatch").textContent = eligible ? "CSV終値 " + money.format(quote.price) +
       " " + quote.currency + "（" + quote.date + "）。" + shareLabels[match.state] : "";
   };
   byId("activatePersonalQuote").addEventListener("click", () => {
     const {date, price} = personalQuotes.get(activeRow.id);
-    const shares = matchScenarioShares(activeRow.id, date, selectedFinance.shares, personalShares);
+    const shares = matchScenarioShares(activeRow.id, date, filingShares(date), personalShares);
     dateInput.value = date;
     priceInput.value = price;
     sharesInput.value = shares.value ?? "";
@@ -298,9 +302,11 @@ async function initMarketResearch() {
     quarterSection.hidden = true;
     if (quarter) {
       const [prior, current] = quarter.periods;
+      const cumulative = quarter.scope === "cumulative";
+      byId("marketQuarterlyTitle").textContent = cumulative ? "直近の累計決算（年初から）" : "直近に確認した四半期実績";
       const quarterRows = [prior, current].map((period, index) => {
         const tr = document.createElement("tr");
-        const values = [period.end, money.format(period.revenue), money.format(period.operating_income),
+        const values = [cumulative ? period.start + "〜" + period.end : period.end, money.format(period.revenue), money.format(period.operating_income),
           money.format(period.net_income), pct(index ? annualGrowth(prior.revenue, current.revenue) : null),
           pct(index ? annualGrowth(prior.operating_income, current.operating_income) : null)];
         tr.append(...values.map(value => element("td", value)));
@@ -308,7 +314,11 @@ async function initMarketResearch() {
       });
       byId("marketQuarterlyRows").replaceChildren(...quarterRows);
       byId("marketQuarterlySource").replaceChildren(quarter.currency + "・提出日 " + quarter.filed + "・",
-        link(quarter.source, "SEC Form " + quarter.form));
+        link(quarter.source, cumulative ? quarter.form : "SEC Form " + quarter.form));
+      const interimShares = byId("marketInterimShareCount");
+      interimShares.hidden = !quarter.shares;
+      if (quarter.shares) interimShares.textContent = "期末の普通株式数（自己株式控除後） " +
+        money.format(quarter.shares.value) + " 株（" + quarter.shares.as_of + "時点）";
       quarterSection.hidden = false;
     }
     selectedFinance = finance;

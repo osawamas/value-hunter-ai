@@ -42,6 +42,36 @@
           "treasury": 137745577,
           "value": 876636240
         }
+      },
+      "quarterly": {
+        "scope": "cumulative",
+        "currency": "JPY",
+        "source": "https://www.ojiholdings.co.jp/uploads/news/docs/ja1106irnews02.pdf",
+        "form": "決算短信",
+        "filed": "2026-11-06",
+        "periods": [
+          {
+            "start": "2025-04-01",
+            "end": "2025-09-30",
+            "revenue": 914984000000,
+            "operating_income": 16731000000,
+            "net_income": 10920000000
+          },
+          {
+            "start": "2026-04-01",
+            "end": "2026-09-30",
+            "revenue": 957962000000,
+            "operating_income": 15533000000,
+            "net_income": 11747000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-09-30",
+          "issued": 914381817,
+          "treasury": 64360900,
+          "value": 850020917
+        },
+        "source_sha256": "bcc61e421181d9c39e6cc938cd3d4eb21cc49d31f09371b7f725f26135c45eb8"
       }
     },
     {
@@ -82,6 +112,36 @@
           "treasury": 32532,
           "value": 55697233
         }
+      },
+      "quarterly": {
+        "scope": "cumulative",
+        "currency": "JPY",
+        "source": "https://www2.jpx.co.jp/disc/43750/140120261113578115.pdf",
+        "form": "決算短信",
+        "filed": "2026-11-13",
+        "periods": [
+          {
+            "start": "2025-01-01",
+            "end": "2025-09-30",
+            "revenue": 13464000000,
+            "operating_income": -95000000,
+            "net_income": 39000000
+          },
+          {
+            "start": "2026-01-01",
+            "end": "2026-09-30",
+            "revenue": 16249000000,
+            "operating_income": 164000000,
+            "net_income": 139000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-09-30",
+          "issued": 55855701,
+          "treasury": 32532,
+          "value": 55823169
+        },
+        "source_sha256": "6c975ccbadcfc15e389ffedf232a8e248116dd5e35e10c917022c66d1d38b6a6"
       }
     },
     {
@@ -122,6 +182,36 @@
           "treasury": 217616092,
           "value": 3496382520
         }
+      },
+      "quarterly": {
+        "scope": "cumulative",
+        "currency": "JPY",
+        "source": "https://www2.jpx.co.jp/disc/72010/140120261020553336.pdf",
+        "form": "決算短信",
+        "filed": "2026-11-11",
+        "periods": [
+          {
+            "start": "2025-04-01",
+            "end": "2025-09-30",
+            "revenue": 5578687000000,
+            "operating_income": -27653000000,
+            "net_income": -221921000000
+          },
+          {
+            "start": "2026-04-01",
+            "end": "2026-09-30",
+            "revenue": 6071972000000,
+            "operating_income": 80009000000,
+            "net_income": -39705000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-09-30",
+          "issued": 3713998612,
+          "treasury": 213916079,
+          "value": 3500082533
+        },
+        "source_sha256": "cd25874595b480e233373ba2f7fdc1809a7f56a3c6a0a2454cf2a8887906c530"
       }
     },
     {
@@ -171,6 +261,36 @@
           "treasury": 2761602986,
           "value": 13033384474
         }
+      },
+      "quarterly": {
+        "scope": "cumulative",
+        "currency": "JPY",
+        "source": "https://www2.jpx.co.jp/disc/72030/140120261030561115.pdf",
+        "form": "決算短信",
+        "filed": "2026-11-05",
+        "periods": [
+          {
+            "start": "2025-04-01",
+            "end": "2025-09-30",
+            "revenue": 24630753000000,
+            "operating_income": 2005692000000,
+            "net_income": 1773426000000
+          },
+          {
+            "start": "2026-04-01",
+            "end": "2026-09-30",
+            "revenue": 26962462000000,
+            "operating_income": 2191124000000,
+            "net_income": 2236446000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-09-30",
+          "issued": 14594987460,
+          "treasury": 2816740147,
+          "value": 11778247313
+        },
+        "source_sha256": "5b4be442d28709e844195493359523a85fdc34da5b74167b077f83158c080cf8"
       }
     },
     {

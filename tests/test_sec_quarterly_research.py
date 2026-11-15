@@ -14,7 +14,7 @@ class SecQuarterlyResearchTest(unittest.TestCase):
     def test_issuer_quarters_match_filing_facts(self):
         records = json.loads((ROOT / "docs/data/market-research-v315.json").read_text())["records"]
         excerpts = json.loads((ROOT / "tests/fixtures/sec-quarterly-excerpts-v332.json").read_text())
-        joined = {row["id"]: row for row in records if "quarterly" in row}
+        joined = {row["id"]: row for row in records if row["market"] == "US" and "quarterly" in row}
         self.assertEqual(set(excerpts), set(joined))
         for key, row in joined.items():
             with self.subTest(company=key):
