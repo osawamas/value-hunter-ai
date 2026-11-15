@@ -19,6 +19,8 @@ try {
  await octoberListings.waitFor({state:"attached"});
  assert.match(await octoberListings.innerText(),/605（Mainboard 408 \/ Catalist 197）/);
  assert.match(await octoberListings.getByText("SGX原本PDF").getAttribute("href"),/911153_/);
+ const change=page.locator("#universeCoverageAuditRows tr").filter({hasText:"9月末から10月末"});
+ assert.match(await change.innerText(),/604 → 605.*9DC・MIM.*X5N.*5HV/);
  const oueHearing=page.locator("#sgxListingEventRows tr").filter({hasText:"5WA"});
  await oueHearing.waitFor({state:"attached"});
  assert.match(await oueHearing.innerText(),/11月30日予定.*2026-12-17/);

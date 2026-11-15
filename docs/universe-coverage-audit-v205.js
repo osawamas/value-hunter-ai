@@ -79,16 +79,43 @@
     historical_count_not_current:true,
     source:statistics.source_url};
  }
+ function reconcileOctoberBoards(october,ipo){
+  const counts=october?.sgx_monthly_statistics_mirror;
+  const events=october?.board_movement_events;
+  const additions=ipo?.issuer_listing_confirmations;
+  if(october?.period!=="2026-10"||!Array.isArray(events)||events.length!==2||
+     !Array.isArray(additions)||additions.length!==2||
+     ipo.full_active_sgx_master_verified!==false||ipo.ranking_eligible_count!==0)
+   throw Error("SGX October board events are incomplete");
+  const incoming=new Set(additions.map(x=>x.trading_code));
+  if(incoming.size!==2||!incoming.has("9DC")||!incoming.has("MIM")||
+     additions.some(x=>x.board!=="MAINBOARD"||x.listed_trading_confirmed_asof_event!==true))
+   throw Error("October Mainboard admissions mismatch");
+  const delisting=events.find(x=>x.symbol==="X5N"),transfer=events.find(x=>x.symbol==="5HV");
+  if(delisting?.kind!=="DELISTING"||delisting.date!=="2026-10-27"||
+     delisting.from_board!=="MAINBOARD"||delisting.to_board!==null||
+     transfer?.kind!=="TRANSFER"||transfer.date!=="2026-10-29"||
+     transfer.from_board!=="CATALIST"||transfer.to_board!=="MAINBOARD"||
+     events.some(x=>!/^https:\/\/links\.sgx\.com\/1\.0\.0\/corporate-announcements\//.test(x.source?.url||"")))
+   throw Error("October delisting or board transfer mismatch");
+  const prior=counts?.sep_2026,current=counts?.oct_2026;
+  if(prior?.mainboard+additions.length-1+1!==current?.mainboard||
+     prior?.catalist-1!==current?.catalist||prior?.total+additions.length-1!==current?.total||
+     prior.mainboard+prior.catalist!==prior.total||current.mainboard+current.catalist!==current.total)
+   throw Error("October month-end totals do not match identified movements");
+  return {prior,current,delisting,transfer};
+ }
  async function render(){
   const status=document.getElementById("universeCoverageAuditStatus");
   const body=document.getElementById("universeCoverageAuditRows");
   if(!status||!body)return;
   try{
    const files=await Promise.all(
-    ["./data/latest.json","./data/sgx-universe-candidates.json","./data/sgx-official-batch-seed-v196.json","./data/sgx-official-monthend-aug2026-v251.json","./data/sgx-october-release-v292.json"]
+    ["./data/latest.json","./data/sgx-universe-candidates.json","./data/sgx-official-batch-seed-v196.json","./data/sgx-official-monthend-aug2026-v251.json","./data/sgx-october-release-v292.json","./data/sgx-october-ipo-listing-v294.json"]
     .map(async p=>{const r=await fetch(p,{cache:"no-store"});if(!r.ok)throw Error("HTTP");return r.json()}));
-   const [feed,candidates,official,august,october]=files;
+   const [feed,candidates,official,august,october,ipo]=files;
    const d=compareOfficialMonthEnd(feed,candidates,official,august);
+   const movement=reconcileOctoberBoards(october,ipo);
    const claim=october.sgx_securities_end_oct_2026_reported_605;
    const counts=october.sgx_monthly_statistics_mirror?.oct_2026;
    const source=october.original_sgx_monthly_statistics_pdf_url;
@@ -98,19 +125,22 @@
     throw Error("SGX October aggregate evidence invalid");
    const items=[
     ["SGX公式・2026年10月末の上場証券数",String(counts.total)+"（Mainboard "+counts.mainboard+" / Catalist "+counts.catalist+"）",source],
+    ["9月末から10月末の増減","604 → 605。新規上場 9DC・MIM、上場廃止 X5N、市場移管 5HV（Catalist → Mainboard）"],
+    ["10月27日・X5N","Avargaの上場廃止",movement.delisting.source.url,"SGX上場廃止通知"],
+    ["10月29日・5HV","Koh Brothers Ecoの市場移管",movement.transfer.source.url,"SGX市場移管通知"],
     ["SGX公式・2026年8月末の上場証券数（過去時点）",String(d.official_historical_listed_securities)+"（Mainboard "+d.official_historical_mainboard+" / Catalist "+d.official_historical_catalist+"）"],
     ["第三者の企業候補（上記と定義・時点が異なる）",String(d.third_party_candidates)+"（不完全・公式全証券一覧ではない）"],
     ["公式11証券と第三者182候補の一致",String(d.official_in_third_party)+" / "+String(d.official_lot_batch)],
     ["公式11証券のうち第三者候補に欠けるコード",d.official_missing_from_third_party.join("、")||"なし"],
     ["公式11証券のうち財務未登録コード",d.official_missing_financials.join("、")||"なし"]
    ],fragment=document.createDocumentFragment();
-   for(const [a,b,url] of items){const tr=document.createElement("tr");for(const v of [a,b]){
+   for(const [a,b,url,linkLabel="SGX原本PDF"] of items){const tr=document.createElement("tr");for(const v of [a,b]){
     const td=document.createElement("td");td.textContent=v;tr.append(td);
    }
    if(url){
     const link=document.createElement("a");
     link.href=url;
-    link.textContent="SGX原本PDF";
+    link.textContent=linkLabel;
     tr.lastElementChild.append("　",link);
    }
    fragment.append(tr)}
@@ -123,6 +153,6 @@
    status.textContent="台帳の照合待ち";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={reconcile,compareOfficialMonthEnd};
+ if(typeof module!=="undefined"&&module.exports)module.exports={reconcile,compareOfficialMonthEnd,reconcileOctoberBoards};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);

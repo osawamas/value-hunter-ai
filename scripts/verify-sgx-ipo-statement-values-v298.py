@@ -217,6 +217,13 @@ def verify_october_statistics(research):
   sep,october=(counts[m][key] for m in ("sep_2026","oct_2026"))
   if not re.search(rf"^\s*{label}(?:\s+\d+){{3}}\s+{sep}\s+{october}\s+\d+\s*$",stats,re.MULTILINE):
    raise ValueError(f"SGX October listing table mismatch: {key}")
+ for board,section,expected in [
+  ("Mainboard",stats.split("SGX Mainboard",1)[1].split("SGX Catalist",1)[0],(2,1)),
+  ("Catalist",stats.split("SGX Catalist",1)[1],(0,0)),
+ ]:
+  for label,count in zip(("IPOs","Delistings"),expected):
+   if not re.search(rf"^\s*-\s+{label}(?:\s+\d+){{4}}\s+{count}\s+\d+\s*$",section,re.MULTILINE):
+    raise ValueError(f"SGX October monthly statistic {board} {label} mismatch")
  release=original_text({"url":research["original_sgxnet_pdf_url"],
   "sha256":research["original_sgxnet_pdf_sha256"],"bytes":research["original_sgxnet_pdf_bytes"]})
  if not all(name in release for name in research["issuer_release_confirmed_ipo_names"]):
@@ -234,6 +241,25 @@ def sgx_announcement(record):
  if not re.search(rf"\b{record['isin']}\s*-\s*{record['symbol']}\b",clean) or reference not in clean:
   raise ValueError(f"SGX announcement identity mismatch: {record['symbol']}")
  return raw,clean
+
+def verify_october_board_movements(records):
+ results=[]
+ for record in records:
+  _,text=sgx_announcement(record)
+  day=datetime.date.fromisoformat(record["date"])
+  if record["kind"]=="DELISTING":
+   field=f"EFFECTIVE DATE OF THE DELISTING {day:%d/%m/%Y}"
+  elif record["kind"]=="TRANSFER":
+   field=f"EFFECTIVE DATE AND TIME OF TRANSFER {day:%d/%m/%Y} 09:00:00"
+   if f"TRANSFER FROM {record['from_board']} TO {record['to_board']}" not in text:
+    raise ValueError("SGX transfer board mismatch")
+  else:
+   raise ValueError("Unsupported October listing movement")
+  if record["issuer"] not in text or field not in text:
+   raise ValueError(f"SGX board movement mismatch: {record['symbol']}")
+  results.append(record)
+ print("SGX VERIFIED October Avarga delisting and Koh Brothers Eco transfer")
+ return results
 
 def verify_bank_share_notices(notices):
  uob,ocbc=(notices[x] for x in ("uob","ocbc"))
@@ -345,6 +371,7 @@ def main():
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
   "october_statistics":verify_october_statistics(october),
+  "october_board_movements":verify_october_board_movements(october["board_movement_events"]),
   "bank_share_notices":verify_bank_share_notices(notices),
   "metasurface_listing":verify_metasurface_listing(met),
   "oue_healthcare_hearing":verify_oue_hearing(listing_events["5WA"]),

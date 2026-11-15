@@ -74,5 +74,37 @@
   },
   "sgxnet_announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/1455b76e9c329e5c206dfe4086a79c7b23562a7ada09ceb0ca53e305e4bf5408",
   "original_sgxnet_pdf_bytes": 287561,
-  "original_monthly_statistics_bytes": 966695
+  "original_monthly_statistics_bytes": 966695,
+  "board_movement_events": [
+    {
+      "symbol": "X5N",
+      "isin": "SGXE98222768",
+      "issuer": "AVARGA LIMITED",
+      "reference": "SG261023DLSTGU3A",
+      "date": "2026-10-27",
+      "kind": "DELISTING",
+      "from_board": "MAINBOARD",
+      "to_board": null,
+      "source": {
+        "url": "https://links.sgx.com/1.0.0/corporate-announcements/BBD9D0SIWRBWP9BX/7f1e66a8da899eaf1040290545c377bee25105b44b3979b7593cfb7da11d7307",
+        "sha256": "ff2c7d3ef511e1bcd7b54c9585b5344e44ee7e852fa76c689cc20047492b99b2",
+        "bytes": 5267
+      }
+    },
+    {
+      "symbol": "5HV",
+      "isin": "SG1S95928879",
+      "issuer": "KOH BROTHERS ECO ENGINEERING LIMITED",
+      "reference": "SG261022OTHR422X",
+      "date": "2026-10-29",
+      "kind": "TRANSFER",
+      "from_board": "CATALIST",
+      "to_board": "MAINBOARD",
+      "source": {
+        "url": "https://links.sgx.com/1.0.0/corporate-announcements/LJWBIHTNDQ91EHN5/e94d438950511be24f092d6c8351b401b4293836e877342da534a49710187b4c",
+        "sha256": "b48ec41dd7c46d7031cb689ab4b834a9d03686c80af5a5c149776d56fb0a59fc",
+        "bytes": 6689
+      }
+    }
+  ]
 }
