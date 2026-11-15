@@ -18,6 +18,21 @@ try {
  const count=page.locator("#sgxHistoricalCodeShown");
  await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
+ // v278 user-supplied SGX research CSV stays inside Chrome and must never
+ // activate ranking, independent financial confirmation, or a server upload.
+ const localCsv="Trading Code,Trading Name,Listing Board,Traded Currency\\r\\n"+
+   "D05,DBS Group Holdings Ltd,MAINBOARD,SGD\\r\\n"+
+   "O39,Oversea-Chinese Banking Corporation Ltd,MAINBOARD,SGD\\r\\n";
+ await page.locator('#sgxManualMasterForm input[name="masterFile"]').setInputFiles({
+  name:"sgx-sample.csv",mimeType:"text/csv",buffer:Buffer.from(localCsv,"utf8")
+ });
+ await page.locator('#sgxManualMasterForm input[name="sourceURL"]').fill("https://www.sgx.com/securities/trading");
+ await page.locator('#sgxManualMasterForm input[name="asOf"]').fill("2026-11-15");
+ await page.locator('#sgxManualMasterForm button[type="submit"]').click();
+ await page.locator("#sgxManualMasterResult").getByText(/手入力CSV 2件/).waitFor({timeout:15000});
+ assert.equal(await page.locator("#sgxManualMasterRows tr").count(),2);
+ assert.match(await page.locator("#sgxManualMasterResult").innerText(),/原本・全銘柄・現在上場は未検証/);
+
  // v277: actual bank FY2025 what-if remains local-only even after input.
  await page.locator("#scenarioBankStatus").getByText(/銀行3社の2025年/).waitFor({timeout:25000});
  await page.locator("#scenarioBankSymbol").selectOption("O39");
