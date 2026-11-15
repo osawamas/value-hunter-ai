@@ -37,7 +37,7 @@ for(const edit of [
 const html=fs.readFileSync("docs/index.html","utf8");
 const js=fs.readFileSync("docs/universe-coverage-audit-v205.js","utf8");
 assert.match(html,/id="universeCoverageAuditRows"/);
-assert.match(js,/SGX公式2026年8月末の上場証券604/);
-assert.match(js,/182\/604を取得率や未収録銘柄数に換算しない/);
+assert.match(js,/SGX公式・2026年10月末の上場証券数/);
+assert.match(js,/定義・時点が異なるため、取得率の算出対象外/);
 assert.match(js,/sgx-official-monthend-aug2026-v251\.json/);
 console.log("v251 PASS: SGX historical 604 aggregate never equated to partial 182-company candidate coverage or investability");

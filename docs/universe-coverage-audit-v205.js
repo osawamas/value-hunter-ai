@@ -85,21 +85,37 @@
   if(!status||!body)return;
   try{
    const files=await Promise.all(
-    ["./data/latest.json","./data/sgx-universe-candidates.json","./data/sgx-official-batch-seed-v196.json","./data/sgx-official-monthend-aug2026-v251.json"]
+    ["./data/latest.json","./data/sgx-universe-candidates.json","./data/sgx-official-batch-seed-v196.json","./data/sgx-official-monthend-aug2026-v251.json","./data/sgx-october-release-v292.json"]
     .map(async p=>{const r=await fetch(p,{cache:"no-store"});if(!r.ok)throw Error("HTTP");return r.json()}));
-   const d=compareOfficialMonthEnd(...files);
+   const [feed,candidates,official,august,october]=files;
+   const d=compareOfficialMonthEnd(feed,candidates,official,august);
+   const claim=october.sgx_securities_end_oct_2026_reported_605;
+   const counts=october.sgx_monthly_statistics_mirror?.oct_2026;
+   const source=october.original_sgx_monthly_statistics_pdf_url;
+   if(october.period!=="2026-10"||claim?.status!=="VERIFIED_SGXNET_ORIGINAL_PDF"||
+      counts?.total!==claim.value||counts.mainboard+counts.catalist!==counts.total||
+      !/^https:\/\/links\.sgx\.com\/1\.0\.0\/corporate-announcements\//.test(source||""))
+    throw Error("SGX October aggregate evidence invalid");
    const items=[
+    ["SGX公式・2026年10月末の上場証券数",String(counts.total)+"（Mainboard "+counts.mainboard+" / Catalist "+counts.catalist+"）",source],
     ["SGX公式・2026年8月末の上場証券数（過去時点）",String(d.official_historical_listed_securities)+"（Mainboard "+d.official_historical_mainboard+" / Catalist "+d.official_historical_catalist+"）"],
     ["第三者の企業候補（上記と定義・時点が異なる）",String(d.third_party_candidates)+"（不完全・公式全証券一覧ではない）"],
     ["公式11証券と第三者182候補の一致",String(d.official_in_third_party)+" / "+String(d.official_lot_batch)],
     ["公式11証券のうち第三者候補に欠けるコード",d.official_missing_from_third_party.join("、")||"なし"],
     ["公式11証券のうち財務未登録コード",d.official_missing_financials.join("、")||"なし"]
    ],fragment=document.createDocumentFragment();
-   for(const [a,b] of items){const tr=document.createElement("tr");for(const v of [a,b]){
+   for(const [a,b,url] of items){const tr=document.createElement("tr");for(const v of [a,b]){
     const td=document.createElement("td");td.textContent=v;tr.append(td);
-   }fragment.append(tr)}
+   }
+   if(url){
+    const link=document.createElement("a");
+    link.href=url;
+    link.textContent="SGX原本PDF";
+    tr.lastElementChild.append("　",link);
+   }
+   fragment.append(tr)}
    body.replaceChildren(fragment);
-   status.textContent="SGX公式2026年8月末の上場証券604と第三者企業候補182は定義・時点が異なる。182/604を取得率や未収録銘柄数に換算しない。公式の完全な銘柄コード一覧は未取得。";
+   status.textContent="SGX公式の月末上場証券数と第三者企業候補は定義・時点が異なるため、取得率の算出対象外。公式の完全な銘柄コード一覧は未取得。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=2;td.textContent="台帳の更新差分が未照合のため詳細を非表示";

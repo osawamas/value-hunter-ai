@@ -15,6 +15,10 @@ const failures=[];
 page.on("pageerror",e=>failures.push(e.message));
 try {
  await page.goto(base+"/index.html",{waitUntil:"domcontentloaded"});
+ const octoberListings=page.locator("#universeCoverageAuditRows tr").filter({hasText:"2026年10月末"});
+ await octoberListings.waitFor({state:"attached"});
+ assert.match(await octoberListings.innerText(),/605（Mainboard 408 \/ Catalist 197）/);
+ assert.match(await octoberListings.getByText("SGX原本PDF").getAttribute("href"),/911153_/);
  const count=page.locator("#sgxHistoricalCodeShown");
  await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
