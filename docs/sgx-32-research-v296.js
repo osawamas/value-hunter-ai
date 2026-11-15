@@ -1,5 +1,5 @@
 "use strict";
-/* v296: user-facing, read-only 32 historically sourced SGX security identifiers.
+/* Read-only directory of historically sourced SGX security identifiers.
  * Never treat an IPO admission or a historical filing as current active listing.
  */
 (function(root){
@@ -12,9 +12,10 @@
   "./data/sgx-material-listing-events-v257.json",
   "./data/latest.json",
   "./data/sgx-nineteen-original-html-sha-v262.json",
-  "./data/sgx-october-ipo-listing-v294.json"
+  "./data/sgx-october-ipo-listing-v294.json",
+  "./data/sgx-metasurface-listing-v304.json"
  ];
- function createDirectory(historical,ipo,feed){
+ function createDirectory(historical,ipo,feed,met){
   if(!Array.isArray(historical)||historical.length!==30||
      historical.some(x=>x.ranking_eligible!==false||
        x.financialRankingEligible!==false||
@@ -63,8 +64,17 @@
     source:r.source_url,eventDate:r.effective_trading_date,financialRegistered:false,
     rankingEligible:false,activeVerified:false,ipo:true});
   }
-  if(rows.length!==32||seenIPO.size!==2||taken.size!==32)
-   throw Error("32件の照合に失敗");
+  if(seenIPO.size!==2)throw Error("10月の上場資料の照合に失敗");
+  if(met?.symbol!=="MET"||met.isin!=="KYG9R41B1017"||
+     met.issuer_name!=="METASURFACE TECHNOLOGIES HOLDINGS LIMITED"||
+     met.board!=="CATALIST"||met.effective_trading_date!=="2026-11-04"||
+     met.reference!=="SG261103OTHRWUG1"||met.current_active_verified!==false||
+     met.ranking_eligible!==false||taken.has(met.symbol)||
+     !/^https:\/\/links\.sgx\.com\/1\.0\.0\/corporate-announcements\//.test(met.source?.url||""))
+   throw Error("11月の上場資料の照合に失敗");
+  rows.push({code:met.symbol,name:met.issuer_name,isin:met.isin,board:met.board,
+   kind:"2026年11月SGX正式上場確認",source:met.source.url,eventDate:met.effective_trading_date,
+   financialRegistered:false,rankingEligible:false,activeVerified:false,ipo:true});
   rows.sort((a,b)=>a.code.localeCompare(b.code,"en"));
   return rows;
  }
@@ -104,7 +114,7 @@
    const builder=root.SGX_SOURCE_DIRECTORY_READONLY?.buildWithOriginalProof;
    if(typeof builder!=="function")throw Error("既存SGXNet照合機能を読み込めない");
    const prior=builder(...response.slice(0,7));
-   const rows=createDirectory(prior,response[7],response[5]);
+   const rows=createDirectory(prior,response[7],response[5],response[8]);
    function paint(){
     const filtered=filterDirectory(rows,query.value,type.value,finance.value);
     const fragment=root.document.createDocumentFragment();
@@ -120,16 +130,16 @@
     }
     if(!filtered.length){const tr=make("tr","");const td=make("td","一致する銘柄なし");td.colSpan=7;tr.append(td);fragment.append(tr);}
     body.replaceChildren(fragment);
-    count.textContent=filtered.length+" / 32件（現在の上場・株価は未確認）";
+    count.textContent=filtered.length+" / "+rows.length+"件（現在の上場・株価は未確認）";
    }
    for(const e of [query,type,finance])e.addEventListener(e===query?"input":"change",paint);
    exportButton.addEventListener("click",()=>{
     const csv=toCSV(filterDirectory(rows,query.value,type.value,finance.value));
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-    const link=root.document.createElement("a");link.href=url;link.download="value-hunter-sgx-32-historical-research.csv";link.click();
+    const link=root.document.createElement("a");link.href=url;link.download="value-hunter-sgx-historical-research.csv";link.click();
     URL.revokeObjectURL(url);
    });
-   status.textContent="SGXNet原本本文照合19件、公式静的資料11件、10月上場確認原本2件。合計32件。公式の完全銘柄台帳・現在の上場状態・株価許諾を証明するものではない。";
+   status.textContent="SGXNet原本本文照合19件、公式静的資料11件、10〜11月の上場確認原本3件。現在の上場状態と全銘柄台帳は未照合。";
    paint();
   }catch(e){body.replaceChildren();const tr=make("tr",""),td=make("td","原本整合に失敗したため非表示: "+e.message);td.colSpan=7;tr.append(td);body.append(tr);status.textContent="データ照合エラー";count.textContent="表示できない";}
  }

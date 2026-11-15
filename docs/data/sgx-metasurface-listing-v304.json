@@ -1,0 +1,17 @@
+{
+  "symbol": "MET",
+  "isin": "KYG9R41B1017",
+  "issuer_name": "METASURFACE TECHNOLOGIES HOLDINGS LIMITED",
+  "board": "CATALIST",
+  "effective_trading_date": "2026-11-04",
+  "effective_time_sgt": "09:00",
+  "board_lot": 100,
+  "reference": "SG261103OTHRWUG1",
+  "source": {
+    "url": "https://links.sgx.com/1.0.0/corporate-announcements/23V5ER2V4U912R5M/821531b6674ffed56a705888a5fd998b8b14c0ea7d0b42efc5d72611b156f68e",
+    "sha256": "835618618a7e7f00ef4b0c6d8b013232852815d4bec35f2ade2c5d82b00f6e9d",
+    "bytes": 6539
+  },
+  "current_active_verified": false,
+  "ranking_eligible": false
+}

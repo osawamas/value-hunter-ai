@@ -10,8 +10,8 @@ try{
  const page=await browser.newPage({acceptDownloads:true});
  const errors=[];page.on("pageerror",e=>errors.push(e.message));
  await page.goto(base+"/sgx-32-research.html",{waitUntil:"domcontentloaded"});
- await page.locator("#research32Count").getByText(/32 \/ 32件/).waitFor({timeout:25000});
- assert.equal(await page.locator("#research32Rows tr").count(),32);
+ await page.locator("#research32Count").getByText(/33 \/ 33件/).waitFor({timeout:25000});
+ assert.equal(await page.locator("#research32Rows tr").count(),33);
  
  await page.locator("#sgxIpoFinancialStatus").getByText(/監査済み実績/).waitFor({timeout:25000});
  const financeRows=page.locator("#sgxIpoFinancialRows tr");
@@ -36,12 +36,13 @@ try{
  assert.match(await businessUpdate.getByRole("link",{name:"発表資料PDF",exact:true}).getAttribute("href"),/FileID=909744$/);
 
  await page.locator("#research32Type").selectOption("IPO");
- await page.locator("#research32Count").getByText(/2 \/ 32件/).waitFor();
+ await page.locator("#research32Count").getByText(/3 \/ 33件/).waitFor();
  const ipo=await page.locator("#research32Rows").innerText();
  assert.match(ipo,/9DC/);assert.match(ipo,/MIM/);
  assert.match(ipo,/SGXE96931105/);assert.match(ipo,/SGXE49931863/);
+ assert.match(ipo,/KYG9R41B1017/);
  const urls=await page.locator("#research32Rows a").evaluateAll(as=>as.map(a=>a.href));
- assert.equal(urls.length,2);assert.ok(urls.every(x=>x.startsWith("https://links.sgx.com/")));
+ assert.equal(urls.length,3);assert.ok(urls.every(x=>x.startsWith("https://links.sgx.com/")));
  await page.locator("#research32Query").fill("MIM");
  assert.equal(await page.locator("#research32Rows tr").count(),1);
  const promise=page.waitForEvent("download");
@@ -54,8 +55,8 @@ try{
  await page.locator("#research32Query").fill("");
  await page.locator("#research32Type").selectOption("ALL");
  await page.locator("#research32Finance").selectOption("YES");
- await page.locator("#research32Count").getByText(/4 \/ 32件/).waitFor();
+ await page.locator("#research32Count").getByText(/4 \/ 33件/).waitFor();
  assert.equal(await page.locator("#research32Rows tr").count(),4);
  assert.deepEqual(errors,[]);
- console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 32 codes, IPO/finance filter, search, source links, downloaded CSV");
+ console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 33 codes, IPO/finance filter, search, source links, downloaded CSV");
 }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}

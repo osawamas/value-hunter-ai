@@ -269,6 +269,19 @@ def verify_bank_share_notices(notices):
  print("SGX VERIFIED UOB 13 November share count and OCBC 12 November treasury notice")
  return notices
 
+def verify_metasurface_listing(record):
+ _,text=sgx_announcement(record)
+ day=datetime.date.fromisoformat(record["effective_trading_date"])
+ if not all(clause in text for clause in (
+  record["issuer_name"],"EQUITY - LISTING CONFIRMATION","DESIGNATION SGX-ST",
+  f"ADMISSION TO THE OFFICIAL LIST OF SGX-{record['board']}",
+  f"EFFECTIVE START DATE OF THE EVENT {day:%d/%m/%Y} {record['effective_time_sgt']}:00",
+  f"QUOTED IN BOARD LOTS OF {record['board_lot']} SHARES",
+ )) or record["current_active_verified"] is not False or record["ranking_eligible"] is not False:
+  raise ValueError("Metasurface SGX listing confirmation scope mismatch")
+ print("SGX VERIFIED MET Catalist admission, ISIN, effective date and board lot")
+ return record
+
 def main():
  manifest=json.loads((ROOT/"docs/data/sgx-ipo-financial-documents-v297.json").read_text())
  sources=v297.validate_manifest(manifest)
@@ -290,11 +303,13 @@ def main():
         f'{result["fiscal_years"]} annual and {result["interim_periods"]} interim periods')
  october=json.loads((ROOT/"docs/data/sgx-october-release-v292.json").read_text())
  notices=json.loads((ROOT/"docs/data/sgx-bank-share-notices-v303.json").read_text())
+ met=json.loads((ROOT/"docs/data/sgx-metasurface-listing-v304.json").read_text())
  report={"schema_version":"sgx-ipo-original-audited-financial-reconciliation-v298",
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
   "october_statistics":verify_october_statistics(october),
   "bank_share_notices":verify_bank_share_notices(notices),
+  "metasurface_listing":verify_metasurface_listing(met),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,
   "independent_current_financial_reverification":False,"ranking_eligible_count":0}
  dest=ROOT/"build/research/sgx-ipo-audited-reconciliation-v298.json"

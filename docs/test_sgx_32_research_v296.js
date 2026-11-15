@@ -9,15 +9,18 @@ const inputs=["sgx-corporate-indexed-page-v253.json","sgx-official-issuer-code-f
 "sgx-nineteen-original-html-sha-v262.json"].map(x=>read("docs/data/"+x));
 const prior=buildWithOriginalProof(...inputs);
 const ipo=read("docs/data/sgx-october-ipo-listing-v294.json");
-const rows=createDirectory(prior,ipo,inputs[5]);
-assert.equal(rows.length,32);
-assert.equal(new Set(rows.map(x=>x.code)).size,32);
-assert.equal(filterDirectory(rows,"","IPO").length,2);
+const met=read("docs/data/sgx-metasurface-listing-v304.json");
+const rows=createDirectory(prior,ipo,inputs[5],met);
+assert.equal(rows.length,33);
+assert.equal(new Set(rows.map(x=>x.code)).size,33);
+assert.equal(filterDirectory(rows,"","IPO").length,3);
 assert.equal(filterDirectory(rows,"","ORIGINAL").length,19);
 assert.equal(filterDirectory(rows,"","STATIC").length,11);
 assert.equal(filterDirectory(rows,"","ALL","YES").length,4);
 assert.deepEqual(filterDirectory(rows,"sgxe96931105").map(x=>x.code),["9DC"]);
 assert.deepEqual(filterDirectory(rows,"mim").map(x=>x.code),["MIM"]);
+assert.deepEqual(filterDirectory(rows,"KYG9R41B1017","IPO").map(x=>x.code),["MET"]);
+assert.throws(()=>createDirectory(prior,ipo,inputs[5],{...met,current_active_verified:true}));
 assert.equal(filterDirectory(rows,"not-valid").length,0);
 const csv=toCSV(filterDirectory(rows,"","IPO"));
 assert.ok(csv.startsWith("\uFEFF"));
@@ -36,7 +39,7 @@ for(const bad of [
  (h,i,f)=>{f.ranking_enabled=true}
 ]){
  const h=structuredClone(prior),i=structuredClone(ipo),f=structuredClone(inputs[5]);
- bad(h,i,f);assert.throws(()=>createDirectory(h,i,f));
+ bad(h,i,f);assert.throws(()=>createDirectory(h,i,f,met));
 }
 const bad=structuredClone(rows);bad[0].rankingEligible=true;
 assert.throws(()=>toCSV(bad));
@@ -48,4 +51,4 @@ assert.match(page,/sgx-32-research-v296\.js/);
 assert.match(page,/sgx-historical-code-search-v258\.js/);
 assert.match(index,/href="\.\/sgx-32-research\.html"/);
 assert.equal(inputs[5].ranking_eligible_count,0);
-console.log("v296 PASS: 32-code Japanese source browser, 19+11+2 scopes, guards, CSV and link");
+console.log("v296 PASS: 33-code Japanese source browser, 19+11+3 scopes, guards, CSV and link");
