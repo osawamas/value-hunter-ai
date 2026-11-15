@@ -28,6 +28,7 @@ on:
       - 'scripts/test-verify-jquants-personal-snapshot.py'
       - 'tests/test_jquants_personal_quotes.py'
       - 'tests/fixtures/sec-filing-excerpts-v316.json'
+      - 'tests/fixtures/ibm-sec-original-excerpts/**'
       - 'scripts/build-sec-quarterly-research.py'
       - 'tests/test_sec_quarterly_research.py'
       - 'tests/fixtures/sec-quarterly-excerpts-v332.json'
@@ -74,6 +75,10 @@ jobs:
       - run: python -m pip install openpyxl==3.1.5
       - run: python scripts/verify-market-sources-v315.py --check-sec-excerpts
       - run: python -m unittest discover -s tests -p 'test_sec_quarterly_research.py'
+      - name: Reconcile IBM stock count and annual financials from saved filing excerpts
+        run: |
+          python scripts/verify-market-sources-v315.py --sec-ibm-shares-only --fixture-directory tests/fixtures/ibm-sec-original-excerpts
+          python scripts/verify-market-sources-v315.py --sec-ibm-annual-only --fixture-directory tests/fixtures/ibm-sec-original-excerpts
   sgx-s63-equity-originals:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -86,6 +91,7 @@ jobs:
       - run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
       - run: python scripts/verify-market-sources-v315.py --sgx-s63-equity-only
   sec-ibm-filing-originals:
+    if: github.event_name == 'workflow_dispatch' && inputs.check_sec_live
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
