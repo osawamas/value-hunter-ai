@@ -104,7 +104,13 @@ def sec_financials(raw, record):
     for period in filing["periods"]:
         for field, tag in tags.items():
             start = period["start"] if field in {"revenue", "operating_income", "net_income"} else None
-            value = tag_value(amounts[tag]["units"]["USD"], accession, period["end"], start)
+            entries = amounts.get(tag, {}).get("units", {}).get("USD", [])
+            if field == "operating_income" and period[field] is None:
+                if any(r.get("accn") == accession and r.get("form") == "10-K" and
+                       r.get("end") == period["end"] and r.get("start") == start for r in entries):
+                    raise ValueError(f"{record['symbol']} operating income is present in SEC facts")
+                continue
+            value = tag_value(entries, accession, period["end"], start)
             if value != period[field]:
                 raise ValueError(f"{record['symbol']} {field} mismatch at {period['end']}")
     shares = filing["shares"]

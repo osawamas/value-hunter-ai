@@ -5,7 +5,7 @@ const money = new Intl.NumberFormat("ja-JP");
 const percent = new Intl.NumberFormat("ja-JP", {style: "percent", maximumFractionDigits: 1});
 
 function annualGrowth(previous, current) {
-  return previous > 0 ? (current - previous) / previous : null;
+  return previous > 0 && Number.isFinite(current) ? (current - previous) / previous : null;
 }
 
 function buildMarketRows(research, sgx) {
@@ -128,14 +128,15 @@ function compareAnnual(finance) {
   if (![prior, latest].every(row => {
     const duration = days(row.start, row.end);
     return duration >= 350 && duration <= 380 &&
-      [row.revenue, row.operating_income, row.net_income, row.assets, row.parent_equity].every(Number.isSafeInteger) &&
+      [row.revenue, row.net_income, row.assets, row.parent_equity].every(Number.isSafeInteger) &&
+      (row.operating_income === null || Number.isSafeInteger(row.operating_income)) &&
       row.revenue > 0 && row.assets > 0;
   }) || days(prior.end, latest.start) !== 2) throw Error("連続した年間決算を照合できない");
   return finance.periods.map((row, i) => ({
     ...row,
     salesGrowth: i ? annualGrowth(prior.revenue, latest.revenue) : null,
     operatingGrowth: i ? annualGrowth(prior.operating_income, latest.operating_income) : null,
-    operatingMargin: row.operating_income / row.revenue,
+    operatingMargin: row.operating_income === null ? null : row.operating_income / row.revenue,
     equityRatio: row.parent_equity / row.assets,
   }));
 }
@@ -483,7 +484,7 @@ async function initMarketResearch() {
       .filter(Boolean).join("・");
     byId("marketFinancialRows").replaceChildren(...periods.map(p => {
       const tr = document.createElement("tr");
-      const values = [p.end, money.format(p.revenue), money.format(p.operating_income), money.format(p.net_income),
+      const values = [p.end, money.format(p.revenue), p.operating_income === null ? "—" : money.format(p.operating_income), money.format(p.net_income),
         pct(p.salesGrowth), pct(p.operatingGrowth), pct(p.operatingMargin), pct(p.equityRatio)];
       tr.append(...values.map(value => element("td", value)));
       return tr;
