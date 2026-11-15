@@ -1,0 +1,29 @@
+{
+  "schema_version": "uob-3q26-issuer-owned-pdf-original-v288",
+  "issuer": "UNITED OVERSEAS BANK LIMITED",
+  "symbol": "U11",
+  "period_end": "2026-09-30",
+  "issuer_pdf_url": "https://www.uob.com.sg/investor-relations/assets/pdfs/investor/financial/2026/performance-highlights-3q-2026.pdf",
+  "issuer_pdf_sha256": "69d0a461f740beb8eea8605c19e5e0e44f6469a4be630287b87ffb035ea89ff5",
+  "issuer_pdf_size_bytes": 334214,
+  "workflow_url": "https://github.com/osawamas/value-hunter-ai/actions/runs/43666770426",
+  "sgx_pdf_url": "https://links.sgx.com/FileOpen/3Q26%20CFO%20presentation%20slides.ashx?App=Announcement&FileID=910319",
+  "sgx_pdf_sha256": "d3b474aa87a2f2741bf68754a2f38b7189d905a8ff2bf6c51f88b758c867ec18",
+  "issuer_pdf_explicit_table_match": true,
+  "checked_values_sgd_millions": {
+    "nine_month_profit": 4165,
+    "third_quarter_profit": 1250,
+    "nine_month_net_interest_income": 6900,
+    "third_quarter_net_interest_income": 2278
+  },
+  "issuer_same_organisation_not_independent_audit": true,
+  "independent_financial_audit_complete": false,
+  "current_share_count_verified": false,
+  "current_market_quote_license_verified": false,
+  "rank_eligible": false,
+  "restrictions": [
+    "PDF cross-publishing by same issuer is not independent audit.",
+    "Historical FY2026 Q3/9M financial amounts are not contemporaneous trade quotes.",
+    "Do not promote ranking or share counts."
+  ]
+}
