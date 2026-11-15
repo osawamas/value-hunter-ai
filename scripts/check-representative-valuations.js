@@ -121,13 +121,17 @@ function main(args) {
     filingDirectory = args[1];
     args = args.slice(2);
   }
-  const requireLatestTrials = args[0] === "--require-latest-trials";
+  const requireNewSessions = args[0] === "--require-new-sessions";
+  const requireLatestTrials = requireNewSessions || args[0] === "--require-latest-trials";
   if (requireLatestTrials) args = args.slice(1);
   const refresh = args[0] === "--compare" && args.length === 3;
   const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
   const verifiedSnapshot = args[0] === "--jquants" && args.length === 3;
+  if (requireNewSessions && !refresh && !verifiedRefresh) {
+    throw Error("--require-new-sessions requires a two-snapshot comparison");
+  }
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--require-latest-trials] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--require-latest-trials | --require-new-sessions] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
   const research = loadSnapshot(filingDirectory, "market-research-v315.json", filingDataSha256);
@@ -197,16 +201,22 @@ function main(args) {
     const newest = selectQuoteDate(currentQuotes);
     const checks = representatives.map(id => {
       const quote = newest.get(id);
-      if (!quote) return {id, status: "missing_close"};
+      const comparison = requireNewSessions ? report.results.find(row => row.id === id) : null;
+      const previousDate = comparison?.quoteCoverage.previous?.last ?? null;
+      const sessionAdvance = comparison ? {
+        previousDate, hasNewSession: Boolean(quote && previousDate && quote.date > previousDate),
+      } : {};
+      if (!quote) return {id, status: "missing_close", ...sessionAdvance};
       const [trial] = evaluatePersonalQuotes(rows, new Map([[id, quote]]), new Map(), shareReview);
       const valuation = trial.result;
       const status = trial.state !== "filing" ? trial.state :
         Number.isFinite(valuation?.per) && Number.isFinite(valuation?.pbr) ?
           "trial_calculated" : "incomplete_ratios";
       return {id, date: quote.date, status, price: quote.price, shares: trial.shares,
-        shareSource: trial.shareSource, financeSource: trial.financeSource, valuation};
+        shareSource: trial.shareSource, financeSource: trial.financeSource, valuation, ...sessionAdvance};
     });
-    const passed = checks.every(check => check.status === "trial_calculated");
+    const passed = checks.every(check => check.status === "trial_calculated" &&
+      (!requireNewSessions || check.hasNewSession));
     report.latestTrialCheck = {passed, results: checks};
     if (!passed) process.exitCode = 2;
   }

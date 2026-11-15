@@ -236,6 +236,29 @@ try {
   const [noQuotes, empty] = strict();
   assert.equal(noQuotes, 2);
   assert.ok(empty.latestTrialCheck.results.every(row => row.status === "missing_close"));
+  const requiresNew = (baseline, newest) => {
+    const result = spawnSync(process.execPath, [cli, "--require-new-sessions", "--compare", baseline, newest], {encoding: "utf8"});
+    assert.equal(result.stderr, "");
+    return [result.status, JSON.parse(result.stdout).latestTrialCheck];
+  };
+  const [sameExit, sameSessions] = requiresNew(previous, previous);
+  assert.equal(sameExit, 2);
+  assert.ok(sameSessions.results.every(row => row.status === "trial_calculated" && !row.hasNewSession));
+  const [laterExit, laterSessions] = requiresNew(previous, current);
+  assert.equal(laterExit, 2);
+  assert.equal(laterSessions.results[1].hasNewSession, false, "a correction is not a new session");
+  assert.equal(laterSessions.results[2].previousDate, "2026-11-13");
+  assert.equal(laterSessions.results[2].hasNewSession, true);
+  assert.equal(laterSessions.results[2].status, "missing");
+  fs.writeFileSync(current, csv.replace("SG:S63,2026-11-13,SGD,10", "SG:S63,2026-11-12,SGD,10"));
+  const [advancedExit, advanced] = requiresNew(current, previous);
+  assert.equal(advancedExit, 2, "advancing only one of the three markets is insufficient");
+  assert.equal(advanced.results[2].hasNewSession, true);
+  assert.equal(advanced.results[2].status, "trial_calculated");
+  fs.writeFileSync(current, csv.replaceAll("2026-09-30", "2026-09-29").replace("2026-11-13", "2026-11-12"));
+  const [allAdvancedExit, allAdvanced] = requiresNew(current, previous);
+  assert.equal(allAdvancedExit, 0);
+  assert.equal(allAdvanced.passed, true);
 } finally {
   fs.rmSync(work, {recursive: true, force: true});
 }
