@@ -108,9 +108,13 @@ function summarizeMarketCoverage(rows) {
   });
 }
 
-function filterMarketRows(rows, market, query) {
+function filterMarketRows(rows, market, query, evidence = "all") {
   const term = query.trim().normalize("NFKC").toUpperCase();
   return rows.filter(row => (!market || row.market === market) &&
+    (evidence === "all" ||
+      (evidence === "annual" && Boolean(row.financials || row.sgxAnnual)) ||
+      (evidence === "quarterly" && Boolean(row.quarterly)) ||
+      (evidence === "missing" && !row.financials && !row.sgxAnnual)) &&
     [row.id, row.symbol, row.label, row.name].some(value =>
       value?.normalize("NFKC").toUpperCase().includes(term)));
 }
@@ -595,7 +599,7 @@ async function initMarketResearch() {
     }));
     const paint = () => {
       panel.hidden = true;
-      const visible = filterMarketRows(rows, filter.value, query.value);
+      const visible = filterMarketRows(rows, filter.value, query.value, byId("financialFilter").value);
       status.textContent = visible.length + " / " + rows.length + "件。日本・米国は選定銘柄。正式順位の対象条件は銘柄ごとに表示。";
       body.replaceChildren(...visible.map(row => {
         const tr = document.createElement("tr");
@@ -653,6 +657,7 @@ async function initMarketResearch() {
       paintComparison();
     };
     filter.addEventListener("change", paint);
+    byId("financialFilter").addEventListener("change", paint);
     query.addEventListener("input", paint);
     paint();
   } catch (error) {
