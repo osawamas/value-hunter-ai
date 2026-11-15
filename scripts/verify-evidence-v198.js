@@ -91,7 +91,8 @@ const tests=[
  "docs/test_sgx_snapshot_diff_v291.js",
  "docs/test_sgx_october_release_v292.js",
  "docs/test_sgx_october_ipo_v294.js",
- "docs/test_sgx_ipo_candidate_union_v295.js"
+ "docs/test_sgx_ipo_candidate_union_v295.js",
+ "docs/test_sgx_32_research_v296.js"
 ];
 let failed=0;
 const results=[];
