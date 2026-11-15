@@ -23,6 +23,7 @@ on:
       - 'docs/data/sgx-s63-two-website-close-v129.json'
       - 'docs/data/sgx-s63-parent-equity-v395.json'
       - 'scripts/export-jquants-personal-quotes.py'
+      - 'scripts/refresh-jquants-personal.py'
       - 'scripts/verify-jquants-personal-snapshot.py'
       - 'scripts/test-verify-jquants-personal-snapshot.py'
       - 'tests/test_jquants_personal_quotes.py'

@@ -6,13 +6,56 @@ import json
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location('verify_snapshot', Path(__file__).with_name('verify-jquants-personal-snapshot.py'))
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+refresh_spec = importlib.util.spec_from_file_location(
+    "refresh_snapshot", Path(__file__).with_name("refresh-jquants-personal.py")
+)
+refresher = importlib.util.module_from_spec(refresh_spec)
+refresh_spec.loader.exec_module(refresher)
 
 class SnapshotTests(unittest.TestCase):
+    def test_refresh_saves_a_validated_pair_and_preserves_it_on_failure(self):
+        baseline = self.csv.with_name("baseline")
+        current = self.csv.with_name("current")
+        original_capture = refresher.capture
+        timestamp = "2026-10-01T00:00:00.000001Z"
+        close = "2500"
+
+        def capture(command):
+            if Path(command[1]).name != "export-jquants-personal-quotes.py":
+                return original_capture(command)
+            output = command[command.index("--output") + 1]
+            raw = f"market_id,date,currency,close\nJP:7203,2026-09-30,JPY,{close}\n".encode()
+            output.write_bytes(raw)
+            receipt = {**self.record, "retrieved_at_utc": timestamp,
+                       "csv_sha256": hashlib.sha256(raw).hexdigest()}
+            return subprocess.CompletedProcess(command, 0, "", json.dumps(receipt))
+
+        with patch.object(refresher, "capture", side_effect=capture):
+            refresher.refresh(baseline, None, [])
+            self.assertTrue(json.loads((baseline / "report.json").read_text())["verified"])
+            original = (baseline / "quotes.csv").read_bytes()
+            with self.assertRaisesRegex(ValueError, "increasing order"):
+                refresher.refresh(current, baseline, [])
+            self.assertFalse(current.exists())
+            self.assertEqual((baseline / "quotes.csv").read_bytes(), original)
+
+            timestamp = "2026-10-01T00:00:00.000002Z"
+            close = "2501"
+            refresher.refresh(current, baseline, [])
+            result = json.loads((current / "report.json").read_text())["results"][0]
+            self.assertEqual(result["closeChange"], "revised")
+            self.assertEqual(result["valuation"]["cap"], 2501 * 11778247313)
+            self.assertEqual({p.name for p in current.iterdir()}, {"quotes.csv", "receipt.json", "report.json"})
+            with self.assertRaisesRegex(ValueError, "already exists"):
+                refresher.refresh(current, baseline, [])
+            self.assertFalse(list(current.parent.glob(".jquants-*")))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
