@@ -571,7 +571,7 @@ async function initMarketResearch() {
   const minSales = byId("personalBatchMinSales"), minEquity = byId("personalBatchMinEquity");
   const paintBatch = () => {
     const batchDate = byId("personalBatchDate");
-    batchDate.disabled = !personalQuoteHistory.size;
+    batchDate.disabled = !(personalQuoteHistory.size || batchDate.value);
     const quotes = batchDate.value ? selectQuoteDate(personalQuoteHistory, batchDate.value) : personalQuotes;
     const results = evaluatePersonalQuotes(marketRows, quotes, personalShares, shareReview, personalQuoteHistory);
     const statusFilter = byId("personalBatchFilter");
@@ -898,7 +898,19 @@ async function initMarketResearch() {
       }));
     });
     const shareExport = byId("publishedShareExport");
-    const refreshShareExport = () => { shareExport.disabled = !(sessions.get(shareDates.value) || []).length; };
+    const useShareDate = byId("usePublishedShareDate");
+    const refreshShareExport = () => {
+      const absent = !sessions.get(shareDates.value)?.length;
+      shareExport.disabled = absent;
+      useShareDate.disabled = absent;
+    };
+    useShareDate.addEventListener("click", () => {
+      if (!sessions.has(shareDates.value)) return;
+      const batchDate = byId("personalBatchDate");
+      batchDate.value = shareDates.value;
+      paintBatch();
+      batchDate.focus();
+    });
     shareDates.addEventListener("change", refreshShareExport);
     shareExport.addEventListener("click", () => {
       const records = sessions.get(shareDates.value) || [];

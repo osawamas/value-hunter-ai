@@ -155,12 +155,18 @@ try{
  assert.equal(exactSharesFile.suggestedFilename(),"value-hunter-published-shares-2026-09-30.csv");
  await page.locator("#personalShareFile").setInputFiles(await exactSharesFile.path());
  await page.locator("#personalShareStatus").getByText(/株数を [1-9]\d*件/).waitFor();
+ await page.getByRole("button",{name:"この基準日で一括試算"}).click();
+ assert.equal(await page.locator("#personalBatchDate").inputValue(),"2026-09-30");
+ assert.equal(await page.locator("#personalBatchDate").isDisabled(),false);
  await page.locator("#personalQuoteFile").setInputFiles({
   name:"quotes.csv", mimeType:"text/csv",
   buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nJP:7203,2026-09-30,JPY,3000\nUS:AAPL,2026-11-13,USD,356\nSG:S63,2026-11-13,SGD,10\nJP:7203,2026-03-31,JPY,2900"),
  });
  await page.locator("#personalQuoteStatus").getByText(/終値を 5件/).waitFor();
  const batch = page.locator("#personalBatchRows tr");
+ assert.equal(await batch.count(),1);
+ assert.match(await batch.first().innerText(),/JP:7203.*35,334,741,939,000/s);
+ await page.locator("#personalBatchDate").fill("");
  assert.match(await page.locator("#personalBatchStatus").innerText(),/3 \/ 4件を試算/);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
  assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
