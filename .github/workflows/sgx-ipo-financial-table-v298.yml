@@ -1,0 +1,27 @@
+name: SGX IPO audited financial table discovery v298
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/discover-sgx-ipo-statement-tables-v298.py'
+      - 'docs/data/sgx-ipo-financial-documents-v297.json'
+      - '.github/workflows/sgx-ipo-financial-table-v298.yml'
+permissions:
+  contents: read
+jobs:
+  discover-original-statement-tables:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract dated financial statement candidate rows from pinned original PDF bytes
+        run: python3 scripts/discover-sgx-ipo-statement-tables-v298.py
+      - name: Preserve original-source candidate table evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-ipo-audited-financial-table-candidates-v298
+          path: build/research/sgx-ipo-financial-table-discovery-v298.json
+          if-no-files-found: warn
+          retention-days: 30
