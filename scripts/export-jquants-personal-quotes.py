@@ -3,12 +3,13 @@
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.error import HTTPError, URLError
@@ -113,10 +114,27 @@ def save_snapshot(path, rows):
                                 prefix=".jquants-", delete=False) as stream:
             temporary_path = Path(stream.name)
             write_quotes(stream, rows)
+        digest = hashlib.sha256(temporary_path.read_bytes()).hexdigest()
         temporary_path.replace(path)
+        return digest
     finally:
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
+
+
+def report_provenance(rows, codes, start, end, sha256, retrieved_at):
+    record = {
+        "provider": "J-Quants",
+        "endpoint": ENDPOINT,
+        "purpose": "personal",
+        "price_basis": "unadjusted_close",
+        "retrieved_at_utc": retrieved_at.isoformat(),
+        "requested_period": {"first": start, "last": end},
+        "requested_codes": codes,
+        "observations": len(rows),
+        "csv_sha256": sha256,
+    }
+    print(json.dumps(record), file=sys.stderr)
 
 
 def main():
@@ -126,6 +144,7 @@ def main():
     parser.add_argument("--to", dest="to_date", type=trading_date)
     parser.add_argument("--output", type=Path, help="Atomically replace this local CSV after validation")
     parser.add_argument("--require-all", action="store_true", help="Require at least one close for every requested code")
+    parser.add_argument("--provenance", action="store_true", help="Write a JSON receipt to stderr with --output")
     parser.add_argument("codes", type=code4, nargs="+")
     args = parser.parse_args()
     if args.date and (args.from_date or args.to_date):
@@ -134,6 +153,10 @@ def main():
         parser.error("provide --date or both --from and --to")
     if args.from_date and args.from_date > args.to_date:
         parser.error("--from must be on or before --to")
+    if args.provenance and not args.output:
+        parser.error("--provenance requires --output")
+    if args.provenance and not args.require_all:
+        parser.error("--provenance requires --require-all")
     api_key = os.environ.get("JQUANTS_API_KEY", "").strip()
     if not api_key:
         parser.error("set JQUANTS_API_KEY using your personal account")
@@ -149,6 +172,7 @@ def main():
         parser.exit(1, "J-Quants response could not be retrieved or validated.\n")
     if not rows:
         parser.exit(1, "No closes returned for the requested interval.\n")
+    retrieved_at = datetime.now(timezone.utc)
     returned = {row[0][3:] for row in rows}
     missing = sorted(set(codes) - returned)
     if missing:
@@ -160,9 +184,11 @@ def main():
         write_quotes(sys.stdout, rows)
     else:
         try:
-            save_snapshot(args.output, rows)
+            digest = save_snapshot(args.output, rows)
         except OSError:
             parser.exit(1, "Could not save the local snapshot. Check the destination directory and permissions.\n")
+        if args.provenance:
+            report_provenance(rows, codes, args.date or args.from_date, args.date or args.to_date, digest, retrieved_at)
 
 
 if __name__ == "__main__":
