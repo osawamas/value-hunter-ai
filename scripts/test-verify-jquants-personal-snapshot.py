@@ -58,7 +58,21 @@ class SnapshotTests(unittest.TestCase):
             result = json.loads((current / "report.json").read_text())["results"][0]
             self.assertEqual(result["closeChange"], "revised")
             self.assertEqual(result["valuation"]["cap"], 2501 * 11778247313)
-            self.assertEqual({p.name for p in current.iterdir()}, {"quotes.csv", "receipt.json", "report.json"})
+            self.assertEqual({p.name for p in current.iterdir()}, {"quotes.csv", "receipt.json", "report.json", "filings"})
+            for snapshot in (baseline, current):
+                report = json.loads((snapshot / "report.json").read_text())
+                files = list((snapshot / "filings").glob("*.json"))
+                self.assertEqual(len(files), 3)
+                self.assertEqual(report["filingDataSha256"], {
+                    file.name: hashlib.sha256(file.read_bytes()).hexdigest() for file in files
+                })
+            cli = Path(__file__).with_name("check-representative-valuations.js")
+            replay = subprocess.run([
+                "node", cli, "--filing-dir", current / "filings", "--compare-jquants",
+                baseline / "quotes.csv", baseline / "receipt.json",
+                current / "quotes.csv", current / "receipt.json",
+            ], check=True, capture_output=True, text=True)
+            self.assertEqual(json.loads(replay.stdout), json.loads((current / "report.json").read_text()))
             with self.assertRaisesRegex(ValueError, "already exists"):
                 refresher.refresh(current, baseline, [])
             self.assertFalse(list(current.parent.glob(".jquants-*")))

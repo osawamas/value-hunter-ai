@@ -2,6 +2,7 @@
 """Save a personal J-Quants snapshot and optionally compare it with a prior snapshot."""
 import argparse
 from pathlib import Path
+from shutil import copyfile
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -30,7 +31,11 @@ def refresh(destination, previous, export_args):
             "--require-all", "--provenance", "--output", quotes, *export_args,
         ])
         receipt.write_text(exported.stderr, encoding="utf-8")
-        valuation_cli = ["node", SCRIPTS / "check-representative-valuations.js"]
+        filing_dir = snapshot / "filings"
+        filing_dir.mkdir()
+        for name in ("market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json"):
+            copyfile(SCRIPTS.parent / "docs" / "data" / name, filing_dir / name)
+        valuation_cli = ["node", SCRIPTS / "check-representative-valuations.js", "--filing-dir", filing_dir]
         if previous is None:
             report = capture([*valuation_cli, "--jquants", quotes, receipt])
         else:

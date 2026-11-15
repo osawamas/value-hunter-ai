@@ -17,8 +17,8 @@ function observedCoverage(sessions, priceField) {
     {first: observations[0].date, last: observations.at(-1).date, count: observations.length} : null;
 }
 
-function loadSnapshot(name, evidence) {
-  const bytes = fs.readFileSync(path.join(data, name));
+function loadSnapshot(directory, name, evidence) {
+  const bytes = fs.readFileSync(path.join(directory, name));
   evidence[name] = createHash("sha256").update(bytes).digest("hex");
   return JSON.parse(bytes.toString("utf8"));
 }
@@ -115,16 +115,22 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
 }
 
 function main(args) {
+  let filingDirectory = data;
+  if (args[0] === "--filing-dir") {
+    if (!args[1] || args[1].startsWith("--")) throw Error("--filing-dir requires a directory");
+    filingDirectory = args[1];
+    args = args.slice(2);
+  }
   const refresh = args[0] === "--compare" && args.length === 3;
   const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
   const verifiedSnapshot = args[0] === "--jquants" && args.length === 3;
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv], --jquants quotes.csv receipt.json, --compare previous.csv current.csv, or --compare-jquants previous.csv previous.json current.csv current.json");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
-  const research = loadSnapshot("market-research-v315.json", filingDataSha256);
-  const sgx = loadSnapshot("latest.json", filingDataSha256);
-  const shareReview = loadSnapshot("sgx-s63-two-website-close-v129.json", filingDataSha256);
+  const research = loadSnapshot(filingDirectory, "market-research-v315.json", filingDataSha256);
+  const sgx = loadSnapshot(filingDirectory, "latest.json", filingDataSha256);
+  const shareReview = loadSnapshot(filingDirectory, "sgx-s63-two-website-close-v129.json", filingDataSha256);
   const rows = buildMarketRows(research, sgx);
   const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
