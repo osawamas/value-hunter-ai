@@ -1,0 +1,32 @@
+name: SGX original IPO prospectus and financial PDF replay v297
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sgx-ipo-original-financial-v297.yml'
+      - 'scripts/replay-sgx-ipo-financial-pdfs-v297.py'
+      - 'scripts/test_sgx_ipo_financial_pdfs_v297.py'
+      - 'docs/data/sgx-ipo-financial-documents-v297.json'
+permissions:
+  contents: read
+jobs:
+  original-pdf-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate source constraints without network
+        run: python3 scripts/test_sgx_ipo_financial_pdfs_v297.py
+      - name: Ensure PDF text extraction tooling
+        run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
+      - name: Fetch and fingerprint three issuer original financial documents
+        run: python3 scripts/replay-sgx-ipo-financial-pdfs-v297.py
+      - name: Preserve exact source outcomes even when PDF blocked
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-original-ipo-financial-pdf-evidence-v297
+          path: build/research/sgx-ipo-original-financial-pdfs-v297.json
+          if-no-files-found: warn
+          retention-days: 30
