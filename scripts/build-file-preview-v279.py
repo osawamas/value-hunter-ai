@@ -66,12 +66,14 @@ def build():
 })();
 """.replace("PAYLOAD",payload)
     (site/BOOT).write_text(script,encoding="utf-8")
-    path=site/"index.html"
-    html=path.read_text(encoding="utf-8")
-    head='<head>'
-    if head not in html or BOOT in html:raise ValueError("Offline bootstrap placement conflict")
-    html=html.replace(head,head+'\n  <script src="./'+BOOT+'"></script>',1)
-    path.write_text(html,encoding="utf-8")
+    for page in ("index.html", "sgx-32-research.html"):
+        path=site/page
+        html=path.read_text(encoding="utf-8")
+        head='<head>'
+        if head not in html or BOOT in html:
+            raise ValueError("Offline bootstrap placement conflict: "+page)
+        html=html.replace(head,head+'\n  <script src="./'+BOOT+'"></script>',1)
+        path.write_text(html,encoding="utf-8")
     (STANDALONE/"START-HERE.txt").write_text(
         "VALUE HUNTER AI — クリックで起動するローカルプレビュー\n"
         "1. ZIPを解凍する\n"
