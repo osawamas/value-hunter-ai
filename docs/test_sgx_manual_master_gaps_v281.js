@@ -1,0 +1,30 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs");
+const {stageCSV,pageOf}=require("./sgx-manual-master-v278.js");
+const candidates=JSON.parse(fs.readFileSync("docs/data/sgx-universe-candidates.json","utf8"));
+const feed=JSON.parse(fs.readFileSync("docs/data/latest.json","utf8"));
+const csv="Trading Code,Trading Name,Listing Board,Traded Currency\r\n"+
+ "D05,DBS Group Holdings Ltd,MAINBOARD,SGD\r\n"+
+ "O39,Oversea-Chinese Banking Corporation Ltd,MAINBOARD,SGD\r\n";
+const data=stageCSV(csv,"https://www.sgx.com/securities/trading","2026-11-15",candidates,feed);
+assert.equal(data.number_of_rows,2);
+assert.equal(data.matching_registered_financial_records,2);
+assert.deepEqual(data.registered_financial_codes_absent,["G13","S20","S63","S68","U11"]);
+assert.equal(data.third_party_candidate_codes_absent_count,180);
+assert.equal(data.imported_codes_outside_partial_candidates_count,0);
+assert.equal(data.sgx_source_url_actually_fetched,false);
+assert.equal(data.file_claimed_official_not_independently_verified,true);
+assert.equal(data.ranking_eligible_count,0);
+assert.equal(pageOf(data,"",0).records.length,2);
+assert.ok(data.records.every(x=>x.activeListingConfirmed===false&&!x.investmentRankingEligible));
+const wrong=structuredClone(feed);
+wrong.records[0].symbol=wrong.records[1].symbol;
+assert.throws(()=>stageCSV(csv,"https://www.sgx.com/securities/trading","2026-11-15",candidates,wrong));
+const ui=fs.readFileSync("docs/sgx-manual-master-v278.js","utf8");
+const html=fs.readFileSync("docs/index.html","utf8");
+assert.match(html,/id="sgxManualMasterCoverageGaps"/);
+assert.match(ui,/registered_financial_codes_absent/);
+assert.match(ui,/third_party_candidate_codes_absent_count/);
+assert.match(ui,/imported_codes_outside_partial_candidates_count/);
+assert.match(ui,/差分は資料の対象範囲の違いを示すだけ/);
+console.log("v281 PASS: user SGX CSV reconciles 7 financial codes and 182 partial research candidates without fake delisting/ranking");
