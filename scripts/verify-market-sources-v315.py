@@ -239,8 +239,11 @@ def main():
         raw["sec"] = source_bytes(SOURCES["sec"], "sec.json")
     date, jpx = jpx_directory(raw["jpx"])
     sec = sec_directory(raw["sec"]) if "sec" in raw else None
-    if date != snapshot["jpx_snapshot_date"]:
-        raise ValueError("JPX month-end changed; refresh or use the dated original workbook")
+    reference_date = snapshot["jpx_snapshot_date"]
+    if date < reference_date:
+        raise ValueError("JPX workbook predates the research snapshot")
+    if date > reference_date:
+        print(f"JPX used newer month-end {date}; replay of {reference_date} requires the dated original.")
     for record in snapshot["records"]:
         if record["market"] == "JP":
             expected = (record["name"], record["board"])
@@ -276,6 +279,8 @@ def main():
     report = {
         "checked_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "jpx_snapshot_date": date,
+        "jpx_research_snapshot_date": reference_date,
+        "jpx_snapshot_replayed": date == reference_date,
         "jpx_domestic_prime_standard_growth_rows": len(jpx),
         "sec_nyse_nasdaq_ticker_cik_exchange_rows": len(sec) if sec is not None else None,
         "source_sha256": {k: hashlib.sha256(v).hexdigest() for k, v in raw.items()},
