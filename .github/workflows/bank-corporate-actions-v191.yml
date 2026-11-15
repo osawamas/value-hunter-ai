@@ -140,6 +140,8 @@ on:
       - 'docs/data/sgx-october-ipo-listing-v294.json'
       - 'docs/test_sgx_october_ipo_v294.js'
       - 'scripts/verify-sgx-october-ipo-v294.js'
+      - 'docs/test_sgx_ipo_candidate_union_v295.js'
+      - 'scripts/build-sgx-ipo-candidate-union-v295.js'
       - 'docs/data/sgx-market-license-review-v290.json'
       - 'docs/uob-second-source-v288.js'
       - 'docs/data/uob-issuer-pdf-q3-2026-v288.json'
