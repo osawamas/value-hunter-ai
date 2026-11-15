@@ -243,6 +243,21 @@ try{
  await page.locator("#marketQuery").fill("U11");
  assert.equal(await page.locator("#marketRows").getByRole("checkbox").count(),0);
  assert.match(await page.locator("#marketRows").innerText(),/U11.*SGX財務画面/s);
+ await page.locator("#personalQuoteFile").setInputFiles({
+  name:"classes.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,currency,close\nUS:GOOGL,2026-10-21,USD,200\nUS:GOOG,2026-10-20,USD,210"),
+ });
+ await page.locator("#personalQuoteStatus").getByText(/終値を 2件/).waitFor();
+ const alphabetTrial = batch.filter({hasText:"US:GOOGL"});
+ assert.match(await alphabetTrial.innerText(),/同日の終値なし GOOG.*上場ティッカーなし クラスB/s);
+ assert.match(await page.locator("#personalBatchStatus").innerText(),/0 \/ 2件を試算/);
+ await page.locator("#personalQuoteFile").setInputFiles({
+  name:"classes-matched.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,currency,close\nUS:GOOGL,2026-10-21,USD,200\nUS:GOOG,2026-10-21,USD,210\nUS:GOOG,2026-10-22,USD,215"),
+ });
+ await page.locator("#personalQuoteStatus").getByText(/終値を 3件/).waitFor();
+ assert.match(await alphabetTrial.innerText(),/上場ティッカーなし クラスB/);
+ assert.doesNotMatch(await alphabetTrial.innerText(),/同日の終値なし/);
  assert.deepEqual(errors,[]);
  console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 33 codes, IPO/finance filter, search, source links, downloaded CSV");
 }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}

@@ -279,7 +279,26 @@ function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
   };
 }
 
-function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
+function describeClassQuotes(row, quote, quotes, history) {
+  const missing = [];
+  const unlisted = [];
+  for (const share of row.financials.share_classes.classes) {
+    if (!share.symbol) {
+      unlisted.push(share.label);
+      continue;
+    }
+    const id = row.market + ":" + share.symbol;
+    const observation = history?.get(id + ":" + quote.date) ?? quotes.get(id);
+    if (observation?.date !== quote.date || observation.currency !== quote.currency) missing.push(share.symbol);
+  }
+
+  const notes = [];
+  if (missing.length) notes.push("同日の終値なし " + missing.join("・"));
+  if (unlisted.length) notes.push("上場ティッカーなし クラス" + unlisted.join("・クラス"));
+  return notes.length ? notes.join("／") : "上場クラスの終値はそろっている。クラス別評価が必要";
+}
+
+function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
   const issuers = new Map(rows.map(row => [row.id, row]));
   for (const row of rows) {
     for (const share of row.financials?.share_classes?.classes || []) {
@@ -292,7 +311,9 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
     const entry = {id, label: row?.label || id, quote};
     if (!row) return {...entry, state: "unknown"};
     const finance = row.financials;
-    if (finance?.share_classes) return {...entry, state: "shareClasses"};
+    if (finance?.share_classes) return {
+      ...entry, state: "shareClasses", detail: describeClassQuotes(row, quote, quotes, history),
+    };
     const sgx = sgxValuationFinance(row);
     if (!finance && !sgx) return {...entry, state: "noFinance"};
     const currency = finance?.currency || sgx.currency;
@@ -316,7 +337,7 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
-    "match_status", "financial_source", "share_source"];
+    "match_status", "financial_source", "share_source", "match_detail"];
   const cell = value => {
     if (value === null || value === undefined) return "";
     if (typeof value === "number") return String(value);
@@ -326,7 +347,7 @@ function personalBatchCsv(results) {
   };
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.result?.periodEnd,
-    row.state, row.financeSource, row.shareSource].map(cell).join(","));
+    row.state, row.financeSource, row.shareSource, row.detail].map(cell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -404,7 +425,7 @@ async function initMarketResearch() {
     const batchDate = byId("personalBatchDate");
     batchDate.disabled = !personalQuoteHistory.size;
     const quotes = batchDate.value ? selectQuoteDate(personalQuoteHistory, batchDate.value) : personalQuotes;
-    const results = evaluatePersonalQuotes(marketRows, quotes, personalShares, shareReview);
+    const results = evaluatePersonalQuotes(marketRows, quotes, personalShares, shareReview, personalQuoteHistory);
     batchResults = results;
     byId("personalBatchDownload").disabled = results.length === 0;
     byId("personalBatchTable").hidden = results.length === 0;
@@ -415,7 +436,7 @@ async function initMarketResearch() {
       const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
         quote.date, quote.currency, money.format(quote.price), row.shares ? money.format(row.shares) : "—",
         result ? money.format(result.cap) : "—", result ? multiple(result.per) : "—",
-        result ? multiple(result.pbr) : "—", result?.periodEnd || "—", batchLabels[row.state]];
+        result ? multiple(result.pbr) : "—", result?.periodEnd || "—", row.detail || batchLabels[row.state]];
       const tr = document.createElement("tr");
       tr.append(...values.map(value => element("td", value)));
       const sourceCell = element("td", "");
