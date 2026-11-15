@@ -128,7 +128,7 @@ def verify_section(text,record):
 def download(url, sha256, size):
  original=urlsplit(url)
  if original.scheme!="https" or original.netloc not in {
-  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com","www1.hkexnews.hk"
+  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com","www1.hkexnews.hk","www.hkexnews.hk"
  }:
   raise ValueError("Unexpected PDF source")
  req=urllib.request.Request(url,headers={
@@ -136,7 +136,10 @@ def download(url, sha256, size):
   "Accept":"application/pdf"})
  with urllib.request.urlopen(req,timeout=45) as reply:
   final=urlsplit(reply.geturl())
-  if (final.scheme,final.netloc)!=(original.scheme,original.netloc):
+  same_source=final.netloc==original.netloc or {final.netloc,original.netloc}=={
+   "www.hkexnews.hk","www1.hkexnews.hk"
+  }
+  if final.scheme!=original.scheme or not same_source:
    raise ValueError("Unexpected redirect to another host")
   blob=reply.read(v297.MAX_BYTES+1)
  if hashlib.sha256(blob).hexdigest()!=sha256 or len(blob)!=size:
@@ -345,6 +348,39 @@ def verify_metasurface_listing(record):
  print("SGX/HKEX VERIFIED MET Catalist admission and post-placement shares excluding treasury")
  return record
 
+def verify_met_historical_financials(data):
+ annual=original_text(data["annual_source"],("-f","138","-l","138"))
+ interim=original_text(data["interim_source"],("-f","5","-l","5"))
+ if (data["currency"],data["unit"])!=("SGD","thousands") or not re.search(
+      r"Year ended 31 December\s+2025\s+2024\s+2023\s+2022",annual):
+  raise ValueError("MET annual historical column scope mismatch")
+ if [r["period_end"] for r in data["annual"]]!=["2023-12-31","2024-12-31","2025-12-31"]:
+  raise ValueError("MET annual dates are out of order")
+ for label,key in [
+  ("Revenue","revenue"),("Gross profit","gross_profit"),("Operating profit","operating_profit"),
+  ("Profit from continuing operations","profit_continuing"),("TOTAL ASSETS","total_assets"),("TOTAL EQUITY","total_equity"),
+ ]:
+  expected=r"\s+".join(f"{r[key]:,}" for r in reversed(data["annual"]))
+  if not re.search(rf"^\s*{label}\s+{expected}\s+[\d,]+\s*$",annual,re.MULTILINE):
+   raise ValueError(f"MET annual financial row mismatch: {label}")
+ if ([r["period_end"] for r in data["interim"]]!=["2025-06-30","2026-06-30"]
+     or [r["restated"] for r in data["interim"]]!=[True,False]
+     or "(Unaudited)" not in interim or "(Restated)" not in interim
+     or not re.search(r"Six months ended 30 June\s+2026\s+2025",interim)):
+  raise ValueError("MET interim comparative scope mismatch")
+ for label,key,note in [
+  ("Revenue","revenue",r"3\s+"),("Gross profit","gross_profit",""),
+  ("Operating profit","operating_profit",""),("Profit for the period","profit_for_period",""),
+ ]:
+  expected=r"\s+".join(f"{r[key]:,}" for r in reversed(data["interim"]))
+  if not re.search(rf"^\s*{label}\s+{note}{expected}\s*$",interim,re.MULTILINE):
+   raise ValueError(f"MET interim financial row mismatch: {label}")
+ gain=data["interim_2025_remeasurement_gain_sgd_thousands_approx"]/1000
+ if not re.search(rf"remeasurement gain of approximately S\${gain:g} million"," ".join(interim.split())):
+  raise ValueError("MET restatement footnote mismatch")
+ print("HKEX VERIFIED MET annual financial summary and restated interim comparison")
+ return data
+
 def listing_event_attachment(record, heading):
  raw,html=sgx_announcement(record)
  if urlsplit(record["source_url"]).path.encode() not in raw or heading not in html:
@@ -412,6 +448,7 @@ def main():
   "october_board_movements":verify_october_board_movements(october["board_movement_events"]),
   "bank_share_notices":verify_bank_share_notices(notices),
   "metasurface_listing":verify_metasurface_listing(met),
+  "metasurface_financials":verify_met_historical_financials(met["historical_financials"]),
   "oue_healthcare_hearing":verify_oue_hearing(listing_events["5WA"]),
   "ske_resumption_proposal":verify_ske_resumption(listing_events["5WG"]),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,

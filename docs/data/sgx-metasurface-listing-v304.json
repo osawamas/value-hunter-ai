@@ -25,5 +25,67 @@
       "sha256": "881f3ad855b8679ec1ab7d4c1b2f81d11c9275fb48753d13195b5985c5fd464f",
       "bytes": 152439
     }
+  },
+  "historical_financials": {
+    "currency": "SGD",
+    "unit": "thousands",
+    "annual_source": {
+      "url": "https://www1.hkexnews.hk/listedco/listconews/gem/2026/0428/2026042803343.pdf",
+      "sha256": "a4046184296ec145a27ca9b0e7a7a586be594e60d9ff2b367c41b72854a9e06c",
+      "bytes": 2198195
+    },
+    "interim_source": {
+      "url": "https://www.hkexnews.hk/listedco/listconews/gem/2026/0909/2026090901071.pdf",
+      "sha256": "66635f8413e782d3c37fbe0baae563d66ad4ffba55196dd84bd6d40df833616e",
+      "bytes": 1809237
+    },
+    "annual": [
+      {
+        "period_end": "2023-12-31",
+        "revenue": 38769,
+        "gross_profit": 14415,
+        "operating_profit": 5054,
+        "profit_continuing": 2284,
+        "total_assets": 69860,
+        "total_equity": 26997
+      },
+      {
+        "period_end": "2024-12-31",
+        "revenue": 37722,
+        "gross_profit": 12866,
+        "operating_profit": 6379,
+        "profit_continuing": 3193,
+        "total_assets": 76500,
+        "total_equity": 39412
+      },
+      {
+        "period_end": "2025-12-31",
+        "revenue": 47598,
+        "gross_profit": 17692,
+        "operating_profit": 13695,
+        "profit_continuing": 10103,
+        "total_assets": 115541,
+        "total_equity": 79901
+      }
+    ],
+    "interim": [
+      {
+        "period_end": "2025-06-30",
+        "revenue": 24766,
+        "gross_profit": 10411,
+        "operating_profit": 11305,
+        "profit_for_period": 8756,
+        "restated": true
+      },
+      {
+        "period_end": "2026-06-30",
+        "revenue": 26978,
+        "gross_profit": 10273,
+        "operating_profit": 4929,
+        "profit_for_period": 3705,
+        "restated": false
+      }
+    ],
+    "interim_2025_remeasurement_gain_sgd_thousands_approx": 6400
   }
 }

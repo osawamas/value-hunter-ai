@@ -1,0 +1,5 @@
+# VALUE HUNTER AI v310 — MET annual and interim financial comparison
+
+Added MET historical financials from HKEX-hosted annual and interim originals. FY2023–2025 uses continuing operations and year-end assets/equity, with figures in SGD thousands. The unaudited interim report compares H1 2026 with restated H1 2025. The filing attributes the restatement primarily to an approximately SGD 6.4m associate investment remeasurement gain. The screen keeps the disclosed operating profit change and labels the gain instead of manufacturing an adjusted number.
+
+FY2025 revenue 47,598, operating profit 13,695, continuing profit 10,103, equity ratio 69.2%. H1 2026 revenue 26,978 (+8.9% YoY), operating profit 4,929 (-56.4% against restated H1 2025). Added PDF hash, page and exact-field rechecks and browser assertions. Historical research only; formal ranking 0/7. Continue from latest main, Actions, latest.json and this checkpoint. Current SGX-wide code master and quote rights remain open; preserve hourly automation.

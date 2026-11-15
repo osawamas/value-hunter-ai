@@ -40,6 +40,10 @@ try{
  const metCapital=shareCapital.filter({hasText:"MET"});
  assert.match(await metCapital.innerText(),/2026-11-03.*166,617,000.*自己株式控除後/s);
  assert.match(await metCapital.getByRole("link").getAttribute("href"),/^https:\/\/www1\.hkexnews\.hk\//);
+ const metFinancials=page.locator("#sgxMetFinancialRows tr");
+ assert.equal(await metFinancials.count(),5);
+ assert.match(await metFinancials.filter({hasText:"2026-06-30"}).innerText(),/26,978.*4,929.*\+8\.9%.*-56\.4%/s);
+ assert.match(await page.locator("#sgxMetFinancialSources").innerText(),/再測定益約640万SGD/);
 
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/3 \/ 33件/).waitFor();

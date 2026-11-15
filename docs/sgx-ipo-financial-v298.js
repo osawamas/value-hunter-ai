@@ -121,12 +121,39 @@
    throw Error("上場時の株数資料に不一致");
   return capital;
  }
+ function buildMetFinancials(data){
+  const expected=["2023-12-31","2024-12-31","2025-12-31","2025-06-30","2026-06-30"];
+  if(data?.currency!=="SGD"||data.unit!=="thousands"||data.annual?.length!==3||data.interim?.length!==2||
+     data.interim[0].restated!==true||data.interim[1].restated!==false||
+     data.interim_2025_remeasurement_gain_sgd_thousands_approx!==6400||
+     ![data.annual_source,data.interim_source].every(s=>/^https:\/\/www1?\.hkexnews\.hk\/listedco\//.test(s?.url||"")))
+   throw Error("METの年次・中間決算の範囲に不一致");
+  const rows=[...data.annual,...data.interim];
+  return rows.map((row,i)=>{
+   const annual=i<3;
+   const net=annual?row.profit_continuing:row.profit_for_period;
+   if(row.period_end!==expected[i]||
+      [row.revenue,row.gross_profit,row.operating_profit,net].some(n=>!Number.isSafeInteger(n)||n<=0)||
+      (annual&&(!Number.isSafeInteger(row.total_equity)||row.total_equity<=0||!validAssets(row.total_assets,row.total_equity))))
+    throw Error("METの財務数値に不一致");
+   const previous=i!==0&&i!==3?rows[i-1]:null;
+   return {
+    ...row,net,annual,
+    salesChange:compare(previous?.revenue,row.revenue),
+    operatingChange:compare(previous?.operating_profit,row.operating_profit),
+    operatingMargin:100*row.operating_profit/row.revenue,
+    equityRatio:annual?100*row.total_equity/row.total_assets:null
+   };
+  });
+ }
  function init(){
   const body=root.document.getElementById("sgxIpoFinancialRows");
   const status=root.document.getElementById("sgxIpoFinancialStatus");
   const business=root.document.getElementById("sgxIpoBusinessUpdate");
   const capitalRows=root.document.getElementById("sgxIpoListingCapitalRows");
-  if(!body||!status||!business||!capitalRows)return;
+  const metRows=root.document.getElementById("sgxMetFinancialRows");
+  const metSources=root.document.getElementById("sgxMetFinancialSources");
+  if(!body||!status||!business||!capitalRows||!metRows||!metSources)return;
   const td=v=>{const c=root.document.createElement("td");c.textContent=String(v);return c;};
   Promise.all(["./data/sgx-ipo-audited-historical-v298.json","./data/latest.json","./data/sgx-metasurface-listing-v304.json"].map(async u=>{
    const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw Error("データ HTTP "+r.status);return r.json();
@@ -176,6 +203,19 @@
     td("上場前日の割当完了時点・自己株式控除後"),proof);
    capitalFragment.append(metRow);
    capitalRows.replaceChildren(capitalFragment);
+   const historical=met.historical_financials;
+   const metFragment=root.document.createDocumentFragment();
+   for(const r of buildMetFinancials(historical)){
+    const row=root.document.createElement("tr");
+    const label=r.annual?"年次報告書":r.restated?"上期・修正後":"上期";
+    for(const x of [r.period_end,label,money(r.revenue),money(r.gross_profit),money(r.operating_profit),
+      money(r.net),pct(r.salesChange),pct(r.operatingChange),ratio(r.operatingMargin),ratio(r.equityRatio)])
+     row.append(td(x));
+    metFragment.append(row);
+   }
+   metRows.replaceChildren(metFragment);
+   metSources.replaceChildren("2025年上期の修正後比較値には、関連会社投資の再測定益約640万SGDを含む。 ",
+    sourceLink(historical.annual_source.url,"年次報告書PDF"),"・",sourceLink(historical.interim_source.url,"中間報告書PDF"));
    const segment=update.parent_segment_comparison;
    business.replaceChildren(
     "MIM 2026年1–9月（発行体公表・未監査）。売上 "+update.revenue_usd_millions.toFixed(1)+
@@ -188,8 +228,8 @@
     "親会社Mi Technovationの半導体材料部門（SMBU）の外部顧客売上。2025年1–9月 "+
     money(segment.prior_revenue_thousands)+"千MYR、2026年1–9月 "+money(segment.current_revenue_thousands)+
     "千MYR、前年同期比 "+pct(update.segmentRevenueYoY)+"。 ",sourceLink(segment.source.url,"親会社の四半期報告書PDF"));
-  }).catch(e=>{body.replaceChildren();capitalRows.replaceChildren();status.textContent="資料照合エラー："+e.message;});
+  }).catch(e=>{body.replaceChildren();capitalRows.replaceChildren();metRows.replaceChildren();status.textContent="資料照合エラー："+e.message;});
  }
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);
- if(typeof module!=="undefined"&&module.exports)module.exports={build,compare,pct};
+ if(typeof module!=="undefined"&&module.exports)module.exports={build,compare,pct,buildMetFinancials};
 })(typeof window!=="undefined"?window:null);
