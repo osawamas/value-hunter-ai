@@ -110,6 +110,7 @@ on:
       - 'docs/test_sgx_union_thirty_v259.js'
       - 'docs/data/sgx-nineteen-original-html-sha-v262.json'
       - 'docs/test_sgx_original_html_proof_v262.js'
+      - 'docs/test_sgx_financial_join_v263.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
       - '.github/workflows/sgx-original-pdf-probe-v246.yml'
