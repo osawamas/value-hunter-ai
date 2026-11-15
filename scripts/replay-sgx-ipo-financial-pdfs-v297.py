@@ -45,6 +45,12 @@ def validate_manifest(data):
             len(s["expected_headline_terms"])<2 or
             not isinstance(s.get("historical_audited_periods"),list)):
             raise ValueError("Unapproved SGX original PDF source/verification terms")
+        digest=s.get("github_actions_confirmed_sha256")
+        expected_bytes=s.get("github_actions_confirmed_original_bytes")
+        if (not isinstance(digest,str) or not re.fullmatch(r"[a-f0-9]{64}",digest)
+            or not isinstance(expected_bytes,int) or expected_bytes<25000
+            or expected_bytes>MAX_BYTES or s.get("original_replay_run_id")!=43676027936):
+            raise ValueError("Original source SHA/byte proof must be from verified 43676027936")
         ids.append(fid[0])
     if len(set(ids))!=3:raise ValueError("Duplicate source FileID")
     return sources
@@ -84,6 +90,10 @@ def acquire(doc):
             if actual.scheme!="https" or actual.hostname!="links.sgx.com":
                 raise ValueError("Redirect out of SGX original domain")
             body=response.read(MAX_BYTES+1)
+        if hashlib.sha256(body).hexdigest()!=doc["github_actions_confirmed_sha256"]:
+            raise ValueError("SGX PDF original digest drift")
+        if len(body)!=doc["github_actions_confirmed_original_bytes"]:
+            raise ValueError("SGX PDF original byte length drift")
         checks=extract_checks(body,doc["expected_headline_terms"])
     except (OSError,urllib.error.URLError,ValueError,RuntimeError,subprocess.TimeoutExpired) as ex:
         reason=type(ex).__name__
