@@ -188,9 +188,19 @@ function readPersonalShares(csv) {
   return shares;
 }
 
+function filingSharesOn(row, date) {
+  const interim = row.quarterly?.shares;
+  const annual = row.financials?.shares;
+  return [interim, annual].filter(share => share?.as_of === date && !share.rounded);
+}
+
 function matchScenarioShares(id, date, published, personalShares) {
   const csv = personalShares.get(id + ":" + date);
-  const exact = published.as_of === date && !published.rounded ? published.value : undefined;
+  const filings = Array.isArray(published) ? published : [published];
+  const exactCounts = new Set(filings.filter(share => share?.as_of === date && !share.rounded &&
+    Number.isSafeInteger(share.value) && share.value > 0).map(share => share.value));
+  if (exactCounts.size > 1) return {value: null, state: "conflict"};
+  const exact = exactCounts.values().next().value;
   if (exact !== undefined && csv !== undefined && exact !== csv) return {value: null, state: "conflict"};
   if (exact !== undefined) return {value: exact, state: "filing"};
   if (csv !== undefined) return {value: csv, state: "csv"};
@@ -212,6 +222,28 @@ function calculateMarketScenario(finance, {date, price, shares}) {
   };
 }
 
+function evaluatePersonalQuotes(rows, quotes, shares) {
+  const issuers = new Map(rows.map(row => [row.id, row]));
+  return Array.from(quotes, ([id, quote]) => {
+    const row = issuers.get(id);
+    const entry = {id, label: row?.label || id, quote};
+    if (!row) return {...entry, state: "unknown"};
+    if (!row.financials) return {...entry, state: "noFinance"};
+    const finance = row.financials;
+    if (quote.currency !== finance.currency || quote.date < finance.periods.at(-1).end) {
+      return {...entry, state: "incompatible"};
+    }
+    const match = matchScenarioShares(id, quote.date, filingSharesOn(row, quote.date), shares);
+    if (match.value === null) return {...entry, state: match.state};
+    try {
+      const result = calculateMarketScenario(finance, {...quote, shares: match.value});
+      return {...entry, state: match.state, shares: match.value, result};
+    } catch {
+      return {...entry, state: "invalid"};
+    }
+  });
+}
+
 async function initMarketResearch() {
   const byId = id => document.getElementById(id);
   const filter = byId("marketFilter"), query = byId("marketQuery");
@@ -221,6 +253,7 @@ async function initMarketResearch() {
   const scenarioResult = byId("marketScenarioResult");
   const selected = new Map();
   let selectedFinance;
+  let marketRows = [];
   let activeRow;
   let personalQuotes = new Map();
   let personalShares = new Map();
@@ -272,25 +305,40 @@ async function initMarketResearch() {
   const shareLabels = {
     filing: "同日の株数あり（掲載資料）",
     csv: "同日の株数あり（株数CSV）",
-    conflict: "株数CSVと掲載資料が不一致。原資料を照合してから入力",
+    conflict: "株数資料間で不一致。原資料を照合してから入力",
     missing: "同日の株数が未取得",
   };
-  const filingShares = date => {
-    const interim = activeRow.quarterly?.shares;
-    return interim?.as_of === date ? interim : selectedFinance.shares;
+  const multiple = value => value === null ? "—" : value.toFixed(2) + "倍";
+  const batchLabels = {...shareLabels, unknown: "銘柄が調査一覧に未登録", noFinance: "一括試算用の年次財務が未接続",
+    incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
+  const paintBatch = () => {
+    const results = evaluatePersonalQuotes(marketRows, personalQuotes, personalShares);
+    byId("personalBatchTable").hidden = results.length === 0;
+    byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
+      " / " + results.length + "件を試算" : "";
+    byId("personalBatchRows").replaceChildren(...results.map(row => {
+      const {result, quote} = row;
+      const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
+        quote.date, quote.currency, money.format(quote.price), row.shares ? money.format(row.shares) : "—",
+        result ? money.format(result.cap) : "—", result ? multiple(result.per) : "—",
+        result ? multiple(result.pbr) : "—", result?.periodEnd || "—", batchLabels[row.state]];
+      const tr = document.createElement("tr");
+      tr.append(...values.map(value => element("td", value)));
+      return tr;
+    }));
   };
   const applyPersonalQuote = () => {
     const quote = personalQuotes.get(activeRow.id);
     const lastEnd = byId("scenarioDate").min;
     const eligible = quote && quote.currency === selectedFinance.currency && quote.date >= lastEnd;
     byId("activatePersonalQuote").disabled = !eligible;
-    const match = eligible && matchScenarioShares(activeRow.id, quote.date, filingShares(quote.date), personalShares);
+    const match = eligible && matchScenarioShares(activeRow.id, quote.date, filingSharesOn(activeRow, quote.date), personalShares);
     byId("personalQuoteMatch").textContent = eligible ? "CSV終値 " + money.format(quote.price) +
       " " + quote.currency + "（" + quote.date + "）。" + shareLabels[match.state] : "";
   };
   byId("activatePersonalQuote").addEventListener("click", () => {
     const {date, price} = personalQuotes.get(activeRow.id);
-    const shares = matchScenarioShares(activeRow.id, date, filingShares(date), personalShares);
+    const shares = matchScenarioShares(activeRow.id, date, filingSharesOn(activeRow, date), personalShares);
     dateInput.value = date;
     priceInput.value = price;
     sharesInput.value = shares.value ?? "";
@@ -305,6 +353,7 @@ async function initMarketResearch() {
       const file = event.target.files[0];
       const message = byId(statusId);
       save(new Map());
+      paintBatch();
       clear();
       scenarioResult.textContent = "";
       message.textContent = "";
@@ -316,6 +365,7 @@ async function initMarketResearch() {
         if (readId !== sequence) return;
         const rows = read(csv);
         save(rows);
+        paintBatch();
         message.textContent = label + rows.size + "件読み込んだ";
         if (activeRow) applyPersonalQuote();
       } catch (error) {
@@ -393,7 +443,6 @@ async function initMarketResearch() {
         price: byId("scenarioPrice").valueAsNumber,
         shares: byId("scenarioShares").valueAsNumber,
       });
-      const multiple = value => value === null ? "—" : value.toFixed(2) + "倍";
       scenarioResult.textContent = "参考時価総額 " + money.format(result.cap) + " " + result.currency +
         "、PER " + multiple(result.per) + "、PBR " + multiple(result.pbr) +
         "。財務基準日 " + result.periodEnd + "。";
@@ -438,6 +487,8 @@ async function initMarketResearch() {
     }));
     byId("sgxBusinessUpdates").hidden = updateRows.length === 0;
     const rows = buildMarketRows(research, sgx);
+    marketRows = rows;
+    paintBatch();
     byId("marketCoverageRows").replaceChildren(...summarizeMarketCoverage(rows).map(row => {
       const tr = document.createElement("tr");
       const name = element("th", row.label);
@@ -513,4 +564,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes};

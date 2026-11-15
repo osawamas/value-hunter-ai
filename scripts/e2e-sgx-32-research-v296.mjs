@@ -102,6 +102,10 @@ try{
   buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nJP:7203,2026-09-30,JPY,3000\nUS:AAPL,2026-11-13,USD,356"),
  });
  await page.locator("#personalQuoteStatus").getByText(/終値を 3件/).waitFor();
+ const batch = page.locator("#personalBatchRows tr");
+ assert.match(await page.locator("#personalBatchStatus").innerText(),/2 \/ 3件を試算/);
+ assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
+ assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
  await page.getByRole("button",{name:"CSV終値を使う"}).click();
  assert.equal(await page.locator("#scenarioShares").inputValue(),"3496382520");
  assert.equal(await page.locator("#scenarioPrice").inputValue(),"300");
@@ -125,6 +129,8 @@ try{
   buffer:Buffer.from("market_id,date,shares_excluding_treasury\nUS:AAPL,2026-11-12,14500000001\nUS:AAPL,2026-11-13,14500000000\nJP:7201,2026-03-31,1"),
  });
  await page.locator("#personalShareStatus").getByText(/株数を 3件/).waitFor();
+ assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/5,162,000,000,000.*株数CSV/s);
+ assert.match(await batch.filter({hasText:"JP:7201"}).innerText(),/株数資料間で不一致/);
  await page.getByRole("button",{name:"CSV終値を使う"}).click();
  assert.equal(await page.locator("#scenarioShares").inputValue(),"14500000000");
  await page.locator("#scenarioDate").fill("2026-11-12");
@@ -132,6 +138,7 @@ try{
  assert.equal(await page.locator("#scenarioShares").inputValue(),"");
  await page.getByRole("button",{name:"CSV終値を使う"}).click();
  await page.locator("#personalShareFile").setInputFiles([]);
+ assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
  assert.equal(await page.locator("#scenarioShares").inputValue(),"");
  assert.equal(await page.locator("#scenarioPrice").inputValue(),"356");
  await page.locator("#personalShareFile").setInputFiles({
