@@ -32,7 +32,7 @@ def source_rows():
        data["ranking_eligible"] is not False):
         raise ValueError("SGX bank source changed")
     o=[x for x in data["entries"] if x["symbol"]=="O39"]
-    if len(o)!=1 or o[0]["q3profit"]!=2042 or o[0]["nineprofit"]!=6237 or
+    if (len(o)!=1 or o[0]["q3profit"]!=2042 or o[0]["nineprofit"]!=6237 or
        o[0]["q3nii"]!=2313 or o[0]["ninenii"]!=6798):
         raise ValueError("OCBC SGX source numbers changed")
     return o[0]
