@@ -128,6 +128,8 @@ on:
       - 'docs/test_ocbc_second_source_v286.js'
       - 'docs/test_dbs_second_source_v287.js'
       - 'docs/test_uob_second_source_v288.js'
+      - 'docs/test_ranking_provenance_v289.js'
+      - 'scripts/check-ranking-provenance-v289.js'
       - 'docs/uob-second-source-v288.js'
       - 'docs/data/uob-issuer-pdf-q3-2026-v288.json'
       - 'docs/dbs-second-source-v287.js'
