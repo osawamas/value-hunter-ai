@@ -101,7 +101,7 @@
      uob.shares_purchased_on_event!==old.cancelled||
      uob.shares_cancelled_on_event!==old.cancelled||
      uob.treasury_shares_after_event!==14548000||
-     !/^[0-9a-f]{64}$/.test(uob.original_html_sha256||"")||
+     uob.original_html_sha256!=="02722c970c4200e6507d60fbaa5458a2bcf43d96686f5111853bffb800e6e8e2"||
      uob.original_html_bytes!==7612||
      uob.original_issuer_isin_announcement_and_share_labels_matched!==true||
      uob.official_source_url!==old.source||
