@@ -185,14 +185,23 @@ function readPersonalQuotes(csv) {
   return selectQuoteDate(readQuoteHistory(csv));
 }
 
+function parsePublishedShareRow(line) {
+  const match = /^"([^"]+)","([^"]+)","(\d+)","(?:[^"]|"")*"$/.exec(line);
+  return match ? match.slice(1) : [];
+}
+
 function readPersonalShares(csv) {
   const lines = csv.replace(/^\uFEFF/, "").trim().split(/\r?\n/);
-  if (lines.shift() !== "market_id,date,shares_excluding_treasury") {
-    throw Error("CSVの見出しは market_id,date,shares_excluding_treasury");
-  }
+  const header = lines.shift();
+  const expected = "market_id,date,shares_excluding_treasury";
+  const sourced = header === expected + ",filing_source_url";
+  if (header !== expected && !sourced) throw Error("CSVの見出しは " + expected);
   const shares = new Map();
   for (const [index, line] of lines.entries()) {
-    const [id, date, count, extra] = line.split(",").map(value => value.trim());
+    // An exported source URL is informational. Only the in-app filing records
+    // can establish the source link and evidence state of a valuation.
+    const cells = sourced ? parsePublishedShareRow(line) : line.split(",").map(value => value.trim());
+    const [id, date, count, extra] = cells;
     const value = Number(count);
     const key = id + ":" + date;
     if (extra !== undefined || !/^(JP|US|SG):[A-Z0-9.-]{1,12}$/.test(id) ||
@@ -894,9 +903,9 @@ async function initMarketResearch() {
     shareExport.addEventListener("click", () => {
       const records = sessions.get(shareDates.value) || [];
       if (!records.length) return;
-      const csvCell = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+
       const csv = ["market_id,date,shares_excluding_treasury,filing_source_url",
-        ...records.map(record => [record.id, shareDates.value, record.value, record.source].map(csvCell).join(","))].join("\r\n");
+        ...records.map(record => [record.id, shareDates.value, String(record.value), record.source].map(csvCell).join(","))].join("\r\n");
       saveResearchCsv(csv, "value-hunter-published-shares-" + shareDates.value + ".csv");
     });
     paintBatch();

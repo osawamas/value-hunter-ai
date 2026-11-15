@@ -149,6 +149,12 @@ try{
  assert.match(await shareDay.innerText(),/JP:7203 11,778,247,313株/);
  assert.match(await shareDay.innerText(),/US:IBM 945,120,805株/);
  assert.doesNotMatch(await shareDay.innerText(),/US:GOOGL|US:META/);
+ const exactSharesDownload = page.waitForEvent("download");
+ await page.getByRole("button",{name:"選択日の開示株数CSVを保存"}).click();
+ const exactSharesFile = await exactSharesDownload;
+ assert.equal(exactSharesFile.suggestedFilename(),"value-hunter-published-shares-2026-09-30.csv");
+ await page.locator("#personalShareFile").setInputFiles(await exactSharesFile.path());
+ await page.locator("#personalShareStatus").getByText(/株数を [1-9]\d*件/).waitFor();
  await page.locator("#personalQuoteFile").setInputFiles({
   name:"quotes.csv", mimeType:"text/csv",
   buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nJP:7203,2026-09-30,JPY,3000\nUS:AAPL,2026-11-13,USD,356\nSG:S63,2026-11-13,SGD,10\nJP:7203,2026-03-31,JPY,2900"),
