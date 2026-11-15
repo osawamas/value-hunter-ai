@@ -57,11 +57,31 @@ function compareAnnual(finance) {
   }));
 }
 
+function calculateMarketScenario(finance, {date, price, shares}) {
+  const last = compareAnnual(finance).at(-1);
+  const parsed = new Date(date + "T00:00:00Z");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== date || date < last.end ||
+      !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(shares) || shares <= 0) {
+    throw Error("決算期末以降の基準日、正の株価と株数を入力して");
+  }
+  const cap = price * shares;
+  if (!Number.isFinite(cap) || cap > Number.MAX_SAFE_INTEGER) throw Error("時価総額の計算範囲を超えている");
+  return {
+    cap, per: last.net_income > 0 ? cap / last.net_income : null,
+    pbr: last.parent_equity > 0 ? cap / last.parent_equity : null,
+    currency: finance.currency, periodEnd: last.end,
+  };
+}
+
 async function initMarketResearch() {
   const byId = id => document.getElementById(id);
   const filter = byId("marketFilter"), query = byId("marketQuery");
   const status = byId("marketCount"), body = byId("marketRows");
   const panel = byId("marketDetails");
+  const scenario = byId("marketScenario");
+  const scenarioResult = byId("marketScenarioResult");
+  let selectedFinance;
   const element = (tag, value) => Object.assign(document.createElement(tag), {textContent: value});
   const link = (url, label) => {
     if (!url.startsWith("https://") && !["./sgx-32-research.html", "./index.html"].includes(url)) throw Error("出典URLが不明");
@@ -85,8 +105,30 @@ async function initMarketResearch() {
     const sources = byId("marketFinancialSources");
     sources.replaceChildren(link(finance.source, "財務データの出典"));
     if (finance.filing_url) sources.append(" · ", link(finance.filing_url, "SEC提出書類"));
+    selectedFinance = finance;
+    scenario.reset();
+    scenarioResult.textContent = "";
+    byId("scenarioCurrency").textContent = finance.currency;
+    byId("scenarioDate").min = periods.at(-1).end;
     panel.hidden = false;
   };
+  scenario.addEventListener("input", () => { scenarioResult.textContent = ""; });
+  scenario.addEventListener("submit", event => {
+    event.preventDefault();
+    try {
+      const result = calculateMarketScenario(selectedFinance, {
+        date: byId("scenarioDate").value,
+        price: byId("scenarioPrice").valueAsNumber,
+        shares: byId("scenarioShares").valueAsNumber,
+      });
+      const multiple = value => value === null ? "—" : value.toFixed(2) + "倍";
+      scenarioResult.textContent = "参考時価総額 " + money.format(result.cap) + " " + result.currency +
+        "、PER " + multiple(result.per) + "、PBR " + multiple(result.pbr) +
+        "。財務基準日 " + result.periodEnd + "。";
+    } catch (error) {
+      scenarioResult.textContent = error.message;
+    }
+  });
   try {
     const [research, sgx] = await Promise.all(["./data/market-research-v315.json", "./data/latest.json"].map(async path => {
       const response = await fetch(path, {cache: "no-store"});
@@ -123,4 +165,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario};

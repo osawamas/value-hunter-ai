@@ -79,6 +79,13 @@ try{
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
  assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/50,684,952,000,000/);
+ await page.locator("#marketQuery").fill("7201");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ await page.locator("#scenarioDate").fill("2026-03-31");
+ await page.locator("#scenarioPrice").fill("300");
+ await page.locator("#scenarioShares").fill("3496382520");
+ await page.getByRole("button",{name:"試算する"}).click();
+ assert.match(await page.locator("#marketScenarioResult").innerText(),/参考時価総額 1,048,914,756,000 JPY、PER —、PBR 0\.22倍/);
  await page.locator("#marketFilter").selectOption("US");
  await page.locator("#marketQuery").fill("AAPL");
  await page.getByRole("button",{name:"財務を見る"}).click();
