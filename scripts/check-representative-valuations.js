@@ -25,7 +25,10 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
     const evidence = {id, date, shares: shares.value, shareSource: shares.source};
     if (shares.disclosedOn) {
       evidence.shareDisclosureDate = shares.disclosedOn;
-      evidence.shareDisclosedAfterSession = shares.disclosedOn > date;
+      evidence.shareDisclosedAt = shares.disclosedAt;
+      evidence.shareDisclosureTiming = shares.disclosureTiming;
+      evidence.shareDisclosedAfterSession = shares.disclosureTiming === "time_unknown" ? null :
+        ["after_date", "after_close"].includes(shares.disclosureTiming);
     }
     if (!observation) return {...evidence, status: "missing_exact_close"};
     const [valuation] = evaluatePersonalQuotes(rows, new Map([[id, observation]]), new Map(), shareReview);

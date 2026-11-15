@@ -20,5 +20,7 @@
   "ranking_eligible": false,
   "financial_feed_modified": false,
   "sgx_share_announcement_reference": "SG261113OTHRPXGV",
-  "sgx_share_disclosed_at_sgt": "2026-11-13T18:21:18+08:00"
+  "sgx_share_disclosed_at_sgt": "2026-11-13T18:21:18+08:00",
+  "sgx_session_end_at_sgt": "2026-11-13T17:16:00+08:00",
+  "sgx_session_hours_source_url": "https://www.sgx.com/stock-exchange/securities-prices"
 }

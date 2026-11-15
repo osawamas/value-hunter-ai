@@ -74,11 +74,16 @@ function sgxSupplementalShare(row, date, review) {
       review.original_sgx_share_snapshot_on_same_date !== true ||
       !Number.isSafeInteger(review.original_sgx_shares_ex_treasury) || review.original_sgx_shares_ex_treasury <= 0 ||
       !review.sgx_share_source_url?.startsWith("https://links.sgx.com/")) return null;
+  const validTimestamp = value => typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\+08:00$/.test(value) &&
+    isMarketDate(value.slice(0, 10));
   const broadcast = review.sgx_share_disclosed_at_sgt;
-  const announced = typeof broadcast === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$/.test(broadcast)
-    && Number.isFinite(Date.parse(broadcast)) ? broadcast.slice(0, 10) : undefined;
-  return {date, value: review.original_sgx_shares_ex_treasury, source: review.sgx_share_source_url,
-    disclosedOn: announced && announced >= date ? announced : undefined};
+  const disclosedAt = validTimestamp(broadcast) && broadcast.slice(0, 10) >= date ? broadcast : undefined;
+  const sessionEnd = review.sgx_session_end_at_sgt;
+  const sessionEndedAt = validTimestamp(sessionEnd) && sessionEnd.slice(0, 10) === date &&
+    review.sgx_session_hours_source_url?.startsWith("https://www.sgx.com/") ? sessionEnd : undefined;
+  return {as_of: date, value: review.original_sgx_shares_ex_treasury, source: review.sgx_share_source_url,
+    disclosedOn: disclosedAt?.slice(0, 10), disclosedAt, sessionEndedAt};
 }
 
 function sgxComparison(feed, record) {
@@ -257,9 +262,7 @@ function filingSharesOn(row, date, shareReview) {
     ].includes(sgx.shares_verification_status)
     ? {as_of: sgx.shares_as_of_date, value: sgx.shares_outstanding, source: sgx.shares_source_url} : null;
   const supplemental = sgxSupplementalShare(row, date, shareReview);
-  const datedSupplement = supplemental ? {as_of: supplemental.date, value: supplemental.value, source: supplemental.source,
-    disclosedOn: supplemental.disclosedOn} : null;
-  return [interim, annual, currentShare, datedSupplement].filter(share => share?.as_of === date && !share.rounded);
+  return [interim, annual, currentShare, supplemental].filter(share => share?.as_of === date && !share.rounded);
 }
 
 function publishedShareSessions(rows, shareReview) {
@@ -274,7 +277,8 @@ function publishedShareSessions(rows, shareReview) {
       const match = matchScenarioShares(row.id, date, evidence, new Map());
       if (match.state !== "filing") continue;
       if (!sessions.has(date)) sessions.set(date, []);
-      sessions.get(date).push({id: row.id, value: match.value, source: match.source, disclosedOn: match.disclosedOn});
+      const {value, source, disclosedOn, disclosedAt, disclosureTiming} = match;
+      sessions.get(date).push({id: row.id, value, source, disclosedOn, disclosedAt, disclosureTiming});
     }
   }
   return new Map([...sessions].sort(([a], [b]) => b.localeCompare(a)));
@@ -290,7 +294,13 @@ function matchScenarioShares(id, date, published, personalShares) {
   if (exact !== undefined && csv !== undefined && exact !== csv) return {value: null, state: "conflict"};
   if (exact !== undefined) {
     const filing = filings.find(share => share?.as_of === date && !share.rounded && share.value === exact);
-    return {value: exact, state: "filing", source: filing.source, disclosedOn: filing.disclosedOn};
+    const {source, disclosedOn, disclosedAt, sessionEndedAt} = filing;
+    let disclosureTiming;
+    if (disclosedOn > date) disclosureTiming = "after_date";
+    else if (disclosedAt && sessionEndedAt) {
+      disclosureTiming = Date.parse(disclosedAt) > Date.parse(sessionEndedAt) ? "after_close" : "by_session_end";
+    } else if (disclosedOn) disclosureTiming = "time_unknown";
+    return {value: exact, state: "filing", source, disclosedOn, disclosedAt, disclosureTiming};
   }
   if (csv !== undefined) return {value: csv, state: "csv"};
   return {value: null, state: "missing"};
@@ -403,7 +413,7 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
       const inputs = {...quote, shares: match.value};
       const result = calculateWithAnnualPeriod(currency, latest, inputs);
       return {...entry, state: match.state, shares: match.value, shareSource: match.source, shareDisclosureDate: match.disclosedOn,
-        result};
+        shareDisclosedAt: match.disclosedAt, shareDisclosureTiming: match.disclosureTiming, result};
     } catch {
       return {...entry, state: "invalid"};
     }
@@ -485,12 +495,14 @@ function saveResearchCsv(content, filename) {
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
-    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date"];
+    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date",
+    "share_disclosed_at", "share_disclosure_timing"];
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
     Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
-    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate].map(csvCell).join(","));
+    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate,
+    row.shareDisclosedAt, row.shareDisclosureTiming].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -625,9 +637,12 @@ async function initMarketResearch() {
       const sourceCell = element("td", "");
       if (row.financeSource?.startsWith("https://")) sourceCell.append(link(row.financeSource, "財務資料"));
       if (row.shareSource?.startsWith("https://")) sourceCell.append(" ", link(row.shareSource, "株数資料"));
-      tr.append(sourceCell, element("td", row.shareDisclosureDate
-        ? row.shareDisclosureDate + (row.shareDisclosureDate > quote.date ? "（取引日より後）" : "")
-        : "—"));
+      const disclosureLabel = {
+        after_date: "（取引日より後）", after_close: "（取引終了後）",
+        by_session_end: "（取引終了までに公表）", time_unknown: "（取引終了との前後は不明）",
+      }[row.shareDisclosureTiming] ?? "";
+      const disclosure = row.shareDisclosedAt?.replace("T", " ").replace("+08:00", " SGT") || row.shareDisclosureDate;
+      tr.append(sourceCell, element("td", disclosure ? disclosure + disclosureLabel : "—"));
       return tr;
     }));
   };
