@@ -9,6 +9,8 @@ on:
       - 'scripts/e2e-sgx-browser-v268.mjs'
       - 'scripts/e2e-sgx-32-research-v296.mjs'
       - 'scripts/run-browser-regressions.sh'
+      - 'scripts/check-ranking-provenance-v289.js'
+      - 'scripts/check-ranking-license-evidence-v290.js'
 permissions:
   contents: read
 jobs:
@@ -17,6 +19,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Validate bundled ranking data
+        run: node scripts/check-ranking-license-evidence-v290.js
       - name: Assemble standalone static web app ZIP
         run: |
           mkdir -p build/release-v270

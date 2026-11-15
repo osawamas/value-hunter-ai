@@ -26,6 +26,8 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      validated_sha: ${{ steps.revision.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +85,9 @@ jobs:
           node docs/test_ranking_blockers_v185.js
           node --check docs/bank-combined-v187.js
           node docs/test_bank_combined_v187.js
+      - name: Record verified commit for distribution
+        id: revision
+        run: git rev-parse HEAD | sed 's/^/sha=/' >> "$GITHUB_OUTPUT"
   # v249: keep a usable static dashboard snapshot even if Pages is disabled.
   # This is a download artifact, not a deployed website or proof of market-data rights.
   dashboard-preview:
@@ -92,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.validate.outputs.validated_sha }}
       - name: Package complete static dashboard without modifying ranking data
         run: |
           test -f docs/index.html
@@ -152,7 +157,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.validate.outputs.validated_sha }}
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Package dashboard

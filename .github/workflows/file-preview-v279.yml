@@ -9,6 +9,8 @@ on:
       - 'scripts/e2e-sgx-browser-v268.mjs'
       - 'scripts/e2e-sgx-32-research-v296.mjs'
       - 'scripts/run-browser-regressions.sh'
+      - 'scripts/check-ranking-provenance-v289.js'
+      - 'scripts/check-ranking-license-evidence-v290.js'
       - 'docs/**'
 permissions:
   contents: read
@@ -18,6 +20,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Validate bundled ranking data
+        run: node scripts/check-ranking-license-evidence-v290.js
       - name: Build file scheme browser preview from public JSON snapshots
         run: |
           python3 scripts/build-file-preview-v279.py
