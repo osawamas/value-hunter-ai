@@ -36,6 +36,27 @@
   if(cell!==""||row.length||closed){row.push(cell);rows.push(row)}
   return rows.filter(cells=>cells.some(x=>x.trim()!==""));
  }
+ const headerAliases={
+  code:["trading code","stock code","security code","ticker","code"],
+  name:["trading name","stock name","security name","company name","issuer name","name"],
+  board:["listing board","market board","listing market","board"],
+  currency:["traded currency","trading currency","currency","ccy"]
+ };
+ function mapHeaders(header){
+  if(!Array.isArray(header)||header.length<2||header.length>40)
+   throw Error("CSV列数が不正");
+  const normalized=header.map(v=>String(v).trim().toLocaleLowerCase("en").replace(/[ _-]+/g," "));
+  const pos={};
+  for(const [key,aliases] of Object.entries(headerAliases)){
+   const matches=normalized.map((label,i)=>aliases.includes(label)?i:-1).filter(i=>i>=0);
+   if(matches.length>1)throw Error("同じ意味の列が重複");
+   pos[key]=matches.length?matches[0]:-1;
+  }
+  if(pos.code<0||pos.name<0||pos.code===pos.name)
+   throw Error("Trading Code と Trading Name に相当する列が必要");
+  return {positions:pos,extraColumns:header.length-
+    Object.values(pos).filter(i=>i>=0).length};
+ }
  function stageCSV(raw,url,asOf,candidates,finance){
   let parsed;
   try{parsed=new URL(url)}catch{throw Error("SGXの原本出典URLが不正");}
@@ -55,15 +76,22 @@
    finance.ranking_eligible_count!==0||finance.records?.length!==7)
    throw Error("既存の候補または財務データの状態が不正");
   const rows=parseCSV(raw);
-  if(rows[0]?.length!==4||head.some((v,i)=>rows[0][i]!==v))
-   throw Error("見出しが異なる：Trading Code,Trading Name,Listing Board,Traded Currency");
+  const {positions,extraColumns}=mapHeaders(rows[0]||[]);
   if(rows.length<2||rows.length>1201)throw Error("取り込み可能範囲は1〜1200銘柄");
   const checked=new Set(),list=[];
   for(const fields of rows.slice(1)){
-   if(fields.length!==4)throw Error("列数が不正");
-   const [code,name,board,curr]=fields.map(x=>x.trim());
+   if(fields.length!==rows[0].length)throw Error("列数が不正");
+   const code=fields[positions.code].trim().toUpperCase();
+   const name=fields[positions.name].trim();
+   let board=positions.board<0?"UNKNOWN":fields[positions.board].trim().toUpperCase();
+   let curr=positions.currency<0?"UNKNOWN":fields[positions.currency].trim().toUpperCase();
+   if(board==="MAIN BOARD")board="MAINBOARD";
+   if(curr==="S$")curr="SGD";
+   if(curr==="US$")curr="USD";
    if(!/^[A-Z0-9]{1,6}$/.test(code)||!name||name.length>180||
-     /^[=+@\-]/.test(name)||!boards.has(board)||!currency.has(curr)||checked.has(code))
+     /[\x00-\x1F\x7F]/.test(name)||/^[=+@\-]/.test(name)||
+     !new Set([...boards,"UNKNOWN"]).has(board)||
+     !new Set([...currency,"UNKNOWN"]).has(curr)||checked.has(code))
     throw Error("コード・会社名・市場区分・通貨に不正または重複");
    checked.add(code);
    list.push({code,name,board,currency:curr,sourceClassification:"USER_SUPPLIED_CSV_SOURCE_NOT_VERIFIED",
@@ -80,6 +108,11 @@
    as_of:asOf,source_url:parsed.href,
    file_bytes_utf16:raw.length,
    number_of_rows:list.length,
+   imported_header_mode:positions.board<0||positions.currency<0?"TWO_REQUIRED_FIELDS_OPTIONAL_METADATA":"FOUR_CORE_FIELDS",
+   ignored_unmapped_input_columns:extraColumns,
+   optional_listing_board_supplied:positions.board>=0,
+   optional_traded_currency_supplied:positions.currency>=0,
+   market_prices_extracted:false,
    matching_third_party_candidates:list.filter(x=>candidateSet.has(x.code)).length,
    matching_registered_financial_records:list.filter(x=>financeSet.has(x.code)).length,
    registered_financial_codes_absent:missingFinance,
@@ -171,7 +204,8 @@
       return response.json();
      }));
     staged=stageCSV(content,form.elements.sourceURL.value,form.elements.asOf.value,candidates,finance);
-    result.textContent="手入力CSV "+staged.number_of_rows+"件 / 第三者候補とコード一致 "+
+    result.textContent="手入力CSV "+staged.number_of_rows+"件（余分な"+staged.ignored_unmapped_input_columns+
+     "列は無視。株価・時価総額の取込なし） / 第三者候補とコード一致 "+
      staged.matching_third_party_candidates+"件 / 財務登録と一致 "+
      staged.matching_registered_financial_records+
      "件。原本・全銘柄・現在上場は未検証。ランキングへの登録は行っていない。";
@@ -198,6 +232,6 @@
   }
  });
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={parseCSV,stageCSV,pageOf};
+ if(typeof module!=="undefined"&&module.exports)module.exports={parseCSV,stageCSV,pageOf,mapHeaders};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);
 })(typeof window!=="undefined"?window:null);
