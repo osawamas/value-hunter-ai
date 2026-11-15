@@ -1,0 +1,37 @@
+{
+  "schema_version": "uob-sgxnet-official-original-share-count-2026-11-12-v284",
+  "original_checked_at_utc": "2026-11-15T01:41:35Z",
+  "original_workflow_run": "https://github.com/osawamas/value-hunter-ai/actions/runs/43664272047",
+  "official_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/MTW96I6ZXZBTQZK8/7c3dc707a598dc02da057fc772c1ba67abe1b9b3ceb4fe9d2b92fd00b510d97d",
+  "original_html_sha256": "02722c970c4200e6507d60fbaa5458a2bcf43d96686f5111853bffb800e6e8e2",
+  "original_html_bytes": 7612,
+  "issuer": "UNITED OVERSEAS BANK LIMITED",
+  "symbol": "U11",
+  "isin": "SG1M31001969",
+  "announcement_ref": "SG261112OTHRSYPK",
+  "event_date": "2026-11-12",
+  "original_issuer_isin_announcement_and_share_labels_matched": true,
+  "shares_purchased_on_event": 34000,
+  "shares_cancelled_on_event": 34000,
+  "issued_excluding_treasury_after_event": 1646711591,
+  "treasury_shares_after_event": 14548000,
+  "next_day_notice_known_but_original_not_confirmed": {
+    "event_date": "2026-11-13",
+    "announcement_ref": "SG261113OTHRHOAF",
+    "secondary_source_url": "https://classic.shareinvestor.com/news/news.html?nid=515671689&source=sg_sgxnet",
+    "original_sgxnet_url_verified": false,
+    "secondary_reports_issued_excluding_treasury_after_event": 1646677591,
+    "secondary_reports_shares_purchased_and_cancelled": 34000,
+    "not_suitable_for_current_verified_share_count": true
+  },
+  "current_issued_shares_verified": false,
+  "current_quote_verified": false,
+  "quote_licence_verified": false,
+  "independent_issuer_share_count_verified": false,
+  "stock_ranking_eligible": false,
+  "limits": [
+    "12 November original is an historical share count, not 15 November active float.",
+    "13 November numbers are presently supported only by a secondary reproduction, not the official SGXNet original.",
+    "Buyback price ranges are not current licensed market quotes; none are used in valuation."
+  ]
+}
