@@ -64,11 +64,18 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     if (!changes) continue;
     const change = !before ? "added" : !after ? "removed" :
       before.price === after.price ? "unchanged" : "revised";
-    const hasExactShares = shareSessions.get(date)?.some(record => record.id === id) ?? false;
-    changes.push({
+    const shares = shareSessions.get(date)?.find(record => record.id === id);
+    const session = {
       date, change, previousPrice: before?.price ?? null, currentPrice: after?.price ?? null,
-      hasExactShares,
-    });
+      hasExactShares: Boolean(shares),
+    };
+    if (shares && change !== "unchanged") {
+      session.valuationImpact = {
+        previous: before ? reviewShareSession(rows, shareReview, id, date, shares, before) : null,
+        current: after ? reviewShareSession(rows, shareReview, id, date, shares, after) : null,
+      };
+    }
+    changes.push(session);
   }
 
   const updates = latest.results.map(result => {

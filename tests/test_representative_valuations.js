@@ -67,11 +67,12 @@ assert.deepEqual(refreshed[1].newerUnmatchedDates, ["2026-10-01"]);
 assert.equal(refreshed[2].status, "trial_calculated");
 assert.deepEqual(reviewQuoteRefresh(rows, shares, current, current).results.map(row => row.closeChange),
   ["unchanged", "absent", "unchanged"]);
-assert.deepEqual(refreshed[0].sessionChanges, [
+const sessionPrices = result => result.sessionChanges.map(({valuationImpact, ...session}) => session);
+assert.deepEqual(sessionPrices(refreshed[0]), [
   {date: "2026-09-30", change: "revised", previousPrice: 2500, currentPrice: 2501, hasExactShares: true},
   {date: "2026-10-01", change: "unchanged", previousPrice: 3000, currentPrice: 3000, hasExactShares: false},
 ]);
-assert.deepEqual(refreshed[2].sessionChanges, [
+assert.deepEqual(sessionPrices(refreshed[2]), [
   {date: "2026-11-12", change: "removed", previousPrice: 11, currentPrice: null, hasExactShares: false},
   {date: "2026-11-13", change: "added", previousPrice: null, currentPrice: 10, hasExactShares: true},
 ]);
@@ -85,7 +86,7 @@ const updated = readQuoteHistory([
 const subsequent = reviewQuoteRefresh(rows, shares, current, updated).results[0];
 assert.equal(subsequent.closeChange, "unchanged");
 assert.deepEqual(subsequent.newerUnmatchedDates, ["2026-10-01"]);
-assert.deepEqual(subsequent.sessionChanges, [
+assert.deepEqual(sessionPrices(subsequent), [
   {date: "2026-03-31", change: "added", previousPrice: null, currentPrice: 2900, hasExactShares: true},
   {date: "2026-09-30", change: "unchanged", previousPrice: 2501, currentPrice: 2501, hasExactShares: true},
   {date: "2026-10-01", change: "revised", previousPrice: 3000, currentPrice: 3010, hasExactShares: false},
@@ -114,4 +115,29 @@ assert.equal(restoredLatest.closeChange, "added");
 assert.equal(restoredLatest.status, "trial_calculated");
 assert.equal(restoredLatest.latestAvailableTrial, undefined);
 assert.equal(refreshed[1].latestAvailableTrial, undefined);
+
+const toyotaRevision = refreshed[0].sessionChanges[0].valuationImpact;
+assert.deepEqual([toyotaRevision.previous.valuation.cap, toyotaRevision.current.valuation.cap],
+  [2500 * 11778247313, 2501 * 11778247313]);
+assert.ok(toyotaRevision.current.valuation.per > toyotaRevision.previous.valuation.per);
+assert.ok(toyotaRevision.current.valuation.pbr > toyotaRevision.previous.valuation.pbr);
+assert.equal(toyotaRevision.current.shareSource, toyotaRevision.previous.shareSource);
+assert.equal(refreshed[1].sessionChanges[0].valuationImpact.current, null);
+assert.equal(refreshed[1].sessionChanges[0].valuationImpact.previous.valuation.cap, 200 * 945120805);
+assert.equal(refreshed[2].sessionChanges[1].valuationImpact.previous, null);
+assert.equal(refreshed[2].sessionChanges[1].valuationImpact.current.shareDisclosureTiming, "after_close");
+assert.equal(subsequent.sessionChanges[0].valuationImpact.current.date, "2026-03-31");
+assert.equal(subsequent.sessionChanges[1].valuationImpact, undefined);
+assert.equal(subsequent.sessionChanges[2].valuationImpact, undefined);
+const correctedOlderToyota = readQuoteHistory([
+  "market_id,date,currency,close",
+  "JP:7203,2026-03-31,JPY,3000",
+  "JP:7203,2026-09-30,JPY,2501",
+].join("\n"));
+const [olderRevision] = reviewQuoteRefresh(rows, shares, updated, correctedOlderToyota).results;
+assert.equal(olderRevision.closeChange, "unchanged");
+assert.equal(olderRevision.valuation.cap, 2501 * 11778247313);
+const olderImpact = olderRevision.sessionChanges[0].valuationImpact;
+assert.equal(olderImpact.previous.valuation.cap, 2900 * 13033384474);
+assert.equal(olderImpact.current.valuation.cap, 3000 * 13033384474);
 console.log("Representative valuation checks passed for JP, US and SG.");
