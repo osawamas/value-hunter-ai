@@ -33,6 +33,34 @@ try {
  assert.equal(await page.locator("#sgxManualMasterRows tr").count(),2);
  assert.match(await page.locator("#sgxManualMasterResult").innerText(),/原本・全銘柄・現在上場は未検証/);
 
+ // v280: import more than one page and verify browser search/pagination.
+ const largeCsv="Trading Code,Trading Name,Listing Board,Traded Currency\\r\\n"+
+  Array.from({length:120},(_,i)=>i.toString(36).toUpperCase().padStart(4,"0")+
+    ",Local Test Stock "+i+",MAINBOARD,SGD").join("\\r\\n")+"\\r\\n";
+ await page.locator('#sgxManualMasterForm input[name="masterFile"]').setInputFiles({
+  name:"sgx-many.csv",mimeType:"text/csv",buffer:Buffer.from(largeCsv,"utf8")
+ });
+ await page.locator('#sgxManualMasterForm button[type="submit"]').click();
+ await page.locator("#sgxManualMasterResult").getByText(/手入力CSV 120件/).waitFor({timeout:12000});
+ await page.locator("#sgxManualMasterPageStatus").getByText(/1\/3ページ/).waitFor();
+ assert.equal(await page.locator("#sgxManualMasterRows tr").count(),50);
+ await page.locator("#sgxManualMasterNext").click();
+ await page.locator("#sgxManualMasterPageStatus").getByText(/2\/3ページ/).waitFor();
+ await page.locator("#sgxManualMasterNext").click();
+ await page.locator("#sgxManualMasterPageStatus").getByText(/3\/3ページ/).waitFor();
+ assert.equal(await page.locator("#sgxManualMasterRows tr").count(),20);
+ await page.locator("#sgxManualMasterSearch").fill("Local Test Stock 119");
+ await page.locator("#sgxManualMasterPageStatus").getByText(/検索一致 1 \/ 120件/).waitFor();
+ assert.equal(await page.locator("#sgxManualMasterRows tr").count(),1);
+ assert.match(await page.locator("#sgxManualMasterRows").innerText(),/Local Test Stock 119/);
+ await page.locator("#sgxManualMasterSearch").fill("");
+ const templateDownload=page.waitForEvent("download");
+ await page.locator("#sgxManualMasterTemplate").click();
+ const template=await templateDownload;
+ assert.equal(template.suggestedFilename(),"sgx-source-template-unverified.csv");
+ assert.ok(fs.readFileSync(await template.path(),"utf8").includes("Trading Code,Trading Name,Listing Board,Traded Currency"));
+
+
  // v277: actual bank FY2025 what-if remains local-only even after input.
  await page.locator("#scenarioBankStatus").getByText(/銀行3社の2025年/).waitFor({timeout:25000});
  await page.locator("#scenarioBankSymbol").selectOption("O39");
