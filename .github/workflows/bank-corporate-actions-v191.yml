@@ -113,6 +113,7 @@ on:
       - 'docs/test_sgx_financial_join_v263.js'
       - 'docs/test_sgx_financial_filter_v264.js'
       - 'docs/test_sgx_detail_navigation_v265.js'
+      - 'docs/test_sgx_catalog_export_v266.js'
       - 'docs/app.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
