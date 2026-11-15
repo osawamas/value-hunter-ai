@@ -104,6 +104,7 @@ function summarizeMarketCoverage(rows) {
       label,
       listed: listed.length,
       comparable: listed.filter(row => row.financials || row.sgxAnnual).length,
+      quarterly: listed.filter(row => row.quarterly).length,
       rankable: listed.filter(row => row.rankingEligible === true).length,
     };
   });
@@ -615,7 +616,7 @@ async function initMarketResearch() {
       const tr = document.createElement("tr");
       const name = element("th", row.label);
       name.scope = "row";
-      tr.append(name, ...[row.listed, row.comparable, row.rankable].map(value => element("td", value)));
+      tr.append(name, ...[row.listed, row.comparable, row.quarterly, row.rankable].map(value => element("td", value)));
       return tr;
     }));
     const paint = () => {

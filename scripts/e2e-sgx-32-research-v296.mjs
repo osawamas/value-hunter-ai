@@ -75,7 +75,14 @@ try{
  await page.goto(base+"/market-research.html",{waitUntil:"domcontentloaded"});
  await page.locator("#marketCount").getByText(/20 \/ 20件/).waitFor({timeout:25000});
  assert.deepEqual(await page.locator("#marketCoverageRows td").allTextContents(),
-  ["5","4","0","8","8","0","7","4","0"]);
+  ["5","4","4","0","8","8","7","0","7","4","0","0"]);
+ await page.locator("#financialFilter").selectOption("quarterly");
+ await page.locator("#marketFilter").selectOption("US");
+ await page.locator("#marketCount").getByText(/7 \/ 20件/).waitFor();
+ await page.locator("#marketQuery").fill("GOOG");
+ assert.equal(await page.locator("#marketRows tr").count(),1);
+ await page.locator("#marketQuery").fill("");
+ await page.locator("#financialFilter").selectOption("all");
  const sgxUpdates = page.locator("#sgxBusinessRows tr");
  assert.match(await sgxUpdates.first().innerText(),/G13.*3か月.*566,096,000.*54,731,000.*未監査/s);
  assert.match(await sgxUpdates.last().innerText(),/S63.*9か月累計.*約10,000,000,000.*10%.*—/s);

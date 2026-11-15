@@ -1,0 +1,3 @@
+# VALUE HUNTER AI v353
+
+The coverage table now shows quarterly or cumulative filing coverage in issuer details separately from annual comparison and formal ranking. The counts are JP 4, US 7, SGX 0 in the details table. SGX issuer business updates remain visible in their separate section. The browser test also verifies the quarterly filter and Alphabet's alternate symbol search together. Totals are 20 research records, 16 annual comparisons, 11 with quarterly or cumulative details, and zero formally ranked. Continue from main toward v500, prioritizing approved pricing and dated share evidence.
