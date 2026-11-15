@@ -170,7 +170,10 @@ try{
  await page.locator("#personalBatchDate").fill("");
  assert.match(await page.locator("#personalBatchStatus").innerText(),/3 \/ 4件を試算/);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
- assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
+ const unmatchedApple = batch.filter({hasText:"US:AAPL"});
+ assert.match(await unmatchedApple.innerText(),/同日の株数が未取得/);
+ assert.match(await unmatchedApple.getByRole("link",{name:"直前の株数資料（2026-10-23）"}).getAttribute("href"),/sec\.gov.*aapl-20260926\.htm/);
+ assert.doesNotMatch(await unmatchedApple.innerText(),/参考時価/);
  await page.locator("#personalBatchDate").fill("2026-03-31");
  assert.equal(await batch.count(),2);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/2026-03-31.*2,900/s);
@@ -187,7 +190,8 @@ try{
  const filteredDownloadEvent = page.waitForEvent("download");
  await page.getByRole("button",{name:/一括試算CSVを保存/}).click();
  const filteredBatch = fs.readFileSync(await (await filteredDownloadEvent).path(),"utf8");
- assert.match(filteredBatch,/"US:AAPL".*"missing"/);
+ assert.match(filteredBatch,/prior_share_reference_date,prior_share_reference_source/);
+ assert.match(filteredBatch,/"US:AAPL".*"missing".*"2026-10-23".*aapl-20260926\.htm/);
  assert.doesNotMatch(filteredBatch,/"JP:7203"/);
  await page.locator("#personalBatchFilter").selectOption("class");
  assert.equal(await batch.count(),0);

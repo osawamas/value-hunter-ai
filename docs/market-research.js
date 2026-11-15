@@ -376,6 +376,7 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
       if (share.symbol && !issuers.has(classId)) issuers.set(classId, row);
     }
   }
+  let publishedSessions;
   return Array.from(quotes, ([id, quote]) => {
     const row = issuers.get(id);
     const entry = {id, label: row?.label || id, quote};
@@ -408,6 +409,14 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
       return {...entry, state: "incompatible"};
     }
     const match = matchScenarioShares(id, quote.date, filingSharesOn(row, quote.date, shareReview), shares);
+    if (match.state === "missing") {
+      publishedSessions ??= publishedShareSessions(rows, shareReview);
+      for (const [referenceShareDate, records] of publishedSessions) {
+        if (referenceShareDate >= quote.date) continue;
+        const reference = records.find(record => record.id === id);
+        if (reference) return {...entry, state: match.state, referenceShareDate, referenceShareSource: reference.source};
+      }
+    }
     if (match.value === null) return {...entry, state: match.state};
     try {
       const inputs = {...quote, shares: match.value};
@@ -496,13 +505,13 @@ function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
     "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date",
-    "share_disclosed_at", "share_disclosure_timing"];
+    "share_disclosed_at", "share_disclosure_timing", "prior_share_reference_date", "prior_share_reference_source"];
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
     Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
     Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate,
-    row.shareDisclosedAt, row.shareDisclosureTiming].map(csvCell).join(","));
+    row.shareDisclosedAt, row.shareDisclosureTiming, row.referenceShareDate, row.referenceShareSource].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -637,6 +646,10 @@ async function initMarketResearch() {
       const sourceCell = element("td", "");
       if (row.financeSource?.startsWith("https://")) sourceCell.append(link(row.financeSource, "財務資料"));
       if (row.shareSource?.startsWith("https://")) sourceCell.append(" ", link(row.shareSource, "株数資料"));
+      if (row.referenceShareDate) {
+        if (sourceCell.childNodes.length) sourceCell.append(" ");
+        sourceCell.append(link(row.referenceShareSource, "直前の株数資料（" + row.referenceShareDate + "）"));
+      }
       const disclosureLabel = {
         after_date: "（取引日より後）", after_close: "（取引終了後）",
         by_session_end: "（取引終了までに公表）", time_unknown: "（取引終了との前後は不明）",
