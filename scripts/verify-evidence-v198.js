@@ -89,7 +89,8 @@ const tests=[
  "docs/test_ranking_provenance_v289.js",
  "docs/test_ranking_license_evidence_v290.js",
  "docs/test_sgx_snapshot_diff_v291.js",
- "docs/test_sgx_october_release_v292.js"
+ "docs/test_sgx_october_release_v292.js",
+ "docs/test_sgx_october_ipo_v294.js"
 ];
 let failed=0;
 const results=[];
