@@ -65,6 +65,15 @@ def verify_section(text,record):
   for line in scope:
    row=values_from_row(line,label,len(expected))
    if row is not None and row==expected:counts[label]+=1
+  if counts[label]==0 and record["symbol"]=="MIM" and label=="profit_for_year":
+   # PDF text layout breaks the printed heading into two lines for "Profit
+   # for the financial year/period". Require a matching numerical row and
+   # explicit nearby profit-for-period heading, not owner-attributable totals.
+   number_sequence=r"\\s+".join(re.escape(f"{v:,}") for v in expected)
+   candidates=[i for i,line in enumerate(scope) if re.search(number_sequence,line) and
+     re.search(r"profit\\s+for\\s+(?:the\\s+)?(?:financial\\s+)?(?:year|period)",
+       " ".join(scope[max(0,i-3):i+1]),re.I)]
+   if len(candidates)==1:counts[label]=1
   if counts[label]!=1:raise ValueError(record["symbol"]+" audited scope row mismatch: "+label+
     " expected "+str(expected)+" matched "+str(counts[label]))
  if record["symbol"]=="9DC":
