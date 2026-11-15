@@ -1,0 +1,3 @@
+# VALUE HUNTER AI v325 — independently replay SEC financial originals
+
+The source verifier can fetch and check individual SEC Company Facts originals independently of SEC's ticker/exchange directory. The prior hosted-runner HTTP 403 occurred on www.sec.gov at the directory step; companyfacts lives on data.sec.gov. A separate workflow job now tests that route and reports original hashes. The offline excerpt check and the Japanese-original check remain independent jobs. Full local original replay and the SEC-only local replay both matched all supported filings. Check the v325 workflow conclusion for whether the hosted runner can reach data.sec.gov.

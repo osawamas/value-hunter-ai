@@ -189,11 +189,26 @@ def oji_financials(raw, record):
         raise ValueError("Oji year-end shares mismatch")
 
 
+def check_sec_originals(records, source_bytes):
+    checked = {}
+    for record in records:
+        if record["market"] != "US" or not record.get("financials"):
+            continue
+        url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{record['cik']:010d}.json"
+        if record["financials"]["source"] != url:
+            raise ValueError("SEC company facts URL changed")
+        raw = source_bytes(url, record["symbol"].lower() + ".json")
+        sec_financials(raw, record)
+        checked[record["id"]] = raw
+    return checked
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--check-sec-excerpts", action="store_true", help="Check selected saved SEC facts offline")
+    modes.add_argument("--sec-originals-only", action="store_true", help="Replay original SEC company facts independently of the listing directory")
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
     args = parser.parse_args()
     snapshot = json.loads(DATA.read_text())
@@ -209,6 +224,15 @@ def main():
         if not args.fixture_directory and "sec.gov/" in url:
             time.sleep(0.25)
         return (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(url)
+
+    if args.sec_originals_only:
+        originals = check_sec_originals(snapshot["records"], source_bytes)
+        print(json.dumps({
+            "source": "SEC company facts",
+            "evidence": "local_originals" if args.fixture_directory else "downloaded_originals",
+            "sha256": {key: hashlib.sha256(raw).hexdigest() for key, raw in originals.items()},
+        }, indent=2))
+        return
 
     raw = {"jpx": source_bytes(SOURCES["jpx"], "jpx.xlsx")}
     if not args.jp_only:
@@ -245,12 +269,10 @@ def main():
                 raise ValueError(f"Unexpected Japanese filing source: {record['id']}")
             verified.append(record["id"])
             continue
-        url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{record['cik']:010d}.json"
-        if record["financials"]["source"] != url:
-            raise ValueError("SEC company facts URL changed")
-        raw[key] = source_bytes(url, key + ".json")
-        sec_financials(raw[key], record)
-        verified.append(record["id"])
+    if not args.jp_only:
+        originals = check_sec_originals(snapshot["records"], source_bytes)
+        raw.update({key.split(":")[1].lower(): value for key, value in originals.items()})
+        verified.extend(originals)
     report = {
         "checked_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "jpx_snapshot_date": date,
