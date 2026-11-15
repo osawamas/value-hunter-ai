@@ -69,7 +69,8 @@ const tests=[
  "docs/test_sgx_union_thirty_v259.js",
  "docs/test_sgx_original_html_proof_v262.js",
  "docs/test_sgx_financial_join_v263.js",
- "docs/test_sgx_financial_filter_v264.js"
+ "docs/test_sgx_financial_filter_v264.js",
+ "docs/test_sgx_detail_navigation_v265.js"
 ];
 let failed=0;
 const results=[];
