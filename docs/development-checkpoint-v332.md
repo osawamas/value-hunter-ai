@@ -1,0 +1,5 @@
+# VALUE HUNTER AI v332 — show recent SEC quarterly financials
+
+Added official Company Facts-based quarterly data for Microsoft (September 30, 2026), NVIDIA (July 26, 2026), and Amazon (September 30, 2026). All three use the exact discovered 10-Q accession, comparable 75–105-day durations, and the same period start for revenue, operating income and attributable net income. Longer year-to-date records are excluded. The quarterly tables are visible in issuer details with a filing link and separate from annual data used in valuation. Apple has no newer 10-Q after its displayed annual filing.
+
+Run `python3 scripts/check-sec-filing-updates.py > /tmp/sec-discovery.json` followed by `python3 scripts/build-sec-quarterly-research.py /tmp/sec-discovery.json` from an environment with SEC access. The generator returns reviewed candidates on standard output; update issuer records after reviewing period and source. The three Company Facts originals were downloaded and replayed during this run. The public price/ranking coverage continues at zero ranking-eligible records.

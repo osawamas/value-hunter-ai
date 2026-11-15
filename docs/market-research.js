@@ -276,6 +276,24 @@ async function initMarketResearch() {
     const sources = byId("marketFinancialSources");
     sources.replaceChildren(link(finance.source, "財務データの出典"));
     if (finance.filing_url) sources.append(" · ", link(finance.filing_url, "SEC提出書類"));
+    const quarter = row.quarterly;
+    const quarterSection = byId("marketQuarterly");
+    quarterSection.hidden = true;
+    if (quarter) {
+      const [prior, current] = quarter.periods;
+      const quarterRows = [prior, current].map((period, index) => {
+        const tr = document.createElement("tr");
+        const values = [period.end, money.format(period.revenue), money.format(period.operating_income),
+          money.format(period.net_income), pct(index ? annualGrowth(prior.revenue, current.revenue) : null),
+          pct(index ? annualGrowth(prior.operating_income, current.operating_income) : null)];
+        tr.append(...values.map(value => element("td", value)));
+        return tr;
+      });
+      byId("marketQuarterlyRows").replaceChildren(...quarterRows);
+      byId("marketQuarterlySource").replaceChildren(quarter.currency + "・提出日 " + quarter.filed + "・",
+        link(quarter.source, "SEC Form " + quarter.form));
+      quarterSection.hidden = false;
+    }
     selectedFinance = finance;
     activeRow = row;
     scenario.reset();

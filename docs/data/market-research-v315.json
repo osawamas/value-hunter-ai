@@ -256,6 +256,30 @@
           "value": 7425545491,
           "rounded": false
         }
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/789019/000119312526436133/msft-20260930.htm",
+        "form": "10-Q",
+        "accession": "0001193125-26-436133",
+        "filed": "2026-10-28",
+        "companyfacts_sha256": "8c1903c041f5c27e86ed15f37debb1f41882b7904bba129ef9edc76478b1e8ea",
+        "periods": [
+          {
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "revenue": 77673000000,
+            "operating_income": 37961000000,
+            "net_income": 27747000000
+          },
+          {
+            "start": "2026-07-01",
+            "end": "2026-09-30",
+            "revenue": 92279000000,
+            "operating_income": 45915000000,
+            "net_income": 36629000000
+          }
+        ]
       }
     },
     {
@@ -299,6 +323,30 @@
           "value": 24300000000,
           "rounded": true
         }
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000075/nvda-20260726.htm",
+        "form": "10-Q",
+        "accession": "0001045810-26-000075",
+        "filed": "2026-08-26",
+        "companyfacts_sha256": "19ef503a5770f5660964b3c3aea6937579d9b359da344afe6a9adf59c63d26ff",
+        "periods": [
+          {
+            "start": "2025-04-28",
+            "end": "2025-07-27",
+            "revenue": 46743000000,
+            "operating_income": 28440000000,
+            "net_income": 26422000000
+          },
+          {
+            "start": "2026-04-27",
+            "end": "2026-07-26",
+            "revenue": 96221000000,
+            "operating_income": 63734000000,
+            "net_income": 59688000000
+          }
+        ]
       }
     },
     {
@@ -341,6 +389,30 @@
           "value": 10734920870
         },
         "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax"
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000040/amzn-20260930.htm",
+        "form": "10-Q",
+        "accession": "0001018724-26-000040",
+        "filed": "2026-10-30",
+        "companyfacts_sha256": "acddb7c0a6973a1fd08372de3b292298a34eae7f42a7eedc4bdebd3ac659c8fd",
+        "periods": [
+          {
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "revenue": 180169000000,
+            "operating_income": 17422000000,
+            "net_income": 21187000000
+          },
+          {
+            "start": "2026-07-01",
+            "end": "2026-09-30",
+            "revenue": 201944000000,
+            "operating_income": 28076000000,
+            "net_income": 20685000000
+          }
+        ]
       }
     }
   ]
