@@ -7,7 +7,8 @@ import {chromium} from "playwright-core";
 const base=process.env.VALUE_HUNTER_URL||"http://127.0.0.1:8765";
 const binary=process.env.CHROME_BIN||"/usr/bin/google-chrome";
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sgx-browser-v268-"));
-const screenshot=path.join(dir,"sgx-browser-v268.png");
+const screenshot=process.env.VALUE_HUNTER_E2E_SCREENSHOT||path.join(dir,"sgx-browser-v268.png");
+fs.mkdirSync(path.dirname(screenshot),{recursive:true});
 const browser=await chromium.launch({headless:true,executablePath:binary,args:["--no-sandbox","--disable-dev-shm-usage"]});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1370,height:980}});
 const failures=[];
@@ -42,6 +43,8 @@ try {
  assert.equal(csv.charCodeAt(0),0xFEFF);
  assert.equal(csv.trim().split("\r\n").length,4,"header plus three UNKNOWN-board financials");
  assert.ok(csv.includes('"D05"')&&csv.includes('"S68"')&&csv.includes('"U11"'));
+ assert.ok(csv.includes('"originalHtmlSHA256"'));
+ assert.ok(csv.includes('"financialExclusionReasonsJa"'));
  assert.ok(!csv.includes('"O39"'),"MAINBOARD not among UNKNOWN records");
  // Direct hash before feed load must still resolve, not require earlier click.
  const second=await browser.newPage({viewport:{width:390,height:844}});
