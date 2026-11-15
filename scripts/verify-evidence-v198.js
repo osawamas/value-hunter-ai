@@ -80,7 +80,8 @@ const tests=[
  "docs/test_sgx_manual_master_pages_v280.js",
  "docs/test_sgx_manual_master_gaps_v281.js",
  "docs/test_sgx_flexible_csv_v282.js",
- "docs/test_bank_annual_compare_v283.js"
+ "docs/test_bank_annual_compare_v283.js",
+ "docs/test_uob_original_sha_share_v284.js"
 ];
 let failed=0;
 const results=[];
