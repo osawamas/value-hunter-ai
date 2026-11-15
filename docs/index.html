@@ -18,6 +18,7 @@
   <script src="./reference-valuation-guard-v168.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./bank-scenario-v277.js" defer></script>
+  <script src="./bank-annual-compare-v283.js" defer></script>
   <script src="./sgx-manual-master-v278.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./official-batch-v196.js" defer></script>
@@ -124,6 +125,21 @@
           </tr></thead><tbody id="stockRows"><tr><td colspan="10" class="empty">データ読み込み中…</td></tr></tbody></table>
         </div>
         <div class="tablefoot"><span id="tableCount">0件を表示</span><span>— は未取得または計算対象外</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="bankAnnualCompareTitle">
+        <div class="section-heading"><div><div class="eyebrow">BANK EARNINGS / ISSUER ANNUAL REPORTS</div>
+          <h2 id="bankAnnualCompareTitle">SGX銀行3社の2025年財務比較</h2></div>
+          <p>DBS・OCBC・UOBの発行体FY2025年次報告書の数値を同じ単位で比較。価格の推定や投資ランキングには使わない。</p></div>
+        <p id="bankAnnualCompareStatus" class="status-message" role="status">銀行3社の2024年・2025年財務を照合中…</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>コード</th><th>銀行</th><th>総収益（百万SGD）</th><th>総収益前年比</th>
+            <th>親会社帰属利益（百万SGD）</th><th>利益前年比</th>
+            <th>親会社持分（百万SGD）</th><th>参考ROE</th><th>出典</th></tr></thead>
+          <tbody id="bankAnnualCompareRows"><tr><td colspan="9">出典整合を検査中…</td></tr></tbody>
+        </table></div>
+        <div class="tablefoot"><span>総収益は銀行グループのtotal incomeで、一般事業会社の売上高と異なる。</span>
+          <span>参考ROE＝FY2025親会社帰属利益÷FY2024・FY2025末親会社持分の単純平均。公式公表ROEとは一致するとは限らない。独立検証未了。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="scenarioBankTitle">
