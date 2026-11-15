@@ -20,6 +20,7 @@
   <script src="./bank-scenario-v277.js" defer></script>
   <script src="./bank-manual-compare-v285.js" defer></script>
   <script src="./bank-annual-compare-v283.js" defer></script>
+  <script src="./ocbc-second-source-v286.js" defer></script>
   <script src="./sgx-manual-master-v278.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./official-batch-v196.js" defer></script>
@@ -470,6 +471,18 @@
           <th>3Q26 純利益合計</th><th>9M26 純利益合計</th>
           <th>3Q26 純金利収入合計</th><th>9M26 純金利収入合計</th>
         </tr></thead><tbody id="big3BankSummaryRows"><tr><td colspan="4">読み込み中…</td></tr></tbody></table></div>
+        <details>
+          <summary>OCBC 2026年3Q・9M決算をSGX原本と発行体サイトの2経路で照合</summary>
+          <p id="ocbcSecondIssuerSourceStatus" role="status">OCBCの2つの原本を照合中…</p>
+          <div class="tablewrap"><table><thead><tr>
+            <th>指標</th><th>SGX発行体PDF（百万SGD）</th>
+            <th>OCBC公式発表（概数）</th><th>検証範囲</th></tr></thead>
+            <tbody id="ocbcSecondIssuerSourceRows"><tr><td colspan="4">原本検証中…</td></tr></tbody>
+          </table></div>
+          <p><a id="ocbcSecondIssuerWeb" href="https://www.ocbc.com/group/media/release/2026/ocbc-group-third-quarter-2026-results.page" target="_blank" rel="noopener noreferrer">OCBC公式発表</a>
+          ／ <a id="ocbcSecondIssuerSgx" href="https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf" target="_blank" rel="noopener noreferrer">SGX掲載のOCBC PDF</a></p>
+          <p>発行体が公開した2資料の概数照合。独立監査ではなく、最新株価・正式ランキングの認証ではない。</p>
+        </details>
         <h3>銀行株式数の原本確認日と未取得資料</h3>
         <p id="bankShareEvidenceStatus" class="status-message" role="status">発行済株式数の根拠と日付を照合中…</p>
         <div class="tablewrap"><table><thead><tr>
