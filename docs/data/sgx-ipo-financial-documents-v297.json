@@ -19,7 +19,10 @@
         "2025-03-31",
         "2026-03-31"
       ],
-      "notes": "IPO prospectus contains independent auditor report and FY financial statements; verify exact amounts from document before publishing; historical statements not up-to-date 2026 November audit."
+      "notes": "IPO prospectus contains independent auditor report and FY financial statements; verify exact amounts from document before publishing; historical statements not up-to-date 2026 November audit.",
+      "github_actions_confirmed_sha256": "6472db7e48bc45db8a056d196157d03589bf4ef880ee94eba3fd837b53c028de",
+      "github_actions_confirmed_original_bytes": 8575301,
+      "original_replay_run_id": 43676027936
     },
     {
       "symbol": "MIM",
@@ -37,7 +40,10 @@
         "2024-12-31",
         "2025-12-31"
       ],
-      "notes": "IPO prospectus audited annual figures through 2025 and unaudited six-month 2026; respect different fiscal periods and currencies."
+      "notes": "IPO prospectus audited annual figures through 2025 and unaudited six-month 2026; respect different fiscal periods and currencies.",
+      "github_actions_confirmed_sha256": "d6b49948af8167e6d2443ae22f7538907c46e94d62b414843e8444abc05f342c",
+      "github_actions_confirmed_original_bytes": 8930729,
+      "original_replay_run_id": 43676027936
     },
     {
       "symbol": "MIM",
@@ -51,12 +57,19 @@
         "91.5"
       ],
       "historical_audited_periods": [],
-      "notes": "Issuer press release, nine months ended Sep 2026, USD $91.5m reported revenue and adjusted PAT $25.7m; NOT independent audit or comparable to 2025 full-year growth."
+      "notes": "Issuer press release, nine months ended Sep 2026, USD $91.5m reported revenue and adjusted PAT $25.7m; NOT independent audit or comparable to 2025 full-year growth.",
+      "github_actions_confirmed_sha256": "19d2b43322c36001e560d14f43650b0f6feab5e280770e42bb529ee63cd5ef60",
+      "github_actions_confirmed_original_bytes": 160619,
+      "original_replay_run_id": 43676027936
     }
   ],
   "quote_feed_license_verified": false,
   "up_to_date_independent_financial_verification_complete": false,
   "full_current_sgx_master_verified": false,
   "ranking_enabled": false,
-  "ranking_eligible_count": 0
+  "ranking_eligible_count": 0,
+  "original_pdf_content_checks_confirmed": 3,
+  "provenance_replay_run_url": "https://github.com/osawamas/value-hunter-ai/actions/runs/43676027936",
+  "originals_source_pdf_captured_in_repo": false,
+  "original_pdf_sha256_digests_from_real_github_actions": true
 }
