@@ -1,0 +1,118 @@
+{
+  "schema_version": "sgx-ipo-audited-historical-financials-v298",
+  "review_date": "2026-11-15",
+  "unit": "thousands",
+  "universe_master_verified": false,
+  "licensed_quote_available": false,
+  "independent_current_financial_reverification": false,
+  "ranking_enabled": false,
+  "ranking_eligible_count": 0,
+  "source_sgx_original_replay_run": 43677999500,
+  "issuers": [
+    {
+      "symbol": "9DC",
+      "name": "DELUGE CORPORATION LIMITED",
+      "currency": "SGD",
+      "fiscal_year_end_month_day": "03-31",
+      "audited_statements": "AUDITED_COMBINED_FY",
+      "source_pdf_sha256": "6472db7e48bc45db8a056d196157d03589bf4ef880ee94eba3fd837b53c028de",
+      "source_pdf_url": "https://links.sgx.com/FileOpen/Deluge%20Corporation%20Limited%20-Final%20Prospectus%20%286%20October%202026%29.ashx?App=IPO&FileID=6803",
+      "printed_section": "SELECTED COMBINED FINANCIAL INFORMATION / COMBINED STATEMENT OF PROFIT OR LOSS AND OTHER COMPREHENSIVE INCOME",
+      "audit_report_in_prospectus": true,
+      "periods": [
+        {
+          "period_end": "2024-03-31",
+          "audit_status": "AUDITED",
+          "revenue": 113199,
+          "gross_profit": 33591,
+          "profit_for_year": 11753,
+          "total_equity": 23015
+        },
+        {
+          "period_end": "2025-03-31",
+          "audit_status": "AUDITED",
+          "revenue": 139755,
+          "gross_profit": 42477,
+          "profit_for_year": 17896,
+          "total_equity": 38320
+        },
+        {
+          "period_end": "2026-03-31",
+          "audit_status": "AUDITED",
+          "revenue": 116662,
+          "gross_profit": 38774,
+          "profit_for_year": 11800,
+          "total_equity": 49443
+        }
+      ],
+      "rejected_lookalike_pro_forma": {
+        "audit_status": "UNAUDITED_PRO_FORMA",
+        "period_end": "2026-03-31",
+        "revenue": 116567,
+        "gross_profit": 38738,
+        "profit_for_year": 11489,
+        "not_used_in_audited_growth": true
+      },
+      "not_current_reverified_financials": true
+    },
+    {
+      "symbol": "MIM",
+      "name": "MI MATERIAL HOLDING LIMITED",
+      "currency": "USD",
+      "fiscal_year_end_month_day": "12-31",
+      "audited_statements": "AUDITED_COMBINED_FY_AND_REVIEWED_UNAUDITED_H1",
+      "source_pdf_sha256": "d6b49948af8167e6d2443ae22f7538907c46e94d62b414843e8444abc05f342c",
+      "source_pdf_url": "https://links.sgx.com/FileOpen/Mi%20Material%20Holding%20Limited-MASRegistration-Appendix%28Final%20Prospectus%29.ashx?App=IPO&FileID=6809",
+      "printed_section": "SUMMARY COMBINED STATEMENTS OF PROFIT OR LOSS AND OTHER COMPREHENSIVE INCOME",
+      "audit_report_in_prospectus": true,
+      "periods": [
+        {
+          "period_end": "2023-12-31",
+          "audit_status": "AUDITED",
+          "revenue": 39829,
+          "gross_profit": 14352,
+          "profit_for_year": 4112,
+          "total_equity": 87080
+        },
+        {
+          "period_end": "2024-12-31",
+          "audit_status": "AUDITED",
+          "revenue": 46821,
+          "gross_profit": 19189,
+          "profit_for_year": 8172,
+          "total_equity": 86088
+        },
+        {
+          "period_end": "2025-12-31",
+          "audit_status": "AUDITED",
+          "revenue": 65335,
+          "gross_profit": 23685,
+          "profit_for_year": 10008,
+          "total_equity": 95533
+        }
+      ],
+      "interim": [
+        {
+          "period_start": "2025-01-01",
+          "period_end": "2025-06-30",
+          "audit_status": "UNAUDITED_INTERIM",
+          "revenue": 25617,
+          "gross_profit": 9560,
+          "profit_for_year": 2879,
+          "total_equity": null
+        },
+        {
+          "period_start": "2026-01-01",
+          "period_end": "2026-06-30",
+          "audit_status": "UNAUDITED_INTERIM",
+          "revenue": 53655,
+          "gross_profit": 24634,
+          "profit_for_year": 14284,
+          "total_equity": 109052
+        }
+      ],
+      "nine_month_2026_press_release_separately_verified": false,
+      "not_current_reverified_financials": true
+    }
+  ]
+}
