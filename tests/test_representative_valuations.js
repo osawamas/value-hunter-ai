@@ -281,6 +281,29 @@ try {
   const [allAdvancedExit, allAdvanced] = requiresNew(current, previous);
   assert.equal(allAdvancedExit, 0);
   assert.equal(allAdvanced.passed, true);
+  const bothTrials = (...options) => {
+    const result = spawnSync(process.execPath, [cli, ...options, "--require-both-trials", "--compare", current, previous], {encoding: "utf8"});
+    assert.equal(result.stderr, "");
+    return [result.status, JSON.parse(result.stdout).latestTrialCheck];
+  };
+  const [baselineFailed, baselineCheck] = bothTrials();
+  assert.equal(baselineFailed, 2);
+  assert.ok(baselineCheck.results.every(row => row.status === "trial_calculated" &&
+    row.hasNewSession && row.previousStatus === "no_exact_share_evidence"));
+  const custom = path.join(work, "filings");
+  fs.mkdirSync(custom);
+  fs.writeFileSync(path.join(custom, "sgx-s63-two-website-close-v129.json"), JSON.stringify([
+    shares, {...shares, session_date_sgt: "2026-11-12"},
+  ]));
+  const earlierFinance = structuredClone(research);
+  for (const row of earlierFinance.records.filter(row => ["JP:7203", "US:IBM"].includes(row.id))) {
+    row.financials.shares = {as_of: "2026-09-29", value: row.quarterly.shares.value};
+  }
+  fs.writeFileSync(path.join(custom, "market-research-v315.json"), JSON.stringify(earlierFinance));
+  fs.writeFileSync(path.join(custom, "latest.json"), JSON.stringify(sgx));
+  const [bothExit, bothCheck] = bothTrials("--filing-dir", custom);
+  assert.equal(bothExit, 0);
+  assert.ok(bothCheck.results.every(row => row.previousStatus === "trial_calculated"));
 } finally {
   fs.rmSync(work, {recursive: true, force: true});
 }
