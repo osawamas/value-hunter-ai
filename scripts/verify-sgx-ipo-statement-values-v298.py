@@ -70,9 +70,9 @@ def verify_section(text,record):
    # for the financial year/period". Require a matching numerical row and
    # explicit nearby profit-for-period heading, not owner-attributable totals.
    number_sequence=r"\s+".join(re.escape(f"{v:,}") for v in expected)
-   candidates=[i for i,line in enumerate(scope) if re.search(number_sequence,line) and
-     re.search(r"profit\s+for\s+(?:the\s+)?(?:financial\s+)?(?:year|period)",
-       " ".join(scope[max(0,i-3):i+1]),re.I)]
+   candidates=[i for i,line in enumerate(scope) if i>0 and
+     scope[i-1].strip()=="Profit for the financial" and
+     re.match(r"^\s*year/period\s+",line,re.I) and re.search(number_sequence,line)]
    if len(candidates)==1:counts[label]=1
   if counts[label]!=1:raise ValueError(record["symbol"]+" audited scope row mismatch: "+label+
     " expected "+str(expected)+" matched "+str(counts[label]))
