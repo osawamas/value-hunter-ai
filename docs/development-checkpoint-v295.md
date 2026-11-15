@@ -10,7 +10,7 @@
 2. New `scripts/build-sgx-ipo-candidate-union-v295.js` reuses real v259 historical 30-code builder, v294 original SGX-ST IPO verifier, 182-candidate feed and actual seven-record financial feed, strictly rejects code duplicates and source/ranking promotions, builds **32 distinctly identified historical SGX codes**, tags two IPOs as direct SGX-ST admission events with original source URL/ISIN/date, does not claim current active listing nor complete universe.
 3. `docs/test_sgx_ipo_candidate_union_v295.js` validates 30+2, absence of 9DC/MIM in outdated third party 182, 32 unique codes, IPO URLs/ISIN, fails for duplicate/invalid source or accidental ranking promotion. Registered in `scripts/verify-evidence-v198.js`, workflow path watching.
 4. CI integrity Actions **#43673923106 SUCCESS 84/84** and #43673920669 SUCCESS.
-5. New workflow step in `.github/workflows/bank-corporate-actions-v191.yml` runs the actual staging CLI and retains generated JSON under GitHub Actions artifact `sgx-thirty-two-historical-candidate-stage-v295`. Workflow run **#43673969116 was in progress** at checkpoint creation; verify success / artifact before claiming it.
+5. New workflow step in `.github/workflows/bank-corporate-actions-v191.yml` runs the actual staging CLI and retains generated JSON under GitHub Actions artifact `sgx-thirty-two-historical-candidate-stage-v295`. Workflow run **#43673969116 SUCCESS**, actual artifact **sgx-thirty-two-historical-candidate-stage-v295**, artifact ID **14145492237**, generated and retained; source integrity suite **84/84 PASS**.
 6. Earlier v295 HTTP ZIP #43673905910 SUCCESS, double-click file Chrome #43673905870 SUCCESS, dashboard publish workflow #43673905879 SUCCESS. These runs precede final artifact step, so do not imply newer code was tested for browser.
 7. Commits: `0fad208dc89d69a6e25c8a68cf7486b90d61eb63` union builder, `d4406bde073603fe9874c040a63ee45112263073` negative test, `1310aa8d66eb01a66c6a48083f8863664fb4cd25` suite, `93da656a0553d727e1a41d0f4b05d79aee56a1e2` workflow path, `bbad3d05833568249a7358920df2f20b42ea1a91` artifact staging step.
 
@@ -21,7 +21,7 @@
 - Independent financial verification, ex-treasury share count original UOB Nov13 and OCBC Nov12 outstanding.
 
 ## Next
-- Verify Actions #43673969116 actual artifact. If successful, use the stage as input for a Japanese-language 32-code searchable evidence explorer or review issuer financial filing for 9DC/MIM; do not imply 32 code list is official complete universe.
+- Use the verified Actions #43673969116 output artifact as input for a Japanese-language 32-code searchable evidence explorer or review issuer financial filing for 9DC/MIM; do not imply 32 code list is official complete universe.
 - Prioritize original SGX October statistics PDF, legitimate active SGX master/market license and independent financial evidence, rather than cosmetic release increments.
 - Do not make formal ranking eligible without verified rights and accounting evidence.
 
