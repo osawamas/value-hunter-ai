@@ -1,0 +1,58 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import {chromium} from "playwright-core";
+
+const base=process.env.VALUE_HUNTER_URL||"http://127.0.0.1:8765";
+const binary=process.env.CHROME_BIN||"/usr/bin/google-chrome";
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sgx-browser-v268-"));
+const screenshot=path.join(dir,"sgx-browser-v268.png");
+const browser=await chromium.launch({headless:true,executablePath:binary,args:["--no-sandbox","--disable-dev-shm-usage"]});
+const page=await browser.newPage({acceptDownloads:true,viewport:{width:1370,height:980}});
+const failures=[];
+page.on("pageerror",e=>failures.push(e.message));
+try {
+ await page.goto(base+"/index.html",{waitUntil:"domcontentloaded"});
+ const count=page.locator("#sgxHistoricalCodeShown");
+ await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
+ assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
+ assert.equal(await page.locator("#sgxHistoricalCodeRows tr").filter({hasText:"SGXNet原本本文一致"}).count(),19);
+ assert.equal(await page.locator("#sgxHistoricalCodeRows tr").filter({hasText:"SGX公式売買単位表"}).count(),11);
+ const finance=page.locator("#sgxHistoricalCodeFinance");
+ await finance.selectOption("REGISTERED");
+ await count.getByText(/4 \/ 30 件/).waitFor();
+ assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),4);
+ assert.equal(await page.locator("#sgxHistoricalCodeRows a:has-text('財務詳細を見る')").count(),4);
+ const o39=page.locator("#sgxHistoricalCodeRows tr").filter({hasText:"O39"});
+ await o39.locator("summary:has-text('除外理由を表示')").click();
+ assert.equal(await o39.locator("details[open] li").count()>0,true);
+ assert.ok((await o39.locator("details[open]").innerText()).includes("未"));
+ await o39.locator("a:has-text('財務詳細を見る')").click();
+ await page.waitForURL(/#issuer=O39$/);
+ await page.locator("#detailContent h3").getByText(/O39/).waitFor({timeout:12000});
+ assert.ok((await page.locator("#detailContent").innerText()).includes("ランキングから除外"));
+ await page.locator("#sgxHistoricalCodeBoard").selectOption("UNKNOWN");
+ await count.getByText(/3 \/ 30 件/).waitFor();
+ const downloadPromise=page.waitForEvent("download");
+ await page.locator("#sgxHistoricalCodeExport").click();
+ const download=await downloadPromise;
+ assert.equal(download.suggestedFilename(),"value-hunter-sgx-research-counters.csv");
+ const csv=fs.readFileSync(await download.path(),"utf8");
+ assert.equal(csv.charCodeAt(0),0xFEFF);
+ assert.equal(csv.trim().split("\r\n").length,4,"header plus three UNKNOWN-board financials");
+ assert.ok(csv.includes('"D05"')&&csv.includes('"S68"')&&csv.includes('"U11"'));
+ assert.ok(!csv.includes('"O39"'),"MAINBOARD not among UNKNOWN records");
+ // Direct hash before feed load must still resolve, not require earlier click.
+ const second=await browser.newPage({viewport:{width:390,height:844}});
+ second.on("pageerror",e=>failures.push(e.message));
+ await second.goto(base+"/index.html#issuer=U11",{waitUntil:"domcontentloaded"});
+ await second.locator("#detailContent h3").getByText(/U11/).waitFor({timeout:25000});
+ await second.screenshot({path:screenshot,fullPage:false});
+ await second.goto(base+"/index.html#issuer=FAKE",{waitUntil:"domcontentloaded"});
+ await second.locator("#sgxHistoricalCodeShown").getByText(/30 \/ 30 件/).waitFor({timeout:25000});
+ assert.equal((await second.locator("#detailContent h3").allInnerTexts()).some(s=>s.includes("FAKE")),false);
+ assert.deepEqual(failures,[],"JavaScript browser errors");
+ console.log("v268 PASS: real Chromium HTTP page, 30 originals, 19 SHA proofs, finance filter, mobile Japanese exclusions, hash navigation, CSV download and invalid deep links");
+ console.log("v268 screenshot "+screenshot);
+} finally {await browser.close();}
