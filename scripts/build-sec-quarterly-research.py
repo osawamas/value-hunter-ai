@@ -43,12 +43,19 @@ def build_quarter(raw, company, report):
         raise ValueError("matching prior-year quarter could not be identified")
     periods = []
     for end in (prior_ends.pop(), current.isoformat()):
-        values = {field: quarter_facts(obj["facts"]["us-gaap"][tag]["units"]["USD"], report["accession"], end)
-                  for field, tag in tags.items()}
+        values = {}
+        amounts = obj["facts"]["us-gaap"]
+        for field, tag in tags.items():
+            entries = amounts.get(tag, {}).get("units", {}).get("USD", [])
+            if field == "operating_income" and not any(
+                    item.get("accn") == report["accession"] and item.get("form") == "10-Q" for item in entries):
+                continue
+            values[field] = quarter_facts(entries, report["accession"], end)
         starts = {start for start, _ in values.values()}
         if len(starts) != 1:
             raise ValueError("quarter start differs across SEC facts")
-        periods.append({"start": starts.pop(), "end": end, **{key: val for key, (_, val) in values.items()}})
+        periods.append({"start": starts.pop(), "end": end, "operating_income": None,
+                        **{key: val for key, (_, val) in values.items()}})
     facts = obj["facts"]["dei"]["EntityCommonStockSharesOutstanding"]["units"]["shares"]
     share_observations = {(item["end"], item["val"]) for item in facts
                           if item.get("accn") == report["accession"] and item.get("form") == "10-Q"

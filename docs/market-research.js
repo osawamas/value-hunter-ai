@@ -503,7 +503,7 @@ async function initMarketResearch() {
       byId("marketQuarterlyTitle").textContent = cumulative ? "直近の累計決算（年初から）" : "直近に確認した四半期実績";
       const quarterRows = [prior, current].map((period, index) => {
         const tr = document.createElement("tr");
-        const values = [cumulative ? period.start + "〜" + period.end : period.end, money.format(period.revenue), money.format(period.operating_income),
+        const values = [cumulative ? period.start + "〜" + period.end : period.end, money.format(period.revenue), period.operating_income === null ? "—" : money.format(period.operating_income),
           money.format(period.net_income), pct(index ? annualGrowth(prior.revenue, current.revenue) : null),
           pct(index ? annualGrowth(prior.operating_income, current.operating_income) : null)];
         tr.append(...values.map(value => element("td", value)));

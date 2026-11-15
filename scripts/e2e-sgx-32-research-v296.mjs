@@ -200,6 +200,9 @@ try{
  assert.deepEqual(ibmAnnual.slice(0,4),["2025-12-31","67,535,000,000","—","10,593,000,000"]);
  assert.equal(ibmAnnual[6],"—");
  assert.match(await page.locator("#marketShareCount").innerText(),/938,034,404/);
+ const ibmQuarter = await page.locator("#marketQuarterlyRows tr").last().locator("td").allTextContents();
+ assert.deepEqual(ibmQuarter.slice(0,4),["2026-09-30","17,103,000,000","—","2,190,000,000"]);
+ assert.match(await page.locator("#marketInterimShareCount").innerText(),/945,120,805 株（2026-09-30時点）/);
  await page.locator("#marketQuery").fill("NVDA");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);

@@ -662,6 +662,35 @@
           "value": 938034404
         },
         "revenue_tag": "Revenues"
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/51143/000005114326000095/ibm-20260930.htm",
+        "form": "10-Q",
+        "accession": "0000051143-26-000095",
+        "filed": "2026-10-22",
+        "companyfacts_sha256": "10fa1fafa25440b2159e2054dfe47628ba4ed353a258f526704cf9beda432bb8",
+        "periods": [
+          {
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "operating_income": null,
+            "revenue": 16331000000,
+            "net_income": 1744000000
+          },
+          {
+            "start": "2026-07-01",
+            "end": "2026-09-30",
+            "operating_income": null,
+            "revenue": 17103000000,
+            "net_income": 2190000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-09-30",
+          "value": 945120805,
+          "rounded": false
+        }
       }
     }
   ]
