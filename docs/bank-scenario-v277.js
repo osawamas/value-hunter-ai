@@ -128,6 +128,7 @@
    }
   });
  }
+ if(root)root.VALUE_HUNTER_MANUAL_BANK_CALCULATE=calculate;
  if(typeof module!=="undefined"&&module.exports)module.exports={calculate,getBank,isDate};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
