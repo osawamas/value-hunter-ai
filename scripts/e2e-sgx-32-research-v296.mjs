@@ -233,6 +233,7 @@ try{
  assert.match(exportedBatch,/"SG:S63".*3115847115,31158471150/);
  assert.match(exportedBatch,/"US:AAPL".*"missing"/);
  const s63Trial = batch.filter({hasText:"SG:S63"});
+ assert.equal(await s63Trial.locator("td").last().innerText(),"2026-11-13");
  assert.match(await s63Trial.innerText(),/SGD.*3,115,847,115.*31,158,471,150.*2025-12-31/s);
  assert.match(await s63Trial.getByRole("link",{name:"財務資料"}).getAttribute("href"),/FileID=880328/);
  assert.match(await s63Trial.getByRole("link",{name:"株数資料"}).getAttribute("href"),/4NRLOX68RVAQLTX7/);

@@ -18,5 +18,7 @@
   "source_notes": "Two separately hosted price displays; exchange trade tape and upstream independence not certified",
   "market_cap_per_pbr_promoted": false,
   "ranking_eligible": false,
-  "financial_feed_modified": false
+  "financial_feed_modified": false,
+  "sgx_share_announcement_reference": "SG261113OTHRPXGV",
+  "sgx_share_disclosed_at_sgt": "2026-11-13T18:21:18+08:00"
 }

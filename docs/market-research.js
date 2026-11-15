@@ -74,7 +74,11 @@ function sgxSupplementalShare(row, date, review) {
       review.original_sgx_share_snapshot_on_same_date !== true ||
       !Number.isSafeInteger(review.original_sgx_shares_ex_treasury) || review.original_sgx_shares_ex_treasury <= 0 ||
       !review.sgx_share_source_url?.startsWith("https://links.sgx.com/")) return null;
-  return {date, value: review.original_sgx_shares_ex_treasury, source: review.sgx_share_source_url};
+  const broadcast = review.sgx_share_disclosed_at_sgt;
+  const announced = typeof broadcast === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$/.test(broadcast)
+    && Number.isFinite(Date.parse(broadcast)) ? broadcast.slice(0, 10) : undefined;
+  return {date, value: review.original_sgx_shares_ex_treasury, source: review.sgx_share_source_url,
+    disclosedOn: announced && announced >= date ? announced : undefined};
 }
 
 function sgxComparison(feed, record) {
@@ -253,7 +257,8 @@ function filingSharesOn(row, date, shareReview) {
     ].includes(sgx.shares_verification_status)
     ? {as_of: sgx.shares_as_of_date, value: sgx.shares_outstanding, source: sgx.shares_source_url} : null;
   const supplemental = sgxSupplementalShare(row, date, shareReview);
-  const datedSupplement = supplemental ? {as_of: supplemental.date, value: supplemental.value, source: supplemental.source} : null;
+  const datedSupplement = supplemental ? {as_of: supplemental.date, value: supplemental.value, source: supplemental.source,
+    disclosedOn: supplemental.disclosedOn} : null;
   return [interim, annual, currentShare, datedSupplement].filter(share => share?.as_of === date && !share.rounded);
 }
 
