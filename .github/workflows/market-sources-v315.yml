@@ -14,6 +14,9 @@ on:
       - 'scripts/export-jquants-personal-quotes.py'
       - 'tests/test_jquants_personal_quotes.py'
       - 'tests/fixtures/sec-filing-excerpts-v316.json'
+      - 'scripts/build-sec-quarterly-research.py'
+      - 'tests/test_sec_quarterly_research.py'
+      - 'tests/fixtures/sec-quarterly-excerpts-v332.json'
       - '.github/workflows/market-sources-v315.yml'
 permissions:
   contents: read
@@ -43,6 +46,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install openpyxl==3.1.5
       - run: python scripts/verify-market-sources-v315.py --check-sec-excerpts
+      - run: python -m unittest discover -s tests -p 'test_sec_quarterly_research.py'
   sec-companyfacts-originals:
     if: github.event_name == 'workflow_dispatch' && inputs.check_sec_live
     runs-on: ubuntu-latest
