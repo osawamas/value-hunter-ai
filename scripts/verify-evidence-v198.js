@@ -83,7 +83,8 @@ const tests=[
  "docs/test_bank_annual_compare_v283.js",
  "docs/test_uob_original_sha_share_v284.js",
  "docs/test_bank_manual_compare_v285.js",
- "docs/test_ocbc_second_source_v286.js"
+ "docs/test_ocbc_second_source_v286.js",
+ "docs/test_dbs_second_source_v287.js"
 ];
 let failed=0;
 const results=[];
