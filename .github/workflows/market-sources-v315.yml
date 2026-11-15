@@ -1,4 +1,4 @@
-name: JPX and SEC market source verification
+name: JPX, SEC and SGX market source verification
 on:
   workflow_dispatch:
     inputs:
@@ -70,6 +70,17 @@ jobs:
       - run: python -m pip install openpyxl==3.1.5
       - run: python scripts/verify-market-sources-v315.py --check-sec-excerpts
       - run: python -m unittest discover -s tests -p 'test_sec_quarterly_research.py'
+  sgx-s63-equity-originals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install openpyxl==3.1.5
+      - run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
+      - run: python scripts/verify-market-sources-v315.py --sgx-s63-equity-only
   sec-companyfacts-originals:
     if: github.event_name == 'workflow_dispatch' && inputs.check_sec_live
     runs-on: ubuntu-latest

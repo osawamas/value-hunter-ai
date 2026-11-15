@@ -131,12 +131,47 @@ def sec_financials(raw, record):
         raise ValueError("SEC outstanding common shares mismatch")
 
 
-def pdf_text(raw, last_page=None):
+def pdf_text(raw, last_page=None, *, first_page=None):
     with tempfile.TemporaryDirectory() as tmp:
         pdf = Path(tmp) / "source.pdf"
         pdf.write_bytes(raw)
         pages = ["-l", str(last_page)] if last_page else []
+        if first_page:
+            pages += ["-f", str(first_page)]
         return subprocess.check_output(["pdftotext", "-layout", *pages, str(pdf), "-"], text=True)
+
+
+def check_s63_parent_equity(evidence, source_bytes):
+    if (evidence["symbol"], evidence["period_end"], evidence["unit"], evidence["status"],
+            evidence["independent_verification"]) != (
+            "S63", "2025-12-31", "SGD_thousands", "MATCHED_TWO_ISSUER_FILINGS", False):
+        raise ValueError("Unexpected S63 parent equity evidence scope")
+
+    columns = r"[ \t]+"
+    groups = {
+        "parent_equity": r"Equity attributable to owners\s+of the Company",
+        "non_controlling_interests": r"Non-controlling interests(?:[ \t]+F3)?",
+        "total_equity": r"Net assets",
+    }
+    for name, page, heading in (
+        ("annual_report", 131, r"^\s*ANNUAL REPORT 2025[ \t]+" + str(evidence["annual_report_printed_page"]) + r"\b"),
+        ("results", 9, r"^\s*Page " + str(evidence["results_printed_page"]) + r" of 31\b"),
+    ):
+        raw = source_bytes(evidence[name + "_url"], name + ".pdf")
+        digest = hashlib.sha256(raw).hexdigest()
+        if digest != evidence[name + "_sha256"]:
+            raise ValueError(f"S63 {name} PDF hash mismatch: {digest}")
+        text = pdf_text(raw, page, first_page=page)
+        if not re.search(heading, text, re.M) or "STATEMENT OF FINANCIAL POSITION" not in text:
+            raise ValueError(f"S63 {name} financial position page mismatch")
+        for field, label in groups.items():
+            cells = re.findall(r"^\s*" + label + columns + r"([\d,]+)\b", text, re.M | re.I)
+            if len(cells) != 1 or int(cells[0].replace(",", "")) != evidence[field]:
+                raise ValueError(f"S63 {name} {field} mismatch")
+        print(f"SG:S63 {name} matched, SHA256 {digest}")
+
+    if evidence["parent_equity"] + evidence["non_controlling_interests"] != evidence["total_equity"]:
+        raise ValueError("S63 parent equity reconciliation failed")
 
 
 def toyota_financials(raw, record):
@@ -270,6 +305,7 @@ def main():
     modes.add_argument("--sec-originals-only", action="store_true", help="Replay original SEC company facts independently of the listing directory")
     modes.add_argument("--jp-interim-only", action="store_true", help="Replay Japanese interim filing originals")
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
+    modes.add_argument("--sgx-s63-equity-only", action="store_true", help="Replay both S63 FY2025 issuer PDFs")
     args = parser.parse_args()
     snapshot = json.loads(DATA.read_text())
     if args.check_sec_excerpts:
@@ -284,6 +320,11 @@ def main():
         if not args.fixture_directory and "sec.gov/" in url:
             time.sleep(0.25)
         return (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(url)
+
+    if args.sgx_s63_equity_only:
+        equity = json.loads((ROOT / "docs/data/sgx-s63-parent-equity-v395.json").read_text())
+        check_s63_parent_equity(equity, source_bytes)
+        return
 
     if args.jp_interim_only:
         for record in snapshot["records"]:
