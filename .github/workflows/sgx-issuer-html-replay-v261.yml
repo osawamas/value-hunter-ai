@@ -1,0 +1,35 @@
+name: SGXNet nineteen official issuer original replay v261
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sgx-issuer-html-replay-v261.yml'
+      - 'scripts/replay-sgx-issuer-all-v261.py'
+      - 'scripts/test_sgx_issuer_all_v261.py'
+      - 'scripts/replay-sgx-issuer-html-v260.py'
+      - 'docs/data/sgx-official-issuer-code-filings-v255.json'
+      - 'docs/data/sgx-net-eleven-codes-v256.json'
+      - 'docs/data/sgx-corporate-indexed-page-v253.json'
+permissions:
+  contents: read
+jobs:
+  original-nineteen-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline source-map, parser and no-promotion tests
+        run: |
+          python3 scripts/test_sgx_issuer_html_v260.py
+          python3 scripts/test_sgx_issuer_all_v261.py
+      - name: Replay 19 original SGXNet issuer identity pages, 1 request/second
+        run: python3 scripts/replay-sgx-issuer-all-v261.py
+      - name: Archive SHA256 and exact source-verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-net-nineteen-original-html-v261
+          path: build/research/sgx-original-nineteen-html-v261.json
+          if-no-files-found: warn
+          retention-days: 30
