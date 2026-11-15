@@ -35,6 +35,7 @@ try {
  assert.match(await page.locator("#bankAnnualCompareStatus").innerText(),/正式ランキング未対応/);
 
  // v286: verified OCBC issuer-hosted HTML original linked to SGX PDF.
+ await page.locator("details").filter({has:page.locator("#ocbcSecondIssuerSourceStatus")}).locator("summary").click();
  const secondaryStatus=page.locator("#ocbcSecondIssuerSourceStatus");
  await secondaryStatus.getByText(/OCBC公式サイトの原本HTML/).waitFor({timeout:25000});
  const ocbcRows=page.locator("#ocbcSecondIssuerSourceRows tr");
@@ -47,6 +48,7 @@ try {
  assert.match(await ocbcWeb.getAttribute("href"),/^https:\/\/www\.ocbc\.com\//);
 
  // v287 issuer newsroom 154k HTML source proof also loaded from offline ZIP.
+ await page.locator("details").filter({has:page.locator("#dbsSecondarySourceStatus")}).locator("summary").click();
  await page.locator("#dbsSecondarySourceStatus").getByText(/DBS発行体サイトの原本HTML/).waitFor({timeout:25000});
  const dbsRows=page.locator("#dbsSecondarySourceRows tr");
  assert.equal(await dbsRows.count(),2);
