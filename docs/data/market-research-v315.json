@@ -10,7 +10,39 @@
       "name": "Oji Holdings Corporation",
       "label": "王子ホールディングス",
       "board": "Prime",
-      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html",
+      "financials": {
+        "currency": "JPY",
+        "basis": "日本基準",
+        "document_label": "決算発表資料（未監査）",
+        "source": "https://www.ojiholdings.co.jp/en/uploads/docs/en0515irnews01.pdf",
+        "periods": [
+          {
+            "start": "2024-04-01",
+            "end": "2025-03-31",
+            "revenue": 1849264000000,
+            "operating_income": 67686000000,
+            "net_income": 46171000000,
+            "assets": 2635030000000,
+            "parent_equity": 1101755000000
+          },
+          {
+            "start": "2025-04-01",
+            "end": "2026-03-31",
+            "revenue": 1861709000000,
+            "operating_income": 34582000000,
+            "net_income": 55582000000,
+            "assets": 2686944000000,
+            "parent_equity": 1102315000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-03-31",
+          "issued": 1014381817,
+          "treasury": 137745577,
+          "value": 876636240
+        }
+      }
     },
     {
       "id": "JP:4375",

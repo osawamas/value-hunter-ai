@@ -92,7 +92,8 @@ async function initMarketResearch() {
     const finance = row.financials;
     const periods = compareAnnual(finance);
     byId("marketDetailTitle").textContent = row.label + "（" + row.symbol + "）";
-    byId("marketDetailCurrency").textContent = finance.currency + "・" + finance.basis + "・連結年次";
+    byId("marketDetailCurrency").textContent = [finance.currency, finance.basis, "連結年次", finance.document_label]
+      .filter(Boolean).join("・");
     byId("marketFinancialRows").replaceChildren(...periods.map(p => {
       const tr = document.createElement("tr");
       const values = [p.end, money.format(p.revenue), money.format(p.operating_income), money.format(p.net_income),

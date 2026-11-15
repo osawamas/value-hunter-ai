@@ -21,6 +21,7 @@ SOURCES = {
     "jpx": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_e.xlsx",
     "sec": "https://www.sec.gov/files/company_tickers_exchange.json",
     "toyota": "https://global.toyota/pages/global_toyota/ir/financial-results/2026_4q_summary_en.pdf",
+    "oji": "https://www.ojiholdings.co.jp/en/uploads/docs/en0515irnews01.pdf",
 }
 MAX_BYTES = 12_000_000
 SEC_TAGS = {
@@ -165,6 +166,29 @@ def japanese_financials(raw, record):
         raise ValueError(f"TDnet share capital mismatch: {record['id']}")
 
 
+def oji_financials(raw, record):
+    text = pdf_text(raw, 2)
+    if "Code No. 3861 Tokyo Stock Exchange" not in text or "Year Ended March 31, 2026" not in text:
+        raise ValueError("Oji issuer or reporting year mismatch")
+    finance = record["financials"]
+    for row in finance["periods"]:
+        year = f"FY{int(row['end'][:4]) - 1}"
+        sales, operating, net, assets, equity = (f"{row[k] // 1_000_000:,}" for k in
+                                                 ("revenue", "operating_income", "net_income", "assets", "parent_equity"))
+        if not re.search(rf"^\s*{year}\s+{sales}\s+[\d.()]+\s+{operating}\s+[\d.()]+\s+[\d,]+\s+[\d.()]+\s+{net}\b", text, re.M):
+            raise ValueError(f"Oji {year} income mismatch")
+        if not re.search(rf"^\s*{year}\s+{assets}\s+[\d,]+\s+[\d.]+\s+[\d,.]+\s*$", text, re.M):
+            raise ValueError(f"Oji {year} assets mismatch")
+        if not re.search(rf"Note: Shareholders' equity[^\n]*{year}\s+{equity}\s+million yen", text):
+            raise ValueError(f"Oji {year} equity mismatch")
+    capital = text.split("Outstanding balance of issued shares (common stock)", 1)[1]
+    shares = finance["shares"]
+    if (not re.search(rf"FY2025\s+{shares['issued']:,}\b", capital.split("Outstanding balance of treasury shares", 1)[0])
+            or not re.search(rf"Outstanding balance of treasury shares\s+FY2025\s+{shares['treasury']:,}\b", capital)
+            or shares["issued"] - shares["treasury"] != shares["value"]):
+        raise ValueError("Oji year-end shares mismatch")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
@@ -211,6 +235,9 @@ def main():
             if record["symbol"] == "7203" and url == SOURCES["toyota"]:
                 raw[key] = source_bytes(url, "toyota.pdf")
                 toyota_financials(raw[key], record)
+            elif record["symbol"] == "3861" and url == SOURCES["oji"]:
+                raw[key] = source_bytes(url, key + ".pdf")
+                oji_financials(raw[key], record)
             elif re.fullmatch(rf"https://www2\.jpx\.co\.jp/disc/{key}0/\d+\.pdf", url):
                 raw[key] = source_bytes(url, key + ".pdf")
                 japanese_financials(raw[key], record)
