@@ -72,12 +72,19 @@
   }
   const candidateSet=new Set(candidates.candidates.map(x=>x.symbol));
   const financeSet=new Set(finance.records.map(x=>x.symbol));
+  if(financeSet.size!==7||finance.records.some(x=>x.ranking_eligible!==false))
+   throw Error("財務登録一覧の信頼性が不足");
+  const missingFinance=[...financeSet].filter(code=>!checked.has(code)).sort();
+  const missingPartialCandidates=[...candidateSet].filter(code=>!checked.has(code)).sort();
   return {schema_version:"sgx-user-csv-private-research-v278",
    as_of:asOf,source_url:parsed.href,
    file_bytes_utf16:raw.length,
    number_of_rows:list.length,
    matching_third_party_candidates:list.filter(x=>candidateSet.has(x.code)).length,
    matching_registered_financial_records:list.filter(x=>financeSet.has(x.code)).length,
+   registered_financial_codes_absent:missingFinance,
+   third_party_candidate_codes_absent_count:missingPartialCandidates.length,
+   imported_codes_outside_partial_candidates_count:list.filter(x=>!candidateSet.has(x.code)).length,
    sgx_source_url_actually_fetched:false,
    file_claimed_official_not_independently_verified:true,
    full_current_sgx_universe_confirmed:false,market_data_rights_verified:false,
@@ -168,9 +175,24 @@
      staged.matching_third_party_candidates+"件 / 財務登録と一致 "+
      staged.matching_registered_financial_records+
      "件。原本・全銘柄・現在上場は未検証。ランキングへの登録は行っていない。";
+    const gaps=document.getElementById("sgxManualMasterCoverageGaps");
+    if(gaps){
+     gaps.replaceChildren();
+     const summary=make("summary","取り込んだCSVと既存データの差分を確認");
+     const list=document.createElement("ul");
+     list.append(make("li","財務登録7社のうちCSVで確認できないコード: "+
+       (staged.registered_financial_codes_absent.join(", ")||"なし")));
+     list.append(make("li","第三者候補182社のうちCSVにないコード: "+
+       staged.third_party_candidate_codes_absent_count+"件"));
+     list.append(make("li","CSVのうち第三者候補182社にないコード: "+
+       staged.imported_codes_outside_partial_candidates_count+"件"));
+     list.append(make("li","差分は資料の対象範囲の違いを示すだけ。上場廃止・新規上場の確定ではない。"));
+     gaps.append(summary,list);
+    }
     repaint();
   }catch(err){
    staged=null;result.textContent="CSV取り込み失敗： "+err.message;
+   document.getElementById("sgxManualMasterCoverageGaps")?.replaceChildren();
    const tr=document.createElement("tr"),td=make("td","検証に失敗したため表示しない");
    td.colSpan=5;tr.append(td);table.replaceChildren(tr);repaint();
   }
