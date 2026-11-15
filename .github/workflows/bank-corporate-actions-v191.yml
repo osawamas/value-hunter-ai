@@ -123,6 +123,8 @@ on:
       - 'docs/test_sgx_manual_master_gaps_v281.js'
       - 'docs/test_sgx_flexible_csv_v282.js'
       - 'docs/test_bank_annual_compare_v283.js'
+      - 'docs/test_uob_original_sha_share_v284.js'
+      - 'docs/data/uob-original-12nov-share-count-v284.json'
       - 'docs/bank-annual-compare-v283.js'
       - 'docs/sgx-manual-master-v278.js'
       - 'docs/bank-scenario-v277.js'
