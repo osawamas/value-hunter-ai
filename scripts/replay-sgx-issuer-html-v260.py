@@ -74,6 +74,8 @@ def fetch(row,opener=urllib.request.urlopen):
         "Accept":"text/html,application/xhtml+xml;q=0.9,*/*;q=0.1"})
     try:
         with opener(req,timeout=18) as response:
+            if response.geturl()!=row["url"]:
+                raise ValueError("Unexpected redirect of original SGX source")
             length=response.read(MAX_BYTES+1)
             if len(length)>MAX_BYTES:raise ValueError("Issuer HTML exceeds safety bound")
             return inspect(row,length,response.status,response.headers.get("Content-Type",""))
