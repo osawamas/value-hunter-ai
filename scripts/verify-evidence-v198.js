@@ -68,7 +68,8 @@ const tests=[
  "docs/test_sgx_historical_code_search_v258.js",
  "docs/test_sgx_union_thirty_v259.js",
  "docs/test_sgx_original_html_proof_v262.js",
- "docs/test_sgx_financial_join_v263.js"
+ "docs/test_sgx_financial_join_v263.js",
+ "docs/test_sgx_financial_filter_v264.js"
 ];
 let failed=0;
 const results=[];
