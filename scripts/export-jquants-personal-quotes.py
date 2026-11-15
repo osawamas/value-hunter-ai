@@ -9,6 +9,8 @@ import os
 import re
 import sys
 from datetime import date
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -98,11 +100,32 @@ def collect_session_quotes(codes, day, api_key, fetch=fetch_page):
     return [(f"JP:{code}", day, "JPY", closes[code]) for code in sorted(closes)]
 
 
+def write_quotes(stream, rows):
+    writer = csv.writer(stream, lineterminator="\n")
+    writer.writerow(("market_id", "date", "currency", "close"))
+    writer.writerows(rows)
+
+
+def save_snapshot(path, rows):
+    temporary_path = None
+    try:
+        with NamedTemporaryFile(mode="w", encoding="utf-8", newline="", dir=path.parent,
+                                prefix=".jquants-", delete=False) as stream:
+            temporary_path = Path(stream.name)
+            write_quotes(stream, rows)
+        temporary_path.replace(path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date", type=trading_date, help="Get selected common-stock closes from one market-wide trading session")
     parser.add_argument("--from", dest="from_date", type=trading_date)
     parser.add_argument("--to", dest="to_date", type=trading_date)
+    parser.add_argument("--output", type=Path, help="Atomically replace this local CSV after validation")
+    parser.add_argument("--require-all", action="store_true", help="Require at least one close for every requested code")
     parser.add_argument("codes", type=code4, nargs="+")
     args = parser.parse_args()
     if args.date and (args.from_date or args.to_date):
@@ -129,10 +152,17 @@ def main():
     returned = {row[0][3:] for row in rows}
     missing = sorted(set(codes) - returned)
     if missing:
-        print("No close returned for: " + ", ".join(missing), file=sys.stderr)
-    writer = csv.writer(sys.stdout, lineterminator="\n")
-    writer.writerow(("market_id", "date", "currency", "close"))
-    writer.writerows(rows)
+        message = "No close returned for: " + ", ".join(missing)
+        if args.require_all:
+            parser.exit(1, message + "\n")
+        print(message, file=sys.stderr)
+    if args.output is None:
+        write_quotes(sys.stdout, rows)
+    else:
+        try:
+            save_snapshot(args.output, rows)
+        except OSError:
+            parser.exit(1, "Could not save the local snapshot. Check the destination directory and permissions.\n")
 
 
 if __name__ == "__main__":

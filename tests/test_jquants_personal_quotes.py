@@ -1,6 +1,10 @@
 import importlib.util
+import io
 from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
+from urllib.error import URLError
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/export-jquants-personal-quotes.py"
@@ -10,6 +14,44 @@ spec.loader.exec_module(exporter)
 
 
 class JQuantsExportTest(unittest.TestCase):
+    def test_snapshot_preserves_previous_file_until_a_complete_refresh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = Path(directory) / "current.csv"
+            previous = "market_id,date,currency,close\nJP:7203,2026-03-31,JPY,2900\n"
+            snapshot.write_text(previous, encoding="utf-8")
+            args = [str(SCRIPT), "--date", "2026-03-31", "--require-all",
+                    "--output", str(snapshot), "7203", "7201"]
+            toyota = ("JP:7203", "2026-03-31", "JPY", 3000)
+            nissan = ("JP:7201", "2026-03-31", "JPY", 350)
+            with patch.dict(exporter.os.environ, {"JQUANTS_API_KEY": "example"}), \
+                    patch.object(exporter.sys, "argv", args), \
+                    patch.object(exporter.sys, "stderr", io.StringIO()), \
+                    patch.object(exporter, "collect_session_quotes") as collect:
+                for failure, partial_rows in [(URLError("unavailable"), None), (None, [toyota])]:
+                    collect.side_effect = failure
+                    collect.return_value = partial_rows
+                    with self.assertRaises(SystemExit) as error:
+                        exporter.main()
+                    self.assertEqual(error.exception.code, 1)
+                    self.assertEqual(snapshot.read_text(encoding="utf-8"), previous)
+                collect.side_effect = None
+                collect.return_value = [toyota, nissan]
+                exporter.main()
+            self.assertEqual(snapshot.read_text(encoding="utf-8"),
+                             "market_id,date,currency,close\nJP:7203,2026-03-31,JPY,3000\n"
+                             "JP:7201,2026-03-31,JPY,350\n")
+            self.assertEqual(list(Path(directory).iterdir()), [snapshot])
+
+    def test_snapshot_write_failure_preserves_previous_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = Path(directory) / "current.csv"
+            snapshot.write_text("previous snapshot", encoding="utf-8")
+            with patch.object(exporter, "write_quotes", side_effect=OSError("write failed")):
+                with self.assertRaises(OSError):
+                    exporter.save_snapshot(snapshot, [])
+            self.assertEqual(snapshot.read_text(encoding="utf-8"), "previous snapshot")
+            self.assertEqual(list(Path(directory).iterdir()), [snapshot])
+
     def test_uses_unadjusted_close_and_paginates(self):
         pages = iter([
             {"data": [{"Code": "72030", "Date": "2026-03-30", "C": None}], "pagination_key": "next"},
