@@ -1,0 +1,107 @@
+"use strict";
+/* v298: safe dated SGX IPO audited historical trends, NOT current quote/ranking. */
+(function(root){
+ const KNOWN={
+  "9DC":{currency:"SGD",fyEnd:"03-31",sha:"6472db7e48bc45db8a056d196157d03589bf4ef880ee94eba3fd837b53c028de"},
+  "MIM":{currency:"USD",fyEnd:"12-31",sha:"d6b49948af8167e6d2443ae22f7538907c46e94d62b414843e8444abc05f342c"}
+ };
+ function compare(a,b){
+  if(!Number.isFinite(a)||!Number.isFinite(b)||a<=0)return null;
+  return 100*(b-a)/a;
+ }
+ const money=x=>typeof x==="number"?x.toLocaleString("ja-JP"):"—";
+ const pct=x=>x==null?"—":(x>=0?"+":"")+x.toFixed(1)+"%";
+ function build(doc,feed){
+  if(doc?.schema_version!=="sgx-ipo-audited-historical-financials-v298"||
+    doc.ranking_enabled!==false||doc.ranking_eligible_count!==0||
+    doc.universe_master_verified!==false||doc.licensed_quote_available!==false||
+    doc.independent_current_financial_reverification!==false||
+    !Array.isArray(doc.issuers)||doc.issuers.length!==2||
+    feed?.ranking_enabled!==false||feed.ranking_eligible_count!==0||feed.records?.length!==7)
+   throw Error("財務出典や投資適格の検証条件に不一致");
+  const seen=new Set(), result=[];
+  for(const s of doc.issuers){
+   const known=KNOWN[s.symbol];
+   if(!known||seen.has(s.symbol)||s.currency!==known.currency||
+      s.fiscal_year_end_month_day!==known.fyEnd||
+      s.source_pdf_sha256!==known.sha||
+      !/^https:\/\/links\.sgx\.com\/FileOpen\//.test(s.source_pdf_url||"")||
+      s.audit_report_in_prospectus!==true||
+      s.not_current_reverified_financials!==true||
+      !Array.isArray(s.periods)||s.periods.length!==3)
+     throw Error("IPO原本・通貨・監査対象年度に不正");
+   seen.add(s.symbol);
+   const expected=s.symbol==="9DC"?["2024-03-31","2025-03-31","2026-03-31"]:
+    ["2023-12-31","2024-12-31","2025-12-31"];
+   for(let i=0;i<3;i++){
+    const p=s.periods[i];
+    if(p.period_end!==expected[i]||p.audit_status!=="AUDITED"||
+      [p.revenue,p.gross_profit,p.profit_for_year,p.total_equity].some(v=>!Number.isInteger(v)||v<=0)||
+      p.revenue<p.gross_profit)throw Error("監査済み年度行が不正");
+   }
+   const p=s.periods;
+   const metrics=p.map((x,i)=>({
+    period:x.period_end,revenue:x.revenue,gross:x.gross_profit,
+    profit:x.profit_for_year,equity:x.total_equity,
+    grossMargin:100*x.gross_profit/x.revenue,
+    revenueGrowth:i?compare(p[i-1].revenue,x.revenue):null,
+    profitGrowth:i?compare(p[i-1].profit_for_year,x.profit_for_year):null,
+    auditStatus:"AUDITED_HISTORICAL"
+   }));
+   let interim=null;
+   if(s.symbol==="9DC"){
+    const pro=s.rejected_lookalike_pro_forma;
+    if(pro?.audit_status!=="UNAUDITED_PRO_FORMA"||
+      pro.period_end!=="2026-03-31"||pro.not_used_in_audited_growth!==true||
+      pro.revenue!==116567||pro.gross_profit!==38738||pro.profit_for_year!==11489||
+      p[2].revenue===pro.revenue)throw Error("未監査プロフォーマを監査済みに誤採用");
+   }else{
+    if(!Array.isArray(s.interim)||s.interim.length!==2||
+      s.nine_month_2026_press_release_separately_verified!==false)
+      throw Error("MIM中間決算境界が不正");
+    const [a,b]=s.interim;
+    if(a.period_start!=="2025-01-01"||a.period_end!=="2025-06-30"||
+       b.period_start!=="2026-01-01"||b.period_end!=="2026-06-30"||
+       a.audit_status!=="UNAUDITED_INTERIM"||b.audit_status!=="UNAUDITED_INTERIM"||
+       a.total_equity!==null||b.total_equity!==109052||
+       [a.revenue,b.revenue,a.gross_profit,b.gross_profit,a.profit_for_year,b.profit_for_year].some(v=>!Number.isInteger(v)||v<=0))
+       throw Error("同一期間の未監査比較に不正");
+    interim={date:"2026-06-30",revenueYoY:compare(a.revenue,b.revenue),
+     grossProfitYoY:compare(a.gross_profit,b.gross_profit),
+     profitYoY:compare(a.profit_for_year,b.profit_for_year),
+     period:"H1 2026 vs H1 2025",audited:false};
+   }
+   result.push({symbol:s.symbol,issuer:s.name,currency:s.currency,unit:"thousand",
+    source:s.source_pdf_url,sha:s.source_pdf_sha256,
+    historical:metrics,interim,financials_independently_reverified_today:false,
+    current_shares_verified:false,market_quote_licensed:false,rankEligible:false});
+  }
+  if(result.length!==2)throw Error("SGX IPO2銘柄未照合");
+  return result;
+ }
+ function init(){
+  const body=root.document.getElementById("sgxIpoFinancialRows");
+  const status=root.document.getElementById("sgxIpoFinancialStatus");
+  if(!body||!status)return;
+  const td=v=>{const c=root.document.createElement("td");c.textContent=String(v);return c;};
+  Promise.all(["./data/sgx-ipo-audited-historical-v298.json","./data/latest.json"].map(async u=>{
+   const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw Error("データ HTTP "+r.status);return r.json();
+  })).then(([doc,feed])=>{
+   const rows=build(doc,feed),fragment=root.document.createDocumentFragment();
+   for(const stock of rows){
+    for(const fy of stock.historical){
+     const tr=root.document.createElement("tr");
+     for(const x of [stock.symbol,fy.period,stock.currency,money(fy.revenue),
+       money(fy.gross),money(fy.profit),pct(fy.grossMargin),
+       pct(fy.revenueGrowth),"監査済みの過去年度"]){tr.append(td(x));}
+     fragment.append(tr);
+    }
+   }
+   body.replaceChildren(fragment);
+   status.textContent="SGX原本PDFの監査済み実績（通貨別・単位：千）。9DCは3月期、MIMは12月期。未監査プロフォーマを除外。MIMの2026年上期は別区分で前年比売上"+
+     pct(rows.find(x=>x.symbol==="MIM").interim.revenueYoY)+"。現在の株価・独立再監査・正式ランキングとは別。";
+  }).catch(e=>{body.replaceChildren();status.textContent="資料照合エラー："+e.message;});
+ }
+ if(root?.document)root.document.addEventListener("DOMContentLoaded",init);
+ if(typeof module!=="undefined"&&module.exports)module.exports={build,compare,pct};
+})(typeof window!=="undefined"?window:null);
