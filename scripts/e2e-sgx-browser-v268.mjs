@@ -18,6 +18,22 @@ try {
  const count=page.locator("#sgxHistoricalCodeShown");
  await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
+
+ // v283: actual FY2025 bank statement comparison from three issuer PDF sources.
+ await page.locator("#bankAnnualCompareStatus").getByText(/発行体FY2025資料/).waitFor({timeout:25000});
+ const annualRows=page.locator("#bankAnnualCompareRows tr");
+ assert.equal(await annualRows.count(),3,"three 2025 bank statement comparisons");
+ for(const symbol of ["D05","O39","U11"]){
+  const row=annualRows.filter({hasText:symbol});
+  assert.equal(await row.count(),1);
+  assert.equal(await row.locator("td").count(),9);
+  assert.match(await row.innerText(),/%/);
+  const link=row.locator('a:has-text("FY2025原本PDF")');
+  assert.match(await link.getAttribute("href"),/^https:\/\//);
+  assert.match(await link.getAttribute("title"),/原本SHA256：[a-f0-9]{64}/);
+ }
+ assert.match(await page.locator("#bankAnnualCompareStatus").innerText(),/正式ランキング未対応/);
+
  // v278 user-supplied SGX research CSV stays inside Chrome and must never
  // activate ranking, independent financial confirmation, or a server upload.
  const localCsv="Trading Code,Trading Name,Listing Board,Traded Currency\r\n"+
