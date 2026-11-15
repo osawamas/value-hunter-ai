@@ -40,5 +40,18 @@
     "Locate original SGXNet October statistics PDF; verify PDF bytes SHA and issuer services monthly listing counts",
     "Do not fabricate IPO stock codes or infer exact additions from aggregate two IPO statement",
     "Compare official monthly listing counts only against snapshots with matching month and security category, not arbitrary trading counters"
-  ]
+  ],
+  "sgxnet_announcement_reference_reported": "SG261112OTHREO8V",
+  "sgxnet_announcement_reference_status": "THIRD_PARTY_REPOST_NOT_ORIGINAL_VERIFIED",
+  "sgxnet_broadcast_reported_local": "2026-11-12 08:04 SGT",
+  "sgxnet_reference_secondary_source_url": "https://a.siasset.com/news/news.html?nid=515671391&source=sg_sgxnet",
+  "issuer_website_live_replay_v293": {
+    "attempted": true,
+    "live_run_id": 43670677884,
+    "official_html_bytes": 9858,
+    "official_html_sha256": "1a2e1d0a7dcc83ea157b1b08bb4a483b21df22772ce1c987571bc604bdbda8ff",
+    "body_verified": false,
+    "missing_content": "site returned a minimal page without Deluge, Mi Material, October details; not suitable as an original text proof",
+    "original_sgxnet_attachment_verified": false
+  }
 }
