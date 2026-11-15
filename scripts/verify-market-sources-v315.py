@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -370,6 +371,29 @@ def check_ibm_annual_filing(main_filing, exhibit, finance):
                 raise ValueError(f"IBM {period['end']} {field} differs from the original 10-K exhibit")
 
 
+def check_s63_share_notice(raw, evidence):
+    sys.path.insert(0, str(ROOT / "SGX_PDF_connection_probe"))
+    from sgx_s63_buyback_v109 import parse
+
+    notice = parse(raw)
+    broadcast = dt.datetime.strptime(notice["broadcast_sgt_text"], "%d-%b-%Y %H:%M:%S")
+    broadcast = broadcast.replace(tzinfo=dt.timezone(dt.timedelta(hours=8))).isoformat()
+    fields = {
+        "symbol": notice["symbol"],
+        "session_date_sgt": notice["purchase_date"],
+        "sgx_share_announcement_reference": notice["reference"],
+        "sgx_share_disclosed_at_sgt": broadcast,
+        "sgx_share_source_url": notice["source_url"],
+        "original_sgx_shares_ex_treasury": notice["issued_excluding_treasury_after_purchase"],
+    }
+    for key, value in fields.items():
+        if evidence.get(key) != value:
+            raise ValueError(f"S63 share evidence does not match the source: {key}")
+    if evidence.get("original_sgx_share_snapshot_on_same_date") is not True:
+        raise ValueError("S63 share evidence is missing its same-date confirmation")
+    print(f"SG:S63 share notice matched, SHA256 {notice['source_sha256']}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
@@ -379,6 +403,7 @@ def main():
     modes.add_argument("--jp-interim-only", action="store_true", help="Replay Japanese interim filing originals")
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
     modes.add_argument("--sgx-s63-equity-only", action="store_true", help="Replay both S63 FY2025 issuer PDFs")
+    modes.add_argument("--sgx-s63-shares-only", action="store_true", help="Replay the S63 SGXNet share notice")
     modes.add_argument("--sec-ibm-shares-only", action="store_true", help="Reconcile IBM shares against its original SEC 10-Q")
     modes.add_argument("--sec-ibm-annual-only", action="store_true", help="Reconcile IBM financials against the original SEC 10-K exhibit")
     args = parser.parse_args()
@@ -399,6 +424,16 @@ def main():
     if args.sgx_s63_equity_only:
         equity = json.loads((ROOT / "docs/data/sgx-s63-parent-equity-v395.json").read_text())
         check_s63_parent_equity(equity, source_bytes)
+        return
+
+    if args.sgx_s63_shares_only:
+        evidence = json.loads((ROOT / "docs/data/sgx-s63-two-website-close-v129.json").read_text())
+        from urllib.parse import urlsplit
+        source = evidence["sgx_share_source_url"]
+        url = urlsplit(source)
+        if url.scheme != "https" or url.netloc != "links.sgx.com":
+            raise ValueError("S63 share notice must use the official SGX archive")
+        check_s63_share_notice(source_bytes(source, "S63-buyback.html"), evidence)
         return
 
     if args.sec_ibm_shares_only:
