@@ -196,6 +196,15 @@ jobs:
           node-version: '20'
       - name: Run source, financial-period and ranking integrity regressions
         run: node scripts/verify-evidence-v198.js
+      - name: Build staged SGX 32-code historical research union
+        run: node scripts/build-sgx-ipo-candidate-union-v295.js
+      - name: Retain staged SGX IPO plus historical candidate catalog
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-thirty-two-historical-candidate-stage-v295
+          path: build/research/sgx-32-historical-candidates-v295.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Preserve all individual evidence test results
         if: always()
         uses: actions/upload-artifact@v4
