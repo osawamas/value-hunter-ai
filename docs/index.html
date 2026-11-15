@@ -18,6 +18,7 @@
   <script src="./reference-valuation-guard-v168.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./bank-scenario-v277.js" defer></script>
+  <script src="./bank-manual-compare-v285.js" defer></script>
   <script src="./bank-annual-compare-v283.js" defer></script>
   <script src="./sgx-manual-master-v278.js" defer></script>
   <script src="./universe.js" defer></script>
@@ -140,6 +141,24 @@
         </table></div>
         <div class="tablefoot"><span>総収益は銀行グループのtotal incomeで、一般事業会社の売上高と異なる。</span>
           <span>参考ROE＝FY2025親会社帰属利益÷FY2024・FY2025末親会社持分の単純平均。公式公表ROEとは一致するとは限らない。独立検証未了。</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="manualBankCompareTitle">
+        <div class="section-heading"><div><div class="eyebrow">LOCAL COMPARISON / NOT A VERIFIED RANKING</div>
+          <h2 id="manualBankCompareTitle">銀行3社の参考PER・PBRを横並び比較</h2></div>
+          <p>自分で調べた株価と自己株式控除後の株数を入力。参考PBRの低い順に並べるが、投資推奨・正式ランキングではない。</p></div>
+        <p id="manualBankCompareStatus" class="status-message" role="status">銀行3社の財務を検査中…</p>
+        <form id="manualBankCompareForm">
+          <div class="tablewrap"><table><thead><tr><th>銀行</th><th>株価（SGD、手入力）</th><th>株価基準日</th><th>自己株式控除後株数（手入力）</th><th>株数基準日</th></tr></thead>
+          <tbody>
+          <tr><th scope="row">DBS D05</th><td><input name="priceD05" type="text" inputmode="decimal" required placeholder="株価"></td><td><input name="priceDateD05" type="date" required></td><td><input name="sharesD05" type="text" inputmode="numeric" required placeholder="自己株除外後"></td><td><input name="sharesDateD05" type="date" required></td></tr>
+          <tr><th scope="row">OCBC O39</th><td><input name="priceO39" type="text" inputmode="decimal" required placeholder="株価"></td><td><input name="priceDateO39" type="date" required></td><td><input name="sharesO39" type="text" inputmode="numeric" required placeholder="自己株除外後"></td><td><input name="sharesDateO39" type="date" required></td></tr>
+          <tr><th scope="row">UOB U11</th><td><input name="priceU11" type="text" inputmode="decimal" required placeholder="株価"></td><td><input name="priceDateU11" type="date" required></td><td><input name="sharesU11" type="text" inputmode="numeric" required placeholder="自己株除外後"></td><td><input name="sharesDateU11" type="date" required></td></tr>
+          </tbody></table></div>
+          <button type="submit" class="secondary-button">銀行3社の参考指標を比較</button>
+        </form>
+        <div id="manualBankCompareResults" aria-live="polite"></div>
+        <div class="tablefoot"><span>利用者の手入力データは端末内で計算し、送信・保存しない。</span><span>FY2025財務と時点が異なる場合もあるため正式な割安ランキングには使えない。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="scenarioBankTitle">
