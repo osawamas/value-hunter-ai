@@ -109,6 +109,6 @@ try {
  await degraded.close();
  }
  assert.deepEqual(failures,[],"JavaScript browser errors");
- console.log("v268 PASS: real Chromium HTTP page, 30 originals, 19 SHA proofs, finance filter, mobile Japanese exclusions, hash navigation, CSV download and invalid deep links");
+ console.log("v279 PASS ("+(base.startsWith("file:")?"file:// offline bundle":"HTTP served docs")+"): real Chromium, 182 candidates, 30 researched SGX codes, bank scenario, manual CSV import, finance links, export and mobile");
  console.log("v268 screenshot "+screenshot);
 } finally {await browser.close();}
