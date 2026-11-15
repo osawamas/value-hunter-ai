@@ -83,14 +83,76 @@
    full_current_sgx_universe_confirmed:false,market_data_rights_verified:false,
    financial_records_modified:false,ranking_eligible_count:0,records:list};
  }
+ const PAGE_SIZE=50;
+ function pageOf(staged,query,page,size=PAGE_SIZE){
+  if(staged?.schema_version!=="sgx-user-csv-private-research-v278"||
+     staged.ranking_eligible_count!==0||
+     staged.full_current_sgx_universe_confirmed!==false||
+     staged.sgx_source_url_actually_fetched!==false||
+     !Array.isArray(staged.records)||staged.records.length!==staged.number_of_rows||
+     !Number.isInteger(page)||page<0||!Number.isInteger(size)||size<1||size>100)
+   throw Error("CSV閲覧条件・根拠データが不正");
+  const q=String(query||"").trim().toLocaleUpperCase("en");
+  const filtered=staged.records.filter(x=>
+   x.investmentRankingEligible===false&&x.activeListingConfirmed===false&&
+   (x.code+" "+x.name+" "+x.board+" "+x.currency).toLocaleUpperCase("en").includes(q));
+  const maxPage=Math.max(0,Math.ceil(filtered.length/size)-1);
+  const current=Math.min(page,maxPage);
+  return {records:filtered.slice(current*size,(current+1)*size),
+   matched:filtered.length,total:staged.records.length,
+   page:current,pageCount:maxPage+1,hasPrevious:current>0,
+   hasNext:current<maxPage};
+ }
  const make=(tag,text)=>{const e=document.createElement(tag);e.textContent=text;return e;};
  async function init(){
   const form=document.getElementById("sgxManualMasterForm");
   const result=document.getElementById("sgxManualMasterResult");
   const table=document.getElementById("sgxManualMasterRows");
-  if(!form||!result||!table)return;
+  const search=document.getElementById("sgxManualMasterSearch");
+  const pageStatus=document.getElementById("sgxManualMasterPageStatus");
+  const previous=document.getElementById("sgxManualMasterPrevious");
+  const next=document.getElementById("sgxManualMasterNext");
+  const template=document.getElementById("sgxManualMasterTemplate");
+  if(!form||!result||!table||!search||!pageStatus||!previous||!next||!template)return;
+  let staged=null,visiblePage=0;
+  const repaint=()=>{
+   if(!staged){
+    pageStatus.textContent="CSV未取込";
+    previous.disabled=true;next.disabled=true;
+    return;
+   }
+   const view=pageOf(staged,search.value,visiblePage);
+   visiblePage=view.page;
+   const frag=document.createDocumentFragment();
+   for(const rec of view.records){
+    const tr=document.createElement("tr");
+    for(const v of [rec.code,rec.name,rec.board,rec.currency,"原本未検証・参考のみ"])
+     tr.append(make("td",v));
+    frag.append(tr);
+   }
+   if(!view.records.length){
+    const tr=document.createElement("tr"),td=make("td","一致する銘柄はない");
+    td.colSpan=5;tr.append(td);frag.append(tr);
+   }
+   table.replaceChildren(frag);
+   previous.disabled=!view.hasPrevious;next.disabled=!view.hasNext;
+   pageStatus.textContent="検索一致 "+view.matched+" / "+view.total+
+    "件・"+(view.page+1)+"/"+view.pageCount+"ページ（50件ずつ）";
+  };
+  search.addEventListener("input",()=>{visiblePage=0;repaint();});
+  previous.addEventListener("click",()=>{if(visiblePage>0){visiblePage--;repaint();}});
+  next.addEventListener("click",()=>{if(staged){visiblePage++;repaint();}});
+  template.addEventListener("click",()=>{
+   const header=head.join(",")+"\\r\\n";
+   const blob=new Blob(["\\uFEFF"+header],{type:"text/csv;charset=utf-8"});
+   const url=URL.createObjectURL(blob);
+   const a=document.createElement("a");
+   a.href=url;a.download="sgx-source-template-unverified.csv";a.click();
+   URL.revokeObjectURL(url);
+  });
   form.addEventListener("submit",async event=>{
-   event.preventDefault();table.replaceChildren();
+   event.preventDefault();
+   staged=null;visiblePage=0;table.replaceChildren();repaint();
    try{
     const file=form.elements.masterFile.files?.[0];
     if(!file||file.size>4*1024*1024)throw Error("4MB以下のCSVを選択して");
@@ -101,26 +163,19 @@
       if(!response.ok)throw Error("HTTP "+response.status);
       return response.json();
      }));
-    const staged=stageCSV(content,form.elements.sourceURL.value,form.elements.asOf.value,candidates,finance);
+    staged=stageCSV(content,form.elements.sourceURL.value,form.elements.asOf.value,candidates,finance);
     result.textContent="手入力CSV "+staged.number_of_rows+"件 / 第三者候補とコード一致 "+
      staged.matching_third_party_candidates+"件 / 財務登録と一致 "+
      staged.matching_registered_financial_records+
      "件。原本・全銘柄・現在上場は未検証。ランキングへの登録は行っていない。";
-    const frag=document.createDocumentFragment();
-    for(const rec of staged.records.slice(0,100)){
-     const tr=document.createElement("tr");
-     for(const v of [rec.code,rec.name,rec.board,rec.currency,"原本未検証・参考のみ"])
-      tr.append(make("td",v));
-     frag.append(tr);
-    }
-    table.replaceChildren(frag);
+    repaint();
   }catch(err){
-   result.textContent="CSV取り込み失敗： "+err.message;
+   staged=null;result.textContent="CSV取り込み失敗： "+err.message;
    const tr=document.createElement("tr"),td=make("td","検証に失敗したため表示しない");
-   td.colSpan=5;tr.append(td);table.replaceChildren(tr);
+   td.colSpan=5;tr.append(td);table.replaceChildren(tr);repaint();
   }
  });
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={parseCSV,stageCSV};
+ if(typeof module!=="undefined"&&module.exports)module.exports={parseCSV,stageCSV,pageOf};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);
 })(typeof window!=="undefined"?window:null);
