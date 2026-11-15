@@ -59,6 +59,20 @@ try {
  assert.match(await dbsWeb.getAttribute("title"),/原本HTML SHA-256：[0-9a-f]{64}/);
  assert.match(await dbsWeb.getAttribute("href"),/^https:\/\/www\.dbs\.com\//);
 
+ // v288: same-issuer UOB original PDF exact four 3Q/9M amounts.
+ await page.locator("details").filter({has:page.locator("#uobSecondaryIssuerStatus")}).locator("summary").click();
+ await page.locator("#uobSecondaryIssuerStatus").getByText(/UOB公式原本PDFの9M・3Q/).waitFor({timeout:25000});
+ const uobPdfRows=page.locator("#uobSecondaryIssuerRows tr");
+ assert.equal(await uobPdfRows.count(),4);
+ assert.match(await uobPdfRows.first().innerText(),/1,250 百万SGD/);
+ assert.match(await uobPdfRows.nth(1).innerText(),/4,165 百万SGD/);
+ assert.match(await uobPdfRows.nth(2).innerText(),/2,278 百万SGD/);
+ assert.match(await uobPdfRows.nth(3).innerText(),/6,900 百万SGD/);
+ const uobPdf=page.locator("#uobSecondaryIssuerPdf");
+ assert.match(await uobPdf.getAttribute("title"),/公式PDF原本SHA-256：[0-9a-f]{64}/);
+ assert.match(await page.locator("#uobSecondaryIssuerStatus").innerText(),/独立監査・株価・ランキング検証ではない/);
+
+
 
 
  // v285 local-only three-bank comparison, separate from the investment ranking.
