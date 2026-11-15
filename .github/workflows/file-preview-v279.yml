@@ -8,6 +8,7 @@ on:
       - 'scripts/build-file-preview-v279.py'
       - 'scripts/e2e-sgx-browser-v268.mjs'
       - 'scripts/e2e-sgx-32-research-v296.mjs'
+      - 'scripts/run-browser-regressions.sh'
       - 'docs/**'
 permissions:
   contents: read
@@ -29,8 +30,7 @@ jobs:
           npm install --no-save --no-package-lock playwright-core
           VALUE_HUNTER_URL="file://$(pwd)/build/release-v279/standalone/docs" \
           VALUE_HUNTER_E2E_SCREENSHOT="$(pwd)/build/release-v279/file-mobile.png" \
-          node scripts/e2e-sgx-browser-v268.mjs
-          VALUE_HUNTER_URL="file://$(pwd)/build/release-v279/standalone/docs" node scripts/e2e-sgx-32-research-v296.mjs
+          bash scripts/run-browser-regressions.sh
       - name: Package validated direct-file launch ZIP
         run: |
           cd build/release-v279/standalone

@@ -8,6 +8,7 @@ on:
       - 'docs/**'
       - 'scripts/e2e-sgx-browser-v268.mjs'
       - 'scripts/e2e-sgx-32-research-v296.mjs'
+      - 'scripts/run-browser-regressions.sh'
 permissions:
   contents: read
 jobs:
@@ -68,8 +69,7 @@ jobs:
         run: |
           command -v google-chrome
           npm install --no-save --no-package-lock playwright-core
-          VALUE_HUNTER_E2E_SCREENSHOT=build/release-v270/zip-mobile.png node scripts/e2e-sgx-browser-v268.mjs
-          node scripts/e2e-sgx-32-research-v296.mjs
+          VALUE_HUNTER_E2E_SCREENSHOT=build/release-v270/zip-mobile.png bash scripts/run-browser-regressions.sh
       - name: Save verified offline distribution and SHA256
         if: success()
         uses: actions/upload-artifact@v4
