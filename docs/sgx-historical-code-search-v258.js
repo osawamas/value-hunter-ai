@@ -65,6 +65,33 @@
    throw Error("20-issuer directory scope changed");
   return rows;
  }
+ // v259 adds the remaining 10 direct SGX trading-table counters. Market board is
+ // deliberately unknown: source is about board LOTS, not listing segment.
+ function buildExpanded(index,first,second,boardLot,events,feed){
+  const previous=build(index,first,second,boardLot,events,feed);
+  const taken=new Set(previous.map(x=>x.code));
+  const merged=[...previous];
+  for(const official of boardLot.rows){
+   if(official.symbol==="O39")continue; // Already joined by exact issuer alias.
+   if(!codePattern.test(official.symbol)||taken.has(official.symbol)||
+      official.provenance!=="OFFICIAL_SGX_TRADING_PAGE_STATIC_BATCH"||
+      official.eligible_for_valuation!==false||
+      !official.name||!["SGD","USD"].includes(official.trading_currency)||
+      official.effective_date!=="2026-10-05")
+    throw Error("SGX static code source mismatch");
+   taken.add(official.symbol);
+   merged.push({name:official.name,code:official.symbol,isin:null,
+    source:boardLot.source_url,filingDate:boardLot.effective_date,
+    kind:"SGX_STATIC",board:"UNKNOWN",
+    warning:null,all_current_trading_verified:false,
+    financial_or_quote_verified:false,ranking_eligible:false});
+  }
+  if(merged.length!==30||taken.size!==30||
+     merged.filter(x=>x.board==="UNKNOWN").length!==10||
+     merged.filter(x=>x.warning!==null).length!==2)
+   throw Error("SGX partial source union does not reconcile");
+  return merged;
+ }
  function search(rows,query,boardFilter){
   const q=String(query||"").trim().toLocaleUpperCase("en");
   return rows.filter(x=>(boardFilter==="ALL"||x.board===boardFilter)&&
@@ -89,7 +116,7 @@
     if(!response.ok)throw Error("HTTP "+response.status);
     return response.json();
    }));
-   const items=build(...files);
+   const items=buildExpanded(...files);
    const paint=()=>{
     const shown=search(items,input.value,board.value);
     const frag=document.createDocumentFragment();
@@ -109,11 +136,11 @@
      td.colSpan=5;td.textContent="一致する企業なし";tr.append(td);frag.append(tr);
     }
     body.replaceChildren(frag);
-    count.textContent=shown.length+" / 20 件（限定ページの過去開示コード）";
+    count.textContent=shown.length+" / 30 件（複数のSGX限定資料からの過去開示コード）";
    };
    input.addEventListener("input",paint);board.addEventListener("change",paint);
    paint();
-   status.textContent="SGX企業情報の1ページに掲載された20社と、SGXNet等の過去開示を照合。現在の上場・取引状態や株価は保証されない。";
+   status.textContent="企業情報の部分ページ20社＋SGX公式売買単位表の追加10銘柄。市場区分未確認の10銘柄を含み、現在の上場・取引状態や株価は保証されない。";
   }catch(e){
    body.replaceChildren();
    const tr=document.createElement("tr"),td=document.createElement("td");
@@ -122,6 +149,6 @@
    count.textContent="取得不可";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={build,search,quoteViewer};
+ if(typeof module!=="undefined"&&module.exports)module.exports={build,buildExpanded,search,quoteViewer};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
