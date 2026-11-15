@@ -100,10 +100,13 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     const hasSharedDateRange = entry => sharedDateRange && entry.date >= first && entry.date <= last;
     const datesMissingFromCurrentWithinRange = sessionChanges
       .filter(entry => entry.change === "removed" && hasSharedDateRange(entry)).map(entry => entry.date);
+    const newTradingDates = before ? sessionChanges
+      .filter(entry => entry.change === "added" && entry.date > before.last)
+      .map(entry => entry.date) : [];
     return {...result, closeChange: matchedSession?.change ?? "absent",
       previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges,
       quoteCoverage: {previous: before, current: after},
-      sharedDateRange, datesMissingFromCurrentWithinRange};
+      sharedDateRange, datesMissingFromCurrentWithinRange, newTradingDates};
   });
   return {...latest, results: updates};
 }

@@ -162,4 +162,11 @@ assert.deepEqual(overlap.sharedDateRange, {first: "2026-03-31", last: "2026-10-0
 assert.deepEqual(overlap.datesMissingFromCurrentWithinRange, ["2026-09-30"]);
 assert.deepEqual(olderRevision.sharedDateRange, {first: "2026-03-31", last: "2026-09-30"});
 assert.deepEqual(olderRevision.datesMissingFromCurrentWithinRange, []);
+assert.deepEqual(olderRevision.newTradingDates, []);
+assert.deepEqual(subsequent.newTradingDates, []);
+assert.deepEqual(refreshed[1].newTradingDates, ["2026-10-01"]);
+assert.deepEqual(refreshed[2].newTradingDates, ["2026-11-13"]);
+const noPreviousSgx = reviewQuoteRefresh(rows, shares, onlyOlderToyota, current).results[2];
+assert.equal(noPreviousSgx.quoteCoverage.previous, null);
+assert.deepEqual(noPreviousSgx.newTradingDates, []);
 console.log("Representative valuation checks passed for JP, US and SG.");
