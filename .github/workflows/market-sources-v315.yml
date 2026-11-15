@@ -23,6 +23,8 @@ on:
       - 'docs/data/sgx-s63-two-website-close-v129.json'
       - 'docs/data/sgx-s63-parent-equity-v395.json'
       - 'scripts/export-jquants-personal-quotes.py'
+      - 'scripts/verify-jquants-personal-snapshot.py'
+      - 'scripts/test-verify-jquants-personal-snapshot.py'
       - 'tests/test_jquants_personal_quotes.py'
       - 'tests/fixtures/sec-filing-excerpts-v316.json'
       - 'scripts/build-sec-quarterly-research.py'
@@ -40,6 +42,7 @@ jobs:
         with:
           node-version: "22"
       - run: node tests/test_representative_valuations.js
+      - run: python3 scripts/test-verify-jquants-personal-snapshot.py
       - run: |
           node docs/test_ranking_provenance_v289.js
           node docs/test_ranking_license_evidence_v290.js

@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,6 +53,33 @@ class SnapshotTests(unittest.TestCase):
         self.save()
         with self.assertRaisesRegex(ValueError,'outside'):
             module.validate(self.csv,self.receipt)
+
+    def test_comparison_checks_both_receipts_before_calculating(self):
+        current = self.csv.with_name("current.csv")
+        current_receipt = self.receipt.with_name("current.json")
+        current.write_bytes(self.csv.read_bytes().replace(b"2500", b"2501"))
+        current_receipt.write_text(json.dumps({
+            **self.record, "csv_sha256": hashlib.sha256(current.read_bytes()).hexdigest()
+        }), encoding="utf-8")
+        cli = Path(__file__).with_name("check-representative-valuations.js")
+        args = ["node", cli, "--compare-jquants", self.csv, self.receipt, current, current_receipt]
+        passed = subprocess.run(args, check=True, capture_output=True, text=True)
+        report = json.loads(passed.stdout)
+        self.assertEqual(report["snapshotVerification"], "jquants_personal_receipts_matched")
+        toyota = report["results"][0]
+        self.assertEqual(toyota["closeChange"], "revised")
+        self.assertEqual(toyota["valuation"]["cap"], 2501 * 11778247313)
+        self.assertGreater(toyota["valuation"]["per"], 0)
+        self.assertGreater(toyota["valuation"]["pbr"], 0)
+        for candidate in (self.csv, current):
+            with self.subTest(candidate=candidate.name):
+                original = candidate.read_bytes()
+                candidate.write_bytes(original.replace(b"250", b"251"))
+                rejected = subprocess.run(args, capture_output=True, text=True)
+                self.assertEqual(rejected.returncode, 1)
+                self.assertEqual(rejected.stdout, "")
+                self.assertIn("SHA-256", rejected.stderr)
+                candidate.write_bytes(original)
 
 if __name__=='__main__':
     unittest.main()

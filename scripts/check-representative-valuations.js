@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const {createHash} = require("node:crypto");
+const {spawnSync} = require("node:child_process");
 const {
   buildMarketRows, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory,
 } = require("../docs/market-research.js");
@@ -113,25 +114,37 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
 
 function main(args) {
   const refresh = args[0] === "--compare" && args.length === 3;
-  if (!refresh && (args.length > 1 || args[0] === "--compare")) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv] or --compare previous.csv current.csv");
+  const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
+  if (!refresh && !verifiedRefresh && (args.length > 1 || args[0]?.startsWith("--"))) {
+    throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv], --compare previous.csv current.csv, or --compare-jquants previous.csv previous.json current.csv current.json");
   }
   const research = loadSnapshot("market-research-v315.json");
   const sgx = loadSnapshot("latest.json");
   const shareReview = loadSnapshot("sgx-s63-two-website-close-v129.json");
   const rows = buildMarketRows(research, sgx);
-  const loadQuotes = filename => {
+  const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    if (receipt !== undefined) {
+      const verifier = path.join(__dirname, "verify-jquants-personal-snapshot.py");
+      const result = spawnSync("python3", [verifier, "--", filename, receipt], {encoding: "utf8"});
+      if (result.error) throw result.error;
+      if (result.status !== 0) throw Error(result.stderr.trim() || "J-Quants snapshot verification failed");
+      if (JSON.parse(result.stdout).csv_sha256 !== sha256) {
+        throw Error("CSV changed during snapshot verification");
+      }
+    }
     return {
       quotes: readQuoteHistory(bytes.toString("utf8")),
-      sha256: createHash("sha256").update(bytes).digest("hex"),
+      sha256,
     };
   };
   let report;
-  if (refresh) {
-    const previous = loadQuotes(args[1]);
-    const current = loadQuotes(args[2]);
+  if (refresh || verifiedRefresh) {
+    const previous = loadQuotes(args[1], verifiedRefresh ? args[2] : undefined);
+    const current = verifiedRefresh ? loadQuotes(args[3], args[4]) : loadQuotes(args[2]);
     report = reviewQuoteRefresh(rows, shareReview, previous.quotes, current.quotes);
+    if (verifiedRefresh) report.snapshotVerification = "jquants_personal_receipts_matched";
     report.snapshots = {
       previous: {sha256: previous.sha256, observations: previous.quotes.size},
       current: {sha256: current.sha256, observations: current.quotes.size},
