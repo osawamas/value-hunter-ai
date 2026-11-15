@@ -67,4 +67,27 @@ assert.deepEqual(refreshed[1].newerUnmatchedDates, ["2026-10-01"]);
 assert.equal(refreshed[2].status, "trial_calculated");
 assert.deepEqual(reviewQuoteRefresh(rows, shares, current, current).results.map(row => row.closeChange),
   ["unchanged", "absent", "unchanged"]);
+assert.deepEqual(refreshed[0].sessionChanges, [
+  {date: "2026-09-30", change: "revised", previousPrice: 2500, currentPrice: 2501, hasExactShares: true},
+  {date: "2026-10-01", change: "unchanged", previousPrice: 3000, currentPrice: 3000, hasExactShares: false},
+]);
+assert.deepEqual(refreshed[2].sessionChanges, [
+  {date: "2026-11-12", change: "removed", previousPrice: 11, currentPrice: null, hasExactShares: false},
+  {date: "2026-11-13", change: "added", previousPrice: null, currentPrice: 10, hasExactShares: true},
+]);
+const updated = readQuoteHistory([
+  "market_id,date,currency,close",
+  "JP:7203,2026-03-31,JPY,2900",
+  "JP:7203,2026-09-30,JPY,2501",
+  "JP:7203,2026-10-01,JPY,3010",
+  "JP:7201,2026-10-01,JPY,300",
+].join("\n"));
+const subsequent = reviewQuoteRefresh(rows, shares, current, updated).results[0];
+assert.equal(subsequent.closeChange, "unchanged");
+assert.deepEqual(subsequent.newerUnmatchedDates, ["2026-10-01"]);
+assert.deepEqual(subsequent.sessionChanges, [
+  {date: "2026-03-31", change: "added", previousPrice: null, currentPrice: 2900, hasExactShares: true},
+  {date: "2026-09-30", change: "unchanged", previousPrice: 2501, currentPrice: 2501, hasExactShares: true},
+  {date: "2026-10-01", change: "revised", previousPrice: 3000, currentPrice: 3010, hasExactShares: false},
+]);
 console.log("Representative valuation checks passed for JP, US and SG.");

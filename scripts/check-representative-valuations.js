@@ -41,20 +41,32 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
 
 function reviewQuoteRefresh(rows, shareReview, previous, current) {
   const latest = reviewRepresentativeValuations(rows, shareReview, current);
-  const updates = latest.results.map(result => {
-    const {id, date} = result;
-    const key = id + ":" + date;
+  const shareSessions = publishedShareSessions(rows, shareReview);
+  const changesByIssuer = new Map(representatives.map(id => [id, []]));
+  const keys = new Set([...previous.keys(), ...current.keys()]);
+  for (const key of keys) {
     const before = previous.get(key);
     const after = current.get(key);
-    let change = "absent";
-    if (after && !before) change = "added";
-    else if (after && before) change = after.price === before.price ? "unchanged" : "revised";
-    else if (before) change = "removed";
+    const {id, date} = after || before;
+    const changes = changesByIssuer.get(id);
+    if (!changes) continue;
+    const change = !before ? "added" : !after ? "removed" :
+      before.price === after.price ? "unchanged" : "revised";
+    const hasExactShares = shareSessions.get(date)?.some(record => record.id === id) ?? false;
+    changes.push({
+      date, change, previousPrice: before?.price ?? null, currentPrice: after?.price ?? null,
+      hasExactShares,
+    });
+  }
 
-    const newer = [...current.values()].filter(quote => quote.id === id && date && quote.date > date)
-      .map(quote => quote.date).sort();
-    return {...result, closeChange: change, previousPrice: before?.price ?? null,
-      newerUnmatchedDates: newer};
+  const updates = latest.results.map(result => {
+    const {id, date} = result;
+    const sessionChanges = changesByIssuer.get(id).sort((a, b) => a.date.localeCompare(b.date));
+    const matchedSession = sessionChanges.find(entry => entry.date === date);
+    const newerUnmatchedDates = sessionChanges.filter(entry =>
+      date && entry.date > date && entry.currentPrice !== null && !entry.hasExactShares).map(entry => entry.date);
+    return {...result, closeChange: matchedSession?.change ?? "absent",
+      previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges};
   });
   return {...latest, results: updates};
 }
