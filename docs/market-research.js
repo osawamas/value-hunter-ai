@@ -298,6 +298,29 @@ function describeClassQuotes(row, quote, quotes, history) {
   return notes.length ? notes.join("／") : "上場クラスの終値はそろっている。クラス別評価が必要";
 }
 
+function matchListedClassValue(row, id, quote) {
+  const updated = row.quarterly;
+  const annual = row.financials;
+  const observations = [
+    {cover: updated?.share_classes, source: updated?.source},
+    {cover: annual.share_classes, source: annual.filing_url},
+  ];
+  const exact = observations.flatMap(({cover, source}) => {
+    if (cover?.as_of !== quote.date || cover.rounded !== false || !source) return [];
+    const share = cover.classes.find(item => item.symbol && row.market + ":" + item.symbol === id);
+    return share && Number.isSafeInteger(share.value) && share.value > 0 ?
+      [{shares: share.value, shareSource: source}] : [];
+  });
+  if (new Set(exact.map(item => item.shares)).size > 1) return {note: "クラス別開示株数が不一致"};
+  if (!exact.length) return {note: "同日の正確なクラス別開示株数なし"};
+  const match = exact[0];
+  const classValue = quote.price * match.shares;
+  if (!Number.isFinite(classValue) || classValue <= 0 || classValue > Number.MAX_SAFE_INTEGER) {
+    return {note: "クラス別参考時価の計算範囲外"};
+  }
+  return {...match, classValue};
+}
+
 function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
   const issuers = new Map(rows.map(row => [row.id, row]));
   for (const row of rows) {
@@ -311,9 +334,13 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
     const entry = {id, label: row?.label || id, quote};
     if (!row) return {...entry, state: "unknown"};
     const finance = row.financials;
-    if (finance?.share_classes) return {
-      ...entry, state: "shareClasses", detail: describeClassQuotes(row, quote, quotes, history),
-    };
+    if (finance?.share_classes) {
+      if (quote.currency !== finance.currency || !isMarketDate(quote.date) ||
+          !Number.isFinite(quote.price) || quote.price <= 0) return {...entry, state: "incompatible"};
+      const {note, ...listedClass} = matchListedClassValue(row, id, quote);
+      const detail = [describeClassQuotes(row, quote, quotes, history), note].filter(Boolean).join("／");
+      return {...entry, state: "shareClasses", detail, ...listedClass};
+    }
     const sgx = sgxValuationFinance(row);
     if (!finance && !sgx) return {...entry, state: "noFinance"};
     const currency = finance?.currency || sgx.currency;
@@ -337,7 +364,7 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
-    "match_status", "financial_source", "share_source", "match_detail"];
+    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value"];
   const cell = value => {
     if (value === null || value === undefined) return "";
     if (typeof value === "number") return String(value);
@@ -347,7 +374,7 @@ function personalBatchCsv(results) {
   };
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.result?.periodEnd,
-    row.state, row.financeSource, row.shareSource, row.detail].map(cell).join(","));
+    row.state, row.financeSource, row.shareSource, row.detail, row.classValue].map(cell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -431,12 +458,15 @@ async function initMarketResearch() {
     byId("personalBatchTable").hidden = results.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
       " / " + results.length + "件を試算" : batchDate.value && personalQuoteHistory.size ? "指定日の終値がCSVにない" : "";
+    const classCount = results.filter(row => row.classValue !== undefined).length;
+    if (classCount) byId("personalBatchStatus").append("・上場クラス別の参考時価 " + classCount + "件");
     byId("personalBatchRows").replaceChildren(...results.map(row => {
       const {result, quote} = row;
       const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
         quote.date, quote.currency, money.format(quote.price), row.shares ? money.format(row.shares) : "—",
         result ? money.format(result.cap) : "—", result ? multiple(result.per) : "—",
-        result ? multiple(result.pbr) : "—", result?.periodEnd || "—", row.detail || batchLabels[row.state]];
+        result ? multiple(result.pbr) : "—", result?.periodEnd || "—", row.detail || batchLabels[row.state],
+        row.classValue === undefined ? "—" : money.format(row.classValue)];
       const tr = document.createElement("tr");
       tr.append(...values.map(value => element("td", value)));
       const sourceCell = element("td", "");

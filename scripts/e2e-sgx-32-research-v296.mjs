@@ -258,6 +258,18 @@ try{
  await page.locator("#personalQuoteStatus").getByText(/終値を 3件/).waitFor();
  assert.match(await alphabetTrial.innerText(),/上場ティッカーなし クラスB/);
  assert.doesNotMatch(await alphabetTrial.innerText(),/同日の終値なし/);
+ assert.match(await alphabetTrial.innerText(),/同日の正確なクラス別開示株数なし/);
+ await page.locator("#personalQuoteFile").setInputFiles({
+  name:"meta-class.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,currency,close\nUS:META,2026-10-16,USD,200\nUS:GOOGL,2026-10-21,USD,210"),
+ });
+ await page.locator("#personalQuoteStatus").getByText(/終値を 2件/).waitFor();
+ const metaClass = batch.filter({hasText:"US:META"});
+ const metaCells = await metaClass.locator("td").allTextContents();
+ assert.deepEqual(metaCells.slice(4,8),["2,214,472,367","—","—","—"]);
+ assert.equal(metaCells[10],"442,894,473,400");
+ assert.match(await metaClass.getByRole("link",{name:"株数資料"}).getAttribute("href"),/000162828026066773/);
+ assert.match(await page.locator("#personalBatchStatus").innerText(),/上場クラス別の参考時価 1件/);
  assert.deepEqual(errors,[]);
  console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 33 codes, IPO/finance filter, search, source links, downloaded CSV");
 }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}
