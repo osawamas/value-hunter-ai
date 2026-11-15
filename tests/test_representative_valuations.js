@@ -1,6 +1,11 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const {execFileSync} = require("node:child_process");
+const {createHash} = require("node:crypto");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const {buildMarketRows, evaluatePersonalQuotes, personalBatchCsv, rankingEvidence, readQuoteHistory} = require("../docs/market-research.js");
 const {reviewRepresentativeValuations, reviewQuoteRefresh} = require("../scripts/check-representative-valuations.js");
 const research = require("../docs/data/market-research-v315.json");
@@ -169,4 +174,31 @@ assert.deepEqual(refreshed[2].newTradingDates, ["2026-11-13"]);
 const noPreviousSgx = reviewQuoteRefresh(rows, shares, onlyOlderToyota, current).results[2];
 assert.equal(noPreviousSgx.quoteCoverage.previous, null);
 assert.deepEqual(noPreviousSgx.newTradingDates, []);
+const work = fs.mkdtempSync(path.join(os.tmpdir(), "value-hunter-replay-"));
+try {
+  const previous = path.join(work, "previous.csv");
+  const current = path.join(work, "current.csv");
+  const csv = [
+    "market_id,date,currency,close",
+    "JP:7203,2026-09-30,JPY,2500",
+    "US:IBM,2026-09-30,USD,200",
+    "SG:S63,2026-11-13,SGD,10",
+  ].join("\n");
+  fs.writeFileSync(previous, csv);
+  fs.writeFileSync(current, csv.replace(",USD,200", ",USD,201") + "\nSG:S63,2026-11-16,SGD,11");
+  const cli = path.join(__dirname, "../scripts/check-representative-valuations.js");
+  const report = JSON.parse(execFileSync(process.execPath, [cli, "--compare", previous, current], {encoding: "utf8"}));
+  const hash = name => createHash("sha256").update(fs.readFileSync(name)).digest("hex");
+  const evidence = ["market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json"];
+  assert.deepEqual(report.filingDataSha256, Object.fromEntries(evidence.map(name =>
+    [name, hash(path.join(__dirname, "../docs/data", name))])));
+  assert.equal(report.snapshots.previous.sha256, hash(previous));
+  assert.equal(report.snapshots.current.sha256, hash(current));
+  assert.deepEqual(report.results.map(row => row.status), Array(3).fill("trial_calculated"));
+  assert.equal(report.results[1].valuation.cap, 201 * 945120805);
+  assert.deepEqual(report.results[2].newTradingDates, ["2026-11-16"]);
+  assert.deepEqual(report.results[2].newerUnmatchedDates, ["2026-11-16"]);
+} finally {
+  fs.rmSync(work, {recursive: true, force: true});
+}
 console.log("Representative valuation checks passed for JP, US and SG.");

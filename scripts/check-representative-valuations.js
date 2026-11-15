@@ -17,8 +17,10 @@ function observedCoverage(sessions, priceField) {
     {first: observations[0].date, last: observations.at(-1).date, count: observations.length} : null;
 }
 
-function loadSnapshot(name) {
-  return JSON.parse(fs.readFileSync(path.join(data, name), "utf8"));
+function loadSnapshot(name, evidence) {
+  const bytes = fs.readFileSync(path.join(data, name));
+  evidence[name] = createHash("sha256").update(bytes).digest("hex");
+  return JSON.parse(bytes.toString("utf8"));
 }
 
 function reviewShareSession(rows, shareReview, id, date, shares, observation) {
@@ -119,9 +121,10 @@ function main(args) {
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
     throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv], --jquants quotes.csv receipt.json, --compare previous.csv current.csv, or --compare-jquants previous.csv previous.json current.csv current.json");
   }
-  const research = loadSnapshot("market-research-v315.json");
-  const sgx = loadSnapshot("latest.json");
-  const shareReview = loadSnapshot("sgx-s63-two-website-close-v129.json");
+  const filingDataSha256 = {};
+  const research = loadSnapshot("market-research-v315.json", filingDataSha256);
+  const sgx = loadSnapshot("latest.json", filingDataSha256);
+  const shareReview = loadSnapshot("sgx-s63-two-website-close-v129.json", filingDataSha256);
   const rows = buildMarketRows(research, sgx);
   const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
@@ -178,7 +181,7 @@ function main(args) {
   } else {
     report = reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]).quotes : new Map());
   }
-  process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+  process.stdout.write(JSON.stringify({...report, filingDataSha256}, null, 2) + "\n");
 }
 
 if (require.main === module) {
