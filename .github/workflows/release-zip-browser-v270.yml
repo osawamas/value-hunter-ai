@@ -7,6 +7,7 @@ on:
       - '.github/workflows/release-zip-browser-v270.yml'
       - 'docs/**'
       - 'scripts/e2e-sgx-browser-v268.mjs'
+      - 'scripts/e2e-sgx-32-research-v296.mjs'
 permissions:
   contents: read
 jobs:
@@ -53,6 +54,8 @@ jobs:
           test -s build/release-v270/unpacked/docs/sgx-historical-code-search-v258.js
           test -s build/release-v270/unpacked/docs/data/sgx-nineteen-original-html-sha-v262.json
           test -s build/release-v270/unpacked/docs/data/latest.json
+          test -s build/release-v270/unpacked/docs/sgx-32-research.html
+          test -s build/release-v270/unpacked/docs/sgx-32-research-v296.js
       - name: Start server from EXTRACTED distribution ZIP, not repository docs
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 --directory build/release-v270/unpacked/docs > /tmp/value-hunter-zip-v270-http.log 2>&1 &
@@ -66,6 +69,7 @@ jobs:
           command -v google-chrome
           npm install --no-save --no-package-lock playwright-core
           VALUE_HUNTER_E2E_SCREENSHOT=build/release-v270/zip-mobile.png node scripts/e2e-sgx-browser-v268.mjs
+          node scripts/e2e-sgx-32-research-v296.mjs
       - name: Save verified offline distribution and SHA256
         if: success()
         uses: actions/upload-artifact@v4
