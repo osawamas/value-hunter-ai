@@ -65,6 +65,23 @@ try {
  assert.equal(template.suggestedFilename(),"sgx-source-template-unverified.csv");
  assert.ok(fs.readFileSync(await template.path(),"utf8").includes("Trading Code,Trading Name,Listing Board,Traded Currency"));
 
+ // v282: real SGX-like CSV, code/name only with an extra quote field.
+ // Quotes must be ignored, not promoted into verified valuations.
+ const flexibleCsv="Trading Name,Trading Code,Last\r\n"+
+  "DBS Group Holdings Ltd,D05,69.90\r\n"+
+  "United Overseas Bank Limited,U11,70.14\r\n";
+ await page.locator('#sgxManualMasterForm input[name="masterFile"]').setInputFiles({
+  name:"sgx-downloaded-structure.csv",mimeType:"text/csv",
+  buffer:Buffer.from(flexibleCsv,"utf8")
+ });
+ await page.locator('#sgxManualMasterForm button[type="submit"]').click();
+ await page.locator("#sgxManualMasterResult").getByText(/手入力CSV 2件/).waitFor();
+ assert.match(await page.locator("#sgxManualMasterResult").innerText(),/株価・時価総額の取込なし/);
+ const flexibleText=await page.locator("#sgxManualMasterRows").innerText();
+ assert.match(flexibleText,/UNKNOWN/);
+ assert.ok(!flexibleText.includes("69.90")&&!flexibleText.includes("70.14"));
+
+
 
  // v277: actual bank FY2025 what-if remains local-only even after input.
  await page.locator("#scenarioBankStatus").getByText(/銀行3社の2025年/).waitFor({timeout:25000});
