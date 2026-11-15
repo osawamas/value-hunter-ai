@@ -60,10 +60,10 @@
 <label class="control">株数CSV<input id="personalShareFile" type="file" accept=".csv,text/csv" aria-describedby="personalShareHelp"></label>
 <p id="personalShareStatus" role="status"></p>
 <h3>CSVの一括試算</h3>
-<p>各銘柄のCSV内で最新の終値と同日の株数を使用。指標は掲載されている直近の年次財務で試算する。</p>
+<p>各銘柄のCSV内で最新の終値と同日の株数を使用。指標は掲載されている直近の年次財務で試算する。決算の公表前に取得できた情報だけを使うバックテストとは計算条件が異なる。</p>
 <p id="personalBatchStatus" role="status"></p>
 <div class="tablewrap" id="personalBatchTable" hidden><table>
-<thead><tr><th>銘柄</th><th>株価・株数の基準日</th><th>通貨</th><th>終値</th><th>株数</th><th>時価総額</th><th>PER</th><th>PBR</th><th>財務基準日</th><th>照合結果</th></tr></thead>
+<thead><tr><th>銘柄</th><th>株価・株数の基準日</th><th>通貨</th><th>終値</th><th>株数</th><th>時価総額</th><th>PER</th><th>PBR</th><th>財務基準日</th><th>照合結果</th><th>出典</th></tr></thead>
 <tbody id="personalBatchRows"></tbody>
 </table></div>
 </section>

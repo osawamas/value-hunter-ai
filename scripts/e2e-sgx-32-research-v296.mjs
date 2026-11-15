@@ -106,7 +106,10 @@ try{
  assert.match(await page.locator("#personalBatchStatus").innerText(),/3 \/ 4件を試算/);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
  assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
- assert.match(await batch.filter({hasText:"SG:S63"}).innerText(),/SGD.*3,115,847,115.*31,158,471,150.*2025-12-31/s);
+ const s63Trial = batch.filter({hasText:"SG:S63"});
+ assert.match(await s63Trial.innerText(),/SGD.*3,115,847,115.*31,158,471,150.*2025-12-31/s);
+ assert.match(await s63Trial.getByRole("link",{name:"財務資料"}).getAttribute("href"),/FileID=880328/);
+ assert.match(await s63Trial.getByRole("link",{name:"株数資料"}).getAttribute("href"),/4NRLOX68RVAQLTX7/);
  await page.getByRole("button",{name:"CSV終値を使う"}).click();
  assert.equal(await page.locator("#scenarioShares").inputValue(),"3496382520");
  assert.equal(await page.locator("#scenarioPrice").inputValue(),"300");

@@ -206,23 +206,24 @@ function sgxValuationFinance(row) {
       ![record.attributable_profit_sgd_thousands, record.parent_equity_sgd_thousands]
         .every(value => Number.isSafeInteger(value) && Number.isSafeInteger(value * 1000))) return null;
   return {
-    currency: "SGD", end: filing.end, net_income: record.attributable_profit_sgd_thousands * 1000,
+    currency: "SGD", end: filing.end, source: filing.source, net_income: record.attributable_profit_sgd_thousands * 1000,
     parent_equity: record.parent_equity_sgd_thousands * 1000,
   };
 }
 
 function filingSharesOn(row, date, shareReview) {
-  const interim = row.quarterly?.shares;
-  const annual = row.financials?.shares;
+  const withSource = (share, source) => share ? {...share, source} : null;
+  const interim = withSource(row.quarterly?.shares, row.quarterly?.source);
+  const annual = withSource(row.financials?.shares, row.financials?.filing_url || row.financials?.source);
   const sgx = row.sgxEvidence;
   const currentShare = sgx?.shares_count_basis === "issued_excluding_treasury" &&
     sgx.shares_source_url?.startsWith("https://") && [
       "LIVE_OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED", "LIVE_1H2026_TREASURY_ROLLFORWARD_RECONCILED",
       "DATE_ANCHORED_RECONCILED",
     ].includes(sgx.shares_verification_status)
-    ? {as_of: sgx.shares_as_of_date, value: sgx.shares_outstanding} : null;
+    ? {as_of: sgx.shares_as_of_date, value: sgx.shares_outstanding, source: sgx.shares_source_url} : null;
   const supplemental = sgxSupplementalShare(row, date, shareReview);
-  const datedSupplement = supplemental ? {as_of: supplemental.date, value: supplemental.value} : null;
+  const datedSupplement = supplemental ? {as_of: supplemental.date, value: supplemental.value, source: supplemental.source} : null;
   return [interim, annual, currentShare, datedSupplement].filter(share => share?.as_of === date && !share.rounded);
 }
 
@@ -234,7 +235,8 @@ function matchScenarioShares(id, date, published, personalShares) {
   if (exactCounts.size > 1) return {value: null, state: "conflict"};
   const exact = exactCounts.values().next().value;
   if (exact !== undefined && csv !== undefined && exact !== csv) return {value: null, state: "conflict"};
-  if (exact !== undefined) return {value: exact, state: "filing"};
+  if (exact !== undefined) return {value: exact, state: "filing",
+    source: filings.find(share => share?.as_of === date && !share.rounded && share.value === exact)?.source};
   if (csv !== undefined) return {value: csv, state: "csv"};
   return {value: null, state: "missing"};
 }
@@ -276,7 +278,8 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
     try {
       const inputs = {...quote, shares: match.value};
       const result = finance ? calculateMarketScenario(finance, inputs) : calculateWithAnnualPeriod(currency, sgx, inputs);
-      return {...entry, state: match.state, shares: match.value, result};
+      return {...entry, state: match.state, shares: match.value, shareSource: match.source,
+        financeSource: finance?.filing_url || finance?.source || sgx?.source, result};
     } catch {
       return {...entry, state: "invalid"};
     }
@@ -364,6 +367,10 @@ async function initMarketResearch() {
         result ? multiple(result.pbr) : "—", result?.periodEnd || "—", batchLabels[row.state]];
       const tr = document.createElement("tr");
       tr.append(...values.map(value => element("td", value)));
+      const sourceCell = element("td", "");
+      if (row.financeSource?.startsWith("https://")) sourceCell.append(link(row.financeSource, "財務資料"));
+      if (row.shareSource?.startsWith("https://")) sourceCell.append(" ", link(row.shareSource, "株数資料"));
+      tr.append(sourceCell);
       return tr;
     }));
   };
