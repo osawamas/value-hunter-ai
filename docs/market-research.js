@@ -246,6 +246,24 @@ function filingSharesOn(row, date, shareReview) {
   return [interim, annual, currentShare, datedSupplement].filter(share => share?.as_of === date && !share.rounded);
 }
 
+function publishedShareSessions(rows, shareReview) {
+  const sessions = new Map();
+  for (const row of rows) {
+    if (row.financials?.share_classes || (!row.financials && !sgxValuationFinance(row))) continue;
+    const dates = new Set([row.financials?.shares?.as_of, row.quarterly?.shares?.as_of,
+      row.sgxEvidence?.shares_as_of_date, row.market === "SG" ? shareReview?.session_date_sgt : null]);
+    for (const date of dates) {
+      if (!isMarketDate(date)) continue;
+      const evidence = filingSharesOn(row, date, shareReview).filter(share => share.source?.startsWith("https://"));
+      const match = matchScenarioShares(row.id, date, evidence, new Map());
+      if (match.state !== "filing") continue;
+      if (!sessions.has(date)) sessions.set(date, []);
+      sessions.get(date).push({id: row.id, value: match.value, source: match.source});
+    }
+  }
+  return new Map([...sessions].sort(([a], [b]) => b.localeCompare(a)));
+}
+
 function matchScenarioShares(id, date, published, personalShares) {
   const csv = personalShares.get(id + ":" + date);
   const filings = Array.isArray(published) ? published : [published];
@@ -856,6 +874,20 @@ async function initMarketResearch() {
     paintAnnual();
     marketRows = rows;
     shareReview = s63ShareReview;
+    const shareDates = byId("publishedShareDate");
+    const shareItems = byId("publishedShareItems");
+    const sessions = publishedShareSessions(rows, shareReview);
+    shareDates.append(...[...sessions].map(([date, records]) =>
+      Object.assign(element("option", date + "（" + records.length + "銘柄）"), {value: date})));
+    shareDates.disabled = !sessions.size;
+    shareDates.addEventListener("change", () => {
+      const records = sessions.get(shareDates.value) || [];
+      shareItems.replaceChildren(...records.map(row => {
+        const item = element("li", row.id + " " + money.format(row.value) + "株 ");
+        item.append(link(row.source, "株数資料"));
+        return item;
+      }));
+    });
     paintBatch();
     byId("marketCoverageRows").replaceChildren(...summarizeMarketCoverage(rows).map(row => {
       const tr = document.createElement("tr");
@@ -927,4 +959,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, annualScreenRows, screenAnnualFinancials, annualScreenCsv, readQuoteHistory, selectQuoteDate};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, annualScreenRows, screenAnnualFinancials, annualScreenCsv, publishedShareSessions, readQuoteHistory, selectQuoteDate};

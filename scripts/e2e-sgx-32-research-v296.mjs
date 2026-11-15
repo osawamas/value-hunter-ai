@@ -143,6 +143,12 @@ try{
  await page.locator("#scenarioShares").fill("3496382520");
  await page.getByRole("button",{name:"試算する"}).click();
  assert.match(await page.locator("#marketScenarioResult").innerText(),/参考時価総額 1,048,914,756,000 JPY、PER —、PBR 0\.22倍/);
+ await page.getByText("株数の開示がある日を探す",{exact:true}).click();
+ await page.locator("#publishedShareDate").selectOption("2026-09-30");
+ const shareDay = page.locator("#publishedShareItems");
+ assert.match(await shareDay.innerText(),/JP:7203 11,778,247,313株/);
+ assert.match(await shareDay.innerText(),/US:IBM 945,120,805株/);
+ assert.doesNotMatch(await shareDay.innerText(),/US:GOOGL|US:META/);
  await page.locator("#personalQuoteFile").setInputFiles({
   name:"quotes.csv", mimeType:"text/csv",
   buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nJP:7203,2026-09-30,JPY,3000\nUS:AAPL,2026-11-13,USD,356\nSG:S63,2026-11-13,SGD,10\nJP:7203,2026-03-31,JPY,2900"),
