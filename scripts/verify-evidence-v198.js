@@ -71,7 +71,8 @@ const tests=[
  "docs/test_sgx_financial_join_v263.js",
  "docs/test_sgx_financial_filter_v264.js",
  "docs/test_sgx_detail_navigation_v265.js",
- "docs/test_sgx_catalog_export_v266.js"
+ "docs/test_sgx_catalog_export_v266.js",
+ "docs/test_sgx_japanese_exclusions_v267.js"
 ];
 let failed=0;
 const results=[];
