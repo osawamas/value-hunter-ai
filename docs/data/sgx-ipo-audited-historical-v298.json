@@ -179,7 +179,28 @@
           "sha256": "2ab2755dc15466b83b5960a52eb8e3b7556816f01c247642769de6b1202cb8e5",
           "bytes": 75875
         },
-        "borrowed_overallotment_shares": 5000000
+        "borrowed_overallotment_shares": 5000000,
+        "stabilisation_end": {
+          "date": "2026-10-30",
+          "purchased_shares": 5000000,
+          "overallotment_option_exercised": false,
+          "source": {
+            "url": "https://links.sgx.com/1.0.0/corporate-announcements/9WRT2SBAL9V2TFDJ/909837_Mi%20Material%20-%20Cessation%20of%20Stabilisation%20Action%20Announcement%20dated%2030%20October%202026.pdf",
+            "sha256": "ab1c5474c5b4ddb09d7907eb849d79f99016b97fff3854f0eea739299f7da03d",
+            "bytes": 447271
+          }
+        },
+        "later_disclosed_capital": {
+          "as_of": "2026-11-06",
+          "filing_date": "2026-11-10",
+          "shares": 495000000,
+          "basis": "ISSUED_ORDINARY_SHARE_CAPITAL",
+          "source": {
+            "url": "https://links.sgx.com/1.0.0/corporate-announcements/31QMJ8MDM5IQ0J7I/910861__Form%203%20-%20Mi%20Technovation%20Berhad.pdf",
+            "sha256": "e71c9ec2ace8e3c420b40dc29cb65f462f99af84b0e4fe1c3928935acfaaf144",
+            "bytes": 38431
+          }
+        }
       }
     }
   ]

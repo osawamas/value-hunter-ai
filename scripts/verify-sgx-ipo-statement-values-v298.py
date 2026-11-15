@@ -186,6 +186,17 @@ def verify_ipo_share_capital(record,prospectus):
       or "Shares to be borrowed by the Stabilising Manager from Mi Technovation Berhad" not in ballot
       or capital["basis"]!="PROSPECTUS_POST_OFFERING_OUTSTANDING"):
    raise ValueError("MIM offering shares or borrowed overallotment mismatch")
+  ceased=capital["stabilisation_end"]
+  later=capital["later_disclosed_capital"]
+  cessation=" ".join(original_text(ceased["source"]).split())
+  shareholding=" ".join(original_text(later["source"]).split())
+  if (ceased["date"]!="2026-10-30" or ceased["overallotment_option_exercised"] is not False
+      or f'purchased a total of {ceased["purchased_shares"]:,} Shares' not in cessation
+      or "ceased price stabilisation as of 30 October 2026" not in cessation
+      or "will not be exercised" not in cessation
+      or later["as_of"]!="2026-11-06" or later["basis"]!="ISSUED_ORDINARY_SHARE_CAPITAL"
+      or f'issued share capital of the Company of {later["shares"]:,} ordinary shares as at 6 November 2026' not in shareholding):
+   raise ValueError("MIM stabilisation cessation or later disclosed share capital mismatch")
  print(f"SGX VERIFIED {record['symbol']} listing share capital {count}")
  return capital
 

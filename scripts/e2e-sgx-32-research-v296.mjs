@@ -36,7 +36,10 @@ try{
  assert.match(await businessUpdate.getByRole("link",{name:"発表資料PDF",exact:true}).getAttribute("href"),/FileID=909744$/);
  const shareCapital=page.locator("#sgxIpoListingCapitalRows tr");
  assert.match(await shareCapital.filter({hasText:"9DC"}).innerText(),/2026-10-16.*145,000,000/s);
- assert.match(await shareCapital.filter({hasText:"MIM"}).innerText(),/2026-10-28.*495,000,000.*500万株は加算しない/s);
+ assert.match(await shareCapital.filter({hasText:"MIM"}).filter({hasText:"2026-10-28"}).innerText(),/2026-10-28.*495,000,000.*500万株は加算しない/s);
+ const mimFollowup=shareCapital.filter({hasText:"MIM"}).filter({hasText:"2026-11-06"});
+ assert.match(await mimFollowup.innerText(),/495,000,000.*発行済普通株式数/s);
+ assert.match(await mimFollowup.getByRole("link",{name:"11月10日の株主開示PDF"}).getAttribute("href"),/910861_/);
  const metCapital=shareCapital.filter({hasText:"MET"});
  assert.match(await metCapital.innerText(),/2026-11-03.*166,617,000.*自己株式控除後/s);
  assert.match(await metCapital.getByRole("link",{name:"HKEX割当完了PDF"}).getAttribute("href"),/^https:\/\/www1\.hkexnews\.hk\//);

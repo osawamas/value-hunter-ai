@@ -119,6 +119,15 @@
      !/^https:\/\/links\.sgx\.com\//.test(capital.balloting_source?.url||"")||
      (mim&&capital.borrowed_overallotment_shares!==5000000))
    throw Error("上場時の株数資料に不一致");
+  if(mim){
+   const {stabilisation_end:ended,later_disclosed_capital:later}=capital;
+   if(ended?.date!=="2026-10-30"||ended.overallotment_option_exercised!==false||
+      ended.purchased_shares!==capital.borrowed_overallotment_shares||
+      later?.as_of!=="2026-11-06"||later.filing_date!=="2026-11-10"||
+      later.basis!=="ISSUED_ORDINARY_SHARE_CAPITAL"||later.shares!==capital.shares||
+      ![ended.source,later.source].every(s=>/^https:\/\/links\.sgx\.com\//.test(s?.url||"")))
+    throw Error("MIMの上場後の株数資料に不一致");
+  }
   return capital;
  }
  function buildMetFinancials(data){
@@ -189,6 +198,15 @@
     row.append(td(stock.symbol),td(capital.listing_date),td(money(capital.shares)),
      td(stock.symbol==="MIM"?"親会社から借りた追加割当500万株は加算しない":"募集・コーナーストーン割当後"),proof);
     capitalFragment.append(row);
+    if(capital.later_disclosed_capital){
+     const later=capital.later_disclosed_capital;
+     const followup=root.document.createElement("tr"),followupProof=td("");
+     followupProof.append(sourceLink(later.source.url,"11月10日の株主開示PDF"),"・",
+      sourceLink(capital.stabilisation_end.source.url,"安定操作終了PDF"));
+     followup.append(td(stock.symbol),td(later.as_of),td(money(later.shares)),
+      td("株主開示の算定基準となる発行済普通株式数"),followupProof);
+     capitalFragment.append(followup);
+    }
    }
    const placed=met.placement_capital;
    const nextDay=placed?.next_day_return;
