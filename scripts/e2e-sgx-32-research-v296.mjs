@@ -270,7 +270,7 @@ try{
  assert.equal(metaCells[10],"442,894,473,400");
  assert.match(await metaClass.getByRole("link",{name:"株数資料"}).getAttribute("href"),/000162828026066773/);
  assert.match(await page.locator("#personalBatchStatus").innerText(),/上場クラス別の参考時価 1件/);
- await page.getByRole("link",{name:"株価・株数CSVを作成"}).click();
+ await page.getByRole("link",{name:/株価・株数CSVをブラウザで作成/}).click();
  await page.locator("#market").selectOption("US");
  await page.locator("#symbol").fill("META");
  await page.locator("#date").fill("2026-10-16");
