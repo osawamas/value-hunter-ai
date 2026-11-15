@@ -1,0 +1,47 @@
+{
+  "schema_version": "ocbc-3q26-issuer-website-corroboration-v286",
+  "source_type": "SECOND_ISSUER_HOSTED_PUBLICATION_NOT_INDEPENDENT_AUDIT",
+  "issuer": "OVERSEA-CHINESE BANKING CORPORATION LIMITED",
+  "symbol": "O39",
+  "period_end": "2026-09-30",
+  "release_date": "2026-11-06",
+  "issuer_website_url": "https://www.ocbc.com/group/media/release/2026/ocbc-group-third-quarter-2026-results.page",
+  "website_html_sha256": "feab3106bff1f5e769dec67fff50a9d5a28818c0aaae42b87663a622f2629370",
+  "website_html_bytes": 73374,
+  "observed_workflow_url": "https://github.com/osawamas/value-hunter-ai/actions/runs/43665855039",
+  "sgx_filing_url": "https://links.sgx.com/1.0.0/corporate-announcements/A9CW58STOPTDX0HG/910569_OCBC_3Q26_Results_Press_Release.pdf",
+  "sgx_filing_sha256": "420c481ac3eb12a667ef25d7ba7b8fb7ef3d62fb048ad673712c50ce7b75af53",
+  "metric_checks": [
+    {
+      "metric": "3Q26 net profit",
+      "sgx_precision_millions": 2042,
+      "issuer_website_rounded_billions": 2.04,
+      "matched_to_rounded_precision": true
+    },
+    {
+      "metric": "9M26 net profit",
+      "sgx_precision_millions": 6237,
+      "issuer_website_rounded_billions": 6.24,
+      "matched_to_rounded_precision": true
+    },
+    {
+      "metric": "3Q26 net interest income",
+      "sgx_precision_millions": 2313,
+      "issuer_website_rounded_billions": 2.31,
+      "matched_to_rounded_precision": true
+    },
+    {
+      "metric": "9M26 net interest income",
+      "sgx_precision_millions": 6798,
+      "issuer_website_rounded_billions": 6.8,
+      "matched_to_rounded_precision": true
+    }
+  ],
+  "source_checks_passed": true,
+  "source_precision_matches_exact_unrounded_figures": false,
+  "independent_third_party_audit_complete": false,
+  "share_count_current_verified": false,
+  "quote_display_license_verified": false,
+  "investment_ranking_eligible": false,
+  "caveat": "Comparison across issuer's SGX-hosted PDF and issuer's own website reproduces rounded totals but does not independently audit financial statements or license price use."
+}
