@@ -10,6 +10,12 @@ const {
 const data = path.join(__dirname, "../docs/data");
 const representatives = ["JP:7203", "US:IBM", "SG:S63"];
 
+function observedCoverage(sessions, priceField) {
+  const observations = sessions.filter(session => session[priceField] !== null);
+  return observations.length ?
+    {first: observations[0].date, last: observations.at(-1).date, count: observations.length} : null;
+}
+
 function loadSnapshot(name) {
   return JSON.parse(fs.readFileSync(path.join(data, name), "utf8"));
 }
@@ -85,12 +91,19 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     const matchedSession = sessionChanges.find(entry => entry.date === date);
     const newerUnmatchedDates = sessionChanges.filter(entry =>
       date && entry.date > date && entry.currentPrice !== null && !entry.hasExactShares).map(entry => entry.date);
-    const previousDates = sessionChanges.filter(entry => entry.previousPrice !== null).map(entry => entry.date);
-    const currentDates = sessionChanges.filter(entry => entry.currentPrice !== null).map(entry => entry.date);
-    const coverage = dates => dates.length ? {first: dates[0], last: dates.at(-1), count: dates.length} : null;
+    const before = observedCoverage(sessionChanges, "previousPrice");
+    const after = observedCoverage(sessionChanges, "currentPrice");
+    // File coverage bounds alone cannot establish that a session was dropped by the provider.
+    const first = before && after ? [before.first, after.first].sort().at(-1) : null;
+    const last = before && after ? [before.last, after.last].sort()[0] : null;
+    const sharedDateRange = first && first <= last ? {first, last} : null;
+    const hasSharedDateRange = entry => sharedDateRange && entry.date >= first && entry.date <= last;
+    const datesMissingFromCurrentWithinRange = sessionChanges
+      .filter(entry => entry.change === "removed" && hasSharedDateRange(entry)).map(entry => entry.date);
     return {...result, closeChange: matchedSession?.change ?? "absent",
       previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges,
-      quoteCoverage: {previous: coverage(previousDates), current: coverage(currentDates)}};
+      quoteCoverage: {previous: before, current: after},
+      sharedDateRange, datesMissingFromCurrentWithinRange};
   });
   return {...latest, results: updates};
 }

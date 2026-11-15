@@ -75,6 +75,8 @@ assert.deepEqual(refreshed[1].quoteCoverage, {
   previous: {first: "2026-09-30", last: "2026-09-30", count: 1},
   current: {first: "2026-10-01", last: "2026-10-01", count: 1},
 });
+assert.equal(refreshed[1].sharedDateRange, null);
+assert.deepEqual(refreshed[1].datesMissingFromCurrentWithinRange, []);
 assert.equal(refreshed[2].status, "trial_calculated");
 assert.deepEqual(reviewQuoteRefresh(rows, shares, current, current).results.map(row => row.closeChange),
   ["unchanged", "absent", "unchanged"]);
@@ -153,4 +155,11 @@ assert.equal(olderImpact.previous.valuation.cap, 2900 * 13033384474);
 assert.equal(olderImpact.current.valuation.cap, 3000 * 13033384474);
 assert.equal(olderRevision.quoteCoverage.current.count, 2);
 assert.equal(reviewQuoteRefresh(rows, shares, updated, correctedOlderToyota).results[1].quoteCoverage.current, null);
+const overlapping = new Map(quotes);
+overlapping.set("JP:7203:2026-03-31", onlyOlderToyota.get("JP:7203:2026-03-31"));
+const [overlap] = reviewQuoteRefresh(rows, shares, overlapping, onlyOlderToyota).results;
+assert.deepEqual(overlap.sharedDateRange, {first: "2026-03-31", last: "2026-10-01"});
+assert.deepEqual(overlap.datesMissingFromCurrentWithinRange, ["2026-09-30"]);
+assert.deepEqual(olderRevision.sharedDateRange, {first: "2026-03-31", last: "2026-09-30"});
+assert.deepEqual(olderRevision.datesMissingFromCurrentWithinRange, []);
 console.log("Representative valuation checks passed for JP, US and SG.");
