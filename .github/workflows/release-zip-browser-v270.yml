@@ -19,30 +19,30 @@ jobs:
         run: |
           mkdir -p build/release-v270
           cat > START-HERE.txt <<'EOF'
-VALUE HUNTER AI / SGX投資分析画面 ローカルプレビュー
-
-使い方（Mac / Windows / Linux）
-1. ZIPを解凍する。
-2. ターミナル／コマンドプロンプトで、解凍したフォルダに移動する。
-3. Python 3があれば次のコマンドを実行する。
-   python3 -m http.server 8765 --directory docs
-   （Windowsなら py -3 -m http.server 8765 --directory docs でも可）
-4. Chromeで http://localhost:8765/ を開く。
-5. 停止するにはターミナルで Ctrl+C。
-
-重要：index.htmlを直接ダブルクリックしてfile://で開くと
-ブラウザのセキュリティ制限によりJSONデータが読み込めないことがある。
-HTTPサーバー経由で開いてほしい。
-
-このプレビューはSGX全銘柄ではない。現在の財務登録7社、
-過去の公式開示に根拠がある銘柄コード30件を表示する。
-SGXNet原本19件は本文・SHA256照合済み。
-正規のリアルタイム株価、投資ランキング、PER/PBRは未完成。
-ランキング適格0社のままで、投資助言ではない。
-出典の日付や検証状態を確認して利用すること。
-
-本番のGitHub Pages公開には所有者によるPages有効化が必要。
-EOF
+          VALUE HUNTER AI / SGX投資分析画面 ローカルプレビュー
+          
+          使い方（Mac / Windows / Linux）
+          1. ZIPを解凍する。
+          2. ターミナル／コマンドプロンプトで、解凍したフォルダに移動する。
+          3. Python 3があれば次のコマンドを実行する。
+             python3 -m http.server 8765 --directory docs
+             （Windowsなら py -3 -m http.server 8765 --directory docs でも可）
+          4. Chromeで http://localhost:8765/ を開く。
+          5. 停止するにはターミナルで Ctrl+C。
+          
+          重要：index.htmlを直接ダブルクリックしてfile://で開くと
+          ブラウザのセキュリティ制限によりJSONデータが読み込めないことがある。
+          HTTPサーバー経由で開いてほしい。
+          
+          このプレビューはSGX全銘柄ではない。現在の財務登録7社、
+          過去の公式開示に根拠がある銘柄コード30件を表示する。
+          SGXNet原本19件は本文・SHA256照合済み。
+          正規のリアルタイム株価、投資ランキング、PER/PBRは未完成。
+          ランキング適格0社のままで、投資助言ではない。
+          出典の日付や検証状態を確認して利用すること。
+          
+          本番のGitHub Pages公開には所有者によるPages有効化が必要。
+          EOF
           zip -q -r build/release-v270/value-hunter-ai-local-preview-v271.zip docs START-HERE.txt
           unzip -t build/release-v270/value-hunter-ai-local-preview-v271.zip | tail -n 2
           sha256sum build/release-v270/value-hunter-ai-local-preview-v271.zip | tee build/release-v270/zip-sha256.txt
