@@ -44,10 +44,13 @@
 </table></div>
 </section>
 <section class="workspace">
-<h2>手元の株価CSVを読み込む</h2>
+<h2>手元の株価・株数CSVを読み込む</h2>
 <p id="personalQuoteHelp">日本・米国の試算に使える。UTF-8で見出しは <code>market_id,date,currency,close</code>。銘柄IDは <code>JP:7203</code> や <code>US:AAPL</code>、日付は <code>YYYY-MM-DD</code>。入力データはこのページ内で処理する。</p>
 <label class="control">株価CSV<input id="personalQuoteFile" type="file" accept=".csv,text/csv" aria-describedby="personalQuoteHelp"></label>
 <p id="personalQuoteStatus" role="status"></p>
+<p id="personalShareHelp">株数CSVの見出しは <code>market_id,date,shares_excluding_treasury</code>。株数は自己株式控除後の普通株式数。</p>
+<label class="control">株数CSV<input id="personalShareFile" type="file" accept=".csv,text/csv" aria-describedby="personalShareHelp"></label>
+<p id="personalShareStatus" role="status"></p>
 </section>
 <section id="marketDetails" class="workspace" hidden>
 <h2 id="marketDetailTitle"></h2>

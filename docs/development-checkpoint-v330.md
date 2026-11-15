@@ -1,0 +1,3 @@
+# VALUE HUNTER AI v330 — join user-supplied closing prices and shares by date
+
+The three-market research page imports a second local UTF-8 CSV with the columns `market_id,date,shares_excluding_treasury`. For JP/US valuations it joins the user-selected close to an exact-date, market-qualified share count. A dated exact share count from a filing takes precedence when both match; a conflict is shown and neither count is autofilled. Missing same-day counts remain blank. Rounded filed shares do not serve as an exact match. Both files remain in browser memory. Personal estimates remain outside the ranking.
