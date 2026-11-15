@@ -155,9 +155,11 @@
     throw Error("SGX counter-finance overlap does not match provenance");
   return joined;
  }
- function search(rows,query,boardFilter){
+ function search(rows,query,boardFilter,financialFilter="ALL"){
   const q=String(query||"").trim().toLocaleUpperCase("en");
   return rows.filter(x=>(boardFilter==="ALL"||x.board===boardFilter)&&
+    (financialFilter==="ALL"|| (financialFilter==="REGISTERED" ? x.financialRegistered===true :
+      financialFilter==="UNREGISTERED" && x.financialRegistered===false))&&
     (!q||(x.name+" "+x.code+" "+(x.isin||"")).toLocaleUpperCase("en").includes(q)));
  }
  async function render(){
@@ -166,7 +168,8 @@
   const input=document.getElementById("sgxHistoricalCodeSearch");
   const board=document.getElementById("sgxHistoricalCodeBoard");
   const count=document.getElementById("sgxHistoricalCodeShown");
-  if(!status||!body||!input||!board||!count)return;
+  const financeFilter=document.getElementById("sgxHistoricalCodeFinance");
+  if(!status||!body||!input||!board||!count||!financeFilter)return;
   try{
    const names=["./data/sgx-corporate-indexed-page-v253.json",
      "./data/sgx-official-issuer-code-filings-v255.json",
@@ -182,7 +185,7 @@
    }));
    const items=buildWithOriginalProof(...files);
    const paint=()=>{
-    const shown=search(items,input.value,board.value);
+    const shown=search(items,input.value,board.value,financeFilter.value);
     const frag=document.createDocumentFragment();
     for(const item of shown){
      const tr=document.createElement("tr");
@@ -210,6 +213,7 @@
     count.textContent=shown.length+" / 30 件（複数のSGX限定資料からの過去開示コード）";
    };
    input.addEventListener("input",paint);board.addEventListener("change",paint);
+   financeFilter.addEventListener("change",paint);
    paint();
    status.textContent="SGXNet原本HTMLの直接再取得で19銘柄を本文・SHA照合。SGX公式静的資料11銘柄と合わせた限定30銘柄を財務登録7社と照合し、共通4社もランキングは全て除外。";
   }catch(e){
