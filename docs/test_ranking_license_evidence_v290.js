@@ -19,6 +19,7 @@ row.quote_license_display_allowed=true;
 row.quote_license_non_display_analytics_allowed=true;
 row.independent_cross_source_verification=true;
 row.shares_as_of_date="2026-11-13";
+row.pbr_verified=Number((row.price_sgd*row.shares_outstanding/(1000*row.parent_equity_sgd_thousands)).toFixed(4));
 data.ranking_eligible_count=1;data.ranking_enabled=true;
 assert.ok(checkFeed(data).some(x=>x.includes("dated grant evidence missing")));
 row.market_data_license_evidence={

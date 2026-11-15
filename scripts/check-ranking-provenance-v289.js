@@ -17,6 +17,31 @@ function sgxQuoteDate(value) {
   const time = Date.parse(value);
   return Number.isFinite(time) ? singaporeDate.format(time) : null;
 }
+function valuationErrors(row, id) {
+  const {price_sgd: price, shares_outstanding: shares,
+    attributable_profit_sgd_thousands: profit, parent_equity_sgd_thousands: equity} = row;
+  const cap = price * shares;
+  if (!Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(shares) || shares <= 0 ||
+      !Number.isFinite(cap) || cap > Number.MAX_SAFE_INTEGER / 100) {
+    return [id + ": invalid price or shares for valuation"];
+  }
+  const errors = [];
+  const positiveThousands = amount => Number.isSafeInteger(amount) && amount > 0 &&
+    Number.isSafeInteger(amount * 1000);
+  const checks = [
+    ["market cap", row.market_cap_sgd, cap, 100],
+    ["PER", row.per_reference, positiveThousands(profit) ? cap / (profit * 1000) : NaN, 10000],
+    ["PBR", row.pbr_verified, positiveThousands(equity) ? cap / (equity * 1000) : NaN, 10000],
+  ];
+  for (const [label, actual, expected, scale] of checks) {
+    // The feed rounds cap to cents and the ratios to four decimal places.
+    if (!Number.isFinite(actual) || actual <= 0 || !Number.isFinite(expected) ||
+        Math.abs(actual - expected) > 0.5 / scale + Number.EPSILON * expected) {
+      errors.push(id + ": " + label + " missing or inconsistent with valuation inputs");
+    }
+  }
+  return errors;
+}
 function checkFeed(feed) {
   const errors = [];
   if (!feed || !Array.isArray(feed.records)) return ["Missing records array"];
@@ -29,6 +54,7 @@ function checkFeed(feed) {
     const reasons = Array.isArray(r.exclusion_reasons) ? r.exclusion_reasons : [];
     if (r.ranking_eligible === true) {
       eligible++;
+      errors.push(...valuationErrors(r, id));
       if (r.ranking_score == null || !Number.isFinite(r.ranking_score))
         errors.push(id + ": ranking score missing/invalid");
       if (UNOFFICIAL.test(String(r.quote_source_type || "")))

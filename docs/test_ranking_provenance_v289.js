@@ -23,8 +23,21 @@ r.quote_license_display_allowed=true;
 r.quote_license_non_display_analytics_allowed=true;
 r.independent_cross_source_verification=true;
 r.shares_as_of_date="2026-11-13";
+r.pbr_verified=Number((r.price_sgd*r.shares_outstanding/(1000*r.parent_equity_sgd_thousands)).toFixed(4));
 clean.ranking_eligible_count=1;clean.ranking_enabled=true;
 assert.deepEqual(checkFeed(clean), [], "fully evidenced synthetic record accepted");
+for (const [field, value, label] of [
+  ["price_sgd", 0, "invalid price or shares"],
+  ["market_cap_sgd", r.market_cap_sgd + 1, "market cap"],
+  ["attributable_profit_sgd_thousands", -1, "PER"],
+  ["per_reference", r.per_reference + 1, "PER"],
+  ["pbr_verified", null, "PBR"],
+  ["pbr_verified", r.price_sgd*r.shares_outstanding/(1000*(r.parent_equity_sgd_thousands + 100000)), "PBR"],
+]) {
+  const invalid=structuredClone(clean);
+  invalid.records[0][field]=value;
+  assert.ok(checkFeed(invalid).some(e=>e.includes(label)), field);
+}
 r.quote_timestamp_utc="2026-11-12T16:00:00Z";
 assert.deepEqual(checkFeed(clean), [], "Singapore quote day rolls over at midnight local time");
 r.shares_as_of_date="2026-11-12";
