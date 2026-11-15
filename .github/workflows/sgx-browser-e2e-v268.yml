@@ -1,0 +1,46 @@
+name: VALUE HUNTER real Chromium browser E2E v268
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sgx-browser-e2e-v268.yml'
+      - 'scripts/e2e-sgx-browser-v268.mjs'
+      - 'docs/index.html'
+      - 'docs/app.js'
+      - 'docs/sgx-historical-code-search-v258.js'
+      - 'docs/data/sgx-nineteen-original-html-sha-v262.json'
+      - 'docs/data/latest.json'
+permissions:
+  contents: read
+jobs:
+  chromium-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare system Chrome and browser controller
+        run: |
+          which google-chrome
+          google-chrome --version
+          npm install --no-save --no-package-lock playwright-core
+      - name: Serve actual production docs with local HTTP
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory docs > /tmp/value-hunter-http-v268.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8765/index.html > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo 'Server failed'; cat /tmp/value-hunter-http-v268.log; exit 1
+      - name: Run Chrome direct navigation and CSV download regression
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: node scripts/e2e-sgx-browser-v268.mjs
+      - name: Retain local server log for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-chromium-e2e-server-diagnostics-v268
+          path: /tmp/value-hunter-http-v268.log
+          if-no-files-found: warn
+          retention-days: 14
