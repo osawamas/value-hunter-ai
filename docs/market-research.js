@@ -391,22 +391,69 @@ function screenPersonalBatch(rows, {market, limits, minimums = {}, order}) {
   return visible;
 }
 
+const annualScreenMetrics = ["salesGrowth", "operatingMargin", "equityRatio"];
+
+function annualScreenRows(rows) {
+  const results = [];
+  for (const row of rows) {
+    let financial = row.sgxAnnual;
+    if (row.financials) {
+      try {
+        financial = {...compareAnnual(row.financials).at(-1), source: row.financials.filing_url || row.financials.source,
+          sourceLabel: "年次財務資料"};
+      } catch {
+        continue;
+      }
+    }
+    if (financial) results.push({...financial, id: row.id, label: row.label, market: row.market});
+  }
+  return results;
+}
+
+function screenAnnualFinancials(rows, {market, minimums, order}) {
+  const visible = rows.filter(row => (!market || row.market === market) &&
+    annualScreenMetrics.every(metric => minimums[metric] == null ||
+      (Number.isFinite(row[metric]) && row[metric] >= minimums[metric] / 100)));
+  if (annualScreenMetrics.includes(order)) {
+    visible.sort((a, b) => (b[order] ?? -Infinity) - (a[order] ?? -Infinity));
+  }
+  return visible;
+}
+
+function csvCell(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  let text = String(value);
+  if (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text;
+  return '"' + text.replaceAll('"', '""') + '"';
+}
+
+function annualScreenCsv(rows) {
+  const header = "market_id,company,fiscal_period,annual_sales_growth_pct,annual_operating_margin_pct,annual_parent_equity_ratio_pct,financial_source,source_label";
+  const lines = rows.map(row => [row.id, row.label, row.end,
+    ...annualScreenMetrics.map(metric => Number.isFinite(row[metric]) ? row[metric] * 100 : null),
+    row.source, row.sourceLabel].map(csvCell).join(","));
+  return "\uFEFF" + [header, ...lines].join("\r\n") + "\r\n";
+}
+
+function saveResearchCsv(content, filename) {
+  const url = URL.createObjectURL(new Blob([content], {type: "text/csv;charset=utf-8"}));
+  const anchor = Object.assign(document.createElement("a"), {href: url, download: filename});
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
     "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct"];
-  const cell = value => {
-    if (value === null || value === undefined) return "";
-    if (typeof value === "number") return String(value);
-    let text = String(value);
-    if (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text;
-    return '"' + text.replaceAll('"', '""') + '"';
-  };
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
     Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
-    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null].map(cell).join(","));
+    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -445,7 +492,21 @@ async function initMarketResearch() {
     return Object.assign(element("a", label), {href: url});
   };
   const pct = value => value === null ? "—" : percent.format(value);
+  const compareInput = (row, labelText) => {
+    const input = Object.assign(element("input", ""), {type: "checkbox", checked: selected.has(row.id)});
+    input.dataset.marketId = row.id;
+    input.setAttribute("aria-label", row.label + labelText);
+    input.addEventListener("change", () => {
+      if (input.checked) selected.set(row.id, row);
+      else selected.delete(row.id);
+      paintComparison();
+    });
+    return input;
+  };
   const paintComparison = () => {
+    for (const input of document.querySelectorAll("input[data-market-id]")) {
+      input.checked = selected.has(input.dataset.marketId);
+    }
     byId("marketCompareEmpty").hidden = selected.size > 0;
     byId("marketCompareTable").hidden = selected.size === 0;
     byId("marketCompareRows").replaceChildren(...[...selected.values()].map(row => {
@@ -459,8 +520,6 @@ async function initMarketResearch() {
       remove.setAttribute("aria-label", row.label + "を比較から外す");
       remove.addEventListener("click", () => {
         selected.delete(row.id);
-        const checkbox = [...body.querySelectorAll("input[type=checkbox]")].find(x => x.dataset.marketId === row.id);
-        if (checkbox) checkbox.checked = false;
         paintComparison();
       });
       const action = element("td", "");
@@ -543,13 +602,7 @@ async function initMarketResearch() {
   minEquity.addEventListener("input", paintBatch);
   byId("personalBatchDownload").addEventListener("click", () => {
     if (!batchResults.length) return;
-    const csv = new Blob([personalBatchCsv(batchResults)], {type: "text/csv;charset=utf-8"});
-    const url = URL.createObjectURL(csv);
-    const anchor = Object.assign(document.createElement("a"), {href: url, download: "value-hunter-trial-valuations.csv"});
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveResearchCsv(personalBatchCsv(batchResults), "value-hunter-trial-valuations.csv");
   });
   const applyPersonalQuote = () => {
     const quote = personalQuotes.get(activeRow.id);
@@ -724,6 +777,43 @@ async function initMarketResearch() {
     }));
     byId("sgxBusinessUpdates").hidden = updateRows.length === 0;
     const rows = buildMarketRows(research, sgx);
+    const annualRows = annualScreenRows(rows);
+    const marketRowsById = new Map(rows.map(row => [row.id, row]));
+    const annualForm = byId("annualScreenForm");
+    const annualButton = byId("annualScreenDownload");
+    let visibleAnnual = [];
+    const paintAnnual = () => {
+      const minimums = Object.fromEntries(annualScreenMetrics.map(metric => {
+        const field = annualForm.elements.namedItem(metric);
+        return [metric, field.value === "" ? null : field.valueAsNumber];
+      }));
+      const valid = annualForm.checkValidity();
+      visibleAnnual = valid ? screenAnnualFinancials(annualRows, {
+        market: annualForm.elements.namedItem("market").value, minimums,
+        order: annualForm.elements.namedItem("order").value,
+      }) : [];
+      byId("annualScreenStatus").textContent = valid ?
+        visibleAnnual.length + " / " + annualRows.length + "件" : "下限に数値を入力して";
+      annualButton.disabled = visibleAnnual.length === 0;
+      byId("annualScreenTable").hidden = !visibleAnnual.length;
+      byId("annualScreenRows").replaceChildren(...visibleAnnual.map(row => {
+        const tr = document.createElement("tr");
+        const source = element("td", "");
+        source.append(link(row.source, row.sourceLabel));
+        const selection = element("td", "");
+        selection.append(compareInput(marketRowsById.get(row.id), "を年次財務の表から比較"));
+        tr.append(...[row.label + "（" + row.id + "）", row.end,
+          ...annualScreenMetrics.map(metric => pct(row[metric] ?? null))].map(value => element("td", value)), source, selection);
+        return tr;
+      }));
+    };
+    annualForm.addEventListener("input", paintAnnual);
+    annualForm.addEventListener("reset", () => setTimeout(paintAnnual, 0));
+    annualForm.addEventListener("submit", event => event.preventDefault());
+    annualButton.addEventListener("click", () => {
+      if (visibleAnnual.length) saveResearchCsv(annualScreenCsv(visibleAnnual), "value-hunter-annual-screen.csv");
+    });
+    paintAnnual();
     marketRows = rows;
     shareReview = s63ShareReview;
     paintBatch();
@@ -749,15 +839,8 @@ async function initMarketResearch() {
         } else if (row.market === "SG") finance.append(link("./index.html", "SGX財務画面"));
         else finance.textContent = "財務取り込み待ち";
         if (row.financials || row.sgxAnnual) {
-          const compare = Object.assign(element("input", ""), {type: "checkbox", checked: selected.has(row.id)});
+          const compare = compareInput(row, "を比較");
           const label = element("label", "");
-          compare.setAttribute("aria-label", row.label + "を比較");
-          compare.dataset.marketId = row.id;
-          compare.addEventListener("change", () => {
-            if (compare.checked) selected.set(row.id, row);
-            else selected.delete(row.id);
-            paintComparison();
-          });
           label.append(compare, " 比較");
           finance.append(" ", label);
         }
@@ -799,8 +882,9 @@ async function initMarketResearch() {
     paint();
   } catch (error) {
     status.textContent = "銘柄資料を照合できない（" + error.message + "）";
+    byId("annualScreenStatus").textContent = "財務資料を読み込めない";
   }
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, readQuoteHistory, selectQuoteDate};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, annualScreenRows, screenAnnualFinancials, annualScreenCsv, readQuoteHistory, selectQuoteDate};

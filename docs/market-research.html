@@ -35,6 +35,29 @@
 <tbody id="marketCoverageRows"></tbody>
 </table></div>
 </section>
+<section class="workspace" aria-labelledby="annualScreenTitle">
+<h2 id="annualScreenTitle">年次財務で絞り込む</h2>
+<p>株価CSVの読み込み前でも使える。各社の掲載済み年次決算を比較する。</p>
+<form id="annualScreenForm" class="toolbar">
+<label class="control">財務比較の市場<select name="market">
+<option value="">全市場</option><option value="JP">日本</option><option value="US">米国</option><option value="SG">シンガポール</option>
+</select></label>
+<label class="control">売上前年比の下限（%）<input type="number" name="salesGrowth" step="any"></label>
+<label class="control">営業利益率の下限（%）<input type="number" name="operatingMargin" step="any"></label>
+<label class="control">親会社持分比率の下限（%）<input type="number" name="equityRatio" step="any"></label>
+<label class="control">財務比較の並び順<select name="order">
+<option value="">掲載順</option><option value="salesGrowth">売上前年比が高い順</option>
+<option value="operatingMargin">営業利益率が高い順</option><option value="equityRatio">親会社持分比率が高い順</option>
+</select></label>
+<button type="reset" class="secondary-button">財務の絞り込みを解除</button>
+</form>
+<p id="annualScreenStatus" role="status">財務資料を読み込み中…</p>
+<button type="button" id="annualScreenDownload" class="secondary-button" disabled>財務比較CSVを保存</button>
+<div class="tablewrap" id="annualScreenTable" hidden><table aria-label="年次財務の絞り込み結果">
+<thead><tr><th>銘柄</th><th>決算期</th><th>売上前年比</th><th>営業利益率</th><th>親会社持分比率</th><th>出典</th><th>比較</th></tr></thead>
+<tbody id="annualScreenRows"></tbody>
+</table></div>
+</section>
 <section class="workspace">
 <h2>年次財務を比較</h2>
 <p>選んだ銘柄の各社直近の掲載年度を表示。金額は各社の報告通貨。SGXは資料にある決算年度を表示。</p>
