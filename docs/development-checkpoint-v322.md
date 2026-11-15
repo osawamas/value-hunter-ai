@@ -1,0 +1,5 @@
+# VALUE HUNTER AI v322 — local closing-price import
+
+The research page accepts a local UTF-8 CSV with four columns, market-qualified symbol, trading date, native quote currency and positive unadjusted closing price. Latest date wins per symbol and duplicate symbol/date rows fail validation. For JP or US financials, a compatible date and currency can load the quote into valuation. Exact dated, unrounded shares auto-fill only when available on that date. The browser keeps input in memory and makes no upload, and these scenarios do not feed ranking. Chromium checks both the matching and missing share date paths.
+
+J-Quants free official daily bars are delayed twelve weeks and use a personal API key. Nasdaq's historical site and SGX's data policy are additional leads for a daily feed with usable distribution terms. The public and ZIP research pages contain no new provider quotes. Next add documented refresh and verification of official quote sources and maintain complete recurring disclosure checks in all three markets.

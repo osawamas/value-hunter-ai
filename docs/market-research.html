@@ -35,6 +35,12 @@
 <tbody id="marketCompareRows"></tbody>
 </table></div>
 </section>
+<section class="workspace">
+<h2>手元の株価CSVを読み込む</h2>
+<p id="personalQuoteHelp">日本・米国の試算に使える。UTF-8で見出しは <code>market_id,date,currency,close</code>。銘柄IDは <code>JP:7203</code> や <code>US:AAPL</code>、日付は <code>YYYY-MM-DD</code>。入力データはこのページ内で処理する。</p>
+<label class="control">株価CSV<input id="personalQuoteFile" type="file" accept=".csv,text/csv" aria-describedby="personalQuoteHelp"></label>
+<p id="personalQuoteStatus" role="status"></p>
+</section>
 <section id="marketDetails" class="workspace" hidden>
 <h2 id="marketDetailTitle"></h2>
 <p id="marketDetailCurrency"></p>
@@ -45,12 +51,13 @@
 <p id="marketShareCount"></p>
 <p id="marketFinancialSources"></p>
 <h3>手入力の株価で試算</h3>
-<p id="marketScenarioHelp">株価と株数は同じ基準日の値を入力。直近に掲載した年次実績を使う参考値。</p>
+<p id="marketScenarioHelp">株価と株数は同じ基準日の値を入力。直近に掲載した年次実績を使う参考値。<span id="personalQuoteMatch"></span></p>
 <form id="marketScenario" aria-describedby="marketScenarioHelp">
 <div class="toolbar">
 <label class="control">基準日<input id="scenarioDate" type="date" required></label>
 <label class="control">株価（<span id="scenarioCurrency"></span>）<input id="scenarioPrice" type="number" min="0.0001" step="any" required></label>
 <label class="control">同日・自己株式控除後の株数<input id="scenarioShares" type="number" min="1" step="1" required></label>
+<button id="activatePersonalQuote" type="button" class="secondary-button" disabled>CSV終値を使う</button>
 <button type="submit" class="secondary-button">試算する</button>
 </div>
 </form>

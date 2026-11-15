@@ -87,10 +87,22 @@ try{
  await page.locator("#scenarioShares").fill("3496382520");
  await page.getByRole("button",{name:"試算する"}).click();
  assert.match(await page.locator("#marketScenarioResult").innerText(),/参考時価総額 1,048,914,756,000 JPY、PER —、PBR 0\.22倍/);
+ await page.locator("#personalQuoteFile").setInputFiles({
+  name:"quotes.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nUS:AAPL,2026-11-13,USD,356"),
+ });
+ await page.locator("#personalQuoteStatus").getByText(/2 銘柄分/).waitFor();
+ await page.getByRole("button",{name:"CSV終値を使う"}).click();
+ assert.equal(await page.locator("#scenarioShares").inputValue(),"3496382520");
+ assert.equal(await page.locator("#scenarioPrice").inputValue(),"300");
  await page.locator("#marketFilter").selectOption("US");
  await page.locator("#marketQuery").fill("AAPL");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailCurrency").innerText(),/USD/);
+ await page.getByRole("button",{name:"CSV終値を使う"}).click();
+ assert.equal(await page.locator("#scenarioPrice").inputValue(),"356");
+ assert.equal(await page.locator("#scenarioDate").inputValue(),"2026-11-13");
+ assert.equal(await page.locator("#scenarioShares").inputValue(),"");
  await page.getByRole("checkbox",{name:"Appleを比較"}).check();
  assert.equal(await page.locator("#marketCompareRows tr").count(),2);
  assert.match(await page.locator("#marketCompareRows tr").first().innerText(),/トヨタ.*JPY/s);
