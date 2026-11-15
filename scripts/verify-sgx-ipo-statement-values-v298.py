@@ -128,7 +128,8 @@ def verify_section(text,record):
 def download(url, sha256, size):
  original=urlsplit(url)
  if original.scheme!="https" or original.netloc not in {
-  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com","www1.hkexnews.hk","www.hkexnews.hk"
+  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com","www1.hkexnews.hk","www.hkexnews.hk",
+  "cdn.databp.com"
  }:
   raise ValueError("Unexpected PDF source")
  req=urllib.request.Request(url,headers={
@@ -463,9 +464,23 @@ def main():
   "metasurface_financials":verify_met_historical_financials(met["historical_financials"]),
   "oue_healthcare_hearing":verify_oue_hearing(listing_events["5WA"]),
   "ske_resumption_proposal":verify_ske_resumption(listing_events["5WG"]),
+  "market_data_policy":verify_sgx_market_data_policy(),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,
   "independent_current_financial_reverification":False,"ranking_eligible_count":0}
  dest=ROOT/"build/research/sgx-ipo-audited-reconciliation-v298.json"
  dest.parent.mkdir(parents=True,exist_ok=True)
  dest.write_text(json.dumps(report,indent=2)+"\n")
+
+def verify_sgx_market_data_policy():
+ review=json.loads((ROOT/"docs/data/sgx-market-license-review-v290.json").read_text())
+ source=review["policy_original"]
+ text=" ".join(original_text(source,("-f","3","-l","7")).split())
+ if not all(phrase in text for phrase in (
+  "Effective 1 July 2026","SGX Reference Data Feed:","3.1.2 The Licensee shall not disseminate",
+  "3.2.2 A direct declaration / license with SGX shall be required","Derived Data Creation",
+ )) or review["proposed_eod_scope"]["written_grant_obtained"] is not False or any(review["rights_granted"].values()):
+  raise ValueError("SGX market-data policy clauses or pending rights mismatch")
+ print("SGX VERIFIED July 2026 original market-data policy clauses")
+ return {"sha256":source["sha256"],"clauses":source["clauses"],"grant_obtained":False}
+
 if __name__=="__main__":main()

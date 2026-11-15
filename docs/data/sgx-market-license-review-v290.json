@@ -22,5 +22,39 @@
     "Historical unofficial Yahoo quotes in latest.json remain informational and are not approved for automated investment ranking.",
     "An actual executed grant, product scope, recipient identity, start/end dates and permission for both use types must be reviewed before altering ranking gate."
   ],
-  "next_action": "Request written scope and fees for a public Japanese-language SGX security comparison and algorithmic screening application via SGX Data Direct; do not treat an unanswered inquiry as approval."
+  "next_action": "Request written scope and fees for a public Japanese-language SGX security comparison and algorithmic screening application via SGX Data Direct; do not treat an unanswered inquiry as approval.",
+  "policy_original": {
+    "url": "https://cdn.databp.com/tenants/sgx/documents/2ae33c20-3d4c-11f1-9fd6-43b28f5cb868/Singapore%20Exchange%20Limited%20%28SGX%29%20Market%20Data%20Policy%20%28Effective%201%20July%202026%29.pdf",
+    "sha256": "1d3cd29a94d119206b34ee0569a5c3e09c1b14635785bc5b1c6c0cf0dc1fa873",
+    "bytes": 559945,
+    "clauses": {
+      "reference_data_feed": "1.3(b)(iii)",
+      "redistribution": "3.1.2",
+      "non_display_and_derived_data": "3.2.2"
+    }
+  },
+  "reference_data_feed": {
+    "name": "SGX Reference Data Feed",
+    "instrument_scope_and_delivery_confirmed_for_this_app": false,
+    "requested_fields": [
+      "trading_code",
+      "isin",
+      "instrument_type",
+      "listing_board",
+      "traded_currency",
+      "effective_dates",
+      "listing_status"
+    ]
+  },
+  "proposed_eod_scope": {
+    "display": "Japanese-language browser app",
+    "backend": "EOD price and date-matched shares/financials for market cap, PER/PBR and screening",
+    "classification_pending": [
+      "browser display",
+      "public redistribution",
+      "backend non-display",
+      "derived figures publication"
+    ],
+    "written_grant_obtained": false
+  }
 }
