@@ -1,0 +1,30 @@
+name: UOB official SGXNet Nov12 share count replay v284
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/uob-shares-original-v284.yml'
+      - 'scripts/replay-uob-shares-v284.py'
+      - 'scripts/test_uob_shares_v284.py'
+      - 'scripts/replay-sgx-issuer-html-v260.py'
+permissions:
+  contents: read
+jobs:
+  original-share-count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate exact UOB original notice identity and quantities offline
+        run: python3 scripts/test_uob_shares_v284.py
+      - name: Directly fetch 12-Nov UOB SGXNet announcement and hash HTML
+        run: python3 scripts/replay-uob-shares-v284.py
+      - name: Retain direct-source observation and SHA, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uob-12nov-original-share-count-v284
+          path: build/research/uob-12nov-share-original-v284.json
+          if-no-files-found: warn
+          retention-days: 30
