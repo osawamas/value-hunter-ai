@@ -99,13 +99,14 @@ try{
  assert.match(await page.locator("#marketScenarioResult").innerText(),/参考時価総額 1,048,914,756,000 JPY、PER —、PBR 0\.22倍/);
  await page.locator("#personalQuoteFile").setInputFiles({
   name:"quotes.csv", mimeType:"text/csv",
-  buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nJP:7203,2026-09-30,JPY,3000\nUS:AAPL,2026-11-13,USD,356"),
+  buffer:Buffer.from("market_id,date,currency,close\nJP:7201,2026-03-31,JPY,300\nJP:7203,2026-09-30,JPY,3000\nUS:AAPL,2026-11-13,USD,356\nSG:S63,2026-11-13,SGD,10"),
  });
- await page.locator("#personalQuoteStatus").getByText(/終値を 3件/).waitFor();
+ await page.locator("#personalQuoteStatus").getByText(/終値を 4件/).waitFor();
  const batch = page.locator("#personalBatchRows tr");
- assert.match(await page.locator("#personalBatchStatus").innerText(),/2 \/ 3件を試算/);
+ assert.match(await page.locator("#personalBatchStatus").innerText(),/3 \/ 4件を試算/);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
  assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
+ assert.match(await batch.filter({hasText:"SG:S63"}).innerText(),/SGD.*3,115,847,115.*31,158,471,150.*2025-12-31/s);
  await page.getByRole("button",{name:"CSV終値を使う"}).click();
  assert.equal(await page.locator("#scenarioShares").inputValue(),"3496382520");
  assert.equal(await page.locator("#scenarioPrice").inputValue(),"300");

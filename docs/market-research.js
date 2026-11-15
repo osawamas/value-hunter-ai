@@ -57,24 +57,23 @@ function rankingEvidence(row, shareReview) {
   if (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART") reasons.push("掲載株価は参考取得。取引所の照合が未完了");
   if (!shareDate) reasons.push("日付付き株数が未取得");
   if (shareDate && quoteDate && shareDate !== quoteDate) reasons.push("掲載データの株価と株数の基準日が異なる");
-  const alternative = shareReview?.schema_version === "sgx-s63-historical-close-second-website-v129" &&
-    shareReview.symbol === row.symbol && shareReview.session_date_sgt === quoteDate &&
-    shareReview.original_sgx_share_snapshot_on_same_date === true &&
-    Number.isSafeInteger(shareReview.original_sgx_shares_ex_treasury) &&
-    shareReview.original_sgx_shares_ex_treasury > 0 &&
-    shareReview.sgx_share_source_url?.startsWith("https://links.sgx.com/");
   return {
-    supplementalShare: alternative ? {
-      date: quoteDate,
-      value: shareReview.original_sgx_shares_ex_treasury,
-      source: shareReview.sgx_share_source_url,
-    } : null,
+    supplementalShare: sgxSupplementalShare(row, quoteDate, shareReview),
     quote: observed ? quoteDate + (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART" ? "（参考）" : "（掲載資料）") : "未取得",
     quoteSource: observed ? sgx.quote_url : null,
     share: shareDate || "未取得",
     shareSource: shareDate ? sgx.shares_source_url : null,
     reasons,
   };
+}
+
+function sgxSupplementalShare(row, date, review) {
+  if (row.id !== "SG:S63" || review?.schema_version !== "sgx-s63-historical-close-second-website-v129" ||
+      review.symbol !== row.symbol || review.session_date_sgt !== date ||
+      review.original_sgx_share_snapshot_on_same_date !== true ||
+      !Number.isSafeInteger(review.original_sgx_shares_ex_treasury) || review.original_sgx_shares_ex_treasury <= 0 ||
+      !review.sgx_share_source_url?.startsWith("https://links.sgx.com/")) return null;
+  return {date, value: review.original_sgx_shares_ex_treasury, source: review.sgx_share_source_url};
 }
 
 function sgxComparison(feed, record) {
@@ -188,10 +187,43 @@ function readPersonalShares(csv) {
   return shares;
 }
 
-function filingSharesOn(row, date) {
+const sgxValuationPeriods = {
+  S68: {end: "2026-06-30",
+    source: "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5"},
+  G13: {end: "2025-12-31",
+    source: "https://links.sgx.com/FileOpen/Annual%20Report%202025.ashx?App=Announcement&FileID=880160"},
+  S20: {end: "2025-12-31",
+    source: "https://links.sgx.com/FileOpen/Annual%20Report%20FY2025.ashx?App=Announcement&FileID=881971"},
+  S63: {end: "2025-12-31",
+    source: "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328"},
+};
+
+function sgxValuationFinance(row) {
+  const record = row.sgxEvidence;
+  const filing = sgxValuationPeriods[row.symbol];
+  if (!record || !row.sgxAnnual || !filing || record.financial_source_url !== filing.source ||
+      record.fiscal_year !== Number(filing.end.slice(0, 4)) ||
+      ![record.attributable_profit_sgd_thousands, record.parent_equity_sgd_thousands]
+        .every(value => Number.isSafeInteger(value) && Number.isSafeInteger(value * 1000))) return null;
+  return {
+    currency: "SGD", end: filing.end, net_income: record.attributable_profit_sgd_thousands * 1000,
+    parent_equity: record.parent_equity_sgd_thousands * 1000,
+  };
+}
+
+function filingSharesOn(row, date, shareReview) {
   const interim = row.quarterly?.shares;
   const annual = row.financials?.shares;
-  return [interim, annual].filter(share => share?.as_of === date && !share.rounded);
+  const sgx = row.sgxEvidence;
+  const currentShare = sgx?.shares_count_basis === "issued_excluding_treasury" &&
+    sgx.shares_source_url?.startsWith("https://") && [
+      "LIVE_OFFICIAL_ANNUAL_SHAREHOLDINGS_RECONCILED", "LIVE_1H2026_TREASURY_ROLLFORWARD_RECONCILED",
+      "DATE_ANCHORED_RECONCILED",
+    ].includes(sgx.shares_verification_status)
+    ? {as_of: sgx.shares_as_of_date, value: sgx.shares_outstanding} : null;
+  const supplemental = sgxSupplementalShare(row, date, shareReview);
+  const datedSupplement = supplemental ? {as_of: supplemental.date, value: supplemental.value} : null;
+  return [interim, annual, currentShare, datedSupplement].filter(share => share?.as_of === date && !share.rounded);
 }
 
 function matchScenarioShares(id, date, published, personalShares) {
@@ -208,7 +240,10 @@ function matchScenarioShares(id, date, published, personalShares) {
 }
 
 function calculateMarketScenario(finance, {date, price, shares}) {
-  const last = compareAnnual(finance).at(-1);
+  return calculateWithAnnualPeriod(finance.currency, compareAnnual(finance).at(-1), {date, price, shares});
+}
+
+function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
   if (!isMarketDate(date) || date < last.end ||
       !Number.isFinite(price) || price <= 0 || !Number.isSafeInteger(shares) || shares <= 0) {
     throw Error("決算期末以降の基準日、正の株価と株数を入力して");
@@ -218,25 +253,29 @@ function calculateMarketScenario(finance, {date, price, shares}) {
   return {
     cap, per: last.net_income > 0 ? cap / last.net_income : null,
     pbr: last.parent_equity > 0 ? cap / last.parent_equity : null,
-    currency: finance.currency, periodEnd: last.end,
+    currency, periodEnd: last.end,
   };
 }
 
-function evaluatePersonalQuotes(rows, quotes, shares) {
+function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
   const issuers = new Map(rows.map(row => [row.id, row]));
   return Array.from(quotes, ([id, quote]) => {
     const row = issuers.get(id);
     const entry = {id, label: row?.label || id, quote};
     if (!row) return {...entry, state: "unknown"};
-    if (!row.financials) return {...entry, state: "noFinance"};
     const finance = row.financials;
-    if (quote.currency !== finance.currency || quote.date < finance.periods.at(-1).end) {
+    const sgx = sgxValuationFinance(row);
+    if (!finance && !sgx) return {...entry, state: "noFinance"};
+    const currency = finance?.currency || sgx.currency;
+    const periodEnd = finance ? finance.periods.at(-1).end : sgx.end;
+    if (quote.currency !== currency || quote.date < periodEnd) {
       return {...entry, state: "incompatible"};
     }
-    const match = matchScenarioShares(id, quote.date, filingSharesOn(row, quote.date), shares);
+    const match = matchScenarioShares(id, quote.date, filingSharesOn(row, quote.date, shareReview), shares);
     if (match.value === null) return {...entry, state: match.state};
     try {
-      const result = calculateMarketScenario(finance, {...quote, shares: match.value});
+      const inputs = {...quote, shares: match.value};
+      const result = finance ? calculateMarketScenario(finance, inputs) : calculateWithAnnualPeriod(currency, sgx, inputs);
       return {...entry, state: match.state, shares: match.value, result};
     } catch {
       return {...entry, state: "invalid"};
@@ -254,6 +293,7 @@ async function initMarketResearch() {
   const selected = new Map();
   let selectedFinance;
   let marketRows = [];
+  let shareReview;
   let activeRow;
   let personalQuotes = new Map();
   let personalShares = new Map();
@@ -312,7 +352,7 @@ async function initMarketResearch() {
   const batchLabels = {...shareLabels, unknown: "銘柄が調査一覧に未登録", noFinance: "一括試算用の年次財務が未接続",
     incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
   const paintBatch = () => {
-    const results = evaluatePersonalQuotes(marketRows, personalQuotes, personalShares);
+    const results = evaluatePersonalQuotes(marketRows, personalQuotes, personalShares, shareReview);
     byId("personalBatchTable").hidden = results.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
       " / " + results.length + "件を試算" : "";
@@ -488,6 +528,7 @@ async function initMarketResearch() {
     byId("sgxBusinessUpdates").hidden = updateRows.length === 0;
     const rows = buildMarketRows(research, sgx);
     marketRows = rows;
+    shareReview = s63ShareReview;
     paintBatch();
     byId("marketCoverageRows").replaceChildren(...summarizeMarketCoverage(rows).map(row => {
       const tr = document.createElement("tr");
