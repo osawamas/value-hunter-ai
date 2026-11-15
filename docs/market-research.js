@@ -453,14 +453,26 @@ async function initMarketResearch() {
     batchDate.disabled = !personalQuoteHistory.size;
     const quotes = batchDate.value ? selectQuoteDate(personalQuoteHistory, batchDate.value) : personalQuotes;
     const results = evaluatePersonalQuotes(marketRows, quotes, personalShares, shareReview, personalQuoteHistory);
-    batchResults = results;
-    byId("personalBatchDownload").disabled = results.length === 0;
-    byId("personalBatchTable").hidden = results.length === 0;
+    const statusFilter = byId("personalBatchFilter");
+    statusFilter.disabled = results.length === 0;
+    const hasClassValue = row => row.classValue !== undefined;
+    const matches = {
+      all: () => true,
+      company: row => Boolean(row.result),
+      class: hasClassValue,
+      unresolved: row => !row.result && !hasClassValue(row),
+    };
+    batchResults = results.filter(matches[statusFilter.value]);
+    byId("personalBatchDownload").disabled = batchResults.length === 0;
+    byId("personalBatchTable").hidden = batchResults.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
       " / " + results.length + "件を試算" : batchDate.value && personalQuoteHistory.size ? "指定日の終値がCSVにない" : "";
-    const classCount = results.filter(row => row.classValue !== undefined).length;
+    const classCount = results.filter(hasClassValue).length;
     if (classCount) byId("personalBatchStatus").append("・上場クラス別の参考時価 " + classCount + "件");
-    byId("personalBatchRows").replaceChildren(...results.map(row => {
+    if (results.length && statusFilter.value !== "all") {
+      byId("personalBatchStatus").append("・表示 " + batchResults.length + "件");
+    }
+    byId("personalBatchRows").replaceChildren(...batchResults.map(row => {
       const {result, quote} = row;
       const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
         quote.date, quote.currency, money.format(quote.price), row.shares ? money.format(row.shares) : "—",
@@ -477,6 +489,7 @@ async function initMarketResearch() {
     }));
   };
   byId("personalBatchDate").addEventListener("input", paintBatch);
+  byId("personalBatchFilter").addEventListener("change", paintBatch);
   byId("personalBatchDownload").addEventListener("click", () => {
     if (!batchResults.length) return;
     const csv = new Blob([personalBatchCsv(batchResults)], {type: "text/csv;charset=utf-8"});

@@ -64,8 +64,15 @@
 <h3>CSVの一括試算</h3>
 <p>日付を指定するとその日の終値を使用。空欄なら銘柄ごとにCSV内で最新の終値を使う。株数は同日付を照合する。指標は掲載されている直近の年次財務で試算する。決算の公表前に取得できた情報だけを使うバックテストとは計算条件が異なる。</p>
 <label class="control">一括試算の日付<input type="date" id="personalBatchDate" disabled></label>
+<label class="control">試算結果
+<select id="personalBatchFilter" disabled>
+<option value="all">すべて</option>
+<option value="company">会社全体の試算あり</option>
+<option value="class">上場クラスの参考時価あり</option>
+<option value="unresolved">試算値なし</option>
+</select></label>
 <p id="personalBatchStatus" role="status"></p>
-<button id="personalBatchDownload" type="button" class="secondary-button" disabled>一括試算CSVを保存</button>
+<button id="personalBatchDownload" type="button" class="secondary-button" disabled>一括試算CSVを保存（表示中の行）</button>
 <div class="tablewrap" id="personalBatchTable" hidden><table>
 <thead><tr><th>銘柄</th><th>株価・株数の基準日</th><th>通貨</th><th>終値</th><th>株数</th><th>時価総額</th><th>PER</th><th>PBR</th><th>財務基準日</th><th>照合結果</th><th>上場クラス別の参考時価</th><th>出典</th></tr></thead>
 <tbody id="personalBatchRows"></tbody>
