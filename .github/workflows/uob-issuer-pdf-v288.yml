@@ -1,0 +1,32 @@
+name: UOB official 3Q26 issuer PDF mirror v288
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/uob-issuer-pdf-v288.yml'
+      - 'scripts/replay-uob-issuer-pdf-v288.py'
+      - 'scripts/test_uob_issuer_pdf_v288.py'
+      - 'docs/data/sgx-big3-bank-research-v186.json'
+permissions:
+  contents: read
+jobs:
+  issuer-owned-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate original table-row matching safely
+        run: python3 scripts/test_uob_issuer_pdf_v288.py
+      - name: Install PDF text parser if missing
+        run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
+      - name: Re-fetch issuer UOB-hosted original financial PDF
+        run: python3 scripts/replay-uob-issuer-pdf-v288.py
+      - name: Preserve observations and unverified status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uob-issuer-own-hosted-q3-pdf-v288
+          path: build/research/uob-issuer-pdf-secondary-v288.json
+          if-no-files-found: warn
+          retention-days: 30
