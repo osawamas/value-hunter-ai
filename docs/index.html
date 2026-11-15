@@ -17,6 +17,7 @@
   <script src="./bank-share-evidence-v193.js" defer></script>
   <script src="./reference-valuation-guard-v168.js" defer></script>
   <script src="./app.js" defer></script>
+  <script src="./bank-scenario-v277.js" defer></script>
   <script src="./universe.js" defer></script>
   <script src="./official-batch-v196.js" defer></script>
   <script src="./official-multicurrency-v221.js" defer></script>
@@ -122,6 +123,26 @@
           </tr></thead><tbody id="stockRows"><tr><td colspan="10" class="empty">データ読み込み中…</td></tr></tbody></table>
         </div>
         <div class="tablefoot"><span id="tableCount">0件を表示</span><span>— は未取得または計算対象外</span></div>
+      </section>
+
+      <section class="workspace" aria-labelledby="scenarioBankTitle">
+        <div class="section-heading"><div><div class="eyebrow">LOCAL WHAT-IF / NOT MARKET DATA</div>
+          <h2 id="scenarioBankTitle">銀行3社のPER・PBRを手入力で参考試算</h2></div>
+          <p>2025年の発行体公表財務と、自分で確認した株価・自己株式控除後株数を組み合わせる。正式ランキングには反映しない。</p></div>
+        <p id="scenarioBankStatus" class="status-message" role="status">2025年銀行財務を検証中…</p>
+        <form id="scenarioBankForm" class="toolbar">
+          <label><span>銀行</span><select name="symbol" id="scenarioBankSymbol" required aria-label="試算する銀行"></select></label>
+          <label><span>株価（SGD、手入力）</span>
+            <input type="text" name="price" required placeholder="例：35.50" inputmode="decimal" autocomplete="off"></label>
+          <label><span>株価の日付</span><input type="date" name="priceAsOf" required></label>
+          <label><span>発行済株数（自己株式を除く）</span>
+            <input type="text" name="shares" required placeholder="例：1600000000" inputmode="numeric" autocomplete="off"></label>
+          <label><span>株数の基準日</span><input type="date" name="sharesAsOf" required></label>
+          <button type="submit" class="secondary-button">参考PER・PBRを計算</button>
+        </form>
+        <div id="scenarioBankResult" aria-live="polite"></div>
+        <div class="tablefoot"><span>入力値は端末内でのみ計算。データ送信・永続保存なし。</span>
+          <span>利益・自己資本はFY2025。現在株価・株数の信頼性、外部検証、利用権は入力者側で確認が必要。</span></div>
       </section>
 
       <section class="workspace" aria-labelledby="universeTitle">
