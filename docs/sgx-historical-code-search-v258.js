@@ -286,6 +286,7 @@
    count.textContent="取得不可";
   }
  }
+ if(root)root.SGX_SOURCE_DIRECTORY_READONLY=Object.freeze({buildWithOriginalProof});
  if(typeof module!=="undefined"&&module.exports)module.exports={build,buildExpanded,buildWithOriginalProof,search,exportDirectoryCsv,quoteViewer};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
