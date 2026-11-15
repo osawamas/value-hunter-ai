@@ -35,12 +35,12 @@ function buildMarketRows(research, sgx) {
 function rankingEvidence(row, shareReview) {
   const sgx = row.sgxEvidence;
   const finance = row.financials;
-  const shares = row.quarterly?.shares || finance?.shares || finance?.share_classes;
+  const shares = row.quarterly?.share_classes || row.quarterly?.shares || finance?.shares || finance?.share_classes;
   if (!sgx) {
     return {
       quote: "未接続",
       share: shares ? shares.as_of + (finance?.share_classes ? "（クラス別開示）" : shares.rounded ? "（概数）" : "（開示資料）") : "未取得",
-      shareSource: row.quarterly?.shares ? row.quarterly.source : finance?.filing_url || finance?.source,
+      shareSource: (row.quarterly?.shares || row.quarterly?.share_classes) ? row.quarterly.source : finance?.filing_url || finance?.source,
       reasons: [finance ? "正式順位の財務審査が未実装" : "年次財務が未取得",
         "公開用の株価データが未接続", "株価と株数の同日照合が未完了",
         ...(finance?.share_classes ? ["株式クラスごとの評価が必要"] : [])],
@@ -486,6 +486,9 @@ async function initMarketResearch() {
     personalQuotes = selectQuoteDate(rows);
   }, "終値を ", clearImportedClose);
   bindCsv("personalShareFile", "personalShareStatus", readPersonalShares, rows => { personalShares = rows; }, "株数を ", clearImportedShares);
+  const formatShareClasses = cover => "普通株式数（" + cover.as_of + "時点） " + cover.classes.map(item =>
+        "クラス" + item.label + (item.symbol ? "（" + item.symbol + "）" : "") + " " +
+        (cover.rounded ? "約" : "") + money.format(item.value) + "株").join(" / ");
   const show = row => {
     const finance = row.financials;
     const periods = compareAnnual(finance);
@@ -501,9 +504,7 @@ async function initMarketResearch() {
     }));
     const shareClasses = finance.share_classes;
     byId("marketShareCount").textContent = shareClasses
-      ? "普通株式数（" + shareClasses.as_of + "時点） " + shareClasses.classes.map(item =>
-        "クラス" + item.label + (item.symbol ? "（" + item.symbol + "）" : "") + " " +
-        (shareClasses.rounded ? "約" : "") + money.format(item.value) + "株").join(" / ")
+      ? formatShareClasses(shareClasses)
       : "発行済普通株式（自己株式控除後） " + (finance.shares.rounded ? "約" : "") +
         money.format(finance.shares.value) + " 株（" + finance.shares.as_of + "時点）";
     scenario.hidden = Boolean(shareClasses);
@@ -531,8 +532,9 @@ async function initMarketResearch() {
       byId("marketQuarterlySource").replaceChildren(quarter.currency + "・提出日 " + quarter.filed + "・",
         link(quarter.source, cumulative ? quarter.form : "SEC Form " + quarter.form));
       const interimShares = byId("marketInterimShareCount");
-      interimShares.hidden = !quarter.shares;
-      if (quarter.shares) interimShares.textContent = "開示時点の普通株式数（自己株式控除後） " + (quarter.shares.rounded ? "約" : "") +
+      interimShares.hidden = !(quarter.shares || quarter.share_classes);
+      if (quarter.share_classes) interimShares.textContent = formatShareClasses(quarter.share_classes);
+      else if (quarter.shares) interimShares.textContent = "開示時点の普通株式数（自己株式控除後） " + (quarter.shares.rounded ? "約" : "") +
         money.format(quarter.shares.value) + " 株（" + quarter.shares.as_of + "時点）";
       quarterSection.hidden = false;
     }

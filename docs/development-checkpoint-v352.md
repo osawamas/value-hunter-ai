@@ -1,0 +1,3 @@
+# VALUE HUNTER AI v352
+
+Alphabet and Meta now show September 2026 quarterly results beside their 2025 comparable periods. SEC Submissions identified the 10-Qs. Original Company Facts supplied the income figures. The cover pages supplied individually reviewed share-class counts dated October 21 and October 16, respectively. The quarterly extractor leaves class quantities for original-cover review and does not interpret a Company Facts share observation as company-wide. Annual and quarterly share presentations retain separate dates and rounding. Coverage is 20 issuers, 16 annual comparisons, and zero formally ranked. Continue toward v500 with official quote and share evidence.

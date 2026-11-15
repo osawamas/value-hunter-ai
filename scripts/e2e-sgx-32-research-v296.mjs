@@ -207,12 +207,16 @@ try{
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/クラスA（GOOGL） 約5,822,000,000株.*クラスB 約837,000,000株.*クラスC（GOOG） 約5,438,000,000株/s);
  assert.equal(await page.locator("#marketScenario").isVisible(),false);
+ assert.match(await page.locator("#marketQuarterlyRows tr").last().innerText(),/127,577,000,000/);
+ assert.match(await page.locator("#marketInterimShareCount").innerText(),/2026-10-21.*約5,888,000,000株.*約827,000,000株.*約5,579,000,000株/s);
  await page.locator("#marketQuery").fill("GOOG");
  assert.equal(await page.locator("#marketRows tr").count(),1);
  await page.locator("#marketQuery").fill("META");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/200,966,000,000/);
  assert.match(await page.locator("#marketShareCount").innerText(),/2,187,177,748株.*342,377,716株/);
+ assert.match(await page.locator("#marketQuarterlyRows tr").last().innerText(),/64,601,000,000/);
+ assert.match(await page.locator("#marketInterimShareCount").innerText(),/2026-10-16.*2,214,472,367株.*341,768,886株/s);
  await page.locator("#marketQuery").fill("NVDA");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);

@@ -56,6 +56,12 @@ def build_quarter(raw, company, report):
             raise ValueError("quarter start differs across SEC facts")
         periods.append({"start": starts.pop(), "end": end, "operating_income": None,
                         **{key: val for key, (_, val) in values.items()}})
+    result = {"currency": "USD", "source": report["source"], "form": report["form"],
+              "accession": report["accession"], "filed": report["filed"],
+              "companyfacts_sha256": hashlib.sha256(raw).hexdigest(), "periods": periods}
+    if company["financials"].get("share_classes"):
+        # Company Facts does not establish the individual cover-page class contexts.
+        return result
     facts = obj["facts"]["dei"]["EntityCommonStockSharesOutstanding"]["units"]["shares"]
     share_observations = {(item["end"], item["val"]) for item in facts
                           if item.get("accn") == report["accession"] and item.get("form") == "10-Q"
@@ -71,9 +77,7 @@ def build_quarter(raw, company, report):
     reviewed_shares = quarterly.get("shares", {})
     exact = (quarterly.get("accession") == report["accession"] and reviewed_shares.get("rounded") is False
              and reviewed_shares.get("as_of") == as_of and reviewed_shares.get("value") == count)
-    return {"currency": "USD", "source": report["source"], "form": report["form"],
-            "accession": report["accession"], "filed": report["filed"], "companyfacts_sha256": hashlib.sha256(raw).hexdigest(),
-            "periods": periods, "shares": {"as_of": as_of, "value": count, "rounded": not exact}}
+    return {**result, "shares": {"as_of": as_of, "value": count, "rounded": not exact}}
 
 
 def main():

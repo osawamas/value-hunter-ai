@@ -745,6 +745,46 @@
           ]
         },
         "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax"
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/1326801/000162828026066773/meta-20260930.htm",
+        "form": "10-Q",
+        "accession": "0001628280-26-066773",
+        "filed": "2026-10-22",
+        "companyfacts_sha256": "f8e539cea9d363752df2f9bb33078c19ae897ff7f34d49fe4d9a732d032b94f7",
+        "periods": [
+          {
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "operating_income": 20535000000,
+            "revenue": 51242000000,
+            "net_income": 2709000000
+          },
+          {
+            "start": "2026-07-01",
+            "end": "2026-09-30",
+            "operating_income": 12988000000,
+            "revenue": 64601000000,
+            "net_income": 9860000000
+          }
+        ],
+        "share_classes": {
+          "as_of": "2026-10-16",
+          "rounded": false,
+          "classes": [
+            {
+              "label": "A",
+              "symbol": "META",
+              "value": 2214472367
+            },
+            {
+              "label": "B",
+              "symbol": null,
+              "value": 341768886
+            }
+          ]
+        }
       }
     },
     {
@@ -804,6 +844,51 @@
           ]
         },
         "revenue_tag": "Revenues"
+      },
+      "quarterly": {
+        "currency": "USD",
+        "source": "https://www.sec.gov/Archives/edgar/data/1652044/000165204426000084/goog-20260930.htm",
+        "form": "10-Q",
+        "accession": "0001652044-26-000084",
+        "filed": "2026-10-29",
+        "companyfacts_sha256": "f87bc183f74b45ecf9a0933e0e0a1b6b97ead51a9d29367a7dae436574e1c1d0",
+        "periods": [
+          {
+            "start": "2025-07-01",
+            "end": "2025-09-30",
+            "operating_income": 31228000000,
+            "revenue": 102346000000,
+            "net_income": 34979000000
+          },
+          {
+            "start": "2026-07-01",
+            "end": "2026-09-30",
+            "operating_income": 40576000000,
+            "revenue": 127577000000,
+            "net_income": 26468000000
+          }
+        ],
+        "share_classes": {
+          "as_of": "2026-10-21",
+          "rounded": true,
+          "classes": [
+            {
+              "label": "A",
+              "symbol": "GOOGL",
+              "value": 5888000000
+            },
+            {
+              "label": "B",
+              "symbol": null,
+              "value": 827000000
+            },
+            {
+              "label": "C",
+              "symbol": "GOOG",
+              "value": 5579000000
+            }
+          ]
+        }
       }
     }
   ]

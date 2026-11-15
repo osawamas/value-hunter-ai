@@ -22,4 +22,12 @@ class SecQuarterlyResearchTest(unittest.TestCase):
                 report = {**expected, "period_end": expected["periods"][-1]["end"]}
                 actual = quarters.build_quarter(json.dumps(excerpts[key]).encode(), row, report)
                 self.assertEqual(actual["periods"], expected["periods"])
-                self.assertEqual(actual["shares"], expected["shares"])
+                self.assertEqual(actual.get("shares"), expected.get("shares"))
+                if row["financials"].get("share_classes"):
+                    self.assertNotIn("shares", actual)
+                    self.assertEqual(excerpts[key]["reviewed_cover"], expected["share_classes"])
+                    annual_classes = row["financials"]["share_classes"]["classes"]
+                    self.assertEqual(
+                        [(item["label"], item["symbol"]) for item in annual_classes],
+                        [(item["label"], item["symbol"]) for item in expected["share_classes"]["classes"]],
+                    )
