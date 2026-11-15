@@ -13,28 +13,40 @@ function loadSnapshot(name) {
   return JSON.parse(fs.readFileSync(path.join(data, name), "utf8"));
 }
 
+function reviewShareSession(rows, shareReview, id, date, shares, observation) {
+  const evidence = {id, date, shares: shares.value, shareSource: shares.source};
+  if (shares.disclosedOn) {
+    evidence.shareDisclosureDate = shares.disclosedOn;
+    evidence.shareDisclosedAt = shares.disclosedAt;
+    evidence.shareDisclosureTiming = shares.disclosureTiming;
+    evidence.shareDisclosedAfterSession = shares.disclosureTiming === "time_unknown" ? null :
+      ["after_date", "after_close"].includes(shares.disclosureTiming);
+  }
+  if (!observation) return {...evidence, status: "missing_exact_close"};
+  const [valuation] = evaluatePersonalQuotes(rows, new Map([[id, observation]]), new Map(), shareReview);
+  if (valuation.state !== "filing" || !valuation.result) return {...evidence, status: valuation.state};
+  return {...evidence, status: "trial_calculated", price: observation.price,
+    financeSource: valuation.financeSource, valuation: valuation.result};
+}
+
 function reviewRepresentativeValuations(rows, shareReview, history = new Map()) {
   const dates = publishedShareSessions(rows, shareReview);
   const results = representatives.map(id => {
-    const issuer = rows.find(row => row.id === id);
-    const latest = [...dates].find(([, records]) => records.some(record => record.id === id));
-    if (!issuer || !latest) return {id, status: "missing_share_evidence"};
-    const [date, records] = latest;
-    const shares = records.find(record => record.id === id);
-    const observation = history.get(id + ":" + date);
-    const evidence = {id, date, shares: shares.value, shareSource: shares.source};
-    if (shares.disclosedOn) {
-      evidence.shareDisclosureDate = shares.disclosedOn;
-      evidence.shareDisclosedAt = shares.disclosedAt;
-      evidence.shareDisclosureTiming = shares.disclosureTiming;
-      evidence.shareDisclosedAfterSession = shares.disclosureTiming === "time_unknown" ? null :
-        ["after_date", "after_close"].includes(shares.disclosureTiming);
+    let latest;
+    for (const [date, records] of dates) {
+      const shares = records.find(record => record.id === id);
+      if (!shares) continue;
+      const observation = history.get(id + ":" + date);
+      if (latest && !observation) continue;
+      const trial = reviewShareSession(rows, shareReview, id, date, shares, observation);
+      if (!latest) {
+        latest = trial;
+        if (trial.status === "trial_calculated") return trial;
+      } else if (trial.status === "trial_calculated") {
+        return {...latest, latestAvailableTrial: trial};
+      }
     }
-    if (!observation) return {...evidence, status: "missing_exact_close"};
-    const [valuation] = evaluatePersonalQuotes(rows, new Map([[id, observation]]), new Map(), shareReview);
-    if (valuation.state !== "filing" || !valuation.result) return {...evidence, status: valuation.state};
-    return {...evidence, status: "trial_calculated", price: observation.price,
-      financeSource: valuation.financeSource, valuation: valuation.result};
+    return latest ?? {id, status: "missing_share_evidence"};
   });
   return {scope: "local_trial", basis: "retrospective", results};
 }

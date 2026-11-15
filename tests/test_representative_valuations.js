@@ -90,4 +90,28 @@ assert.deepEqual(subsequent.sessionChanges, [
   {date: "2026-09-30", change: "unchanged", previousPrice: 2501, currentPrice: 2501, hasExactShares: true},
   {date: "2026-10-01", change: "revised", previousPrice: 3000, currentPrice: 3010, hasExactShares: false},
 ]);
+
+const onlyOlderToyota = readQuoteHistory([
+  "market_id,date,currency,close",
+  "JP:7203,2026-03-31,JPY,2900",
+  "JP:7203,2026-10-01,JPY,3010",
+].join("\n"));
+const [olderTrial] = reviewRepresentativeValuations(rows, shares, onlyOlderToyota).results;
+assert.equal(olderTrial.date, "2026-09-30");
+assert.equal(olderTrial.status, "missing_exact_close");
+assert.equal(olderTrial.valuation, undefined);
+assert.equal(olderTrial.latestAvailableTrial.date, "2026-03-31");
+assert.equal(olderTrial.latestAvailableTrial.price, 2900);
+assert.equal(olderTrial.latestAvailableTrial.valuation.cap, 2900 * 13033384474);
+assert.ok(olderTrial.latestAvailableTrial.shareSource.startsWith("https://"));
+assert.ok(olderTrial.latestAvailableTrial.financeSource.startsWith("https://"));
+const [removedLatest] = reviewQuoteRefresh(rows, shares, updated, onlyOlderToyota).results;
+assert.equal(removedLatest.closeChange, "removed");
+assert.deepEqual(removedLatest.latestAvailableTrial, olderTrial.latestAvailableTrial);
+assert.deepEqual(removedLatest.newerUnmatchedDates, ["2026-10-01"]);
+const [restoredLatest] = reviewQuoteRefresh(rows, shares, onlyOlderToyota, updated).results;
+assert.equal(restoredLatest.closeChange, "added");
+assert.equal(restoredLatest.status, "trial_calculated");
+assert.equal(restoredLatest.latestAvailableTrial, undefined);
+assert.equal(refreshed[1].latestAvailableTrial, undefined);
 console.log("Representative valuation checks passed for JP, US and SG.");
