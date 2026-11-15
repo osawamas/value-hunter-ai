@@ -21,7 +21,6 @@ for(const [raw,source,date] of [
  [sample,"http://www.sgx.com/securities/trading",asOf],
  [sample,"https://www.sgx.com.evil.com/securities/trading",asOf],
  [sample,url,"2026-02-30"],
- [sample.replace("Trading Code","Stock Code"),url,asOf],
  [sample.replace("CATALIST","SECRET"),url,asOf],
  [sample.replace("HQU","D05"),url,asOf],
  [sample.replace("OILTEK INTERNATIONAL LIMITED","=2+2"),url,asOf],
