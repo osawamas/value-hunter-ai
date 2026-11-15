@@ -13,5 +13,17 @@
     "bytes": 6539
   },
   "current_active_verified": false,
-  "ranking_eligible": false
+  "ranking_eligible": false,
+  "placement_capital": {
+    "effective_date": "2026-11-03",
+    "shares_before_ex_treasury": 148617000,
+    "new_shares": 18000000,
+    "shares_after_ex_treasury": 166617000,
+    "current_shares_verified": false,
+    "source": {
+      "url": "https://www1.hkexnews.hk/listedco/listconews/gem/2026/1103/2026110302239.pdf",
+      "sha256": "881f3ad855b8679ec1ab7d4c1b2f81d11c9275fb48753d13195b5985c5fd464f",
+      "bytes": 152439
+    }
+  }
 }

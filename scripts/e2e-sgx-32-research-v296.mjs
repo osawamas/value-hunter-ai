@@ -37,6 +37,9 @@ try{
  const shareCapital=page.locator("#sgxIpoListingCapitalRows tr");
  assert.match(await shareCapital.filter({hasText:"9DC"}).innerText(),/2026-10-16.*145,000,000/s);
  assert.match(await shareCapital.filter({hasText:"MIM"}).innerText(),/2026-10-28.*495,000,000.*500万株は加算しない/s);
+ const metCapital=shareCapital.filter({hasText:"MET"});
+ assert.match(await metCapital.innerText(),/2026-11-03.*166,617,000.*自己株式控除後/s);
+ assert.match(await metCapital.getByRole("link").getAttribute("href"),/^https:\/\/www1\.hkexnews\.hk\//);
 
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/3 \/ 33件/).waitFor();

@@ -128,9 +128,9 @@
   const capitalRows=root.document.getElementById("sgxIpoListingCapitalRows");
   if(!body||!status||!business||!capitalRows)return;
   const td=v=>{const c=root.document.createElement("td");c.textContent=String(v);return c;};
-  Promise.all(["./data/sgx-ipo-audited-historical-v298.json","./data/latest.json"].map(async u=>{
+  Promise.all(["./data/sgx-ipo-audited-historical-v298.json","./data/latest.json","./data/sgx-metasurface-listing-v304.json"].map(async u=>{
    const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw Error("データ HTTP "+r.status);return r.json();
-  })).then(([doc,feed])=>{
+  })).then(([doc,feed,met])=>{
    const rows=build(doc,feed),fragment=root.document.createDocumentFragment();
    for(const stock of rows){
     for(const fy of stock.historical){
@@ -163,6 +163,18 @@
      td(stock.symbol==="MIM"?"親会社から借りた追加割当500万株は加算しない":"募集・コーナーストーン割当後"),proof);
     capitalFragment.append(row);
    }
+   const placed=met.placement_capital;
+   if(met.symbol!=="MET"||met.isin!=="KYG9R41B1017"||met.ranking_eligible!==false||
+      placed?.effective_date!=="2026-11-03"||placed.current_shares_verified!==false||
+      [placed.shares_before_ex_treasury,placed.new_shares,placed.shares_after_ex_treasury].some(x=>!Number.isSafeInteger(x)||x<=0)||
+      placed.shares_before_ex_treasury+placed.new_shares!==placed.shares_after_ex_treasury||
+      !/^https:\/\/www1\.hkexnews\.hk\/listedco\//.test(placed.source?.url||""))
+    throw Error("METの割当完了時の株数に不一致");
+   const metRow=root.document.createElement("tr"),proof=td("");
+   proof.append(sourceLink(placed.source.url,"HKEX割当完了PDF"));
+   metRow.append(td(met.symbol),td(placed.effective_date),td(money(placed.shares_after_ex_treasury)),
+    td("上場前日の割当完了時点・自己株式控除後"),proof);
+   capitalFragment.append(metRow);
    capitalRows.replaceChildren(capitalFragment);
    const segment=update.parent_segment_comparison;
    business.replaceChildren(

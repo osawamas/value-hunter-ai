@@ -128,7 +128,7 @@ def verify_section(text,record):
 def download(url, sha256, size):
  original=urlsplit(url)
  if original.scheme!="https" or original.netloc not in {
-  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com"
+  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com","www1.hkexnews.hk"
  }:
   raise ValueError("Unexpected PDF source")
  req=urllib.request.Request(url,headers={
@@ -330,7 +330,19 @@ def verify_metasurface_listing(record):
   f"QUOTED IN BOARD LOTS OF {record['board_lot']} SHARES",
  )) or record["current_active_verified"] is not False or record["ranking_eligible"] is not False:
   raise ValueError("Metasurface SGX listing confirmation scope mismatch")
- print("SGX VERIFIED MET Catalist admission, ISIN, effective date and board lot")
+ capital=record["placement_capital"]
+ notice=" ".join(original_text(capital["source"]).split())
+ day=datetime.date.fromisoformat(capital["effective_date"])
+ before,new,after=(capital[k] for k in ("shares_before_ex_treasury","new_shares","shares_after_ex_treasury"))
+ if (capital["current_shares_verified"] is not False or before+new!=after
+     or not all(clause in notice for clause in (
+      record["issuer_name"],"(Stock code: 8637)","exclusive of treasury Shares",
+      f"Completion of the Placing took place on {day.day} {day:%B %Y}",
+      f"an aggregate of {new:,} Placing Shares have been placed",
+      f"Total {before:,} 100.0 {after:,} 100.0",
+     ))):
+  raise ValueError("Metasurface HKEX placing-completion share capital mismatch")
+ print("SGX/HKEX VERIFIED MET Catalist admission and post-placement shares excluding treasury")
  return record
 
 def listing_event_attachment(record, heading):
