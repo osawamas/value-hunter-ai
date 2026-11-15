@@ -1,0 +1,38 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import {chromium} from "playwright-core";
+const base=process.env.VALUE_HUNTER_URL||"http://127.0.0.1:8765";
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sgx-32-v296-"));
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN||"/usr/bin/google-chrome",args:["--no-sandbox","--disable-dev-shm-usage"]});
+try{
+ const page=await browser.newPage({acceptDownloads:true});
+ const errors=[];page.on("pageerror",e=>errors.push(e.message));
+ await page.goto(base+"/sgx-32-research.html",{waitUntil:"domcontentloaded"});
+ await page.locator("#research32Count").getByText(/32 \/ 32件/).waitFor({timeout:25000});
+ assert.equal(await page.locator("#research32Rows tr").count(),32);
+ await page.locator("#research32Type").selectOption("IPO");
+ await page.locator("#research32Count").getByText(/2 \/ 32件/).waitFor();
+ const ipo=await page.locator("#research32Rows").innerText();
+ assert.match(ipo,/9DC/);assert.match(ipo,/MIM/);
+ assert.match(ipo,/SGXE96931105/);assert.match(ipo,/SGXE49931863/);
+ const urls=await page.locator("#research32Rows a").evaluateAll(as=>as.map(a=>a.href));
+ assert.equal(urls.length,2);assert.ok(urls.every(x=>x.startsWith("https://links.sgx.com/")));
+ await page.locator("#research32Query").fill("MIM");
+ assert.equal(await page.locator("#research32Rows tr").count(),1);
+ const promise=page.waitForEvent("download");
+ await page.locator("#research32Export").click();
+ const download=await promise;const out=path.join(dir,"catalog.csv");
+ await download.saveAs(out);
+ const csv=fs.readFileSync(out,"utf8");
+ assert.match(csv,/MIM/);assert.doesNotMatch(csv,/9DC/);
+ assert.match(csv,/SGXE49931863/);
+ await page.locator("#research32Query").fill("");
+ await page.locator("#research32Type").selectOption("ALL");
+ await page.locator("#research32Finance").selectOption("YES");
+ await page.locator("#research32Count").getByText(/4 \/ 32件/).waitFor();
+ assert.equal(await page.locator("#research32Rows tr").count(),4);
+ assert.deepEqual(errors,[]);
+ console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 32 codes, IPO/finance filter, search, source links, downloaded CSV");
+}finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}
