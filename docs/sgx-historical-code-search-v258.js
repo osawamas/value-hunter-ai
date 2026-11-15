@@ -220,9 +220,22 @@
      const financeTd=document.createElement("td");
      financeTd.textContent=item.financialRegistered?
       "財務登録済・ランキング除外":"財務未登録";
+     const dictionary=root?.VALUE_HUNTER_EXCLUSION_LABELS||{};
+     const japaneseReasons=item.financialExclusionReasons.map(code=>
+       typeof dictionary[code]==="string"?dictionary[code]:"要確認（"+code+"）");
      financeTd.title=item.financialRegistered?
-      "除外理由："+item.financialExclusionReasons.join(" / "):
+      "除外理由："+japaneseReasons.join(" / "):
       "財務データは未登録。株価の利用権も未検証";
+     if(item.financialRegistered){
+      const details=document.createElement("details");
+      const summary=document.createElement("summary");
+      summary.textContent="除外理由を表示";details.append(summary);
+      const list=document.createElement("ul");
+      for(const reason of japaneseReasons){
+       const li=document.createElement("li");li.textContent=reason;list.append(li);
+      }
+      details.append(list);financeTd.append(details);
+     }
      if(item.financialRegistered && /^[A-Z0-9]{1,8}$/.test(item.code)){
       const link=document.createElement("a");
       link.href="#issuer="+item.code;
