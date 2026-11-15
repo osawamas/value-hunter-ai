@@ -19,7 +19,38 @@
       "name": "Safie Inc.",
       "label": "セーフィー",
       "board": "Growth",
-      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html",
+      "financials": {
+        "currency": "JPY",
+        "basis": "日本基準",
+        "source": "https://www2.jpx.co.jp/disc/43750/140120260213559168.pdf",
+        "periods": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-12-31",
+            "revenue": 15049000000,
+            "operating_income": -580000000,
+            "net_income": -1552000000,
+            "assets": 11024000000,
+            "parent_equity": 8534000000
+          },
+          {
+            "start": "2025-01-01",
+            "end": "2025-12-31",
+            "revenue": 19029000000,
+            "operating_income": -81000000,
+            "net_income": 437000000,
+            "assets": 12080000000,
+            "parent_equity": 9065000000
+          }
+        ],
+        "shares": {
+          "as_of": "2025-12-31",
+          "issued": 55729765,
+          "treasury": 32532,
+          "value": 55697233
+        }
+      }
     },
     {
       "id": "JP:7201",
@@ -28,7 +59,38 @@
       "name": "NISSAN MOTOR CO.,LTD.",
       "label": "日産自動車",
       "board": "Prime",
-      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html",
+      "financials": {
+        "currency": "JPY",
+        "basis": "日本基準",
+        "source": "https://www2.jpx.co.jp/disc/72010/140120260512525147.pdf",
+        "periods": [
+          {
+            "start": "2024-04-01",
+            "end": "2025-03-31",
+            "revenue": 12633214000000,
+            "operating_income": 69798000000,
+            "net_income": -670898000000,
+            "assets": 19024060000000,
+            "parent_equity": 4958244000000
+          },
+          {
+            "start": "2025-04-01",
+            "end": "2026-03-31",
+            "revenue": 12007888000000,
+            "operating_income": 58005000000,
+            "net_income": -533095000000,
+            "assets": 19812442000000,
+            "parent_equity": 4798981000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-03-31",
+          "issued": 3713998612,
+          "treasury": 217616092,
+          "value": 3496382520
+        }
+      }
     },
     {
       "id": "JP:130A",

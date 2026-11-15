@@ -112,11 +112,16 @@ def sec_financials(raw, record):
         raise ValueError("SEC outstanding common shares mismatch")
 
 
-def toyota_financials(raw, record):
+def pdf_text(raw, last_page=None):
     with tempfile.TemporaryDirectory() as tmp:
         pdf = Path(tmp) / "source.pdf"
         pdf.write_bytes(raw)
-        text = subprocess.check_output(["pdftotext", "-layout", str(pdf), "-"], text=True)
+        pages = ["-l", str(last_page)] if last_page else []
+        return subprocess.check_output(["pdftotext", "-layout", *pages, str(pdf), "-"], text=True)
+
+
+def toyota_financials(raw, record):
+    text = pdf_text(raw, 3)
     for period in record["financials"]["periods"]:
         year = "FY" + period["end"][:4]
         sales, operating, net, assets, equity = (f"{period[k] // 1_000_000:,}" for k in
@@ -132,10 +137,40 @@ def toyota_financials(raw, record):
         raise ValueError("Toyota March share capital mismatch")
 
 
+def japanese_financials(raw, record):
+    text = pdf_text(raw, 2).translate(str.maketrans("　０１２３４５６７８９", " 0123456789"))
+    finance = record["financials"]
+    if not re.search(r"コ\s*ー\s*ド\s*番\s*号\s*" + record["symbol"] + r"\b", text):
+        raise ValueError(f"TDnet identifier mismatch: {record['id']}")
+    income = text.split("連結経営成績", 1)[1].split("連結財政状態", 1)[0]
+    balance = text.split("連結財政状態", 1)[1].split("連結キャッシュ", 1)[0]
+    amount = lambda value: ("△" if value < 0 else "") + f"{abs(value) // 1_000_000:,}"
+    date_label = lambda date: rf"{date[:4]}年\s*{int(date[5:7])}月期"
+    for row in finance["periods"]:
+        label = date_label(row["end"])
+        revenue, operating, net, assets = (amount(row[k]) for k in
+                                            ("revenue", "operating_income", "net_income", "assets"))
+        cell = r"\s+[△―－\d,.]+"
+        if not re.search(rf"^\s*{label}\s+{revenue}{cell}\s+{operating}(?:{cell}){{3}}\s+{net}(?=\s)", income, re.M):
+            raise ValueError(f"TDnet income mismatch: {record['id']} {row['end']}")
+        if not re.search(rf"^\s*{label}\s+{assets}(?=\s)", balance, re.M):
+            raise ValueError(f"TDnet assets mismatch: {record['id']} {row['end']}")
+        if not re.search(rf"自己資本[^\n]*{label}\s+{amount(row['parent_equity'])}百万円", balance):
+            raise ValueError(f"TDnet parent equity mismatch: {record['id']} {row['end']}")
+    shares = finance["shares"]
+    label = date_label(shares["as_of"])
+    if (not re.search(rf"期末発行済株式数[^\n]*{label}\s+{shares['issued']:,}株", text)
+            or not re.search(rf"期末自己株式数\s+{label}\s+{shares['treasury']:,}株", text)
+            or shares["issued"] - shares["treasury"] != shares["value"]):
+        raise ValueError(f"TDnet share capital mismatch: {record['id']}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
-    parser.add_argument("--check-sec-excerpts", action="store_true", help="Check selected saved SEC facts offline")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--check-sec-excerpts", action="store_true", help="Check selected saved SEC facts offline")
+    modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
     args = parser.parse_args()
     snapshot = json.loads(DATA.read_text())
     if args.check_sec_excerpts:
@@ -151,10 +186,11 @@ def main():
             time.sleep(0.25)
         return (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(url)
 
-    raw = {k: source_bytes(SOURCES[k], filename)
-           for k, filename in (("jpx", "jpx.xlsx"), ("sec", "sec.json"), ("toyota", "toyota.pdf"))}
+    raw = {"jpx": source_bytes(SOURCES["jpx"], "jpx.xlsx")}
+    if not args.jp_only:
+        raw["sec"] = source_bytes(SOURCES["sec"], "sec.json")
     date, jpx = jpx_directory(raw["jpx"])
-    sec = sec_directory(raw["sec"])
+    sec = sec_directory(raw["sec"]) if "sec" in raw else None
     if date != snapshot["jpx_snapshot_date"]:
         raise ValueError("JPX month-end changed; refresh or use the dated original workbook")
     for record in snapshot["records"]:
@@ -162,18 +198,29 @@ def main():
             expected = (record["name"], record["board"])
             if jpx.get(record["symbol"]) != expected:
                 raise ValueError(f"JPX identity mismatch: {record['symbol']}")
-        elif sec.get((record["exchange"], record["symbol"], record["cik"])) != record["name"]:
+        elif sec is not None and sec.get((record["exchange"], record["symbol"], record["cik"])) != record["name"]:
             raise ValueError(f"SEC identity mismatch: {record['symbol']}")
-    toyota = next(x for x in snapshot["records"] if x["id"] == "JP:7203")
-    toyota_financials(raw["toyota"], toyota)
-    verified = [toyota["id"]]
+    verified = []
     for record in snapshot["records"]:
-        if record["market"] != "US" or not record.get("financials"):
+        finance = record.get("financials")
+        if not finance or (args.jp_only and record["market"] != "JP"):
+            continue
+        key = record["symbol"].lower()
+        if record["market"] == "JP":
+            url = finance["source"]
+            if record["symbol"] == "7203" and url == SOURCES["toyota"]:
+                raw[key] = source_bytes(url, "toyota.pdf")
+                toyota_financials(raw[key], record)
+            elif re.fullmatch(rf"https://www2\.jpx\.co\.jp/disc/{key}0/\d+\.pdf", url):
+                raw[key] = source_bytes(url, key + ".pdf")
+                japanese_financials(raw[key], record)
+            else:
+                raise ValueError(f"Unexpected Japanese filing source: {record['id']}")
+            verified.append(record["id"])
             continue
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{record['cik']:010d}.json"
         if record["financials"]["source"] != url:
             raise ValueError("SEC company facts URL changed")
-        key = record["symbol"].lower()
         raw[key] = source_bytes(url, key + ".json")
         sec_financials(raw[key], record)
         verified.append(record["id"])
@@ -181,7 +228,7 @@ def main():
         "checked_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "jpx_snapshot_date": date,
         "jpx_domestic_prime_standard_growth_rows": len(jpx),
-        "sec_nyse_nasdaq_ticker_cik_exchange_rows": len(sec),
+        "sec_nyse_nasdaq_ticker_cik_exchange_rows": len(sec) if sec is not None else None,
         "source_sha256": {k: hashlib.sha256(v).hexdigest() for k, v in raw.items()},
         "financials_verified": verified,
         "quotes_verified": False,
