@@ -329,6 +329,47 @@ def check_ibm_share_filing(raw, record):
         raise ValueError("IBM share count or filing date differs from the stored evidence")
 
 
+def check_ibm_annual_filing(main_filing, exhibit, finance):
+    namespaces = {"ix": "http://www.xbrl.org/2013/inlineXBRL",
+                  "xbrli": "http://www.xbrl.org/2003/instance"}
+    root = ElementTree.fromstring(main_filing)
+    contexts = {}
+    for context in root.findall(".//xbrli:context", namespaces):
+        if (context.findtext("xbrli:entity/xbrli:identifier", namespaces=namespaces) != "0000051143"
+                or context.find("xbrli:entity/xbrli:segment", namespaces) is not None
+                or context.find("xbrli:scenario", namespaces) is not None):
+            continue
+        period = context.find("xbrli:period", namespaces)
+        if period is not None:
+            start = period.findtext("xbrli:startDate", namespaces=namespaces)
+            end = period.findtext("xbrli:endDate", namespaces=namespaces)
+            instant = period.findtext("xbrli:instant", namespaces=namespaces)
+            contexts[context.get("id")] = (start, end) if start and end else (None, instant)
+    usd_units = {
+        unit.get("id") for unit in root.findall(".//xbrli:unit", namespaces)
+        if unit.findtext("xbrli:measure", namespaces=namespaces) == "iso4217:USD"
+    }
+    fields = {"revenue": finance["revenue_tag"], "net_income": SEC_TAGS["net_income"],
+              "assets": SEC_TAGS["assets"], "parent_equity": SEC_TAGS["parent_equity"]}
+    facts = ElementTree.fromstring(exhibit).findall(".//ix:nonFraction", namespaces)
+    for period in finance["periods"]:
+        for field, tag in fields.items():
+            start = period["start"] if field in ("revenue", "net_income") else None
+            values = set()
+            for fact in facts:
+                if (fact.get("name") != "us-gaap:" + tag or fact.get("unitRef") not in usd_units
+                        or contexts.get(fact.get("contextRef")) != (start, period["end"])):
+                    continue
+                digits = "".join(fact.itertext()).strip().replace(",", "")
+                sign = fact.get("sign")
+                if (fact.get("scale") != "6" or fact.get("decimals") != "-6"
+                        or sign not in (None, "-") or not re.fullmatch(r"[0-9]+", digits)):
+                    raise ValueError(f"Unexpected IBM filing numeric format for {field}")
+                values.add(int(digits) * (-1 if sign == "-" else 1) * 1_000_000)
+            if values != {period[field]}:
+                raise ValueError(f"IBM {period['end']} {field} differs from the original 10-K exhibit")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--fixture-directory", type=Path, help="Use locally downloaded originals")
@@ -339,6 +380,7 @@ def main():
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
     modes.add_argument("--sgx-s63-equity-only", action="store_true", help="Replay both S63 FY2025 issuer PDFs")
     modes.add_argument("--sec-ibm-shares-only", action="store_true", help="Reconcile IBM shares against its original SEC 10-Q")
+    modes.add_argument("--sec-ibm-annual-only", action="store_true", help="Reconcile IBM financials against the original SEC 10-K exhibit")
     args = parser.parse_args()
     snapshot = json.loads(DATA.read_text())
     if args.check_sec_excerpts:
@@ -364,6 +406,16 @@ def main():
         raw = source_bytes(record["quarterly"]["source"], "IBM-10Q.html")
         check_ibm_share_filing(raw, record)
         print(f"US:IBM SEC 10-Q shares matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
+        return
+
+    if args.sec_ibm_annual_only:
+        finance = next(record["financials"] for record in snapshot["records"] if record["id"] == "US:IBM")
+        main_filing = source_bytes(finance["filing_url"], "IBM-10K.html")
+        exhibit = "https://www.sec.gov/Archives/edgar/data/51143/000005114326000010/ibm-20251231_d2.htm"
+        raw = source_bytes(exhibit, "IBM-10K-EX13.html")
+        check_ibm_annual_filing(main_filing, raw, finance)
+        print(f"US:IBM SEC 10-K context SHA256 {hashlib.sha256(main_filing).hexdigest()}")
+        print(f"US:IBM SEC 10-K Exhibit 13 financials matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
         return
 
     if args.jp_interim_only:
