@@ -88,23 +88,57 @@
     throw Error("v190とv242のUOB原本が不一致");
   return {uob:historic,ocbc:{symbol:ocbc.symbol,isin:ocbc.isin,source_url:ocbc.source_url}};
  }
+ // v284 direct GitHub Actions original-body replay proof, distinct from indexed
+ // historic source records and from the still-missing 13-Nov SGXNet original.
+ function validateReplayedOriginal(uob,actions,chain,feed){
+  const old=validate(feed,actions);
+  if(uob?.schema_version!=="uob-sgxnet-official-original-share-count-2026-11-12-v284"||
+     uob.original_workflow_run!=="https://github.com/osawamas/value-hunter-ai/actions/runs/43664272047"||
+     uob.issuer!=="UNITED OVERSEAS BANK LIMITED"||uob.symbol!=="U11"||
+     uob.isin!=="SG1M31001969"||uob.announcement_ref!=="SG261112OTHRSYPK"||
+     uob.event_date!==old.date||
+     uob.issued_excluding_treasury_after_event!==old.count||
+     uob.shares_purchased_on_event!==old.cancelled||
+     uob.shares_cancelled_on_event!==old.cancelled||
+     uob.treasury_shares_after_event!==14548000||
+     !/^[0-9a-f]{64}$/.test(uob.original_html_sha256||"")||
+     uob.original_html_bytes!==7612||
+     uob.original_issuer_isin_announcement_and_share_labels_matched!==true||
+     uob.official_source_url!==old.source||
+     chain?.rows?.[2]?.source_url!==uob.official_source_url||
+     uob.current_issued_shares_verified!==false||
+     uob.current_quote_verified!==false||uob.stock_ranking_eligible!==false||
+     uob.next_day_notice_known_but_original_not_confirmed?.original_sgxnet_url_verified!==false||
+     uob.next_day_notice_known_but_original_not_confirmed?.announcement_ref!=="SG261113OTHRHOAF"||
+     uob.next_day_notice_known_but_original_not_confirmed?.secondary_reports_issued_excluding_treasury_after_event!==1646677591||
+     uob.next_day_notice_known_but_original_not_confirmed?.not_suitable_for_current_verified_share_count!==true||
+     uob.issued_excluding_treasury_after_event-
+       uob.next_day_notice_known_but_original_not_confirmed.secondary_reports_issued_excluding_treasury_after_event!==34000||
+     uob.next_day_notice_known_but_original_not_confirmed?.secondary_reports_shares_purchased_and_cancelled!==34000)
+     throw Error("UOB 12-Nov原本SHAまたは13-Nov未確認区分が不一致");
+  return {date:uob.event_date,count:uob.issued_excluding_treasury_after_event,
+    sha:uob.original_html_sha256,source:uob.official_source_url,
+    nextDayUnverified:true};
+ }
  async function render(){
   const status=document.getElementById("bankShareEvidenceStatus");
   const tbody=document.getElementById("bankShareEvidenceRows");
   if(!status||!tbody)return;
   try{
-   const [feed,actions,uobOriginal,ocbcIssuer,rights]=await Promise.all(
+   const [feed,actions,uobOriginal,ocbcIssuer,rights,replayed]=await Promise.all(
     ["./data/latest.json","./data/sgx-bank-corporate-actions-v190.json",
      "./data/sgx-uob-official-buyback-v242.json","./data/sgx-ocbc-issuer-identity-v244.json",
-     "./data/sgx-source-rights-review-v222.json"].map(async url=>{
+     "./data/sgx-source-rights-review-v222.json",
+     "./data/uob-original-12nov-share-count-v284.json"].map(async url=>{
       const response=await fetch(url,{cache:"no-store"});
       if(!response.ok)throw Error("HTTP "+response.status);
       return response.json();
     }));
    const verified=validateSupplemental(feed,actions,uobOriginal,ocbcIssuer,rights);
    const u=verified.uob;
+   const original=validateReplayedOriginal(replayed,actions,uobOriginal,feed);
    const rows=[
-    ["UOB / U11",u.date,u.count.toLocaleString("ja-JP")+" 株","SGX発表参照（過去日付）",u.source],
+    ["UOB / U11",original.date,original.count.toLocaleString("ja-JP")+" 株","SGX原本本文・SHA256照合済み（過去日付）",original.source],
     ["UOB / U11","2026-11-13","—","SGX原本未取得・第三者掲載のみ",null],
     ["OCBC / O39","2026-11-12","—","公式銘柄識別確認・SGX添付PDF未取得",verified.ocbc.source_url]
    ];
@@ -115,18 +149,19 @@
       const td=document.createElement("td");td.textContent=value;tr.append(td);
     }
     const td=document.createElement("td");
-    if(source){const a=document.createElement("a");a.href=source;a.textContent=symbol==="OCBC / O39"?"SGX会社情報":"SGX発表";a.target="_blank";a.rel="noopener noreferrer";td.append(a);}
+    if(source){const a=document.createElement("a");a.href=source;a.textContent=symbol==="OCBC / O39"?"SGX会社情報":"SGX原本";
+      if(symbol==="UOB / U11"&&date==="2026-11-12")a.title="原本SHA-256："+original.sha;a.target="_blank";a.rel="noopener noreferrer";td.append(a);}
     else td.textContent="未取得";
     tr.append(td);frag.append(tr);
    }
    tbody.replaceChildren(frag);
-   status.textContent="v190/v242原本を照合：11月12日付UOB株式数は過去の記録。OCBCはSGX公式銘柄識別のみ確認済み・株数原本未取得。正規株価利用許諾なし。PER・PBR・ランキングには使わない。";
+   status.textContent="v284で11月12日のUOB SGXNet原本本文とSHA256を再取得検証。11月13日原本は未取得、12日の株数は過去の記録。OCBCはSGX公式銘柄識別のみ確認済み・株数原本未取得。正規株価利用許諾なし。PER・PBR・ランキングには使わない。";
   }catch(e){
    const tr=document.createElement("tr"),td=document.createElement("td");
    td.colSpan=5;td.textContent="株式数の根拠データが一致しないため非表示";tr.append(td);
    tbody.replaceChildren(tr);status.textContent="照合未完了：株式数を表示しない";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={validate,validateSupplemental};
+ if(typeof module!=="undefined"&&module.exports)module.exports={validate,validateSupplemental,validateReplayedOriginal};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
