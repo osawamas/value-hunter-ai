@@ -28,8 +28,8 @@ function checkFeed(feed) {
       if (!Number.isInteger(r.shares_outstanding) || r.shares_outstanding <= 0 ||
           r.shares_count_basis !== "issued_excluding_treasury")
         errors.push(id + ": ex-treasury share count not verified");
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(r.shares_as_of_date || "")) ||
-          !/^\\d{4}-\\d{2}-\\d{2}T/.test(String(r.quote_timestamp_utc || "")))
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.shares_as_of_date || "")) ||
+          !/^\d{4}-\d{2}-\d{2}T/.test(String(r.quote_timestamp_utc || "")))
         errors.push(id + ": missing dated quote/shares");
       if (reasons.length) errors.push(id + ": eligible while exclusion reasons remain");
     } else {
