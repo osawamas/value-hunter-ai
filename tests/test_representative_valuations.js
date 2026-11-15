@@ -71,6 +71,10 @@ assert.equal(refreshed[0].valuation.cap, 2501 * 11778247313);
 assert.equal(refreshed[1].status, "missing_exact_close");
 assert.equal(refreshed[1].valuation, undefined);
 assert.deepEqual(refreshed[1].newerUnmatchedDates, ["2026-10-01"]);
+assert.deepEqual(refreshed[1].quoteCoverage, {
+  previous: {first: "2026-09-30", last: "2026-09-30", count: 1},
+  current: {first: "2026-10-01", last: "2026-10-01", count: 1},
+});
 assert.equal(refreshed[2].status, "trial_calculated");
 assert.deepEqual(reviewQuoteRefresh(rows, shares, current, current).results.map(row => row.closeChange),
   ["unchanged", "absent", "unchanged"]);
@@ -147,4 +151,6 @@ assert.equal(olderRevision.valuation.cap, 2501 * 11778247313);
 const olderImpact = olderRevision.sessionChanges[0].valuationImpact;
 assert.equal(olderImpact.previous.valuation.cap, 2900 * 13033384474);
 assert.equal(olderImpact.current.valuation.cap, 3000 * 13033384474);
+assert.equal(olderRevision.quoteCoverage.current.count, 2);
+assert.equal(reviewQuoteRefresh(rows, shares, updated, correctedOlderToyota).results[1].quoteCoverage.current, null);
 console.log("Representative valuation checks passed for JP, US and SG.");

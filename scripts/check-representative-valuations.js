@@ -2,6 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const {createHash} = require("node:crypto");
 const {
   buildMarketRows, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory,
 } = require("../docs/market-research.js");
@@ -84,8 +85,12 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     const matchedSession = sessionChanges.find(entry => entry.date === date);
     const newerUnmatchedDates = sessionChanges.filter(entry =>
       date && entry.date > date && entry.currentPrice !== null && !entry.hasExactShares).map(entry => entry.date);
+    const previousDates = sessionChanges.filter(entry => entry.previousPrice !== null).map(entry => entry.date);
+    const currentDates = sessionChanges.filter(entry => entry.currentPrice !== null).map(entry => entry.date);
+    const coverage = dates => dates.length ? {first: dates[0], last: dates.at(-1), count: dates.length} : null;
     return {...result, closeChange: matchedSession?.change ?? "absent",
-      previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges};
+      previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges,
+      quoteCoverage: {previous: coverage(previousDates), current: coverage(currentDates)}};
   });
   return {...latest, results: updates};
 }
@@ -99,10 +104,25 @@ function main(args) {
   const sgx = loadSnapshot("latest.json");
   const shareReview = loadSnapshot("sgx-s63-two-website-close-v129.json");
   const rows = buildMarketRows(research, sgx);
-  const loadQuotes = filename => readQuoteHistory(fs.readFileSync(filename, "utf8"));
-  const report = refresh ?
-    reviewQuoteRefresh(rows, shareReview, loadQuotes(args[1]), loadQuotes(args[2])) :
-    reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]) : new Map());
+  const loadQuotes = filename => {
+    const bytes = fs.readFileSync(filename);
+    return {
+      quotes: readQuoteHistory(bytes.toString("utf8")),
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    };
+  };
+  let report;
+  if (refresh) {
+    const previous = loadQuotes(args[1]);
+    const current = loadQuotes(args[2]);
+    report = reviewQuoteRefresh(rows, shareReview, previous.quotes, current.quotes);
+    report.snapshots = {
+      previous: {sha256: previous.sha256, observations: previous.quotes.size},
+      current: {sha256: current.sha256, observations: current.quotes.size},
+    };
+  } else {
+    report = reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]).quotes : new Map());
+  }
   process.stdout.write(JSON.stringify(report, null, 2) + "\n");
 }
 
