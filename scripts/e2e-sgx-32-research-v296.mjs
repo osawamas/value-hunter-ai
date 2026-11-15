@@ -73,9 +73,9 @@ try{
  await page.locator("#research32Count").getByText(/4 \/ 33件/).waitFor();
  assert.equal(await page.locator("#research32Rows tr").count(),4);
  await page.goto(base+"/market-research.html",{waitUntil:"domcontentloaded"});
- await page.locator("#marketCount").getByText(/15 \/ 15件/).waitFor({timeout:25000});
+ await page.locator("#marketCount").getByText(/16 \/ 16件/).waitFor({timeout:25000});
  assert.deepEqual(await page.locator("#marketCoverageRows td").allTextContents(),
-  ["5","4","0","3","3","0","7","4","0"]);
+  ["5","4","0","4","4","0","7","4","0"]);
  await page.locator("#marketFilter").selectOption("JP");
  await page.locator("#marketQuery").fill("７２０３");
  await page.getByRole("button",{name:"財務を見る"}).click();
@@ -112,6 +112,9 @@ try{
  await page.getByRole("button",{name:"トヨタ自動車を比較から外す"}).click();
  assert.equal(await page.locator("#marketCompareRows tr").count(),1);
  assert.match(await page.locator("#marketShareCount").innerText(),/14,532,182,000.*2026-10-23/);
+ await page.locator("#marketQuery").fill("AMZN");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/716,924,000,000/);
  await page.locator("#marketQuery").fill("NVDA");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);

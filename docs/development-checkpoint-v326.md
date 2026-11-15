@@ -1,0 +1,3 @@
+# VALUE HUNTER AI v326 — Amazon annual disclosure
+
+Add AMZN to the US research list. SEC's ticker directory confirmed the CIK and listing; SEC's Company Facts original and the FY2025 Form 10-K confirm the annual sales, operating income, parent net income, assets and parent equity for 2024 and 2025, as well as the January 28, 2026 cover-page share count. The SEC facts check also passed using the excerpt. The research view now lists 16 issuers and can compare annual data for 12 of those, while formal ranking eligibility remains at zero. Quote and share dates, market data licensing, recurring refresh and wider issuer coverage remain the next priorities.
