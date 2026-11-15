@@ -111,6 +111,7 @@ on:
       - 'docs/data/sgx-nineteen-original-html-sha-v262.json'
       - 'docs/test_sgx_original_html_proof_v262.js'
       - 'docs/test_sgx_financial_join_v263.js'
+      - 'docs/test_sgx_financial_filter_v264.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
       - '.github/workflows/sgx-original-pdf-probe-v246.yml'
