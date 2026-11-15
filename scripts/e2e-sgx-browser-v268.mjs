@@ -20,9 +20,9 @@ try {
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
  // v278 user-supplied SGX research CSV stays inside Chrome and must never
  // activate ranking, independent financial confirmation, or a server upload.
- const localCsv="Trading Code,Trading Name,Listing Board,Traded Currency\\r\\n"+
-   "D05,DBS Group Holdings Ltd,MAINBOARD,SGD\\r\\n"+
-   "O39,Oversea-Chinese Banking Corporation Ltd,MAINBOARD,SGD\\r\\n";
+ const localCsv="Trading Code,Trading Name,Listing Board,Traded Currency\r\n"+
+   "D05,DBS Group Holdings Ltd,MAINBOARD,SGD\r\n"+
+   "O39,Oversea-Chinese Banking Corporation Ltd,MAINBOARD,SGD\r\n";
  await page.locator('#sgxManualMasterForm input[name="masterFile"]').setInputFiles({
   name:"sgx-sample.csv",mimeType:"text/csv",buffer:Buffer.from(localCsv,"utf8")
  });
