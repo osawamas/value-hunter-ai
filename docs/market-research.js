@@ -989,7 +989,7 @@ async function initMarketResearch() {
           detail.append(line);
         }
         if (evidence.supplementalShare) {
-          const {date, value, source} = evidence.supplementalShare;
+          const {as_of: date, value, source} = evidence.supplementalShare;
           const line = element("div", "別資料の同日株数 " + date + "・" + money.format(value) + "株 ");
           line.append(link(source, "SGX自己株式取得報告"));
           detail.append(line);
