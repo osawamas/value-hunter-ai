@@ -25,6 +25,17 @@ const [conflict] = evaluatePersonalQuotes(rows, laterQuote, new Map(),
   [shares, laterS63, {...laterS63, original_sgx_shares_ex_treasury: 3115347116}]);
 assert.equal(conflict.state, "conflict");
 assert.equal(conflict.result, undefined);
+const s63Previous = readQuoteHistory("market_id,date,currency,close\nSG:S63,2026-11-13,SGD,10");
+const s63Current = readQuoteHistory("market_id,date,currency,close\nSG:S63,2026-11-16,SGD,11");
+const s63Refresh = reviewQuoteRefresh(rows, [shares, laterS63], s63Previous, s63Current).results[2];
+assert.deepEqual(Object.values(s63Refresh.latestObservedTrials).map(trial => [
+  trial.date, trial.shares, trial.valuation.cap, trial.shareSource,
+]), [
+  ["2026-11-13", 3115847115, 31158471150, shares.sgx_share_source_url],
+  ["2026-11-16", 3115347115, 34268818265, laterS63.sgx_share_source_url],
+]);
+assert.equal(reviewQuoteRefresh(rows, shares, s63Previous, s63Current)
+  .results[2].latestObservedTrials.current.status, "no_exact_share_evidence");
 const toyota = structuredClone(rows.find(row => row.id === "JP:7203"));
 const latestToyota = toyota.financials.periods.at(-1);
 latestToyota.net_income = -1;

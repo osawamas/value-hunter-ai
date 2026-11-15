@@ -115,6 +115,14 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
       date && entry.date > date && entry.currentPrice !== null && !entry.hasExactShares).map(entry => entry.date);
     const before = observedCoverage(sessionChanges, "previousPrice");
     const after = observedCoverage(sessionChanges, "currentPrice");
+    const lastTrial = (coverage, history) => {
+      if (!coverage) return null;
+      const date = coverage.last;
+      const quote = history.get(id + ":" + date);
+      const shares = shareSessions.get(date)?.find(record => record.id === id);
+      return shares ? reviewShareSession(rows, shareReview, id, date, shares, quote) :
+        {id, date, price: quote.price, status: "no_exact_share_evidence"};
+    };
     // File coverage bounds alone cannot establish that a session was dropped by the provider.
     const first = before && after ? [before.first, after.first].sort().at(-1) : null;
     const last = before && after ? [before.last, after.last].sort()[0] : null;
@@ -128,6 +136,7 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     return {...result, closeChange: matchedSession?.change ?? "absent",
       previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges,
       quoteCoverage: {previous: before, current: after},
+      latestObservedTrials: {previous: lastTrial(before, previous), current: lastTrial(after, current)},
       sharedDateRange, datesMissingFromCurrentWithinRange, newTradingDates};
   });
   return {...latest, results: updates};
@@ -140,10 +149,10 @@ function main(args) {
     filingDirectory = args[1];
     args = args.slice(2);
   }
-  let s63Notice;
-  if (args[0] === "--s63-notice-url") {
+  const s63NoticeUrls = new Set();
+  while (args[0] === "--s63-notice-url") {
     if (!args[1] || args[1].startsWith("--")) throw Error("--s63-notice-url requires an official SGXNet URL");
-    s63Notice = args[1];
+    s63NoticeUrls.add(args[1]);
     args = args.slice(2);
   }
   const requireNewSessions = args[0] === "--require-new-sessions";
@@ -156,14 +165,14 @@ function main(args) {
     throw Error("--require-new-sessions requires a two-snapshot comparison");
   }
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--s63-notice-url URL] [--require-latest-trials | --require-new-sessions] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
   const research = loadSnapshot(filingDirectory, "market-research-v315.json", filingDataSha256);
   const sgx = loadSnapshot(filingDirectory, "latest.json", filingDataSha256);
   const bundledShareReview = loadSnapshot(filingDirectory, "sgx-s63-two-website-close-v129.json", filingDataSha256);
-  const notice = s63Notice ? loadS63Notice(s63Notice) : undefined;
-  const shareReview = notice ? [bundledShareReview, notice] : bundledShareReview;
+  const notices = Array.from(s63NoticeUrls, loadS63Notice);
+  const shareReview = [bundledShareReview, ...notices];
   const rows = buildMarketRows(research, sgx);
   const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
@@ -247,7 +256,8 @@ function main(args) {
     report.latestTrialCheck = {passed, results: checks};
     if (!passed) process.exitCode = 2;
   }
-  if (notice) report.s63ShareNotice = notice;
+  if (notices.length) report.s63ShareNotices = notices;
+  if (notices.length === 1) report.s63ShareNotice = notices[0];
   process.stdout.write(JSON.stringify({...report, filingDataSha256}, null, 2) + "\n");
 }
 
