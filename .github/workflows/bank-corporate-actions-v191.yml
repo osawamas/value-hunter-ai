@@ -107,6 +107,7 @@ on:
       - 'docs/test_sgx_listing_event_watch_v257.js'
       - 'docs/sgx-historical-code-search-v258.js'
       - 'docs/test_sgx_historical_code_search_v258.js'
+      - 'docs/test_sgx_union_thirty_v259.js'
       - '.github/workflows/value-hunter-pages.yml'
       - '.github/workflows/sgx-original-pdf-replay-v247.yml'
       - '.github/workflows/sgx-original-pdf-probe-v246.yml'
