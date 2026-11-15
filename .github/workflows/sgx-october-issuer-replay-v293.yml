@@ -1,0 +1,29 @@
+name: SGX October 2026 original issuer release replay v293
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/replay-sgx-issuer-october-v293.py'
+      - 'scripts/test_sgx_issuer_october_v293.py'
+      - '.github/workflows/sgx-october-issuer-replay-v293.yml'
+permissions:
+  contents: read
+jobs:
+  issuer-release-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline negative evidence regression
+        run: python3 scripts/test_sgx_issuer_october_v293.py
+      - name: Download and fingerprint SGX Group's issuer-owned October release
+        run: python3 scripts/replay-sgx-issuer-october-v293.py
+      - name: Preserve downloaded source verification outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-october-issuer-original-replay-v293
+          path: build/research/sgx-october-issuer-live-v293.json
+          if-no-files-found: warn
+          retention-days: 30
