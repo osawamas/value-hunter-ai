@@ -49,9 +49,24 @@ def build_quarter(raw, company, report):
         if len(starts) != 1:
             raise ValueError("quarter start differs across SEC facts")
         periods.append({"start": starts.pop(), "end": end, **{key: val for key, (_, val) in values.items()}})
+    facts = obj["facts"]["dei"]["EntityCommonStockSharesOutstanding"]["units"]["shares"]
+    share_observations = {(item["end"], item["val"]) for item in facts
+                          if item.get("accn") == report["accession"] and item.get("form") == "10-Q"
+                          and current <= date.fromisoformat(item["end"]) <= date.fromisoformat(report["filed"])}
+    if len(share_observations) != 1:
+        raise ValueError("quarterly cover shares missing or ambiguous")
+    as_of, count = share_observations.pop()
+    if type(count) is not int or count <= 0:
+        raise ValueError("quarterly cover share count invalid")
+    # Company Facts preserves the scaled value but not the filing's display precision.
+    # Review the cover before authorizing an exact-date automatic match.
+    quarterly = company.get("quarterly", {})
+    reviewed_shares = quarterly.get("shares", {})
+    exact = (quarterly.get("accession") == report["accession"] and reviewed_shares.get("rounded") is False
+             and reviewed_shares.get("as_of") == as_of and reviewed_shares.get("value") == count)
     return {"currency": "USD", "source": report["source"], "form": report["form"],
             "accession": report["accession"], "filed": report["filed"], "companyfacts_sha256": hashlib.sha256(raw).hexdigest(),
-            "periods": periods}
+            "periods": periods, "shares": {"as_of": as_of, "value": count, "rounded": not exact}}
 
 
 def main():

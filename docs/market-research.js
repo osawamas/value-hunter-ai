@@ -363,7 +363,7 @@ async function initMarketResearch() {
         link(quarter.source, cumulative ? quarter.form : "SEC Form " + quarter.form));
       const interimShares = byId("marketInterimShareCount");
       interimShares.hidden = !quarter.shares;
-      if (quarter.shares) interimShares.textContent = "期末の普通株式数（自己株式控除後） " +
+      if (quarter.shares) interimShares.textContent = "開示時点の普通株式数（自己株式控除後） " + (quarter.shares.rounded ? "約" : "") +
         money.format(quarter.shares.value) + " 株（" + quarter.shares.as_of + "時点）";
       quarterSection.hidden = false;
     }

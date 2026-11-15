@@ -22,3 +22,4 @@ class SecQuarterlyResearchTest(unittest.TestCase):
                 report = {**expected, "period_end": expected["periods"][-1]["end"]}
                 actual = quarters.build_quarter(json.dumps(excerpts[key]).encode(), row, report)
                 self.assertEqual(actual["periods"], expected["periods"])
+                self.assertEqual(actual["shares"], expected["shares"])

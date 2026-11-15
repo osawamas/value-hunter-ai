@@ -399,7 +399,12 @@
             "operating_income": 45915000000,
             "net_income": 36629000000
           }
-        ]
+        ],
+        "shares": {
+          "as_of": "2026-10-22",
+          "value": 7426194552,
+          "rounded": false
+        }
       }
     },
     {
@@ -466,7 +471,12 @@
             "operating_income": 63734000000,
             "net_income": 59688000000
           }
-        ]
+        ],
+        "shares": {
+          "as_of": "2026-08-21",
+          "value": 24100000000,
+          "rounded": true
+        }
       }
     },
     {
@@ -532,7 +542,12 @@
             "operating_income": 28076000000,
             "net_income": 20685000000
           }
-        ]
+        ],
+        "shares": {
+          "as_of": "2026-10-21",
+          "value": 10813138306,
+          "rounded": false
+        }
       }
     }
   ]

@@ -160,9 +160,11 @@ try{
  assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/716,924,000,000/);
  assert.match(await page.locator("#marketQuarterlyRows tr").last().innerText(),/2026-09-30.*201,944,000,000.*28,076,000,000/s);
  assert.match(await page.getByRole("link",{name:"SEC Form 10-Q"}).getAttribute("href"),/000101872426000040/);
+ assert.match(await page.locator("#marketInterimShareCount").innerText(),/10,813,138,306 株（2026-10-21時点）/);
  await page.locator("#marketQuery").fill("NVDA");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);
+ assert.match(await page.locator("#marketInterimShareCount").innerText(),/約24,100,000,000 株（2026-08-21時点）/);
  await page.locator("#marketFilter").selectOption("SG");
  await page.locator("#marketQuery").fill("S20");
  await page.locator("#marketRows summary").click();
