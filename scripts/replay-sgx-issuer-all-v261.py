@@ -54,6 +54,8 @@ def main():
         r=probe.fetch(item)
         reports.append(r)
         print(f"{i+1}/19 {item['code']} {r['observation_status']}",flush=True)
+        if r["original_body_identity_verified"]:
+            print(f"SGX_DIGEST_V262 {item['code']} {r['download_sha256']} {r['download_bytes']}",flush=True)
     result=build_report(reports)
     out=ROOT/"build/research/sgx-original-nineteen-html-v261.json"
     out.parent.mkdir(parents=True,exist_ok=True)
