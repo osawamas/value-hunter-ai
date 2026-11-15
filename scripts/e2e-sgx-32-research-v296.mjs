@@ -106,6 +106,14 @@ try{
  assert.match(await page.locator("#personalBatchStatus").innerText(),/3 \/ 4件を試算/);
  assert.match(await batch.filter({hasText:"JP:7203"}).innerText(),/35,334,741,939,000.*掲載資料/s);
  assert.match(await batch.filter({hasText:"US:AAPL"}).innerText(),/同日の株数が未取得/);
+ const batchDownload = page.waitForEvent("download");
+ await page.getByRole("button",{name:"一括試算CSVを保存"}).click();
+ const savedBatch = await batchDownload;
+ assert.equal(savedBatch.suggestedFilename(),"value-hunter-trial-valuations.csv");
+ const exportedBatch = fs.readFileSync(await savedBatch.path(),"utf8");
+ assert.match(exportedBatch,/estimated_market_cap/);
+ assert.match(exportedBatch,/"SG:S63".*3115847115,31158471150/);
+ assert.match(exportedBatch,/"US:AAPL".*"missing"/);
  const s63Trial = batch.filter({hasText:"SG:S63"});
  assert.match(await s63Trial.innerText(),/SGD.*3,115,847,115.*31,158,471,150.*2025-12-31/s);
  assert.match(await s63Trial.getByRole("link",{name:"財務資料"}).getAttribute("href"),/FileID=880328/);

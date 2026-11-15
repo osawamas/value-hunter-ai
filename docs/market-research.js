@@ -286,6 +286,23 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview) {
   });
 }
 
+function personalBatchCsv(results) {
+  const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
+    "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
+    "match_status", "financial_source", "share_source"];
+  const cell = value => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number") return String(value);
+    let text = String(value);
+    if (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text;
+    return '"' + text.replaceAll('"', '""') + '"';
+  };
+  const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
+    row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.result?.periodEnd,
+    row.state, row.financeSource, row.shareSource].map(cell).join(","));
+  return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
+}
+
 async function initMarketResearch() {
   const byId = id => document.getElementById(id);
   const filter = byId("marketFilter"), query = byId("marketQuery");
@@ -296,6 +313,7 @@ async function initMarketResearch() {
   const selected = new Map();
   let selectedFinance;
   let marketRows = [];
+  let batchResults = [];
   let shareReview;
   let activeRow;
   let personalQuotes = new Map();
@@ -356,6 +374,8 @@ async function initMarketResearch() {
     incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
   const paintBatch = () => {
     const results = evaluatePersonalQuotes(marketRows, personalQuotes, personalShares, shareReview);
+    batchResults = results;
+    byId("personalBatchDownload").disabled = results.length === 0;
     byId("personalBatchTable").hidden = results.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
       " / " + results.length + "件を試算" : "";
@@ -374,6 +394,16 @@ async function initMarketResearch() {
       return tr;
     }));
   };
+  byId("personalBatchDownload").addEventListener("click", () => {
+    if (!batchResults.length) return;
+    const csv = new Blob([personalBatchCsv(batchResults)], {type: "text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(csv);
+    const anchor = Object.assign(document.createElement("a"), {href: url, download: "value-hunter-trial-valuations.csv"});
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
   const applyPersonalQuote = () => {
     const quote = personalQuotes.get(activeRow.id);
     const lastEnd = byId("scenarioDate").min;
@@ -612,4 +642,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv};
