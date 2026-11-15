@@ -34,9 +34,9 @@ try {
  assert.match(await page.locator("#sgxManualMasterResult").innerText(),/原本・全銘柄・現在上場は未検証/);
 
  // v280: import more than one page and verify browser search/pagination.
- const largeCsv="Trading Code,Trading Name,Listing Board,Traded Currency\\r\\n"+
+ const largeCsv="Trading Code,Trading Name,Listing Board,Traded Currency\r\n"+
   Array.from({length:120},(_,i)=>i.toString(36).toUpperCase().padStart(4,"0")+
-    ",Local Test Stock "+i+",MAINBOARD,SGD").join("\\r\\n")+"\\r\\n";
+    ",Local Test Stock "+i+",MAINBOARD,SGD").join("\r\n")+"\r\n";
  await page.locator('#sgxManualMasterForm input[name="masterFile"]').setInputFiles({
   name:"sgx-many.csv",mimeType:"text/csv",buffer:Buffer.from(largeCsv,"utf8")
  });
