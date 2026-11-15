@@ -39,59 +39,97 @@ def fetch_page(query, api_key):
         return json.load(response)
 
 
-def collect_quotes(code, start, end, api_key, fetch=fetch_page):
-    query = {"code": code, "from": start, "to": end}
+def daily_bars(query, api_key, fetch):
+    query = dict(query)
     tokens = set()
-    closes = {}
     while True:
         page = fetch(query, api_key)
         if not isinstance(page, dict) or not isinstance(page.get("data"), list):
             raise ValueError("the daily price response lacks a data array")
-        for item in page["data"]:
-            if item["Code"] not in {code, code + "0"}:
-                raise ValueError("the response contained an unexpected stock code")
-            day = trading_date(item["Date"])
-            if not start <= day <= end:
-                raise ValueError("the response contained a date outside the requested interval")
-            close = item["C"]
-            if close is None:
-                continue
-            if type(close) not in (int, float) or not math.isfinite(close) or close <= 0:
-                raise ValueError("invalid unadjusted close in the response")
-            if day in closes and closes[day] != close:
-                raise ValueError("conflicting closes for the same date")
-            closes[day] = close
-
+        yield from page["data"]
         token = page.get("pagination_key")
         if token is None:
-            return [(f"JP:{code}", day, "JPY", closes[day]) for day in sorted(closes)]
+            return
         if not isinstance(token, str) or not token or token in tokens:
             raise ValueError("invalid or repeated pagination key")
         tokens.add(token)
         query["pagination_key"] = token
 
 
+def close_value(item):
+    close = item["C"]
+    if close is not None and (type(close) not in (int, float) or not math.isfinite(close) or close <= 0):
+        raise ValueError("invalid unadjusted close in the response")
+    return close
+
+
+def record_close(closes, key, close):
+    if close is None:
+        return
+    if key in closes and closes[key] != close:
+        raise ValueError("conflicting closes for the same code and date")
+    closes[key] = close
+
+
+def collect_quotes(code, start, end, api_key, fetch=fetch_page):
+    query = {"code": code, "from": start, "to": end}
+    closes = {}
+    for item in daily_bars(query, api_key, fetch):
+        if item["Code"] not in {code, code + "0"}:
+            raise ValueError("the response contained an unexpected stock code")
+        day = trading_date(item["Date"])
+        if not start <= day <= end:
+            raise ValueError("the response contained a date outside the requested interval")
+        record_close(closes, day, close_value(item))
+    return [(f"JP:{code}", day, "JPY", closes[day]) for day in sorted(closes)]
+
+
+def collect_session_quotes(codes, day, api_key, fetch=fetch_page):
+    # The market-wide endpoint has five-character IDs. A nonzero suffix
+    # represents a different security and must not match a common-stock input.
+    ids = {code + "0": code for code in codes}
+    closes = {}
+    for item in daily_bars({"date": day}, api_key, fetch):
+        if item["Date"] != day:
+            raise ValueError("the response contained an unexpected trading date")
+        code = ids.get(item["Code"])
+        if code is not None:
+            record_close(closes, code, close_value(item))
+    return [(f"JP:{code}", day, "JPY", closes[code]) for code in sorted(closes)]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--from", dest="from_date", required=True, type=trading_date)
-    parser.add_argument("--to", dest="to_date", required=True, type=trading_date)
+    parser.add_argument("--date", type=trading_date, help="Get selected common-stock closes from one market-wide trading session")
+    parser.add_argument("--from", dest="from_date", type=trading_date)
+    parser.add_argument("--to", dest="to_date", type=trading_date)
     parser.add_argument("codes", type=code4, nargs="+")
     args = parser.parse_args()
-    if args.from_date > args.to_date:
+    if args.date and (args.from_date or args.to_date):
+        parser.error("--date cannot be combined with --from or --to")
+    if not args.date and not (args.from_date and args.to_date):
+        parser.error("provide --date or both --from and --to")
+    if args.from_date and args.from_date > args.to_date:
         parser.error("--from must be on or before --to")
     api_key = os.environ.get("JQUANTS_API_KEY", "").strip()
     if not api_key:
         parser.error("set JQUANTS_API_KEY using your personal account")
-    rows = []
+    codes = list(dict.fromkeys(args.codes))
     try:
-        for code in dict.fromkeys(args.codes):
-            rows.extend(collect_quotes(code, args.from_date, args.to_date, api_key))
+        if args.date:
+            rows = collect_session_quotes(codes, args.date, api_key)
+        else:
+            rows = [row for code in codes for row in collect_quotes(code, args.from_date, args.to_date, api_key)]
     except HTTPError as error:
         parser.exit(1, f"J-Quants returned HTTP {error.code}. Check your plan, date range and API key.\n")
     except (URLError, TimeoutError, KeyError, TypeError, ValueError, argparse.ArgumentTypeError):
         parser.exit(1, "J-Quants response could not be retrieved or validated.\n")
     if not rows:
         parser.exit(1, "No closes returned for the requested interval.\n")
+    returned = {row[0][3:] for row in rows}
+    missing = sorted(set(codes) - returned)
+    if missing:
+        print("No close returned for: " + ", ".join(missing), file=sys.stderr)
     writer = csv.writer(sys.stdout, lineterminator="\n")
     writer.writerow(("market_id", "date", "currency", "close"))
     writer.writerows(rows)

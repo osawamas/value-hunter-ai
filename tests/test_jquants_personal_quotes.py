@@ -35,3 +35,34 @@ class JQuantsExportTest(unittest.TestCase):
         for page in invalid_pages:
             with self.subTest(page=page), self.assertRaises(ValueError):
                 exporter.collect_quotes("7203", "2026-03-30", "2026-03-31", "example", lambda *_: page)
+
+    def test_session_selects_exact_date_and_common_stock_codes(self):
+        day = "2026-03-31"
+        pages = iter([
+            {"data": [
+                {"Code": "72031", "Date": day, "C": 50},
+                {"Code": "72030", "Date": day, "C": 3100.5, "AdjC": 900},
+                {"Code": "38610", "Date": day, "C": None},
+            ], "pagination_key": "next"},
+            {"data": [{"Code": "130A0", "Date": day, "C": 600}]},
+        ])
+        queries = []
+
+        def fetch(query, _key):
+            queries.append(dict(query))
+            return next(pages)
+
+        self.assertEqual(
+            exporter.collect_session_quotes(["7203", "3861", "130A"], day, "example", fetch),
+            [("JP:130A", day, "JPY", 600), ("JP:7203", day, "JPY", 3100.5)],
+        )
+        self.assertEqual(queries, [{"date": day}, {"date": day, "pagination_key": "next"}])
+
+    def test_session_rejects_wrong_date_and_conflicting_close(self):
+        day = "2026-03-31"
+        for items in [
+            [{"Code": "72030", "Date": "2026-03-30", "C": 3000}],
+            [{"Code": "72030", "Date": day, "C": price} for price in (3000, 3100)],
+        ]:
+            with self.subTest(items=items), self.assertRaises(ValueError):
+                exporter.collect_session_quotes(["7203"], day, "example", lambda *_: {"data": items})
