@@ -46,6 +46,18 @@ try {
  assert.match(await ocbcWeb.getAttribute("title"),/原本HTML SHA-256：[0-9a-f]{64}/);
  assert.match(await ocbcWeb.getAttribute("href"),/^https:\/\/www\.ocbc\.com\//);
 
+ // v287 issuer newsroom 154k HTML source proof also loaded from offline ZIP.
+ await page.locator("#dbsSecondarySourceStatus").getByText(/DBS発行体サイトの原本HTML/).waitFor({timeout:25000});
+ const dbsRows=page.locator("#dbsSecondarySourceRows tr");
+ assert.equal(await dbsRows.count(),2);
+ assert.match(await dbsRows.first().innerText(),/2\.81 billion SGD/);
+ assert.match(await dbsRows.nth(1).innerText(),/8\.82 billion SGD/);
+ assert.match(await page.locator("#dbsSecondarySourceStatus").innerText(),/第三者独立監査ではない/);
+ const dbsWeb=page.locator("#dbsSecondaryIssuerLink");
+ assert.match(await dbsWeb.getAttribute("title"),/原本HTML SHA-256：[0-9a-f]{64}/);
+ assert.match(await dbsWeb.getAttribute("href"),/^https:\/\/www\.dbs\.com\//);
+
+
 
  // v285 local-only three-bank comparison, separate from the investment ranking.
  await page.locator("#manualBankCompareStatus").getByText(/株価と自己株式控除後の株数/).waitFor({timeout:25000});
