@@ -74,7 +74,8 @@ const tests=[
  "docs/test_sgx_catalog_export_v266.js",
  "docs/test_sgx_japanese_exclusions_v267.js",
  "docs/test_sgx_csv_original_sha_v269.js",
- "docs/test_universe_source_finance_v272.js"
+ "docs/test_universe_source_finance_v272.js",
+ "docs/test_bank_scenario_v277.js"
 ];
 let failed=0;
 const results=[];
