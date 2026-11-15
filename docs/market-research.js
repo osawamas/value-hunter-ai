@@ -888,6 +888,17 @@ async function initMarketResearch() {
         return item;
       }));
     });
+    const shareExport = byId("publishedShareExport");
+    const refreshShareExport = () => { shareExport.disabled = !(sessions.get(shareDates.value) || []).length; };
+    shareDates.addEventListener("change", refreshShareExport);
+    shareExport.addEventListener("click", () => {
+      const records = sessions.get(shareDates.value) || [];
+      if (!records.length) return;
+      const csvCell = value => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+      const csv = ["market_id,date,shares_excluding_treasury,filing_source_url",
+        ...records.map(record => [record.id, shareDates.value, record.value, record.source].map(csvCell).join(","))].join("\r\n");
+      saveResearchCsv(csv, "value-hunter-published-shares-" + shareDates.value + ".csv");
+    });
     paintBatch();
     byId("marketCoverageRows").replaceChildren(...summarizeMarketCoverage(rows).map(row => {
       const tr = document.createElement("tr");
