@@ -1,0 +1,44 @@
+{
+  "schema_version": "sgx-october-official-release-research-v292",
+  "period": "2026-10",
+  "release_date": "2026-11-12",
+  "issuer": "Singapore Exchange (SGX Group)",
+  "issuer_owned_release_url": "https://www.sgxgroup.com/media-centre/20261112-sgx-groups-derivatives-volume-hits-six-month-high-securities",
+  "issuer_owned_release_status": "PUBLIC_ISSUER_RELEASE_URL_LOCATED_TEXT_REVIEWED",
+  "original_sgxnet_pdf_url": null,
+  "original_sgxnet_pdf_sha256": null,
+  "original_sgx_monthly_statistics_pdf_url": null,
+  "original_monthly_statistics_sha256": null,
+  "issuer_release_confirmed_ipo_names": [
+    "Deluge Corporation",
+    "Mi Material Holding"
+  ],
+  "issuer_release_ipo_count": 2,
+  "issuer_release_ipo_trading_codes": null,
+  "sgx_securities_end_oct_2026_reported_605": {
+    "value": 605,
+    "status": "SECONDARY_REPOST_NOT_SGX_ORIGINAL_PDF_VERIFIED",
+    "source_url": "https://www-web.itiger.com/news/1107557934"
+  },
+  "sgx_securities_end_sep_2026_reported_604": {
+    "value": 604,
+    "status": "SECONDARY_REPOST_NOT_SGX_ORIGINAL_PDF_VERIFIED",
+    "source_url": "https://www-web.itiger.com/news/1107557934"
+  },
+  "sgx_original_aug_report_url": "https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Aug%202026.ashx?App=Announcement&FileID=903915",
+  "sgx_original_aug_2026_listings": {
+    "mainboard": 406,
+    "catalist": 198,
+    "total": 604,
+    "scope": "LISTED_SECURITIES_EXCLUDING_GDR_HEDGE_FUNDS_DEBT"
+  },
+  "ranking_enabled": false,
+  "ranking_eligible_count": 0,
+  "full_active_security_master_verified": false,
+  "price_redistribution_permitted": false,
+  "next_steps": [
+    "Locate original SGXNet October statistics PDF; verify PDF bytes SHA and issuer services monthly listing counts",
+    "Do not fabricate IPO stock codes or infer exact additions from aggregate two IPO statement",
+    "Compare official monthly listing counts only against snapshots with matching month and security category, not arbitrary trading counters"
+  ]
+}
