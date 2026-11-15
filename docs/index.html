@@ -159,15 +159,15 @@
 
       <section class="workspace" aria-labelledby="sgxHistoricalCodeTitle">
         <div class="section-heading"><div><div class="eyebrow">SGXNET / 20 HISTORICAL COUNTERS</div>
-          <h2 id="sgxHistoricalCodeTitle">SGX開示で調べた20社の取引コード検索</h2></div>
-          <p>一覧の一部分を個別の公式開示と照合した調査データ。SGX全銘柄でも現在の上場確認済みリストでもない。</p></div>
+          <h2 id="sgxHistoricalCodeTitle">SGX公式資料で調べた30銘柄のコード検索</h2></div>
+          <p>企業情報の部分ページ20社と公式売買単位表の追加10銘柄。SGX全銘柄でも現在の上場確認済みリストでもない。</p></div>
         <p id="sgxHistoricalCodeStatus" class="status-message" role="status">SGXNetの銘柄コードを照合中…</p>
         <div class="toolbar">
           <label class="search"><span aria-hidden="true">⌕</span>
             <input id="sgxHistoricalCodeSearch" type="search" placeholder="取引コード・会社名・ISINで検索" aria-label="SGX過去開示コードの検索" autocomplete="off"></label>
           <label><span>上場市場</span>
             <select id="sgxHistoricalCodeBoard" aria-label="市場区分で絞り込む">
-              <option value="ALL">すべて</option><option value="MAINBOARD">Mainboard</option><option value="CATALIST">Catalist</option>
+              <option value="ALL">すべて</option><option value="MAINBOARD">Mainboard</option><option value="CATALIST">Catalist</option><option value="UNKNOWN">市場区分未確認</option>
             </select></label>
         </div>
         <div class="tablewrap" style="max-height:450px;overflow:auto"><table>
