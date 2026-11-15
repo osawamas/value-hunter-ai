@@ -14,6 +14,17 @@ const shares = require("../docs/data/sgx-s63-two-website-close-v129.json");
 const rows = buildMarketRows(research, sgx);
 const equityReview = require("../docs/data/sgx-s63-parent-equity-v395.json");
 const s63Issuer = rows.find(row => row.id === "SG:S63");
+const laterS63 = {...shares, session_date_sgt: "2026-11-16",
+  original_sgx_shares_ex_treasury: 3115347115,
+  sgx_share_disclosed_at_sgt: "2026-11-16T18:21:18+08:00", sgx_session_end_at_sgt: undefined};
+const laterQuote = new Map([["SG:S63", {date: "2026-11-16", currency: "SGD", price: 10}]]);
+const [laterTrial] = evaluatePersonalQuotes(rows, laterQuote, new Map(), [shares, laterS63]);
+assert.equal(laterTrial.result.cap, 31153471150);
+assert.equal(laterTrial.shareDisclosureTiming, "time_unknown");
+const [conflict] = evaluatePersonalQuotes(rows, laterQuote, new Map(),
+  [shares, laterS63, {...laterS63, original_sgx_shares_ex_treasury: 3115347116}]);
+assert.equal(conflict.state, "conflict");
+assert.equal(conflict.result, undefined);
 const toyota = structuredClone(rows.find(row => row.id === "JP:7203"));
 const latestToyota = toyota.financials.periods.at(-1);
 latestToyota.net_income = -1;

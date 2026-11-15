@@ -1,6 +1,6 @@
 """v109: SGX 2026-11-13 ST Engineering buyback snapshot (historical only)."""
 import argparse,hashlib,json,re
-from datetime import datetime,timezone
+from datetime import datetime,timedelta,timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -107,6 +107,12 @@ if __name__=="__main__":
  else:
   try:
    notice=parse_notice(fetch(x.url),x.url)
-   Path(x.output).write_text(json.dumps(notice,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+   broadcast=datetime.strptime(notice["broadcast_sgt_text"],"%d-%b-%Y %H:%M:%S")
+   notice["broadcast_at_sgt"]=broadcast.replace(tzinfo=timezone(timedelta(hours=8))).isoformat()
+   payload=json.dumps(notice,ensure_ascii=False,indent=2)
+   if x.output=="-":
+    print(payload)
+   else:
+    Path(x.output).write_text(payload+"\n",encoding="utf-8")
   except (OSError,ValueError) as exc:
    a.exit(1,f"S63 notice could not be verified: {exc}\n")

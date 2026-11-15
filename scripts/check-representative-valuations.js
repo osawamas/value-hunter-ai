@@ -23,6 +23,25 @@ function loadSnapshot(directory, name, evidence) {
   return JSON.parse(bytes.toString("utf8"));
 }
 
+function loadS63Notice(url) {
+  const parser = path.join(__dirname, "../SGX_PDF_connection_probe/sgx_s63_buyback_v109.py");
+  const result = spawnSync("python3", [parser, "--output", "-", "--url=" + url], {encoding: "utf8"});
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw Error(result.stderr.trim() || "S63 notice verification failed");
+  const notice = JSON.parse(result.stdout);
+  return {
+    schema_version: "sgx-s63-historical-close-second-website-v129",
+    symbol: notice.symbol,
+    session_date_sgt: notice.purchase_date,
+    original_sgx_share_snapshot_on_same_date: true,
+    original_sgx_shares_ex_treasury: notice.issued_excluding_treasury_after_purchase,
+    sgx_share_source_url: notice.source_url,
+    sgx_share_disclosed_at_sgt: notice.broadcast_at_sgt,
+    sourceSha256: notice.source_sha256,
+    announcementReference: notice.reference,
+  };
+}
+
 function reviewShareSession(rows, shareReview, id, date, shares, observation) {
   const evidence = {id, date, shares: shares.value, shareSource: shares.source};
   if (shares.disclosedOn) {
@@ -121,6 +140,12 @@ function main(args) {
     filingDirectory = args[1];
     args = args.slice(2);
   }
+  let s63Notice;
+  if (args[0] === "--s63-notice-url") {
+    if (!args[1] || args[1].startsWith("--")) throw Error("--s63-notice-url requires an official SGXNet URL");
+    s63Notice = args[1];
+    args = args.slice(2);
+  }
   const requireNewSessions = args[0] === "--require-new-sessions";
   const requireLatestTrials = requireNewSessions || args[0] === "--require-latest-trials";
   if (requireLatestTrials) args = args.slice(1);
@@ -131,12 +156,14 @@ function main(args) {
     throw Error("--require-new-sessions requires a two-snapshot comparison");
   }
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--require-latest-trials | --require-new-sessions] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--s63-notice-url URL] [--require-latest-trials | --require-new-sessions] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
   const research = loadSnapshot(filingDirectory, "market-research-v315.json", filingDataSha256);
   const sgx = loadSnapshot(filingDirectory, "latest.json", filingDataSha256);
-  const shareReview = loadSnapshot(filingDirectory, "sgx-s63-two-website-close-v129.json", filingDataSha256);
+  const bundledShareReview = loadSnapshot(filingDirectory, "sgx-s63-two-website-close-v129.json", filingDataSha256);
+  const notice = s63Notice ? loadS63Notice(s63Notice) : undefined;
+  const shareReview = notice ? [bundledShareReview, notice] : bundledShareReview;
   const rows = buildMarketRows(research, sgx);
   const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
@@ -220,6 +247,7 @@ function main(args) {
     report.latestTrialCheck = {passed, results: checks};
     if (!passed) process.exitCode = 2;
   }
+  if (notice) report.s63ShareNotice = notice;
   process.stdout.write(JSON.stringify({...report, filingDataSha256}, null, 2) + "\n");
 }
 

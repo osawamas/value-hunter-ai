@@ -279,8 +279,8 @@ function filingSharesOn(row, date, shareReview) {
       "DATE_ANCHORED_RECONCILED",
     ].includes(sgx.shares_verification_status)
     ? {as_of: sgx.shares_as_of_date, value: sgx.shares_outstanding, source: sgx.shares_source_url} : null;
-  const supplemental = sgxSupplementalShare(row, date, shareReview);
-  return [interim, annual, currentShare, supplemental].filter(share => share?.as_of === date && !share.rounded);
+  const supplemental = [shareReview].flat().map(review => sgxSupplementalShare(row, date, review));
+  return [interim, annual, currentShare, ...supplemental].filter(share => share?.as_of === date && !share.rounded);
 }
 
 function publishedShareSessions(rows, shareReview) {
@@ -288,7 +288,8 @@ function publishedShareSessions(rows, shareReview) {
   for (const row of rows) {
     if (row.financials?.share_classes || (!row.financials && !sgxValuationFinance(row))) continue;
     const dates = new Set([row.financials?.shares?.as_of, row.quarterly?.shares?.as_of,
-      row.sgxEvidence?.shares_as_of_date, row.market === "SG" ? shareReview?.session_date_sgt : null]);
+      row.sgxEvidence?.shares_as_of_date, ...(row.id === "SG:S63" ?
+        [shareReview].flat().map(review => review?.session_date_sgt) : [])]);
     for (const date of dates) {
       if (!isMarketDate(date)) continue;
       const evidence = filingSharesOn(row, date, shareReview).filter(share => share.source?.startsWith("https://"));
