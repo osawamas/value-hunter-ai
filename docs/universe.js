@@ -87,20 +87,37 @@
     "./data/sgx-material-listing-events-v257.json",
     "./data/latest.json",
     "./data/sgx-nineteen-original-html-sha-v262.json"];
-   const inputs=await Promise.all(files.map(async url=>{
+   const loadJson=async url=>{
     const response=await fetch(url,{cache:"no-store"});
     if(!response.ok)throw Error("HTTP "+response.status);
     return response.json();
+   };
+   // Source classes fail independently: SGXNet failure must not hide the
+   // unverified third-party discovery list. Never mark fallback rows verified.
+   const candidates=validateUniverse(await loadJson(files[0]));
+   let rows=candidates.candidates.map(item=>({
+    symbol:item.symbol,name:item.display_name,officialHistoricalCode:false,
+    originalHtmlProof:false,officialCodeSource:null,financialRegistered:false,
+    financialExclusionCount:0,listedCurrentlyVerified:false,rankingEligible:false
    }));
-   const builder=root?.SGX_SOURCE_DIRECTORY_READONLY?.buildWithOriginalProof;
-   if(typeof builder!=="function")throw Error("公式照合の検証処理が未読込");
-   const historic=builder(...inputs.slice(1));
-   const rows=joinCandidates(inputs[0],historic,inputs[6]);
+   let sourceOverlayLoaded=false;
+   try{
+    const evidence=await Promise.all(files.slice(1).map(loadJson));
+    const builder=root?.SGX_SOURCE_DIRECTORY_READONLY?.buildWithOriginalProof;
+    if(typeof builder!=="function")throw Error("SGX original proof validator not loaded");
+    const historic=builder(...evidence);
+    rows=joinCandidates(candidates,historic,evidence[5]);
+    sourceOverlayLoaded=true;
+   }catch(err){
+    console.warn("SGX primary-source overlay unavailable; 182 candidates shown without verified assertions:",err.message);
+   }
    const known=rows.filter(x=>x.officialHistoricalCode).length;
    const financed=rows.filter(x=>x.financialRegistered).length;
    count.textContent=rows.length.toLocaleString("ja-JP");
-   status.textContent="第三者候補"+rows.length+"件中、SGX過去開示のコードと一致"+known+
-    "件、財務登録あり"+financed+"件（重複あり）。現在の上場・投資適格は確認していない。";
+   status.textContent=sourceOverlayLoaded?
+    "第三者候補"+rows.length+"件中、SGX過去開示のコードと一致"+known+
+    "件、財務登録あり"+financed+"件（重複あり）。現在の上場・投資適格は確認していない。":
+    "第三者候補"+rows.length+"件のみ表示中。SGX原本・財務の照合が利用できず、確認済みの表示を一時停止している。";
    const repaint=()=>{
     const visible=filterCandidates(rows,search.value,filter.value);
     const frag=document.createDocumentFragment();
