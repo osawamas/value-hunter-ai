@@ -1,5 +1,5 @@
 "use strict";
-/* v292: keep official SGX issuer events distinct from non-original monthly claims.
+/* Keep official SGX aggregate statistics distinct from a security master.
  * This classification never infers IPO trading codes, individual listings,
  * licensed market data, or portfolio-ranking eligibility.
  */
@@ -13,17 +13,27 @@ function assess(research,snapshot){
     !Array.isArray(research.issuer_release_confirmed_ipo_names) ||
     research.issuer_release_confirmed_ipo_names.length!==2)
    errors.push("official issuer release metadata or scoped IPO evidence invalid");
- if(research.original_sgx_monthly_statistics_pdf_url!==null ||
-    research.original_monthly_statistics_sha256!==null ||
-    research.original_sgxnet_pdf_url!==null ||
-    research.original_sgxnet_pdf_sha256!==null)
-   errors.push("missing original files must not receive fabricated original proof");
+ const attachmentBase="https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/";
+ const mirror=research.sgx_monthly_statistics_mirror;
+ const stats=research.original_sgx_monthly_statistics_pdf_url;
+ const originalValid=stats?.startsWith(attachmentBase+"911153_")&&
+    research.original_sgxnet_pdf_url?.startsWith(attachmentBase+"911152_")&&
+    research.sgxnet_announcement_url?.startsWith(attachmentBase)&&
+    research.sgxnet_announcement_reference_reported==="SG261112OTHREO8V"&&
+    research.sgxnet_announcement_reference_status==="VERIFIED_SGXNET_ANNOUNCEMENT"&&
+    /^[a-f0-9]{64}$/.test(research.original_sgxnet_pdf_sha256||"")&&
+    /^[a-f0-9]{64}$/.test(research.original_monthly_statistics_sha256||"")&&
+    mirror?.status==="BYTE_IDENTICAL_TO_SGXNET_ORIGINAL"&&
+    research.original_monthly_statistics_sha256===mirror.sha256&&
+    research.original_monthly_statistics_bytes===mirror.bytes;
+ if(!originalValid)errors.push("SGX original PDF metadata mismatch");
  const oct=research.sgx_securities_end_oct_2026_reported_605;
  const sep=research.sgx_securities_end_sep_2026_reported_604;
  for(const [name,claim,val] of [["oct",oct,605],["sep",sep,604]]){
-  if(claim?.value!==val || claim?.status!=="SECONDARY_REPOST_NOT_SGX_ORIGINAL_PDF_VERIFIED" ||
-     !/^https:\/\//.test(claim?.source_url||""))
-   errors.push(name+" secondary claim incorrectly certified");
+  const board=mirror?.[name+"_2026"];
+  if(claim?.value!==val || claim?.status!=="VERIFIED_SGXNET_ORIGINAL_PDF" ||
+     claim?.source_url!==stats || board?.total!==val || board?.mainboard+board?.catalist!==val)
+   errors.push(name+" listing count or breakdown mismatch");
  }
  const aug=research.sgx_original_aug_2026_listings;
  if(aug?.mainboard!==406 || aug?.catalist!==198 || aug?.total!==604 ||
@@ -54,9 +64,9 @@ function assess(research,snapshot){
   evidence:{october_ipo_names:research.issuer_release_confirmed_ipo_names,
    october_ipo_count:research.issuer_release_ipo_count,
    october_ipo_codes_verified:false,
-   october_listing_count_official_original_verified:false,
+   october_listing_count_official_original_verified:Boolean(originalValid&&!errors.length),
    august_listing_count_official_original_published:aug?.total||null,
-   october_secondary_count_reference:oct?.value||null},
+   october_listing_count_official_original_published:originalValid?oct?.value:null},
   snapshot:assessedSnapshot,
   no_official_master_claim:true,no_price_rights_claim:true,ranking_eligible_count:0
  };
@@ -65,6 +75,6 @@ if(require.main===module){
  const doc=JSON.parse(fs.readFileSync(path.resolve(__dirname,"../docs/data/sgx-october-release-v292.json"),"utf8"));
  const result=assess(doc);
  if(result.errors.length){console.error(result.errors.join("\n"));process.exitCode=1}
- else console.log("v292 PASS: SGX issuer IPO announcement scoped; October 605 remains SECONDARY ONLY");
+ else console.log("PASS: SGX October original monthly listing count confirmed; security-master gate maintained");
 }
 module.exports={assess};

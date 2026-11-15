@@ -124,7 +124,9 @@ def verify_section(text,record):
 
 def download(url, sha256, size):
  original=urlsplit(url)
- if original.scheme!="https" or original.netloc not in {"links.sgx.com","miequipment.listedcompany.com"}:
+ if original.scheme!="https" or original.netloc not in {
+  "links.sgx.com","miequipment.listedcompany.com","newsfile.futunn.com"
+ }:
   raise ValueError("Unexpected PDF source")
  req=urllib.request.Request(url,headers={
   "User-Agent":"VALUE-HUNTER-AI-source-validation/1.0 (+https://github.com/osawamas/value-hunter-ai)",
@@ -139,7 +141,13 @@ def download(url, sha256, size):
  return blob
 
 def original_text(source, pages=()):
- raw=download(source["url"],source["sha256"],source["bytes"])
+ try:
+  raw=download(source["url"],source["sha256"],source["bytes"])
+ except (OSError,ValueError) as error:
+  if not source.get("byte_identical_mirror_url"):
+   raise
+  print(f"Primary PDF retrieval failed ({error}); checking byte-identical mirror")
+  raw=download(source["byte_identical_mirror_url"],source["sha256"],source["bytes"])
  with tempfile.TemporaryDirectory() as temp:
   pdf=pathlib.Path(temp)/"original.pdf"
   pdf.write_bytes(raw)
@@ -192,6 +200,28 @@ def verify_mim_business_update(source, update):
   "prior_year_same_period_revenue":None,"values_confirmed":5,
   "issuer_presentation_sha256":presentation["sha256"],"parent_segment_comparison":segment}
 
+def verify_october_statistics(research):
+ stats=original_text({"url":research["original_sgx_monthly_statistics_pdf_url"],
+  "sha256":research["original_monthly_statistics_sha256"],"bytes":research["original_monthly_statistics_bytes"]},
+  ("-f","45","-l","45"))
+ counts=research["sgx_monthly_statistics_mirror"]
+ if ("Number of Listings (month-end)" not in stats
+     or not re.search(r"Sep\s+2026\s+Oct\s+2026\s+Oct\s+2025",stats)
+     or "Exclude GDRs, Hedge Funds and Debt Securities." not in stats):
+  raise ValueError("SGX October listing table scope mismatch")
+ for key,label in [("mainboard","SGX Mainboard"),("catalist","SGX Catalist"),
+                   ("total",r"Total Number of Listed Securities\s+\(7\)")]:
+  sep,october=(counts[m][key] for m in ("sep_2026","oct_2026"))
+  if not re.search(rf"^\s*{label}(?:\s+\d+){{3}}\s+{sep}\s+{october}\s+\d+\s*$",stats,re.MULTILINE):
+   raise ValueError(f"SGX October listing table mismatch: {key}")
+ release=original_text({"url":research["original_sgxnet_pdf_url"],
+  "sha256":research["original_sgxnet_pdf_sha256"],"bytes":research["original_sgxnet_pdf_bytes"]})
+ if not all(name in release for name in research["issuer_release_confirmed_ipo_names"]):
+  raise ValueError("SGX October original release IPO names mismatch")
+ print("SGX VERIFIED official October report and press release PDFs")
+ return {"period":"2026-10","source_pdf_sha256":research["original_monthly_statistics_sha256"],
+  "sep_2026":counts["sep_2026"],"oct_2026":counts["oct_2026"],"scope":counts["scope"]}
+
 def main():
  manifest=json.loads((ROOT/"docs/data/sgx-ipo-financial-documents-v297.json").read_text())
  sources=v297.validate_manifest(manifest)
@@ -211,9 +241,11 @@ def main():
   out.append(result)
   print(f'{result["symbol"]} VERIFIED original SHA and rows {result["rows_confirmed"]}; '
         f'{result["fiscal_years"]} annual and {result["interim_periods"]} interim periods')
+ october=json.loads((ROOT/"docs/data/sgx-october-release-v292.json").read_text())
  report={"schema_version":"sgx-ipo-original-audited-financial-reconciliation-v298",
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
+  "october_statistics":verify_october_statistics(october),
   "pro_forma_not_used":True,"live_market_data_licence_verified":False,
   "independent_current_financial_reverification":False,"ranking_eligible_count":0}
  dest=ROOT/"build/research/sgx-ipo-audited-reconciliation-v298.json"

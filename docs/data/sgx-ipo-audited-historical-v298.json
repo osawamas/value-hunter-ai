@@ -153,7 +153,8 @@
           "source": {
             "url": "https://miequipment.listedcompany.com/newsroom/MiTB_3Q_FYE2026%2829Oct2026%29_20261029.pdf",
             "sha256": "d02c1a76ad342acb796d33e8ee6ed0894e3736102e95e027d8233aa1c3bebea4",
-            "bytes": 1133755
+            "bytes": 1133755,
+            "byte_identical_mirror_url": "https://newsfile.futunn.com/public/NN-PersistNoticeAttachment/7781/20261029/910_MYX_3720073_en-us_1.pdf"
           }
         }
       }

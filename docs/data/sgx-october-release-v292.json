@@ -5,10 +5,10 @@
   "issuer": "Singapore Exchange (SGX Group)",
   "issuer_owned_release_url": "https://www.sgxgroup.com/media-centre/20261112-sgx-groups-derivatives-volume-hits-six-month-high-securities",
   "issuer_owned_release_status": "PUBLIC_ISSUER_RELEASE_URL_LOCATED_TEXT_REVIEWED",
-  "original_sgxnet_pdf_url": null,
-  "original_sgxnet_pdf_sha256": null,
-  "original_sgx_monthly_statistics_pdf_url": null,
-  "original_monthly_statistics_sha256": null,
+  "original_sgxnet_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/911152_20261112%20SGX%20Group%20derivatives%20volume%20hits%20six-month%20high%20securities%20turnover%20strengthens%20in%20October.pdf",
+  "original_sgxnet_pdf_sha256": "f23bc965649e13ab91b9f330d942dc6296feafb3cf1c756689cca74ae3b03a1b",
+  "original_sgx_monthly_statistics_pdf_url": "https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/911153_SGX%20Monthly%20Statistics%20Report%20Update_Oct%202026.pdf",
+  "original_monthly_statistics_sha256": "e1e185b8b6031fc790d704050c21346517e4c6ecdf0ee18b1577b6b9a650980e",
   "issuer_release_confirmed_ipo_names": [
     "Deluge Corporation",
     "Mi Material Holding"
@@ -17,25 +17,33 @@
   "issuer_release_ipo_trading_codes": null,
   "sgx_securities_end_oct_2026_reported_605": {
     "value": 605,
-    "status": "SECONDARY_REPOST_NOT_SGX_ORIGINAL_PDF_VERIFIED",
-    "source_url": "https://www-web.itiger.com/news/1107557934"
+    "status": "VERIFIED_SGXNET_ORIGINAL_PDF",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/911153_SGX%20Monthly%20Statistics%20Report%20Update_Oct%202026.pdf"
   },
   "sgx_securities_end_sep_2026_reported_604": {
     "value": 604,
-    "status": "SECONDARY_REPOST_NOT_SGX_ORIGINAL_PDF_VERIFIED",
-    "source_url": "https://www-web.itiger.com/news/1107557934"
+    "status": "VERIFIED_SGXNET_ORIGINAL_PDF",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/911153_SGX%20Monthly%20Statistics%20Report%20Update_Oct%202026.pdf"
   },
   "sgx_monthly_statistics_mirror": {
     "period": "2026-10",
-    "status": "THIRD_PARTY_PDF_BYTES_VERIFIED_SGX_HOST_UNCONFIRMED",
+    "status": "BYTE_IDENTICAL_TO_SGXNET_ORIGINAL",
     "source_url": "https://repository.shareinvestor.com/rpt_view.pl/id/515671391.2/type/sgxnet/original_filename/1",
     "sha256": "e1e185b8b6031fc790d704050c21346517e4c6ecdf0ee18b1577b6b9a650980e",
     "bytes": 966695,
     "summary_pdf_page": 2,
     "listing_table_pdf_page": 45,
     "scope": "LISTED_SECURITIES_EXCLUDING_GDR_HEDGE_FUNDS_DEBT",
-    "sep_2026": {"mainboard": 406, "catalist": 198, "total": 604},
-    "oct_2026": {"mainboard": 408, "catalist": 197, "total": 605}
+    "sep_2026": {
+      "mainboard": 406,
+      "catalist": 198,
+      "total": 604
+    },
+    "oct_2026": {
+      "mainboard": 408,
+      "catalist": 197,
+      "total": 605
+    }
   },
   "sgx_original_aug_report_url": "https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Aug%202026.ashx?App=Announcement&FileID=903915",
   "sgx_original_aug_2026_listings": {
@@ -49,12 +57,10 @@
   "full_active_security_master_verified": false,
   "price_redistribution_permitted": false,
   "next_steps": [
-    "Locate original SGXNet October statistics PDF; verify PDF bytes SHA and issuer services monthly listing counts",
-    "Do not fabricate IPO stock codes or infer exact additions from aggregate two IPO statement",
-    "Compare official monthly listing counts only against snapshots with matching month and security category, not arbitrary trading counters"
+    "Use matched month-end and security category when comparing listings. Obtain a separately verified per-security active master."
   ],
   "sgxnet_announcement_reference_reported": "SG261112OTHREO8V",
-  "sgxnet_announcement_reference_status": "THIRD_PARTY_REPOST_NOT_ORIGINAL_VERIFIED",
+  "sgxnet_announcement_reference_status": "VERIFIED_SGXNET_ANNOUNCEMENT",
   "sgxnet_broadcast_reported_local": "2026-11-12 08:04 SGT",
   "sgxnet_reference_secondary_source_url": "https://a.siasset.com/news/news.html?nid=515671391&source=sg_sgxnet",
   "issuer_website_live_replay_v293": {
@@ -65,5 +71,8 @@
     "body_verified": false,
     "missing_content": "site returned a minimal page without Deluge, Mi Material, October details; not suitable as an original text proof",
     "original_sgxnet_attachment_verified": false
-  }
+  },
+  "sgxnet_announcement_url": "https://links.sgx.com/1.0.0/corporate-announcements/TZWWKN1FRAFVPY2Z/1455b76e9c329e5c206dfe4086a79c7b23562a7ada09ceb0ca53e305e4bf5408",
+  "original_sgxnet_pdf_bytes": 287561,
+  "original_monthly_statistics_bytes": 966695
 }
