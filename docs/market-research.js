@@ -32,7 +32,7 @@ function buildMarketRows(research, sgx) {
   return rows;
 }
 
-function rankingEvidence(row) {
+function rankingEvidence(row, shareReview) {
   const sgx = row.sgxEvidence;
   const finance = row.financials;
   const shares = row.quarterly?.shares || finance?.shares;
@@ -56,8 +56,19 @@ function rankingEvidence(row) {
   if (!observed) reasons.push("日付付き株価が未取得");
   if (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART") reasons.push("掲載株価は参考取得。取引所の照合が未完了");
   if (!shareDate) reasons.push("日付付き株数が未取得");
-  if (shareDate && quoteDate && shareDate !== quoteDate) reasons.push("株価と株数の基準日が異なる");
+  if (shareDate && quoteDate && shareDate !== quoteDate) reasons.push("掲載データの株価と株数の基準日が異なる");
+  const alternative = shareReview?.schema_version === "sgx-s63-historical-close-second-website-v129" &&
+    shareReview.symbol === row.symbol && shareReview.session_date_sgt === quoteDate &&
+    shareReview.original_sgx_share_snapshot_on_same_date === true &&
+    Number.isSafeInteger(shareReview.original_sgx_shares_ex_treasury) &&
+    shareReview.original_sgx_shares_ex_treasury > 0 &&
+    shareReview.sgx_share_source_url?.startsWith("https://links.sgx.com/");
   return {
+    supplementalShare: alternative ? {
+      date: quoteDate,
+      value: shareReview.original_sgx_shares_ex_treasury,
+      source: shareReview.sgx_share_source_url,
+    } : null,
     quote: observed ? quoteDate + (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART" ? "（参考）" : "（掲載資料）") : "未取得",
     quoteSource: observed ? sgx.quote_url : null,
     share: shareDate || "未取得",
@@ -396,10 +407,11 @@ async function initMarketResearch() {
       if (!response.ok) throw Error("資料取得 HTTP " + response.status);
       return response.json();
     };
-    const [research, sgx, g13, s63] = await Promise.all([
+    const [research, sgx, g13, s63, s63ShareReview] = await Promise.all([
       load("market-research-v315.json"), load("latest.json"),
       load("sgx-g13-2026q3-v121.json").catch(() => null),
       load("sgx-s63-9m2026-v125.json").catch(() => null),
+      load("sgx-s63-two-website-close-v129.json").catch(() => null),
     ]);
     const updateRows = [];
     const genting = g13?.record;
@@ -462,14 +474,20 @@ async function initMarketResearch() {
         }
         const source = element("td", "");
         source.append(link(row.identity_source, row.market === "SG" ? "SGX調査" : "銘柄資料"));
-        const evidence = rankingEvidence(row);
+        const evidence = rankingEvidence(row, s63ShareReview);
         const ranking = element("td", "");
         const detail = element("details", "");
         detail.append(element("summary", row.rankingEligible ? "対象" : "対象外の理由"));
         for (const [label, value, url] of [["株価", evidence.quote, evidence.quoteSource],
-          ["株数", evidence.share, evidence.shareSource]]) {
+          [row.market === "SG" ? "掲載株数の基準日" : "株数", evidence.share, evidence.shareSource]]) {
           const line = element("div", label + " " + value);
           if (url?.startsWith("https://")) line.append(" ", link(url, label + "出典"));
+          detail.append(line);
+        }
+        if (evidence.supplementalShare) {
+          const {date, value, source} = evidence.supplementalShare;
+          const line = element("div", "別資料の同日株数 " + date + "・" + money.format(value) + "株 ");
+          line.append(link(source, "SGX自己株式取得報告"));
           detail.append(line);
         }
         if (evidence.reasons.length) {

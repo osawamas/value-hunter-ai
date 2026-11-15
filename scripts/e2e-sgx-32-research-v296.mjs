@@ -171,6 +171,10 @@ try{
  await page.locator("#marketRows").getByRole("checkbox").check();
  assert.equal(await page.locator("#marketCompareRows tr").count(),2);
  assert.match(await page.locator("#marketCompareRows tr").last().innerText(),/S20.*FY2025.*SGD.*623,300,000.*10\.4%.*—.*40\.7%.*照合途中/s);
+ await page.locator("#marketQuery").fill("S63");
+ await page.locator("#marketRows summary").click();
+ assert.match(await page.locator("#marketRows details").innerText(),/2026-06-30.*2026-11-13・3,115,847,115株/s);
+ assert.match(await page.getByRole("link",{name:"SGX自己株式取得報告"}).getAttribute("href"),/^https:\/\/links\.sgx\.com\//);
  await page.locator("#marketQuery").fill("U11");
  assert.equal(await page.locator("#marketRows").getByRole("checkbox").count(),0);
  assert.match(await page.locator("#marketRows").innerText(),/U11.*SGX財務画面/s);
