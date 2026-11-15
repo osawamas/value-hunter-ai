@@ -132,7 +132,28 @@
   if(checked.size!==19||rows.filter(r=>r.kind==="SGXNET"&&!r.directHtmlIdentityMatched).length||
      rows.filter(r=>r.kind==="SGX_STATIC").length!==11)
    throw Error("Some SGXNet original bodies lack proof");
-  return rows.map(r=>({...r,directHtmlIdentityMatched:r.directHtmlIdentityMatched===true}));
+  // v263: exact trading-code join of research counters with the verified-status
+  // financial feed; never convert registration into investable eligibility.
+  const financial=new Map();
+  if(!Array.isArray(feed.records)||feed.records.length!==7||
+     feed.records.some(r=>typeof r.symbol!=="string"||
+       !Array.isArray(r.exclusion_reasons)||r.exclusion_reasons.length===0||
+       r.ranking_eligible!==false))throw Error("Financial registration source invalid");
+  for(const rec of feed.records){
+   if(financial.has(rec.symbol))throw Error("Duplicated financial symbol");
+   financial.set(rec.symbol,rec);
+  }
+  const joined=rows.map(r=>{
+   const rec=financial.get(r.code);
+   return {...r,directHtmlIdentityMatched:r.directHtmlIdentityMatched===true,
+    financialRegistered:Boolean(rec),
+    financialExclusionReasons:rec?rec.exclusion_reasons.slice():[],
+    financialRankingEligible:false};
+  });
+  if(joined.filter(r=>r.financialRegistered).length!==4||
+     joined.some(r=>r.financialRankingEligible))
+    throw Error("SGX counter-finance overlap does not match provenance");
+  return joined;
  }
  function search(rows,query,boardFilter){
   const q=String(query||"").trim().toLocaleUpperCase("en");
@@ -169,6 +190,13 @@
        ((item.directHtmlIdentityMatched?"SGXNet原本本文一致":"SGX公式売買単位表")+"／"+(item.warning?"重要イベント要注意":"現在の取引状態は未確認"))]){
       const td=document.createElement("td");td.textContent=value;tr.append(td);
      }
+     const financeTd=document.createElement("td");
+     financeTd.textContent=item.financialRegistered?
+      "財務登録済・ランキング除外":"財務未登録";
+     financeTd.title=item.financialRegistered?
+      "除外理由："+item.financialExclusionReasons.join(" / "):
+      "財務データは未登録。株価の利用権も未検証";
+     tr.append(financeTd);
      const td=document.createElement("td"),a=document.createElement("a");
      a.href=item.source;a.target="_blank";a.rel="noopener noreferrer";
      a.textContent="コードの根拠";td.append(a);tr.append(td);
@@ -176,18 +204,18 @@
     }
     if(!shown.length){
      const tr=document.createElement("tr"),td=document.createElement("td");
-     td.colSpan=5;td.textContent="一致する企業なし";tr.append(td);frag.append(tr);
+     td.colSpan=6;td.textContent="一致する企業なし";tr.append(td);frag.append(tr);
     }
     body.replaceChildren(frag);
     count.textContent=shown.length+" / 30 件（複数のSGX限定資料からの過去開示コード）";
    };
    input.addEventListener("input",paint);board.addEventListener("change",paint);
    paint();
-   status.textContent="SGXNet原本HTMLの直接再取得で19銘柄を本文・SHA照合。残る11銘柄はSGX公式売買単位表。30銘柄は限定調査で、現在の上場・株価は未確認。";
+   status.textContent="SGX原本・静的資料の限定30銘柄を財務登録7社と銘柄コードで照合。共通4社もランキングは全て除外。19社のSGXNet原本HTMLはSHA検証済み。";
   }catch(e){
    body.replaceChildren();
    const tr=document.createElement("tr"),td=document.createElement("td");
-   td.colSpan=5;td.textContent="根拠の整合を取れなかったため、コード一覧は非表示";
+   td.colSpan=6;td.textContent="根拠の整合を取れなかったため、コード一覧は非表示";
    tr.append(td);body.append(tr);status.textContent="銘柄コード一覧の原本照合待ち";
    count.textContent="取得不可";
   }
