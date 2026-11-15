@@ -7,6 +7,7 @@ on:
       - '.github/workflows/file-preview-v279.yml'
       - 'scripts/build-file-preview-v279.py'
       - 'scripts/e2e-sgx-browser-v268.mjs'
+      - 'scripts/e2e-sgx-32-research-v296.mjs'
       - 'docs/**'
 permissions:
   contents: read
@@ -29,6 +30,7 @@ jobs:
           VALUE_HUNTER_URL="file://$(pwd)/build/release-v279/standalone/docs" \
           VALUE_HUNTER_E2E_SCREENSHOT="$(pwd)/build/release-v279/file-mobile.png" \
           node scripts/e2e-sgx-browser-v268.mjs
+          VALUE_HUNTER_URL="file://$(pwd)/build/release-v279/standalone/docs" node scripts/e2e-sgx-32-research-v296.mjs
       - name: Package validated direct-file launch ZIP
         run: |
           cd build/release-v279/standalone
