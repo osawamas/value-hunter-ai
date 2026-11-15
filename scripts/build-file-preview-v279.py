@@ -66,7 +66,7 @@ def build():
 })();
 """.replace("PAYLOAD",payload)
     (site/BOOT).write_text(script,encoding="utf-8")
-    for page in ("index.html", "sgx-32-research.html"):
+    for page in ("index.html", "sgx-32-research.html", "market-research.html"):
         path=site/page
         html=path.read_text(encoding="utf-8")
         head='<head>'

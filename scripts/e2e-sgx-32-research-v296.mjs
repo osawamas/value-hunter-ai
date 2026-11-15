@@ -72,6 +72,21 @@ try{
  await page.locator("#research32Finance").selectOption("YES");
  await page.locator("#research32Count").getByText(/4 \/ 33件/).waitFor();
  assert.equal(await page.locator("#research32Rows tr").count(),4);
+ await page.goto(base+"/market-research.html",{waitUntil:"domcontentloaded"});
+ await page.locator("#marketCount").getByText(/15 \/ 15件/).waitFor({timeout:25000});
+ await page.locator("#marketFilter").selectOption("JP");
+ await page.locator("#marketQuery").fill("７２０３");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
+ assert.match(await page.locator("#marketFinancialRows tr").last().innerText(),/50,684,952,000,000/);
+ await page.locator("#marketFilter").selectOption("US");
+ await page.locator("#marketQuery").fill("AAPL");
+ await page.getByRole("button",{name:"財務を見る"}).click();
+ assert.match(await page.locator("#marketDetailCurrency").innerText(),/USD/);
+ assert.match(await page.locator("#marketShareCount").innerText(),/14,532,182,000.*2026-10-23/);
+ await page.locator("#marketFilter").selectOption("SG");
+ await page.locator("#marketQuery").fill("U11");
+ assert.match(await page.locator("#marketRows").innerText(),/U11.*SGX財務画面/s);
  assert.deepEqual(errors,[]);
  console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 33 codes, IPO/finance filter, search, source links, downloaded CSV");
 }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}

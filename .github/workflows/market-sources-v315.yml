@@ -1,0 +1,27 @@
+name: JPX and SEC market source verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/data/market-research-v315.json'
+      - 'scripts/verify-market-sources-v315.py'
+      - '.github/workflows/market-sources-v315.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install openpyxl==3.1.5
+      - run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
+      - run: python scripts/verify-market-sources-v315.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: market-source-verification-v315
+          path: build/research/market-source-verification-v315.json

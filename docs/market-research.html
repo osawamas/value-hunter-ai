@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3市場の銘柄調査 | VALUE HUNTER AI</title>
+<link rel="stylesheet" href="./style.css">
+<script src="./market-research.js" defer></script>
+</head>
+<body>
+<div class="container">
+<header><a href="./index.html">VALUE HUNTER AI / 安物で割安</a></header>
+<main>
+<section class="workspace">
+<div class="section-heading">
+<h1>日本・米国・シンガポールの銘柄調査</h1>
+<a href="./sgx-32-research.html">SGXの原本・銘柄調査</a>
+</div>
+<div class="toolbar">
+<label class="control">市場<select id="marketFilter"><option value="">すべて</option><option value="JP">日本</option><option value="US">米国</option><option value="SG">シンガポール</option></select></label>
+<label class="control">銘柄コード・企業名<input id="marketQuery" type="search" placeholder="例　7203、AAPL、U11"></label>
+</div>
+<p id="marketCount" role="status">資料を読み込み中…</p>
+<div class="tablewrap"><table>
+<thead><tr><th>市場</th><th>コード</th><th>銘柄名</th><th>財務</th><th>出典</th></tr></thead>
+<tbody id="marketRows"></tbody>
+</table></div>
+</section>
+<section id="marketDetails" class="workspace" hidden>
+<h2 id="marketDetailTitle"></h2>
+<p id="marketDetailCurrency"></p>
+<div class="tablewrap"><table>
+<thead><tr><th>決算期末</th><th>売上</th><th>営業利益</th><th>親会社帰属純利益</th><th>売上前年比</th><th>営業利益前年比</th><th>営業利益率</th><th>親会社持分比率</th></tr></thead>
+<tbody id="marketFinancialRows"></tbody>
+</table></div>
+<p id="marketShareCount"></p>
+<p id="marketFinancialSources"></p>
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# VALUE HUNTER AI v315 — Japanese and US market ingestion
+
+The completion target is Japan, the United States and Singapore. The new Japanese-language market browser lists eight selected Japanese/US identifiers from JPX and SEC and seven registered SGX financial issuers. It links back to the established SGX detail pages. Toyota JP:7203 and Apple US:AAPL have two consecutive annual periods, sourced earnings/assets/parent equity, computed growth and margins, and dated outstanding shares. Local-source replay verified the October 2026 JPX workbook and the SEC directory, Apple 10-K facts and Toyota issuer PDF. JPX's 3,693 rows under three domestic sections and SEC's 7,617 NYSE/Nasdaq ticker/CIK/exchange combinations are distinct source populations. Neither count implies investable common-stock coverage; only the selected identities enter the public snapshot.
+
+The existing hourly task has been updated to continue the three-market scope. Next expand issuer filings and legal price intake independently by market. Current market prices and formal ranking are pending. Revisit market scope, checkpoint, latest.json and Actions before publishing.

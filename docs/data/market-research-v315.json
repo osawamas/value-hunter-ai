@@ -1,0 +1,144 @@
+{
+  "schema": "market-research-v315",
+  "jpx_snapshot_date": "2026-10-31",
+  "sec_observed_date": "2026-11-15",
+  "records": [
+    {
+      "id": "JP:3861",
+      "market": "JP",
+      "symbol": "3861",
+      "name": "Oji Holdings Corporation",
+      "label": "王子ホールディングス",
+      "board": "Prime",
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+    },
+    {
+      "id": "JP:4375",
+      "market": "JP",
+      "symbol": "4375",
+      "name": "Safie Inc.",
+      "label": "セーフィー",
+      "board": "Growth",
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+    },
+    {
+      "id": "JP:7201",
+      "market": "JP",
+      "symbol": "7201",
+      "name": "NISSAN MOTOR CO.,LTD.",
+      "label": "日産自動車",
+      "board": "Prime",
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+    },
+    {
+      "id": "JP:130A",
+      "market": "JP",
+      "symbol": "130A",
+      "name": "Veritas In Silico Inc.",
+      "label": "Veritas In Silico",
+      "board": "Growth",
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html"
+    },
+    {
+      "id": "JP:7203",
+      "market": "JP",
+      "symbol": "7203",
+      "name": "TOYOTA MOTOR CORPORATION",
+      "label": "トヨタ自動車",
+      "board": "Prime",
+      "identity_source": "https://www.jpx.co.jp/english/markets/statistics-equities/misc/01.html",
+      "financials": {
+        "currency": "JPY",
+        "basis": "IFRS",
+        "source": "https://global.toyota/pages/global_toyota/ir/financial-results/2026_4q_summary_en.pdf",
+        "periods": [
+          {
+            "start": "2024-04-01",
+            "end": "2025-03-31",
+            "revenue": 48036704000000,
+            "operating_income": 4795586000000,
+            "net_income": 4765086000000,
+            "assets": 93601350000000,
+            "parent_equity": 35924826000000
+          },
+          {
+            "start": "2025-04-01",
+            "end": "2026-03-31",
+            "revenue": 50684952000000,
+            "operating_income": 3766216000000,
+            "net_income": 3848098000000,
+            "assets": 105522331000000,
+            "parent_equity": 39918854000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-03-31",
+          "issued": 15794987460,
+          "treasury": 2761602986,
+          "value": 13033384474
+        }
+      }
+    },
+    {
+      "id": "US:AAPL",
+      "market": "US",
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "label": "Apple",
+      "cik": 320193,
+      "exchange": "Nasdaq",
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json",
+      "financials": {
+        "currency": "USD",
+        "basis": "US GAAP",
+        "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+        "accession": "0000320193-26-000026",
+        "filing_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000026/aapl-20260926.htm",
+        "periods": [
+          {
+            "start": "2024-09-29",
+            "end": "2025-09-27",
+            "revenue": 416161000000,
+            "operating_income": 133050000000,
+            "net_income": 112010000000,
+            "assets": 359241000000,
+            "parent_equity": 73733000000
+          },
+          {
+            "start": "2025-09-28",
+            "end": "2026-09-26",
+            "revenue": 478834000000,
+            "operating_income": 158063000000,
+            "net_income": 132175000000,
+            "assets": 404548000000,
+            "parent_equity": 112093000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-10-23",
+          "value": 14532182000
+        }
+      }
+    },
+    {
+      "id": "US:MSFT",
+      "market": "US",
+      "symbol": "MSFT",
+      "name": "MICROSOFT CORP",
+      "label": "Microsoft",
+      "cik": 789019,
+      "exchange": "Nasdaq",
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json"
+    },
+    {
+      "id": "US:NVDA",
+      "market": "US",
+      "symbol": "NVDA",
+      "name": "NVIDIA CORP",
+      "label": "NVIDIA",
+      "cik": 1045810,
+      "exchange": "Nasdaq",
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json"
+    }
+  ]
+}
