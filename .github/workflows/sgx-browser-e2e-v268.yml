@@ -35,7 +35,16 @@ jobs:
       - name: Run Chrome direct navigation and CSV download regression
         env:
           CHROME_BIN: /usr/bin/google-chrome
+          VALUE_HUNTER_E2E_SCREENSHOT: build/research/sgx-browser-v268.png
         run: node scripts/e2e-sgx-browser-v268.mjs
+      - name: Save verified mobile dashboard rendering
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sgx-browser-mobile-verified-v269
+          path: build/research/sgx-browser-v268.png
+          if-no-files-found: error
+          retention-days: 30
       - name: Retain local server log for diagnosis
         if: failure()
         uses: actions/upload-artifact@v4
