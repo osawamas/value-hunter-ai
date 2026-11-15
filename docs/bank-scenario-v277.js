@@ -4,28 +4,41 @@
  */
 "use strict";
 (function(root){
- const isDate=x=>typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
-  new Date(x+"T00:00:00Z").toISOString().slice(0,10)===x;
+ const isDate=x=>{
+  if(typeof x!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(x))return false;
+  const value=Date.parse(x+"T00:00:00Z");
+  return Number.isFinite(value)&&new Date(value).toISOString().slice(0,10)===x;
+ };
  const currentSchema="value_hunter_scenario_banks_v277";
  function getBank(finance,symbol){
   if(finance?.ranking_enabled!==false||finance.ranking_eligible_count!==0||
      !Array.isArray(finance.records)||finance.records.length!==7)throw Error("Finance source gate changed");
   const rec=finance.records.find(x=>x.symbol===symbol);
   if(!rec||rec.ranking_eligible!==false)return null;
-  const b=rec.banking_evidence;
-  if(b?.status!=="BANK_ISSUER_FY2025_GROUP_STATEMENTS_RECONCILED"||
-     b.fiscal_year!==2025||b.unit!=="SGD_millions"||
-     b.independent_cross_source_verification!==false||
-     !/^https:\/\//.test(b.source_url)||
-     !/^[a-f0-9]{64}$/.test(b.pdf_sha256)||
-     !Number.isFinite(b.income?.["2025"]?.profit_attributable_to_parent)||
-     !Number.isFinite(b.balance?.["2025"]?.parent_shareholders_funds)||
-     b.balance["2025"].parent_shareholders_funds<=0)return null;
+  let source,sha,profit,equity,valid=false;
+  if(symbol==="D05"){
+   const b=rec.banking_evidence;
+   valid=b?.status==="BANK_ISSUER_FY2025_GROUP_STATEMENTS_RECONCILED"&&
+     b.fiscal_year===2025&&b.unit==="SGD_millions"&&
+     b.independent_cross_source_verification===false;
+   if(valid){source=b.source_url;sha=b.pdf_sha256;
+     profit=b.income?.["2025"]?.profit_attributable_to_parent;
+     equity=b.balance?.["2025"]?.parent_shareholders_funds;}
+  } else if(symbol==="O39"||symbol==="U11"){
+   const b=rec.banking_audited;
+   valid=b?.status==="ISSUER_AUDITED_GROUP_STATEMENTS_MATCH_HIGHLIGHTS"&&
+     b.period_end==="2025-12-31"&&b.unit==="SGD_millions"&&
+     b.independent_cross_source_verification===false;
+   if(valid){source=b.source_url;sha=b.pdf_sha256;
+     profit=b.income?.parent_profit?.["2025"];
+     equity=b.balance?.parent_equity?.["2025"];}
+  }
+  if(!valid||!/^https:\/\//.test(source||"")||
+     !/^[a-f0-9]{64}$/.test(sha||"")||
+     !Number.isFinite(profit)||!Number.isFinite(equity)||equity<=0)return null;
   return {symbol:rec.symbol,name:rec.issuer,year:2025,
-   parentProfitMillion:b.income["2025"].profit_attributable_to_parent,
-   parentEquityMillion:b.balance["2025"].parent_shareholders_funds,
-   source:b.source_url,sourceSHA256:b.pdf_sha256,
-   independentlyVerified:false,rankingEligible:false};
+   parentProfitMillion:profit,parentEquityMillion:equity,
+   source,sourceSHA256:sha,independentlyVerified:false,rankingEligible:false};
  }
  function calculate(finance,input){
   if(!input||typeof input.symbol!=="string")throw Error("銘柄未指定");
