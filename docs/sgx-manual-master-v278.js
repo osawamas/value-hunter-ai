@@ -143,8 +143,8 @@
   previous.addEventListener("click",()=>{if(visiblePage>0){visiblePage--;repaint();}});
   next.addEventListener("click",()=>{if(staged){visiblePage++;repaint();}});
   template.addEventListener("click",()=>{
-   const header=head.join(",")+"\\r\\n";
-   const blob=new Blob(["\\uFEFF"+header],{type:"text/csv;charset=utf-8"});
+   const header=head.join(",")+"\r\n";
+   const blob=new Blob(["\uFEFF"+header],{type:"text/csv;charset=utf-8"});
    const url=URL.createObjectURL(blob);
    const a=document.createElement("a");
    a.href=url;a.download="sgx-source-template-unverified.csv";a.click();
