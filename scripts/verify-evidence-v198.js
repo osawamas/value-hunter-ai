@@ -87,7 +87,8 @@ const tests=[
  "docs/test_dbs_second_source_v287.js",
  "docs/test_uob_second_source_v288.js",
  "docs/test_ranking_provenance_v289.js",
- "docs/test_ranking_license_evidence_v290.js"
+ "docs/test_ranking_license_evidence_v290.js",
+ "docs/test_sgx_snapshot_diff_v291.js"
 ];
 let failed=0;
 const results=[];
