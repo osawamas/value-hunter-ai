@@ -77,6 +77,31 @@ function diff(oldSnapshot,newSnapshot){
   published_feed_modified:false
  };
 }
+function corroborateOctober(result,october,ipo){
+ const start=result.older.as_of_date,end=result.newer.as_of_date;
+ if(start!=="2026-09-30"||end!=="2026-10-31")
+  throw Error("October evidence requires the 30 Sep and 31 Oct 2026 snapshots");
+ const {reconcileOctoberBoards}=require("../docs/universe-coverage-audit-v205.js");
+ const {delisting,transfer}=reconcileOctoberBoards(october,ipo);
+ const ordinary=(entry,code)=>{
+  const [symbol,currency,type]=entry.identity.split("|");
+  return symbol===code&&currency==="SGD"&&["STOCK","EQUITY","ORDINARY SHARE","ORDINARY SHARES"].includes(type);
+ };
+ const corroborated=[];
+ for(const listing of ipo.issuer_listing_confirmations){
+  const matches=result.possible_additions.filter(e=>ordinary(e,listing.trading_code));
+  if(matches.length===1)corroborated.push({identity:matches[0].identity,
+   event:"LISTING_CONFIRMATION",effective_date:listing.effective_trading_date,source_url:listing.source_url});
+ }
+ const removed=result.possible_removals.filter(e=>ordinary(e,delisting.symbol));
+ if(removed.length===1)corroborated.push({identity:removed[0].identity,event:"DELISTING",
+  effective_date:delisting.date,source_url:delisting.source.url});
+ const moved=result.metadata_changes.filter(e=>ordinary(e,transfer.symbol)&&
+  e.from_board===transfer.from_board&&e.to_board===transfer.to_board);
+ if(moved.length===1)corroborated.push({identity:moved[0].identity,event:"TRANSFER",
+  effective_date:transfer.date,source_url:transfer.source.url});
+ return {...result,public_sgx_event_matches:corroborated};
+}
 function fromCSV(input,date,url){
  const original=decodeOriginalCsv(fs.readFileSync(input));
  const staged=normalize(original.csv,{as_of_date:date,source_url:url});
@@ -88,13 +113,19 @@ if(require.main===module){
  try{
   const older=val("--older"),newer=val("--newer"),a=val("--older-date"),b=val("--newer-date"),
   url1=val("--older-url"),url2=val("--newer-url"),out=val("--out");
-  if(![older,newer,a,b,url1,url2,out].every(Boolean))throw Error("Usage: node scripts/diff-sgx-snapshots-v291.js --older old.csv --older-date YYYY-MM-DD --older-url https://www.sgx.com/... --newer new.csv --newer-date YYYY-MM-DD --newer-url https://www.sgx.com/... --out build/research/local-diff.json");
+  if(![older,newer,a,b,url1,url2,out].every(Boolean))throw Error("Usage: node scripts/diff-sgx-snapshots-v291.js --older old.csv --older-date YYYY-MM-DD --older-url https://www.sgx.com/... --newer new.csv --newer-date YYYY-MM-DD --newer-url https://www.sgx.com/... --out build/research/local-diff.json [--corroborate-october-2026]");
   const dest=path.resolve(out),docs=path.resolve(__dirname,"../docs");
   if(dest===docs||dest.startsWith(docs+path.sep))throw Error("Refusing to publish private unauthenticated data into docs/");
-  const result=diff(fromCSV(older,a,url1),fromCSV(newer,b,url2));
+  let result=diff(fromCSV(older,a,url1),fromCSV(newer,b,url2));
+  if(args.includes("--corroborate-october-2026")){
+   const research=name=>JSON.parse(fs.readFileSync(path.join(docs,"data",name)));
+   result=corroborateOctober(result,research("sgx-october-release-v292.json"),research("sgx-october-ipo-listing-v294.json"));
+  }
   fs.mkdirSync(path.dirname(dest),{recursive:true});
   fs.writeFileSync(dest,JSON.stringify(result,null,2)+"\n",{flag:"wx"});
-  console.log("v291: "+result.counts.added+" possible additions, "+result.counts.removed+" possible removals; NOT verified listings.");
+  console.log(result.counts.added+" possible additions, "+result.counts.removed+" possible removals"+
+   (result.public_sgx_event_matches?" and "+result.public_sgx_event_matches.length+" matches to public SGX events":"")+
+   ". Input source remains unauthenticated.");
  }catch(e){console.error(e.message);process.exitCode=1;}
 }
-module.exports={diff,validate,parseDate,fromCSV};
+module.exports={diff,validate,parseDate,fromCSV,corroborateOctober};

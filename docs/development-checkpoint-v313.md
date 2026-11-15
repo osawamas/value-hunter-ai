@@ -1,0 +1,5 @@
+# VALUE HUNTER AI v313 — reconcile local snapshots with public October records
+
+The existing offline CSV comparison accepts an opt-in flag `--corroborate-october-2026`. With 30 September and 31 October 2026 snapshots, it returns separate public SGX event matches for ordinary SGD shares where the observed delta agrees with the sourced listing, delisting or board transfer. Currency/type mismatches remain plain input differences. The option writes only to the existing local output and does not certify the input files or universe.
+
+Core releases v303–v312 added dated UOB/OCBC share notices, MET listing/treasury/financial sources, 5WA and 5WG events, the 604-to-605 October bridge, IPO capital and original SGX market-data policy. v312 Actions originals #43685525776, evidence #43685525772, Chromium #43685525490, HTTP ZIP #43685525567 and standalone ZIP #43685525769 all passed. Current complete reference-data file and app-specific market-data permissions remain outstanding. Ranking 0/7. Keep existing hourly automation.
