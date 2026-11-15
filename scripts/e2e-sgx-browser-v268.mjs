@@ -33,6 +33,11 @@ try {
  assert.equal(await page.locator("#sgxManualMasterRows tr").count(),2);
  assert.match(await page.locator("#sgxManualMasterResult").innerText(),/原本・全銘柄・現在上場は未検証/);
 
+ await page.locator("#sgxManualMasterCoverageGaps summary").click();
+ assert.match(await page.locator("#sgxManualMasterCoverageGaps").innerText(),/G13/);
+ assert.match(await page.locator("#sgxManualMasterCoverageGaps").innerText(),/182社のうちCSVにないコード/);
+
+
  // v280: import more than one page and verify browser search/pagination.
  const largeCsv="Trading Code,Trading Name,Listing Board,Traded Currency\r\n"+
   Array.from({length:120},(_,i)=>i.toString(36).toUpperCase().padStart(4,"0")+
