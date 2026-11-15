@@ -334,6 +334,19 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
     const entry = {id, label: row?.label || id, quote};
     if (!row) return {...entry, state: "unknown"};
     const finance = row.financials;
+    let latest;
+    try {
+      latest = finance ? compareAnnual(finance).at(-1) : sgxValuationFinance(row);
+    } catch {
+      return {...entry, state: "invalid"};
+    }
+    const metrics = finance ? latest : latest && row.sgxAnnual;
+    if (metrics) {
+      entry.financialPeriodEnd = latest.end;
+      entry.salesGrowth = metrics.salesGrowth;
+      entry.equityRatio = metrics.equityRatio;
+      entry.financeSource = finance?.filing_url || finance?.source || latest.source;
+    }
     if (finance?.share_classes) {
       if (quote.currency !== finance.currency || !isMarketDate(quote.date) ||
           !Number.isFinite(quote.price) || quote.price <= 0) return {...entry, state: "incompatible"};
@@ -341,10 +354,9 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
       const detail = [describeClassQuotes(row, quote, quotes, history), note].filter(Boolean).join("／");
       return {...entry, state: "shareClasses", detail, ...listedClass};
     }
-    const sgx = sgxValuationFinance(row);
-    if (!finance && !sgx) return {...entry, state: "noFinance"};
-    const currency = finance?.currency || sgx.currency;
-    const periodEnd = finance ? finance.periods.at(-1).end : sgx.end;
+    if (!latest) return {...entry, state: "noFinance"};
+    const currency = finance?.currency || latest.currency;
+    const periodEnd = latest.end;
     if (quote.currency !== currency || quote.date < periodEnd) {
       return {...entry, state: "incompatible"};
     }
@@ -352,22 +364,23 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
     if (match.value === null) return {...entry, state: match.state};
     try {
       const inputs = {...quote, shares: match.value};
-      const result = finance ? calculateMarketScenario(finance, inputs) : calculateWithAnnualPeriod(currency, sgx, inputs);
+      const result = calculateWithAnnualPeriod(currency, latest, inputs);
       return {...entry, state: match.state, shares: match.value, shareSource: match.source,
-        financeSource: finance?.filing_url || finance?.source || sgx?.source, result};
+        result};
     } catch {
       return {...entry, state: "invalid"};
     }
   });
 }
 
-function screenPersonalBatch(rows, {market, limits, order}) {
+function screenPersonalBatch(rows, {market, limits, minimums = {}, order}) {
   const visible = rows.filter(row => {
     if (market && !row.id.startsWith(market + ":")) return false;
     return Object.entries(limits).every(([metric, max]) => {
       const value = row.result?.[metric];
       return max === null || (Number.isFinite(value) && value <= max);
-    });
+    }) && Object.entries(minimums).every(([metric, min]) =>
+      min === null || (Number.isFinite(row[metric]) && row[metric] >= min));
   });
   if (order) visible.sort((a, b) => {
     const left = a.result?.[order];
@@ -381,7 +394,7 @@ function screenPersonalBatch(rows, {market, limits, order}) {
 function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
-    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value"];
+    "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct"];
   const cell = value => {
     if (value === null || value === undefined) return "";
     if (typeof value === "number") return String(value);
@@ -390,8 +403,10 @@ function personalBatchCsv(results) {
     return '"' + text.replaceAll('"', '""') + '"';
   };
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
-    row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.result?.periodEnd,
-    row.state, row.financeSource, row.shareSource, row.detail, row.classValue].map(cell).join(","));
+    row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
+    row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
+    Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
+    Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null].map(cell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
@@ -467,6 +482,7 @@ async function initMarketResearch() {
     incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
   const batchMarket = byId("personalBatchMarket"), maxPer = byId("personalBatchMaxPer");
   const maxPbr = byId("personalBatchMaxPbr"), batchOrder = byId("personalBatchOrder");
+  const minSales = byId("personalBatchMinSales"), minEquity = byId("personalBatchMinEquity");
   const paintBatch = () => {
     const batchDate = byId("personalBatchDate");
     batchDate.disabled = !personalQuoteHistory.size;
@@ -481,11 +497,14 @@ async function initMarketResearch() {
       class: hasClassValue,
       unresolved: row => !row.result && !hasClassValue(row),
     };
-    for (const control of [batchMarket, maxPer, maxPbr, batchOrder]) control.disabled = !results.length;
+    for (const control of [batchMarket, maxPer, maxPbr, batchOrder, minSales, minEquity]) control.disabled = !results.length;
     const invalidLimit = results.length && (!maxPer.validity.valid || !maxPbr.validity.valid);
     const limits = {per: maxPer.value ? maxPer.valueAsNumber : null, pbr: maxPbr.value ? maxPbr.valueAsNumber : null};
-    batchResults = invalidLimit ? [] : screenPersonalBatch(results.filter(matches[statusFilter.value]),
-      {market: batchMarket.value, limits, order: batchOrder.value});
+    const invalidMinimum = results.length && (!minSales.validity.valid || !minEquity.validity.valid);
+    const minimums = {salesGrowth: minSales.value ? minSales.valueAsNumber / 100 : null,
+      equityRatio: minEquity.value ? minEquity.valueAsNumber / 100 : null};
+    batchResults = invalidLimit || invalidMinimum ? [] : screenPersonalBatch(results.filter(matches[statusFilter.value]),
+      {market: batchMarket.value, limits, minimums, order: batchOrder.value});
     byId("personalBatchDownload").disabled = batchResults.length === 0;
     byId("personalBatchTable").hidden = batchResults.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
@@ -493,7 +512,8 @@ async function initMarketResearch() {
     const classCount = results.filter(hasClassValue).length;
     if (classCount) byId("personalBatchStatus").append("・上場クラス別の参考時価 " + classCount + "件");
     if (invalidLimit) byId("personalBatchStatus").append("・PERとPBRの上限は0以上の数値を入力");
-    if (results.length && (statusFilter.value !== "all" || batchMarket.value || maxPer.value || maxPbr.value || invalidLimit)) {
+    if (invalidMinimum) byId("personalBatchStatus").append("・下限には数値を入力");
+    if (results.length && (minSales.value || minEquity.value || invalidMinimum || statusFilter.value !== "all" || batchMarket.value || maxPer.value || maxPbr.value || invalidLimit)) {
       byId("personalBatchStatus").append("・表示 " + batchResults.length + "件");
     }
     byId("personalBatchRows").replaceChildren(...batchResults.map(row => {
@@ -501,8 +521,9 @@ async function initMarketResearch() {
       const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
         quote.date, quote.currency, money.format(quote.price), row.shares ? money.format(row.shares) : "—",
         result ? money.format(result.cap) : "—", result ? multiple(result.per) : "—",
-        result ? multiple(result.pbr) : "—", result?.periodEnd || "—", row.detail || batchLabels[row.state],
-        row.classValue === undefined ? "—" : money.format(row.classValue)];
+        result ? multiple(result.pbr) : "—", row.financialPeriodEnd || "—", row.detail || batchLabels[row.state],
+        row.classValue === undefined ? "—" : money.format(row.classValue),
+        pct(row.salesGrowth ?? null), pct(row.equityRatio ?? null)];
       const tr = document.createElement("tr");
       tr.append(...values.map(value => element("td", value)));
       const sourceCell = element("td", "");
@@ -518,6 +539,8 @@ async function initMarketResearch() {
   batchOrder.addEventListener("change", paintBatch);
   maxPer.addEventListener("input", paintBatch);
   maxPbr.addEventListener("input", paintBatch);
+  minSales.addEventListener("input", paintBatch);
+  minEquity.addEventListener("input", paintBatch);
   byId("personalBatchDownload").addEventListener("click", () => {
     if (!batchResults.length) return;
     const csv = new Blob([personalBatchCsv(batchResults)], {type: "text/csv;charset=utf-8"});
