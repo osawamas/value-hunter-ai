@@ -1,0 +1,5 @@
+# VALUE HUNTER AI v327 — record and isolate hosted SEC access limits
+
+GitHub Actions v325 job 132735576470 reached the data.sec.gov Company Facts request for AAPL and received HTTP 403. The earlier directory request at www.sec.gov was also denied. Offline SEC excerpts and live Japanese sources passed in the same run. Retain live SEC as an explicit workflow dispatch option so the default workflow accurately represents what runs and a live probe still fails visibly on HTTP 403. The local original route verified four US companies through v326. No unattended hosted SEC refresh is claimed.
+
+The three-market research page lists 16 selected companies, 12 with annual comparisons, and zero ranking-eligible companies. The local price CSV works for JP/US valuations. The J-Quants exporter is tested on representative API responses pending authenticated use. Prioritize a recurring permitted SEC source path, market data coverage and corporate-action/share reconciliation. Keep the existing hourly task scoped to JP, US and SGX.

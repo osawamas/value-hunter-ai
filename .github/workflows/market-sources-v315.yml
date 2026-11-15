@@ -1,6 +1,11 @@
 name: JPX and SEC market source verification
 on:
   workflow_dispatch:
+    inputs:
+      check_sec_live:
+        description: 'Try live SEC Company Facts from the hosted runner'
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -36,6 +41,7 @@ jobs:
       - run: python -m pip install openpyxl==3.1.5
       - run: python scripts/verify-market-sources-v315.py --check-sec-excerpts
   sec-companyfacts-originals:
+    if: github.event_name == 'workflow_dispatch' && inputs.check_sec_live
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
