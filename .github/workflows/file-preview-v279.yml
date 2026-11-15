@@ -1,0 +1,49 @@
+name: VALUE HUNTER double-click file preview v279
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/file-preview-v279.yml'
+      - 'scripts/build-file-preview-v279.py'
+      - 'scripts/e2e-sgx-browser-v268.mjs'
+      - 'docs/**'
+permissions:
+  contents: read
+jobs:
+  test-file-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build file scheme browser preview from public JSON snapshots
+        run: |
+          python3 scripts/build-file-preview-v279.py
+          test -s build/release-v279/standalone/docs/offline-data-v279.js
+          test -s build/release-v279/standalone/START-HERE.txt
+          test -s build/release-v279/manifest-v279.json
+      - name: Verify actual local file double-click Chrome behavior
+        run: |
+          command -v google-chrome
+          npm install --no-save --no-package-lock playwright-core
+          VALUE_HUNTER_URL="file://$(pwd)/build/release-v279/standalone/docs" \
+          VALUE_HUNTER_E2E_SCREENSHOT="$(pwd)/build/release-v279/file-mobile.png" \
+          node scripts/e2e-sgx-browser-v268.mjs
+      - name: Package validated direct-file launch ZIP
+        run: |
+          cd build/release-v279/standalone
+          zip -q -r ../value-hunter-direct-open-v279.zip docs START-HERE.txt
+          cd ..
+          unzip -t value-hunter-direct-open-v279.zip | tail -n 2
+          sha256sum value-hunter-direct-open-v279.zip > zip-sha256-v279.txt
+      - name: Preserve directly usable ZIP and mobile browser evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-hunter-direct-open-v279
+          path: |
+            build/release-v279/value-hunter-direct-open-v279.zip
+            build/release-v279/zip-sha256-v279.txt
+            build/release-v279/manifest-v279.json
+            build/release-v279/file-mobile.png
+          if-no-files-found: error
+          retention-days: 30
