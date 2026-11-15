@@ -270,6 +270,24 @@ try{
  assert.equal(metaCells[10],"442,894,473,400");
  assert.match(await metaClass.getByRole("link",{name:"株数資料"}).getAttribute("href"),/000162828026066773/);
  assert.match(await page.locator("#personalBatchStatus").innerText(),/上場クラス別の参考時価 1件/);
+ await page.getByRole("link",{name:"株価・株数CSVを作成"}).click();
+ await page.locator("#market").selectOption("US");
+ await page.locator("#symbol").fill("META");
+ await page.locator("#date").fill("2026-10-16");
+ await page.locator("#close").fill("200");
+ await page.getByRole("button",{name:"行を追加"}).click();
+ assert.match(await page.locator("#status").innerText(),/1行の終値、0行の株数/);
+ assert.equal(await page.locator("#sharefile").isDisabled(),true);
+ const builderDownload = page.waitForEvent("download");
+ await page.getByRole("button",{name:"株価CSVを保存"}).click();
+ const builderCsv = await builderDownload;
+ const builderPath = path.join(dir,builderCsv.suggestedFilename());
+ await builderCsv.saveAs(builderPath);
+ await page.getByRole("link",{name:/3市場の銘柄調査/}).click();
+ await page.locator("#marketCount").getByText(/20 \/ 20件/).waitFor({timeout:25000});
+ await page.locator("#personalQuoteFile").setInputFiles(builderPath);
+ await page.locator("#personalQuoteStatus").getByText(/終値を 1件/).waitFor();
+ assert.match(await page.locator("#personalBatchRows").innerText(),/US:META.*442,894,473,400/s);
  assert.deepEqual(errors,[]);
  console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 33 codes, IPO/finance filter, search, source links, downloaded CSV");
 }finally{await browser.close();fs.rmSync(dir,{recursive:true,force:true});}
