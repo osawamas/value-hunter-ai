@@ -58,5 +58,5 @@ const ui=fs.readFileSync("docs/sgx-manual-master-v278.js","utf8");
 assert.match(ui,/search\.addEventListener\("input"/);
 assert.match(ui,/pageOf\(staged,search\.value,visiblePage\)/);
 assert.match(ui,/sgx-source-template-unverified\.csv/);
-assert.match(ui,/return "\\uFEFF"/);
+assert.match(ui,/const blob=new Blob/);
 console.log("v280 PASS: private 1200-code browse/search, 24-page navigation, boundaries, CSV template and no verified/ranking promotion");
