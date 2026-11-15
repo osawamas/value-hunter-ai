@@ -1,0 +1,30 @@
+name: DBS issuer-hosted 3Q26 newsroom original v287
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/dbs-newsroom-v287.yml'
+      - 'scripts/replay-dbs-newsroom-v287.py'
+      - 'scripts/test_dbs_newsroom_v287.py'
+      - 'docs/data/sgx-big3-bank-research-v186.json'
+permissions:
+  contents: read
+jobs:
+  issuer-newsroom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test exact DBS issuer publication rounding labels offline
+        run: python3 scripts/test_dbs_newsroom_v287.py
+      - name: Re-fetch DBS issuer-owned newsroom original
+        run: python3 scripts/replay-dbs-newsroom-v287.py
+      - name: Preserve HTML hash and actual verification outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbs-issuer-newsroom-3q-v287
+          path: build/research/dbs-official-newsroom-3q-v287.json
+          if-no-files-found: warn
+          retention-days: 30
