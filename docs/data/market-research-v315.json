@@ -549,6 +549,49 @@
           "rounded": false
         }
       }
+    },
+    {
+      "id": "US:INTC",
+      "market": "US",
+      "symbol": "INTC",
+      "name": "INTEL CORP",
+      "label": "Intel",
+      "cik": 50863,
+      "exchange": "Nasdaq",
+      "identity_source": "https://www.sec.gov/files/company_tickers_exchange.json",
+      "financials": {
+        "currency": "USD",
+        "basis": "US GAAP",
+        "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000050863.json",
+        "accession": "0000050863-26-000011",
+        "filing_url": "https://www.sec.gov/Archives/edgar/data/50863/000005086326000011/intc-20251227.htm",
+        "periods": [
+          {
+            "start": "2023-12-31",
+            "end": "2024-12-28",
+            "revenue": 53101000000,
+            "operating_income": -11678000000,
+            "net_income": -18756000000,
+            "assets": 196485000000,
+            "parent_equity": 99270000000
+          },
+          {
+            "start": "2024-12-29",
+            "end": "2025-12-27",
+            "revenue": 52853000000,
+            "operating_income": -2214000000,
+            "net_income": -267000000,
+            "assets": 211429000000,
+            "parent_equity": 114281000000
+          }
+        ],
+        "shares": {
+          "as_of": "2026-01-16",
+          "value": 4995000000,
+          "rounded": true
+        },
+        "revenue_tag": "RevenueFromContractWithCustomerExcludingAssessedTax"
+      }
     }
   ]
 }
