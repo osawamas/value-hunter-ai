@@ -1,0 +1,51 @@
+{
+  "schema_version": "sgx-october-ipo-official-listing-v294",
+  "verified_on_date": "2026-11-15",
+  "scope": "TWO_DATED_OCTOBER_2026_SGX_ST_LISTING_CONFIRMATIONS_NOT_CURRENT_ACTIVE_MASTER",
+  "original_source_type": "SGXNET_EXCHANGE_LISTING_CONFIRMATION_HTML",
+  "full_active_sgx_master_verified": false,
+  "market_data_display_rights_verified": false,
+  "market_data_non_display_rights_verified": false,
+  "independent_financial_verification_complete": false,
+  "ranking_enabled": false,
+  "ranking_eligible_count": 0,
+  "issuer_listing_confirmations": [
+    {
+      "issuer_name": "DELUGE CORPORATION LIMITED",
+      "trading_code": "9DC",
+      "isin": "SGXE96931105",
+      "board": "MAINBOARD",
+      "event_type": "EQUITY_LISTING_CONFIRMATION",
+      "effective_trading_date": "2026-10-16",
+      "effective_time_sgt": "09:00",
+      "listed_trading_confirmed_asof_event": true,
+      "currently_active_listing_verified": false,
+      "quote_verified": false,
+      "shares_ex_treasury_verified": false,
+      "financials_verified": false,
+      "ranking_eligible": false,
+      "announcement_reference": "SG261016OTHRW0SM",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/CVLKKOOOXPT8BOG2/bbddb7499b65b97ca34526cab59adee3f7b34f2be274cc0d38cbd7b74e0ee857"
+    },
+    {
+      "issuer_name": "MI MATERIAL HOLDING LIMITED",
+      "trading_code": "MIM",
+      "isin": "SGXE49931863",
+      "board": "MAINBOARD",
+      "event_type": "EQUITY_LISTING_CONFIRMATION",
+      "effective_trading_date": "2026-10-28",
+      "effective_time_sgt": "14:00",
+      "listed_trading_confirmed_asof_event": true,
+      "currently_active_listing_verified": false,
+      "quote_verified": false,
+      "shares_ex_treasury_verified": false,
+      "financials_verified": false,
+      "ranking_eligible": false,
+      "announcement_reference": "SG261027OTHR92A1",
+      "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/7553QXPI35CQ2A7V/fc20bc2859953005b225dc9ffbaf98694e9305222473599a64b927ab90629c7a"
+    }
+  ],
+  "october_monthly_statistics_pdf_sha256": null,
+  "october_monthly_issuer_counts_verified": false,
+  "not_to_infer": "Adding two confirmed listings does not prove October month-end universe delta because delistings and other changes may offset them"
+}
