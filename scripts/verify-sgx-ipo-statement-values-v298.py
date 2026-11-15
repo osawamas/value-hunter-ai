@@ -345,7 +345,19 @@ def verify_metasurface_listing(record):
       f"Total {before:,} 100.0 {after:,} 100.0",
      ))):
   raise ValueError("Metasurface HKEX placing-completion share capital mismatch")
- print("SGX/HKEX VERIFIED MET Catalist admission and post-placement shares excluding treasury")
+ return_notice=capital["next_day_return"]
+ text=" ".join(original_text(return_notice["source"],("-f","1","-l","1")).split())
+ filed=datetime.date.fromisoformat(return_notice["submitted_date"])
+ closing=datetime.date.fromisoformat(return_notice["closing_balance_date"])
+ treasury=return_notice["treasury_shares"]
+ issued=return_notice["total_issued_including_treasury"]
+ if issued-treasury!=after or not all(clause in text for clause in (
+  "Next Day Disclosure Return",f"Date Submitted: {filed:%d %B %Y}",
+  f"Closing balance as at (Notes 5 and 6) {closing:%d %B %Y} {after:,} {treasury:,} {issued:,}",
+  f"Allotment and issuance of {new:,} new shares",
+ )):
+  raise ValueError("Metasurface HKEX next-day return shares or date mismatch")
+ print("SGX/HKEX VERIFIED MET admission and two source-dated post-placement share counts")
  return record
 
 def verify_met_historical_financials(data):

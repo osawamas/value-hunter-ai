@@ -24,6 +24,17 @@
       "url": "https://www1.hkexnews.hk/listedco/listconews/gem/2026/1103/2026110302239.pdf",
       "sha256": "881f3ad855b8679ec1ab7d4c1b2f81d11c9275fb48753d13195b5985c5fd464f",
       "bytes": 152439
+    },
+    "next_day_return": {
+      "submitted_date": "2026-11-04",
+      "closing_balance_date": "2026-11-02",
+      "treasury_shares": 1383000,
+      "total_issued_including_treasury": 168000000,
+      "source": {
+        "url": "https://www1.hkexnews.hk/listedco/listconews/gem/2026/1104/2026110400313.pdf",
+        "sha256": "d91e51c00cc2cca1cbfd7871db56dd0612f1a5c8f63ebda609548ad9c9d17d18",
+        "bytes": 83038
+      }
     }
   },
   "historical_financials": {

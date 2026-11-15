@@ -191,16 +191,22 @@
     capitalFragment.append(row);
    }
    const placed=met.placement_capital;
+   const nextDay=placed?.next_day_return;
    if(met.symbol!=="MET"||met.isin!=="KYG9R41B1017"||met.ranking_eligible!==false||
       placed?.effective_date!=="2026-11-03"||placed.current_shares_verified!==false||
       [placed.shares_before_ex_treasury,placed.new_shares,placed.shares_after_ex_treasury].some(x=>!Number.isSafeInteger(x)||x<=0)||
       placed.shares_before_ex_treasury+placed.new_shares!==placed.shares_after_ex_treasury||
-      !/^https:\/\/www1\.hkexnews\.hk\/listedco\//.test(placed.source?.url||""))
+      nextDay?.closing_balance_date!=="2026-11-02"||nextDay.submitted_date!=="2026-11-04"||
+      !Number.isSafeInteger(nextDay.treasury_shares)||nextDay.treasury_shares<=0||
+      !Number.isSafeInteger(nextDay.total_issued_including_treasury)||
+      nextDay.total_issued_including_treasury-nextDay.treasury_shares!==placed.shares_after_ex_treasury||
+      ![placed.source,nextDay.source].every(s=>/^https:\/\/www1\.hkexnews\.hk\/listedco\//.test(s?.url||"")))
     throw Error("METの割当完了時の株数に不一致");
    const metRow=root.document.createElement("tr"),proof=td("");
-   proof.append(sourceLink(placed.source.url,"HKEX割当完了PDF"));
+   proof.append(sourceLink(placed.source.url,"HKEX割当完了PDF"),"・",sourceLink(nextDay.source.url,"HKEX翌日開示PDF"));
    metRow.append(td(met.symbol),td(placed.effective_date),td(money(placed.shares_after_ex_treasury)),
-    td("上場前日の割当完了時点・自己株式控除後"),proof);
+    td("割当完了時点・自己株式控除後。翌日開示の11月2日残高も一致（発行済総数 "+money(nextDay.total_issued_including_treasury)+
+      "株、うち自己株式 "+money(nextDay.treasury_shares)+"株）"),proof);
    capitalFragment.append(metRow);
    capitalRows.replaceChildren(capitalFragment);
    const historical=met.historical_financials;

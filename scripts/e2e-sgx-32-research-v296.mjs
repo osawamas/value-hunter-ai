@@ -39,7 +39,9 @@ try{
  assert.match(await shareCapital.filter({hasText:"MIM"}).innerText(),/2026-10-28.*495,000,000.*500万株は加算しない/s);
  const metCapital=shareCapital.filter({hasText:"MET"});
  assert.match(await metCapital.innerText(),/2026-11-03.*166,617,000.*自己株式控除後/s);
- assert.match(await metCapital.getByRole("link").getAttribute("href"),/^https:\/\/www1\.hkexnews\.hk\//);
+ assert.match(await metCapital.getByRole("link",{name:"HKEX割当完了PDF"}).getAttribute("href"),/^https:\/\/www1\.hkexnews\.hk\//);
+ assert.match(await metCapital.innerText(),/11月2日残高.*168,000,000株.*1,383,000株/);
+ assert.match(await metCapital.getByRole("link",{name:"HKEX翌日開示PDF"}).getAttribute("href"),/2026110400313\.pdf$/);
  const metFinancials=page.locator("#sgxMetFinancialRows tr");
  assert.equal(await metFinancials.count(),5);
  assert.match(await metFinancials.filter({hasText:"2026-06-30"}).innerText(),/26,978.*4,929.*\+8\.9%.*-56\.4%/s);
