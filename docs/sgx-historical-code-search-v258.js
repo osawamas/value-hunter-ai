@@ -92,6 +92,48 @@
    throw Error("SGX partial source union does not reconcile");
   return merged;
  }
+ // v262: 19 exact SGXNet originals were fetched in GitHub Actions, matching
+ // issuer name, code, ISIN, announcement reference. SHA is body provenance,
+ // NOT independent listed/current/quote status.
+ function buildWithOriginalProof(index,first,second,boardLot,events,feed,proof){
+  const rows=buildExpanded(index,first,second,boardLot,events,feed);
+  if(proof?.schema_version!=="sgx-nineteen-official-html-sha256-evidence-v262"||
+    proof.source_record_count!==19||proof.matching_original_html_count!==19||
+    proof.replay_workflow_run_id!==43656588786||
+    proof.replay_job_id!==132636341942||
+    proof.sha256_of_exact_returned_html_bytes!==true||
+    proof.original_html_captured_in_repo!==false||
+    proof.full_sgx_security_master_verified!==false||
+    proof.current_listing_active_for_all_verified!==false||
+    proof.market_quote_licence_verified!==false||
+    proof.independent_financial_audit_verified!==false||
+    proof.ranking_eligible_count!==0||
+    !Array.isArray(proof.records)||proof.records.length!==19)
+   throw Error("SGX source replay proof is missing or falsely promoted");
+  const map=new Map(rows.map(r=>[r.code,r]));
+  const checked=new Set();
+  for(const p of proof.records){
+   const record=map.get(p.code);
+   if(!record||record.kind!=="SGXNET"||checked.has(p.code)||
+      record.name!==p.name||record.source!==p.url||record.isin!==p.isin||
+      typeof p.ref!=="string"||!/^SG\d{6}[A-Z0-9]+$/.test(p.ref)||
+      !/^[0-9a-f]{64}$/.test(p.original_html_sha256)||
+      !Number.isInteger(p.original_html_bytes)||p.original_html_bytes<200||
+      p.required_name_code_isin_reference_found!==true||
+      p.source_proof_kind!=="LIVE_GITHUB_ACTIONS_DIRECT_SGXNET_HTML_CONTENT_MATCH"||
+      p.current_listing_verified!==false||
+      p.live_market_price_verified!==false||
+      p.ranking_eligible!==false)
+    throw Error("Original SGX source proof no longer matches its counter");
+   checked.add(p.code);
+   record.directHtmlIdentityMatched=true;
+   record.originalHtmlSHA256=p.original_html_sha256;
+  }
+  if(checked.size!==19||rows.filter(r=>r.kind==="SGXNET"&&!r.directHtmlIdentityMatched).length||
+     rows.filter(r=>r.kind==="SGX_STATIC").length!==11)
+   throw Error("Some SGXNet original bodies lack proof");
+  return rows.map(r=>({...r,directHtmlIdentityMatched:r.directHtmlIdentityMatched===true}));
+ }
  function search(rows,query,boardFilter){
   const q=String(query||"").trim().toLocaleUpperCase("en");
   return rows.filter(x=>(boardFilter==="ALL"||x.board===boardFilter)&&
@@ -110,20 +152,21 @@
      "./data/sgx-net-eleven-codes-v256.json",
      "./data/sgx-official-batch-seed-v196.json",
      "./data/sgx-material-listing-events-v257.json",
-     "./data/latest.json"];
+     "./data/latest.json",
+     "./data/sgx-nineteen-original-html-sha-v262.json"];
    const files=await Promise.all(names.map(async url=>{
     const response=await fetch(url,{cache:"no-store"});
     if(!response.ok)throw Error("HTTP "+response.status);
     return response.json();
    }));
-   const items=buildExpanded(...files);
+   const items=buildWithOriginalProof(...files);
    const paint=()=>{
     const shown=search(items,input.value,board.value);
     const frag=document.createDocumentFragment();
     for(const item of shown){
      const tr=document.createElement("tr");
      for(const value of [item.code,item.name,item.board,
-       item.warning?"重要イベントあり・取引状態未検証":"上場継続・取引状態未検証"]){
+       ((item.directHtmlIdentityMatched?"SGXNet原本本文一致":"SGX公式売買単位表")+"／"+(item.warning?"重要イベント要注意":"現在の取引状態は未確認"))]){
       const td=document.createElement("td");td.textContent=value;tr.append(td);
      }
      const td=document.createElement("td"),a=document.createElement("a");
@@ -140,7 +183,7 @@
    };
    input.addEventListener("input",paint);board.addEventListener("change",paint);
    paint();
-   status.textContent="企業情報の部分ページ20社＋SGX公式売買単位表の追加10銘柄。市場区分未確認の10銘柄を含み、現在の上場・取引状態や株価は保証されない。";
+   status.textContent="SGXNet原本HTMLの直接再取得で19銘柄を本文・SHA照合。残る11銘柄はSGX公式売買単位表。30銘柄は限定調査で、現在の上場・株価は未確認。";
   }catch(e){
    body.replaceChildren();
    const tr=document.createElement("tr"),td=document.createElement("td");
@@ -149,6 +192,6 @@
    count.textContent="取得不可";
   }
  }
- if(typeof module!=="undefined"&&module.exports)module.exports={build,buildExpanded,search,quoteViewer};
+ if(typeof module!=="undefined"&&module.exports)module.exports={build,buildExpanded,buildWithOriginalProof,search,quoteViewer};
  if(root?.document)root.document.addEventListener("DOMContentLoaded",render);
 })(typeof window!=="undefined"?window:null);
