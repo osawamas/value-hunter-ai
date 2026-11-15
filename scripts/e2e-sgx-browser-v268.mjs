@@ -18,6 +18,16 @@ try {
  const count=page.locator("#sgxHistoricalCodeShown");
  await count.getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").count(),30,"full researched list");
+ await page.locator("#universeCandidateCount").getByText("182").waitFor({timeout:25000});
+ assert.equal(await page.locator("#universeCandidateRows tr").count(),182);
+ await page.locator("#universeCandidateProvenance").selectOption("FINANCIAL");
+ await page.locator("#universeCandidateShown").getByText(/7件表示/).waitFor();
+ assert.equal(await page.locator("#universeCandidateRows tr").count(),7);
+ await page.locator("#universeCandidateProvenance").selectOption("OFFICIAL");
+ const officialCount=await page.locator("#universeCandidateRows tr").count();
+ assert.ok(officialCount>0&&officialCount<=30);
+ await page.locator("#universeCandidateProvenance").selectOption("ALL");
+
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").filter({hasText:"SGXNet原本本文一致"}).count(),19);
  assert.equal(await page.locator("#sgxHistoricalCodeRows tr").filter({hasText:"SGX公式売買単位表"}).count(),11);
  const finance=page.locator("#sgxHistoricalCodeFinance");
