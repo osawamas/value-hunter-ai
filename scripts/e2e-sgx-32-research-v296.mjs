@@ -76,6 +76,9 @@ try{
  await page.locator("#marketCount").getByText(/16 \/ 16件/).waitFor({timeout:25000});
  assert.deepEqual(await page.locator("#marketCoverageRows td").allTextContents(),
   ["5","4","0","4","4","0","7","4","0"]);
+ const sgxUpdates = page.locator("#sgxBusinessRows tr");
+ assert.match(await sgxUpdates.first().innerText(),/G13.*3か月.*566,096,000.*54,731,000.*未監査/s);
+ assert.match(await sgxUpdates.last().innerText(),/S63.*9か月累計.*約10,000,000,000.*10%.*—/s);
  await page.locator("#marketFilter").selectOption("JP");
  await page.locator("#marketQuery").fill("７２０３");
  await page.getByRole("button",{name:"財務を見る"}).click();

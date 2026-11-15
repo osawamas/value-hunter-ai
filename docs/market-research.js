@@ -356,11 +356,40 @@ async function initMarketResearch() {
     }
   });
   try {
-    const [research, sgx] = await Promise.all(["./data/market-research-v315.json", "./data/latest.json"].map(async path => {
-      const response = await fetch(path, {cache: "no-store"});
+    const load = async file => {
+      const response = await fetch("./data/" + file, {cache: "no-store"});
       if (!response.ok) throw Error("資料取得 HTTP " + response.status);
       return response.json();
+    };
+    const [research, sgx, g13, s63] = await Promise.all([
+      load("market-research-v315.json"), load("latest.json"),
+      load("sgx-g13-2026q3-v121.json").catch(() => null),
+      load("sgx-s63-9m2026-v125.json").catch(() => null),
+    ]);
+    const updateRows = [];
+    const genting = g13?.record;
+    if (genting?.status === "SGX_PRIMARY_2026Q3_UNAUDITED_BUSINESS_UPDATE" &&
+        Number.isFinite(genting.revenue_2026q3_sgd_thousands) &&
+        Number.isFinite(genting.net_profit_after_tax_2026q3_sgd_thousands)) {
+      updateRows.push(["Genting Singapore（G13）", "3か月・" + genting.quarter_end_date,
+        money.format(genting.revenue_2026q3_sgd_thousands * 1000), pct(genting.revenue_yoy_pct / 100),
+        money.format(genting.net_profit_after_tax_2026q3_sgd_thousands * 1000), genting.source_url, "業績速報（未監査）"]);
+    }
+    const st = s63?.record;
+    if (st?.status === "SGX_S63_OFFICIAL_NINE_MONTH_2026_PRESENTATION" &&
+        Number.isFinite(st.nine_month_revenue_sgd_billion_rounded)) {
+      updateRows.push(["ST Engineering（S63）", "9か月累計・" + st.period_end_date,
+        "約" + money.format(st.nine_month_revenue_sgd_billion_rounded * 1e9), pct(st.nine_month_reported_revenue_yoy_pct / 100),
+        "—", st.source_url, "事業更新資料"]);
+    }
+    byId("sgxBusinessRows").replaceChildren(...updateRows.map(row => {
+      const tr = document.createElement("tr");
+      const source = element("td", "");
+      source.append(link(row[5], row[6]));
+      tr.append(...row.slice(0, 5).map(value => element("td", value)), source);
+      return tr;
     }));
+    byId("sgxBusinessUpdates").hidden = updateRows.length === 0;
     const rows = buildMarketRows(research, sgx);
     byId("marketCoverageRows").replaceChildren(...summarizeMarketCoverage(rows).map(row => {
       const tr = document.createElement("tr");
