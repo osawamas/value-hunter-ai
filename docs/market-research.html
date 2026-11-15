@@ -60,7 +60,8 @@
 <label class="control">株数CSV<input id="personalShareFile" type="file" accept=".csv,text/csv" aria-describedby="personalShareHelp"></label>
 <p id="personalShareStatus" role="status"></p>
 <h3>CSVの一括試算</h3>
-<p>各銘柄のCSV内で最新の終値と同日の株数を使用。指標は掲載されている直近の年次財務で試算する。決算の公表前に取得できた情報だけを使うバックテストとは計算条件が異なる。</p>
+<p>日付を指定するとその日の終値を使用。空欄なら銘柄ごとにCSV内で最新の終値を使う。株数は同日付を照合する。指標は掲載されている直近の年次財務で試算する。決算の公表前に取得できた情報だけを使うバックテストとは計算条件が異なる。</p>
+<label class="control">一括試算の日付<input type="date" id="personalBatchDate" disabled></label>
 <p id="personalBatchStatus" role="status"></p>
 <button id="personalBatchDownload" type="button" class="secondary-button" disabled>一括試算CSVを保存</button>
 <div class="tablewrap" id="personalBatchTable" hidden><table>

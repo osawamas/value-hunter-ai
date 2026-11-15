@@ -142,28 +142,39 @@ function isMarketDate(date) {
     parsed.toISOString().slice(0, 10) === date;
 }
 
-function readPersonalQuotes(csv) {
+function readQuoteHistory(csv) {
   const lines = csv.replace(/^\uFEFF/, "").trim().split(/\r?\n/);
   if (lines.shift() !== "market_id,date,currency,close") {
     throw Error("CSVの見出しは market_id,date,currency,close");
   }
   const currencies = {JP: "JPY", US: "USD", SG: "SGD"};
   const quotes = new Map();
-  const seen = new Set();
   for (const [index, line] of lines.entries()) {
     const [id, date, currency, close, extra] = line.split(",").map(value => value.trim());
     const price = Number(close);
     const key = id + ":" + date;
     if (extra !== undefined || !/^(JP|US|SG):[A-Z0-9.-]{1,12}$/.test(id) || !isMarketDate(date) ||
         currency !== currencies[id.slice(0, 2)] || !/^\d+(\.\d+)?$/.test(close) ||
-        !Number.isFinite(price) || price <= 0 || seen.has(key)) {
+        !Number.isFinite(price) || price <= 0 || quotes.has(key)) {
       throw Error("CSVの " + (index + 2) + " 行目を確認して。銘柄、日付、通貨、終値、重複の有無が合っているか見て");
     }
-    seen.add(key);
-    if (!quotes.has(id) || date > quotes.get(id).date) quotes.set(id, {date, currency, price});
+    quotes.set(key, {id, date, currency, price});
   }
   if (quotes.size === 0) throw Error("CSVに株価の行がない");
   return quotes;
+}
+
+function selectQuoteDate(history, date = "") {
+  const result = new Map();
+  for (const {id, ...quote} of history.values()) {
+    if (date && quote.date !== date) continue;
+    if (!result.has(id) || quote.date > result.get(id).date) result.set(id, quote);
+  }
+  return result;
+}
+
+function readPersonalQuotes(csv) {
+  return selectQuoteDate(readQuoteHistory(csv));
 }
 
 function readPersonalShares(csv) {
@@ -317,6 +328,7 @@ async function initMarketResearch() {
   let shareReview;
   let activeRow;
   let personalQuotes = new Map();
+  let personalQuoteHistory = new Map();
   let personalShares = new Map();
   let importedClose = false;
   let importedShares = false;
@@ -373,12 +385,15 @@ async function initMarketResearch() {
   const batchLabels = {...shareLabels, unknown: "銘柄が調査一覧に未登録", noFinance: "一括試算用の年次財務が未接続",
     incompatible: "株価の日付・通貨が年次財務と不整合", invalid: "計算範囲または財務データを要確認"};
   const paintBatch = () => {
-    const results = evaluatePersonalQuotes(marketRows, personalQuotes, personalShares, shareReview);
+    const batchDate = byId("personalBatchDate");
+    batchDate.disabled = !personalQuoteHistory.size;
+    const quotes = batchDate.value ? selectQuoteDate(personalQuoteHistory, batchDate.value) : personalQuotes;
+    const results = evaluatePersonalQuotes(marketRows, quotes, personalShares, shareReview);
     batchResults = results;
     byId("personalBatchDownload").disabled = results.length === 0;
     byId("personalBatchTable").hidden = results.length === 0;
     byId("personalBatchStatus").textContent = results.length ? results.filter(row => row.result).length +
-      " / " + results.length + "件を試算" : "";
+      " / " + results.length + "件を試算" : batchDate.value && personalQuoteHistory.size ? "指定日の終値がCSVにない" : "";
     byId("personalBatchRows").replaceChildren(...results.map(row => {
       const {result, quote} = row;
       const values = [row.id === row.label ? row.id : row.label + "（" + row.id + "）",
@@ -394,6 +409,7 @@ async function initMarketResearch() {
       return tr;
     }));
   };
+  byId("personalBatchDate").addEventListener("input", paintBatch);
   byId("personalBatchDownload").addEventListener("click", () => {
     if (!batchResults.length) return;
     const csv = new Blob([personalBatchCsv(batchResults)], {type: "text/csv;charset=utf-8"});
@@ -450,7 +466,10 @@ async function initMarketResearch() {
       }
     });
   };
-  bindCsv("personalQuoteFile", "personalQuoteStatus", readPersonalQuotes, rows => { personalQuotes = rows; }, "終値を ", clearImportedClose);
+  bindCsv("personalQuoteFile", "personalQuoteStatus", readQuoteHistory, rows => {
+    personalQuoteHistory = rows;
+    personalQuotes = selectQuoteDate(rows);
+  }, "終値を ", clearImportedClose);
   bindCsv("personalShareFile", "personalShareStatus", readPersonalShares, rows => { personalShares = rows; }, "株数を ", clearImportedShares);
   const show = row => {
     const finance = row.financials;
@@ -642,4 +661,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, readQuoteHistory, selectQuoteDate};
