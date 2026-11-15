@@ -20,7 +20,7 @@ reject(x=>{x.original_monthly_statistics_sha256="f".repeat(64)},"fabricated");
 reject(x=>{x.issuer_release_ipo_trading_codes=["TEST"]},"invent");
 reject(x=>{x.sgx_original_aug_2026_listings.total=605},"august");
 reject(x=>{x.ranking_enabled=true},"promote");
-reject(x=>{x.issuer_release_confirmed_ipo_count=4},"metadata");
+reject(x=>{x.issuer_release_ipo_count=4},"metadata");
 const snapshot=normalize(
  "Trading Code,Trading Name,Traded Currency,Instrument Type\nD05,DBS,SGD,STOCK\n",
  {as_of_date:"2026-10-31",
