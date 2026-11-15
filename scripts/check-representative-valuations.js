@@ -32,13 +32,39 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
   return {scope: "local_trial", results};
 }
 
+function reviewQuoteRefresh(rows, shareReview, previous, current) {
+  const latest = reviewRepresentativeValuations(rows, shareReview, current);
+  const updates = latest.results.map(result => {
+    const {id, date} = result;
+    const key = id + ":" + date;
+    const before = previous.get(key);
+    const after = current.get(key);
+    let change = "absent";
+    if (after && !before) change = "added";
+    else if (after && before) change = after.price === before.price ? "unchanged" : "revised";
+    else if (before) change = "removed";
+
+    const newer = [...current.values()].filter(quote => quote.id === id && date && quote.date > date)
+      .map(quote => quote.date).sort();
+    return {...result, closeChange: change, previousPrice: before?.price ?? null,
+      newerUnmatchedDates: newer};
+  });
+  return {scope: latest.scope, results: updates};
+}
+
 function main(args) {
-  if (args.length > 1) throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv]");
+  const refresh = args[0] === "--compare" && args.length === 3;
+  if (!refresh && (args.length > 1 || args[0] === "--compare")) {
+    throw Error("Usage: node scripts/check-representative-valuations.js [local-quotes.csv] or --compare previous.csv current.csv");
+  }
   const research = loadSnapshot("market-research-v315.json");
   const sgx = loadSnapshot("latest.json");
   const shareReview = loadSnapshot("sgx-s63-two-website-close-v129.json");
-  const quotes = args.length ? readQuoteHistory(fs.readFileSync(args[0], "utf8")) : new Map();
-  const report = reviewRepresentativeValuations(buildMarketRows(research, sgx), shareReview, quotes);
+  const rows = buildMarketRows(research, sgx);
+  const loadQuotes = filename => readQuoteHistory(fs.readFileSync(filename, "utf8"));
+  const report = refresh ?
+    reviewQuoteRefresh(rows, shareReview, loadQuotes(args[1]), loadQuotes(args[2])) :
+    reviewRepresentativeValuations(rows, shareReview, args.length ? loadQuotes(args[0]) : new Map());
   process.stdout.write(JSON.stringify(report, null, 2) + "\n");
 }
 
@@ -51,4 +77,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = {reviewRepresentativeValuations};
+module.exports = {reviewRepresentativeValuations, reviewQuoteRefresh};
