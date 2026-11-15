@@ -12,6 +12,19 @@ try{
  await page.goto(base+"/sgx-32-research.html",{waitUntil:"domcontentloaded"});
  await page.locator("#research32Count").getByText(/32 \/ 32件/).waitFor({timeout:25000});
  assert.equal(await page.locator("#research32Rows tr").count(),32);
+ 
+ await page.locator("#sgxIpoFinancialStatus").getByText(/監査済み実績/).waitFor({timeout:25000});
+ const financeRows=page.locator("#sgxIpoFinancialRows tr");
+ assert.equal(await financeRows.count(),6,"two issuers times three audited fiscal years");
+ const delugeAudit=financeRows.filter({hasText:"9DC"}).filter({hasText:"2026-03-31"});
+ assert.equal(await delugeAudit.count(),1);
+ assert.match(await delugeAudit.innerText(),/116,662/);
+ assert.doesNotMatch(await delugeAudit.innerText(),/116,567/);
+ const miAudit=financeRows.filter({hasText:"MIM"}).filter({hasText:"2025-12-31"});
+ assert.equal(await miAudit.count(),1);
+ assert.match(await miAudit.innerText(),/65,335/);
+ assert.match(await page.locator("#sgxIpoFinancialStatus").innerText(),/監査済み/);
+
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/2 \/ 32件/).waitFor();
  const ipo=await page.locator("#research32Rows").innerText();
