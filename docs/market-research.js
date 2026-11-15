@@ -17,6 +17,7 @@ function buildMarketRows(research, sgx) {
     symbol: record.symbol,
     label: record.issuer || record.name || record.company_name || record.symbol,
     identity_source: "./sgx-32-research.html",
+    sgxAnnual: sgxComparison(sgx, record),
   }))];
   const ids = new Set();
   for (const row of rows) {
@@ -27,6 +28,26 @@ function buildMarketRows(research, sgx) {
     ids.add(row.id);
   }
   return rows;
+}
+
+function sgxComparison(feed, record) {
+  const revenue = record.revenue_sgd_thousands * 1000;
+  if (feed.currency !== "SGD" || feed.financial_unit !== "SGD_thousands" ||
+      !Number.isInteger(record.fiscal_year) || !record.financial_source_url?.startsWith("https://") ||
+      !Number.isSafeInteger(revenue) || revenue <= 0) return null;
+  const toRatio = value => Number.isFinite(value) ? value / 100 : null;
+  const assets = record.assets_sgd_thousands;
+  const parentEquity = record.parent_equity_sgd_thousands;
+  return {
+    end: "FY" + record.fiscal_year,
+    currency: feed.currency,
+    revenue,
+    salesGrowth: toRatio(record.revenue_growth_pct),
+    operatingMargin: toRatio(record.operating_margin_pct),
+    equityRatio: Number.isFinite(assets) && assets > 0 && Number.isFinite(parentEquity) ? parentEquity / assets : null,
+    source: record.financial_source_url,
+    sourceLabel: record.data_state === "VERIFIED" ? "SGX出典" : "SGX出典（照合途中）",
+  };
 }
 
 function filterMarketRows(rows, market, query) {
@@ -94,9 +115,10 @@ async function initMarketResearch() {
     byId("marketCompareTable").hidden = selected.size === 0;
     byId("marketCompareRows").replaceChildren(...[...selected.values()].map(row => {
       const finance = row.financials;
-      const p = compareAnnual(finance).at(-1);
+      const p = row.sgxAnnual || {...compareAnnual(finance).at(-1), currency: finance.currency,
+        source: finance.source, sourceLabel: "財務出典"};
       const tr = document.createElement("tr");
-      const values = [row.label + "（" + row.symbol + "）", p.end, finance.currency, money.format(p.revenue),
+      const values = [row.label + "（" + row.symbol + "）", p.end, p.currency, money.format(p.revenue),
         pct(p.salesGrowth), pct(p.operatingMargin), pct(p.equityRatio)];
       const remove = Object.assign(element("button", "外す"), {type: "button", className: "secondary-button"});
       remove.setAttribute("aria-label", row.label + "を比較から外す");
@@ -108,7 +130,9 @@ async function initMarketResearch() {
       });
       const action = element("td", "");
       action.append(remove);
-      tr.append(...values.map(v => element("td", v)), action);
+      const source = element("td", "");
+      source.append(link(p.source, p.sourceLabel));
+      tr.append(...values.map(v => element("td", v)), source, action);
       return tr;
     }));
   };
@@ -172,6 +196,10 @@ async function initMarketResearch() {
         if (row.financials) {
           const button = Object.assign(element("button", "財務を見る"), {type: "button", className: "secondary-button"});
           button.addEventListener("click", () => show(row));
+          finance.append(button);
+        } else if (row.market === "SG") finance.append(link("./index.html", "SGX財務画面"));
+        else finance.textContent = "財務取り込み待ち";
+        if (row.financials || row.sgxAnnual) {
           const compare = Object.assign(element("input", ""), {type: "checkbox", checked: selected.has(row.id)});
           const label = element("label", "");
           compare.setAttribute("aria-label", row.label + "を比較");
@@ -182,9 +210,8 @@ async function initMarketResearch() {
             paintComparison();
           });
           label.append(compare, " 比較");
-          finance.append(button, " ", label);
-        } else if (row.market === "SG") finance.append(link("./index.html", "SGX財務画面"));
-        else finance.textContent = "財務取り込み待ち";
+          finance.append(" ", label);
+        }
         const source = element("td", "");
         source.append(link(row.identity_source, row.market === "SG" ? "SGX調査" : "銘柄資料"));
         tr.append(finance, source);

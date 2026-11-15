@@ -102,7 +102,12 @@ try{
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);
  await page.locator("#marketFilter").selectOption("SG");
+ await page.locator("#marketQuery").fill("S20");
+ await page.locator("#marketRows").getByRole("checkbox").check();
+ assert.equal(await page.locator("#marketCompareRows tr").count(),2);
+ assert.match(await page.locator("#marketCompareRows tr").last().innerText(),/S20.*FY2025.*SGD.*623,300,000.*10\.4%.*—.*40\.7%.*照合途中/s);
  await page.locator("#marketQuery").fill("U11");
+ assert.equal(await page.locator("#marketRows").getByRole("checkbox").count(),0);
  assert.match(await page.locator("#marketRows").innerText(),/U11.*SGX財務画面/s);
  assert.deepEqual(errors,[]);
  console.log("v296 PASS "+(base.startsWith("file:")?"file offline":"HTTP ZIP")+": Chrome 33 codes, IPO/finance filter, search, source links, downloaded CSV");
