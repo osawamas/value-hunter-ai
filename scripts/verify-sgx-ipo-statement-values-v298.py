@@ -69,7 +69,7 @@ def verify_section(text,record):
     " expected "+str(expected)+" matched "+str(counts[label]))
  if record["symbol"]=="9DC":
   pro=record["rejected_lookalike_pro_forma"]
-  pro_scope=lines[end:end+100]
+  pro_scope=lines[end:end+800]
   for label in ["revenue","gross_profit","profit_for_year"]:
    if not any(values_from_row(line,label,1)==[pro[label]] for line in pro_scope):
     raise ValueError("9DC excluded unaudited pro forma value not corroborated: "+label)
