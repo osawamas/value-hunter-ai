@@ -1,0 +1,29 @@
+name: SGX historical listing risk triage v257
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/triage-sgx-listing-v257.js'
+      - 'docs/test_sgx_listing_triage_v257.js'
+      - '.github/workflows/sgx-listing-triage-v257.yml'
+permissions:
+  contents: read
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify conservative listing triage
+        run: |
+          node docs/test_sgx_listing_triage_v257.js
+          node scripts/triage-sgx-listing-v257.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sgx-historical-listing-risk-v257
+          path: build/research/sgx-listing-risk-triage-v257.json
+          if-no-files-found: error
+          retention-days: 14
