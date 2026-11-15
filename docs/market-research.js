@@ -18,6 +18,7 @@ function buildMarketRows(research, sgx) {
     label: record.issuer || record.name || record.company_name || record.symbol,
     identity_source: "./sgx-32-research.html",
     sgxAnnual: sgxComparison(sgx, record),
+    sgxEvidence: record,
     rankingEligible: sgx.ranking_enabled === true && record.ranking_eligible === true,
   }))];
   const ids = new Set();
@@ -29,6 +30,40 @@ function buildMarketRows(research, sgx) {
     ids.add(row.id);
   }
   return rows;
+}
+
+function rankingEvidence(row) {
+  const sgx = row.sgxEvidence;
+  const finance = row.financials;
+  const shares = row.quarterly?.shares || finance?.shares;
+  if (!sgx) {
+    return {
+      quote: "未接続",
+      share: shares ? shares.as_of + (shares.rounded ? "（概数）" : "（開示資料）") : "未取得",
+      shareSource: row.quarterly?.shares ? row.quarterly.source : finance?.filing_url || finance?.source,
+      reasons: [finance ? "正式順位の財務審査が未実装" : "年次財務が未取得",
+        "公開用の株価データが未接続", "株価と株数の同日照合が未完了"],
+    };
+  }
+
+  const observedAt = sgx.quote_timestamp_utc;
+  const observed = typeof observedAt === "string" && Number.isFinite(Date.parse(observedAt));
+  const quoteDate = observed ? new Intl.DateTimeFormat("sv-SE", {timeZone: "Asia/Singapore"}).format(new Date(observedAt)) : null;
+  const shareDate = isMarketDate(sgx.shares_as_of_date) ? sgx.shares_as_of_date : null;
+  const reasons = [];
+  if (sgx.exclusion_reasons?.includes("INDEPENDENT_FINANCIAL_VERIFICATION_NOT_AVAILABLE")) reasons.push("財務の独立検証が未完了");
+  if (sgx.exclusion_reasons?.includes("NEGATIVE_EARNINGS_PER_NOT_APPLICABLE")) reasons.push("赤字のためPER対象外");
+  if (!observed) reasons.push("日付付き株価が未取得");
+  if (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART") reasons.push("掲載株価は参考取得。取引所の照合が未完了");
+  if (!shareDate) reasons.push("日付付き株数が未取得");
+  if (shareDate && quoteDate && shareDate !== quoteDate) reasons.push("株価と株数の基準日が異なる");
+  return {
+    quote: observed ? quoteDate + (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART" ? "（参考）" : "（掲載資料）") : "未取得",
+    quoteSource: observed ? sgx.quote_url : null,
+    share: shareDate || "未取得",
+    shareSource: shareDate ? sgx.shares_source_url : null,
+    reasons,
+  };
 }
 
 function sgxComparison(feed, record) {
@@ -193,7 +228,7 @@ async function initMarketResearch() {
   };
   const element = (tag, value) => Object.assign(document.createElement(tag), {textContent: value});
   const link = (url, label) => {
-    if (!url.startsWith("https://") && !["./sgx-32-research.html", "./index.html"].includes(url)) throw Error("出典URLが不明");
+    if (!url.startsWith("https://") && !["./sgx-32-research.html", "./index.html"].includes(url) && !/^\.\/index\.html#issuer=[A-Z0-9]{1,8}$/.test(url)) throw Error("出典URLが不明");
     return Object.assign(element("a", label), {href: url});
   };
   const pct = value => value === null ? "—" : percent.format(value);
@@ -401,7 +436,7 @@ async function initMarketResearch() {
     const paint = () => {
       panel.hidden = true;
       const visible = filterMarketRows(rows, filter.value, query.value);
-      status.textContent = visible.length + " / " + rows.length + "件。日本・米国は選定銘柄。株価・正式順位は未接続。";
+      status.textContent = visible.length + " / " + rows.length + "件。日本・米国は選定銘柄。正式順位の対象条件は銘柄ごとに表示。";
       body.replaceChildren(...visible.map(row => {
         const tr = document.createElement("tr");
         tr.append(...[marketLabels[row.market], row.symbol, row.label].map(v => element("td", v)));
@@ -427,7 +462,26 @@ async function initMarketResearch() {
         }
         const source = element("td", "");
         source.append(link(row.identity_source, row.market === "SG" ? "SGX調査" : "銘柄資料"));
-        tr.append(finance, source);
+        const evidence = rankingEvidence(row);
+        const ranking = element("td", "");
+        const detail = element("details", "");
+        detail.append(element("summary", row.rankingEligible ? "対象" : "対象外の理由"));
+        for (const [label, value, url] of [["株価", evidence.quote, evidence.quoteSource],
+          ["株数", evidence.share, evidence.shareSource]]) {
+          const line = element("div", label + " " + value);
+          if (url?.startsWith("https://")) line.append(" ", link(url, label + "出典"));
+          detail.append(line);
+        }
+        if (evidence.reasons.length) {
+          const list = element("ul", "");
+          list.append(...evidence.reasons.map(reason => element("li", reason)));
+          detail.append(list);
+        }
+        if (row.market === "SG" && /^[A-Z0-9]{1,8}$/.test(row.symbol)) {
+          detail.append(link("./index.html#issuer=" + row.symbol, "SGXの全除外理由"));
+        }
+        ranking.append(detail);
+        tr.append(finance, source, ranking);
         return tr;
       }));
       paintComparison();
@@ -441,4 +495,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, summarizeMarketCoverage};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage};

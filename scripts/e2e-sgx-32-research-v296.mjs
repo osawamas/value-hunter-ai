@@ -83,6 +83,8 @@ try{
  await page.locator("#marketQuery").fill("７２０３");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
+ await page.locator("#marketRows summary").click();
+ assert.match(await page.locator("#marketRows details").innerText(),/2026-09-30.*公開用の株価データが未接続/s);
  assert.match(await page.locator("#marketQuarterlyTitle").innerText(),/累計決算/);
  assert.match(await page.locator("#marketQuarterlyRows tr").last().innerText(),/2026-04-01〜2026-09-30.*26,962,462,000,000/s);
  assert.match(await page.locator("#marketInterimShareCount").innerText(),/11,778,247,313/);
@@ -163,6 +165,9 @@ try{
  assert.match(await page.locator("#marketShareCount").innerText(),/約24,300,000,000/);
  await page.locator("#marketFilter").selectOption("SG");
  await page.locator("#marketQuery").fill("S20");
+ await page.locator("#marketRows summary").click();
+ assert.match(await page.locator("#marketRows details").innerText(),/株価と株数の基準日が異なる/);
+ assert.match(await page.getByRole("link",{name:"SGXの全除外理由"}).getAttribute("href"),/#issuer=S20$/);
  await page.locator("#marketRows").getByRole("checkbox").check();
  assert.equal(await page.locator("#marketCompareRows tr").count(),2);
  assert.match(await page.locator("#marketCompareRows tr").last().innerText(),/S20.*FY2025.*SGD.*623,300,000.*10\.4%.*—.*40\.7%.*照合途中/s);
