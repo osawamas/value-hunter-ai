@@ -9,7 +9,7 @@ function assess(research,snapshot){
  if(!research || research.schema_version!=="sgx-october-official-release-research-v292" ||
     research.period!=="2026-10" || research.release_date!=="2026-11-12" ||
     !/^https:\/\/www\.sgxgroup\.com\/media-centre\//.test(research.issuer_owned_release_url||"") ||
-    research.issuer_release_confirmed_ipo_count!==2 ||
+    research.issuer_release_ipo_count!==2 ||
     !Array.isArray(research.issuer_release_confirmed_ipo_names) ||
     research.issuer_release_confirmed_ipo_names.length!==2)
    errors.push("official issuer release metadata or scoped IPO evidence invalid");
@@ -52,7 +52,7 @@ function assess(research,snapshot){
   verdict:errors.length?"FAIL":"SOURCE_SCOPE_CHECK_PASS",
   errors,
   evidence:{october_ipo_names:research.issuer_release_confirmed_ipo_names,
-   october_ipo_count:research.issuer_release_confirmed_ipo_count,
+   october_ipo_count:research.issuer_release_ipo_count,
    october_ipo_codes_verified:false,
    october_listing_count_official_original_verified:false,
    august_listing_count_official_original_published:aug?.total||null,
