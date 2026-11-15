@@ -28,6 +28,9 @@ try{
  assert.deepEqual((await miAudit.locator("td").allTextContents()).slice(-4),
   ["73.2%","—","—","—"]);
  assert.match(await page.locator("#sgxIpoFinancialStatus").innerText(),/未監査.*70\.6%/);
+ const businessUpdate=page.locator("#sgxIpoBusinessUpdate");
+ assert.match(await businessUpdate.innerText(),/未監査.*91\.5百万USD.*前四半期比 \+15\.6%.*前年同期の9か月実績は資料に記載なし/);
+ assert.match(await businessUpdate.locator("a").getAttribute("href"),/FileID=909744$/);
 
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/2 \/ 32件/).waitFor();

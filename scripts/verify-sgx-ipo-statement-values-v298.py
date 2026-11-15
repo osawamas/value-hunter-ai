@@ -35,9 +35,14 @@ def verify_deluge_segment_note(lines, periods):
   expected=period["segment_operating_result"]
   matches=[]
   for i in range(start,end):
-   if lines[i].strip()!=year or "Elimination" not in lines[i-2] or not lines[i-2].rstrip().endswith("Total"):
+   if lines[i].strip()!=year:
     continue
-   for row in lines[i+1:i+9]:
+   section=lines[i+1:i+20]
+   revenue_total=f'{period["revenue"]:,}'
+   if not any(re.fullmatch(r"\s*External customers\s+.+?\s+"+re.escape(revenue_total)+r"\s*",row)
+              for row in section):
+    continue
+   for row in section:
     match=re.fullmatch(r"\s*Profit from operations\s+.+?\s+([\d,]+)\s*",row)
     if match:
      matches.append(int(match[1].replace(",","")))
@@ -127,6 +132,36 @@ def download(source):
  if hashlib.sha256(blob).hexdigest()!=source["github_actions_confirmed_sha256"] or len(blob)!=source["github_actions_confirmed_original_bytes"]:
   raise ValueError("Verified PDF checksum drift")
  return blob
+
+def original_text(source):
+ raw=download(source)
+ with tempfile.TemporaryDirectory() as temp:
+  pdf=pathlib.Path(temp)/"original.pdf"
+  pdf.write_bytes(raw)
+  proc=subprocess.run(["pdftotext","-layout",str(pdf),"-"],capture_output=True,timeout=65,check=True)
+ return proc.stdout.decode("utf-8",errors="replace")
+
+def verify_mim_business_update(source, update):
+ if (update["source_pdf_url"]!=source["url"]
+     or update["audit_status"]!="UNAUDITED_ISSUER_UPDATE"
+     or update["period_end"]!="2026-09-30"
+     or update["prior_year_same_period_revenue"] is not None):
+  raise ValueError("MIM 9M2026 source or comparison period mismatch")
+ content=" ".join(original_text(source).split())
+ expected=[
+  "nine months ended 30 September 2026",
+  f'Revenue reached US${update["revenue_usd_millions"]:.1f} million in 9M2026',
+  f'gross profit margin of {update["gross_margin_percent"]:.1f}%',
+  f'adjusted profit after tax of US${update["adjusted_pat_usd_millions"]:.1f} million in 9M2026',
+  f'3Q2026 revenue growing {update["q3_revenue_qoq_percent"]:.1f}% quarter-on-quarter',
+ ]
+ if any(row not in content for row in expected):
+  raise ValueError("MIM 9M2026 issuer figures did not match original release")
+ print("MIM VERIFIED original 9M2026 issuer release and quarter-on-quarter comparison")
+ return {"original_pdf_sha256":source["github_actions_confirmed_sha256"],
+  "period_end":update["period_end"],"audit_status":update["audit_status"],
+  "prior_year_same_period_revenue":None,"values_confirmed":4}
+
 def main():
  manifest=json.loads((ROOT/"docs/data/sgx-ipo-financial-documents-v297.json").read_text())
  sources=v297.validate_manifest(manifest)
@@ -138,12 +173,10 @@ def main():
   source=next(x for x in sources if x["symbol"]==record["symbol"] and x["document_type"]=="REGISTERED_IPO_PROSPECTUS")
   if record["source_pdf_sha256"]!=source["github_actions_confirmed_sha256"] or record["source_pdf_url"]!=source["url"]:
    raise ValueError("Audited statement evidence mismatch")
-  raw=download(source)
-  with tempfile.TemporaryDirectory() as temp:
-   pdf=pathlib.Path(temp)/"original.pdf";pdf.write_bytes(raw)
-   proc=subprocess.run(["pdftotext","-layout",str(pdf),"-"],capture_output=True,timeout=65,check=True)
-   text=proc.stdout.decode("utf-8",errors="replace")
-  result=verify_section(text,record)
+  result=verify_section(original_text(source),record)
+  if record["symbol"]=="MIM":
+   update_source=next(x for x in sources if x["document_type"]=="ISSUER_9M2026_BUSINESS_UPDATE")
+   result["business_update"]=verify_mim_business_update(update_source,record["business_update"])
   result["original_pdf_sha256"]=source["github_actions_confirmed_sha256"]
   out.append(result)
   print(f'{result["symbol"]} VERIFIED original SHA and rows {result["rows_confirmed"]}; '

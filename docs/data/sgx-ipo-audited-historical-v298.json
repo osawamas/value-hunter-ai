@@ -126,9 +126,18 @@
           "total_assets": 154369
         }
       ],
-      "nine_month_2026_press_release_separately_verified": false,
       "not_current_reverified_financials": true,
-      "operating_result_basis": "NO_SEPARATE_OPERATING_PROFIT_SUBTOTAL"
+      "operating_result_basis": "NO_SEPARATE_OPERATING_PROFIT_SUBTOTAL",
+      "business_update": {
+        "audit_status": "UNAUDITED_ISSUER_UPDATE",
+        "period_end": "2026-09-30",
+        "prior_year_same_period_revenue": null,
+        "revenue_usd_millions": 91.5,
+        "gross_margin_percent": 46.6,
+        "adjusted_pat_usd_millions": 25.7,
+        "q3_revenue_qoq_percent": 15.6,
+        "source_pdf_url": "https://links.sgx.com/FileOpen/MiM_9M2026_Press_Release_29102026.ashx?App=Announcement&FileID=909744"
+      }
     }
   ]
 }

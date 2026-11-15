@@ -61,7 +61,7 @@
     profitGrowth:i?compare(p[i-1].profit_for_year,x.profit_for_year):null,
     auditStatus:"AUDITED_HISTORICAL"
    }));
-   let interim=null;
+   let interim=null,businessUpdate=null;
    if(s.symbol==="9DC"){
     const pro=s.rejected_lookalike_pro_forma;
     if(pro?.audit_status!=="UNAUDITED_PRO_FORMA"||
@@ -69,8 +69,7 @@
       pro.revenue!==116567||pro.gross_profit!==38738||pro.profit_for_year!==11489||
       p[2].revenue===pro.revenue)throw Error("未監査プロフォーマを監査済みに誤採用");
    }else{
-    if(!Array.isArray(s.interim)||s.interim.length!==2||
-      s.nine_month_2026_press_release_separately_verified!==false)
+    if(!Array.isArray(s.interim)||s.interim.length!==2)
       throw Error("MIM中間決算境界が不正");
     const [a,b]=s.interim;
     if(a.period_start!=="2025-01-01"||a.period_end!=="2025-06-30"||
@@ -85,10 +84,18 @@
      profitYoY:compare(a.profit_for_year,b.profit_for_year),
      equityRatio:100*b.total_equity/b.total_assets,
      period:"H1 2026 vs H1 2025",audited:false};
+    const update=s.business_update;
+    if(update?.audit_status!=="UNAUDITED_ISSUER_UPDATE"||update.period_end!=="2026-09-30"||
+      update.prior_year_same_period_revenue!==null||
+      !/^https:\/\/links\.sgx\.com\/FileOpen\//.test(update.source_pdf_url||"")||
+      [update.revenue_usd_millions,update.gross_margin_percent,update.adjusted_pat_usd_millions,
+       update.q3_revenue_qoq_percent].some(x=>!Number.isFinite(x)))
+     throw Error("MIMの9か月の発行体業績資料に不一致");
+    businessUpdate=update;
    }
    result.push({symbol:s.symbol,issuer:s.name,currency:s.currency,unit:"thousand",
     source:s.source_pdf_url,sha:s.source_pdf_sha256,
-    historical:metrics,interim,financials_independently_reverified_today:false,
+    historical:metrics,interim,businessUpdate,financials_independently_reverified_today:false,
     current_shares_verified:false,market_quote_licensed:false,rankEligible:false});
   }
   if(result.length!==2)throw Error("SGX IPO2銘柄未照合");
@@ -97,7 +104,8 @@
  function init(){
   const body=root.document.getElementById("sgxIpoFinancialRows");
   const status=root.document.getElementById("sgxIpoFinancialStatus");
-  if(!body||!status)return;
+  const business=root.document.getElementById("sgxIpoBusinessUpdate");
+  if(!body||!status||!business)return;
   const td=v=>{const c=root.document.createElement("td");c.textContent=String(v);return c;};
   Promise.all(["./data/sgx-ipo-audited-historical-v298.json","./data/latest.json"].map(async u=>{
    const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw Error("データ HTTP "+r.status);return r.json();
@@ -114,9 +122,17 @@
     }
    }
    body.replaceChildren(fragment);
-   const interim=rows.find(x=>x.symbol==="MIM").interim;
+   const {interim,businessUpdate:update}=rows.find(x=>x.symbol==="MIM");
    status.textContent="SGX原本PDFの監査済み実績。MIMの2026年上期（未監査）は売上前年比"+
      pct(interim.revenueYoY)+"、6月末の自己資本比率"+ratio(interim.equityRatio)+"。";
+   const source=root.document.createElement("a");
+   source.href=update.source_pdf_url;
+   source.textContent="SGX掲載の発行体資料（PDF）";
+   business.replaceChildren(
+    "MIM 2026年1–9月（発行体公表・未監査）。売上 "+update.revenue_usd_millions.toFixed(1)+
+    "百万USD、粗利益率 "+ratio(update.gross_margin_percent)+"、調整後税引後利益 "+
+    update.adjusted_pat_usd_millions.toFixed(1)+"百万USD。2026年第3四半期の売上は前四半期比 "+
+    pct(update.q3_revenue_qoq_percent)+"。前年同期の9か月実績は資料に記載なし。 ",source);
   }).catch(e=>{body.replaceChildren();status.textContent="資料照合エラー："+e.message;});
  }
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);
