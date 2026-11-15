@@ -26,7 +26,9 @@
           "revenue": 113199,
           "gross_profit": 33591,
           "profit_for_year": 11753,
-          "total_equity": 23015
+          "total_equity": 23015,
+          "total_assets": 82239,
+          "segment_operating_result": 17182
         },
         {
           "period_end": "2025-03-31",
@@ -34,7 +36,9 @@
           "revenue": 139755,
           "gross_profit": 42477,
           "profit_for_year": 17896,
-          "total_equity": 38320
+          "total_equity": 38320,
+          "total_assets": 102973,
+          "segment_operating_result": 24506
         },
         {
           "period_end": "2026-03-31",
@@ -42,7 +46,9 @@
           "revenue": 116662,
           "gross_profit": 38774,
           "profit_for_year": 11800,
-          "total_equity": 49443
+          "total_equity": 49443,
+          "total_assets": 103060,
+          "segment_operating_result": 17966
         }
       ],
       "rejected_lookalike_pro_forma": {
@@ -53,7 +59,8 @@
         "profit_for_year": 11489,
         "not_used_in_audited_growth": true
       },
-      "not_current_reverified_financials": true
+      "not_current_reverified_financials": true,
+      "operating_result_basis": "SEGMENT_NOTE_PROFIT_FROM_OPERATIONS"
     },
     {
       "symbol": "MIM",
@@ -72,7 +79,9 @@
           "revenue": 39829,
           "gross_profit": 14352,
           "profit_for_year": 4112,
-          "total_equity": 87080
+          "total_equity": 87080,
+          "total_assets": 104630,
+          "segment_operating_result": null
         },
         {
           "period_end": "2024-12-31",
@@ -80,7 +89,9 @@
           "revenue": 46821,
           "gross_profit": 19189,
           "profit_for_year": 8172,
-          "total_equity": 86088
+          "total_equity": 86088,
+          "total_assets": 105609,
+          "segment_operating_result": null
         },
         {
           "period_end": "2025-12-31",
@@ -88,7 +99,9 @@
           "revenue": 65335,
           "gross_profit": 23685,
           "profit_for_year": 10008,
-          "total_equity": 95533
+          "total_equity": 95533,
+          "total_assets": 130547,
+          "segment_operating_result": null
         }
       ],
       "interim": [
@@ -99,7 +112,8 @@
           "revenue": 25617,
           "gross_profit": 9560,
           "profit_for_year": 2879,
-          "total_equity": null
+          "total_equity": null,
+          "total_assets": null
         },
         {
           "period_start": "2026-01-01",
@@ -108,11 +122,13 @@
           "revenue": 53655,
           "gross_profit": 24634,
           "profit_for_year": 14284,
-          "total_equity": 109052
+          "total_equity": 109052,
+          "total_assets": 154369
         }
       ],
       "nine_month_2026_press_release_separately_verified": false,
-      "not_current_reverified_financials": true
+      "not_current_reverified_financials": true,
+      "operating_result_basis": "NO_SEPARATE_OPERATING_PROFIT_SUBTOTAL"
     }
   ]
 }

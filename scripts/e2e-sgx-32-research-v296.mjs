@@ -20,10 +20,14 @@ try{
  assert.equal(await delugeAudit.count(),1);
  assert.match(await delugeAudit.innerText(),/116,662/);
  assert.doesNotMatch(await delugeAudit.innerText(),/116,567/);
+ assert.deepEqual((await delugeAudit.locator("td").allTextContents()).slice(-4),
+  ["48.0%","17,966","15.4%","-26.7%"]);
  const miAudit=financeRows.filter({hasText:"MIM"}).filter({hasText:"2025-12-31"});
  assert.equal(await miAudit.count(),1);
  assert.match(await miAudit.innerText(),/65,335/);
- assert.match(await page.locator("#sgxIpoFinancialStatus").innerText(),/監査済み/);
+ assert.deepEqual((await miAudit.locator("td").allTextContents()).slice(-4),
+  ["73.2%","—","—","—"]);
+ assert.match(await page.locator("#sgxIpoFinancialStatus").innerText(),/未監査.*70\.6%/);
 
  await page.locator("#research32Type").selectOption("IPO");
  await page.locator("#research32Count").getByText(/2 \/ 32件/).waitFor();

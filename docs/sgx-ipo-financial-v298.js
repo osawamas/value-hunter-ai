@@ -11,6 +11,8 @@
  }
  const money=x=>typeof x==="number"?x.toLocaleString("ja-JP"):"—";
  const pct=x=>x==null?"—":(x>=0?"+":"")+x.toFixed(1)+"%";
+ const ratio=x=>x==null?"—":x.toFixed(1)+"%";
+ const validAssets=(assets,equity)=>Number.isSafeInteger(assets)&&assets>=equity;
  function build(doc,feed){
   if(doc?.schema_version!=="sgx-ipo-audited-historical-financials-v298"||
     doc.ranking_enabled!==false||doc.ranking_eligible_count!==0||
@@ -33,16 +35,27 @@
    seen.add(s.symbol);
    const expected=s.symbol==="9DC"?["2024-03-31","2025-03-31","2026-03-31"]:
     ["2023-12-31","2024-12-31","2025-12-31"];
+   const hasSegmentResult=s.symbol==="9DC";
+   const operatingBasis=hasSegmentResult?"SEGMENT_NOTE_PROFIT_FROM_OPERATIONS":
+    "NO_SEPARATE_OPERATING_PROFIT_SUBTOTAL";
+   if(s.operating_result_basis!==operatingBasis)throw Error("営業損益の出典区分が不正");
    for(let i=0;i<3;i++){
     const p=s.periods[i];
     if(p.period_end!==expected[i]||p.audit_status!=="AUDITED"||
       [p.revenue,p.gross_profit,p.profit_for_year,p.total_equity].some(v=>!Number.isInteger(v)||v<=0)||
-      p.revenue<p.gross_profit)throw Error("監査済み年度行が不正");
+      p.revenue<p.gross_profit||!validAssets(p.total_assets,p.total_equity)||
+      (hasSegmentResult?!Number.isSafeInteger(p.segment_operating_result):p.segment_operating_result!==null))
+     throw Error("監査済み年度行が不正");
    }
    const p=s.periods;
    const metrics=p.map((x,i)=>({
     period:x.period_end,revenue:x.revenue,gross:x.gross_profit,
     profit:x.profit_for_year,equity:x.total_equity,
+    totalAssets:x.total_assets,equityRatio:100*x.total_equity/x.total_assets,
+    segmentOperatingResult:x.segment_operating_result,
+    segmentOperatingMargin:hasSegmentResult?100*x.segment_operating_result/x.revenue:null,
+    segmentOperatingGrowth:hasSegmentResult&&i?
+     compare(p[i-1].segment_operating_result,x.segment_operating_result):null,
     grossMargin:100*x.gross_profit/x.revenue,
     revenueGrowth:i?compare(p[i-1].revenue,x.revenue):null,
     profitGrowth:i?compare(p[i-1].profit_for_year,x.profit_for_year):null,
@@ -63,12 +76,14 @@
     if(a.period_start!=="2025-01-01"||a.period_end!=="2025-06-30"||
        b.period_start!=="2026-01-01"||b.period_end!=="2026-06-30"||
        a.audit_status!=="UNAUDITED_INTERIM"||b.audit_status!=="UNAUDITED_INTERIM"||
-       a.total_equity!==null||b.total_equity!==109052||
+       a.total_equity!==null||a.total_assets!==null||b.total_equity!==109052||
+       !validAssets(b.total_assets,b.total_equity)||
        [a.revenue,b.revenue,a.gross_profit,b.gross_profit,a.profit_for_year,b.profit_for_year].some(v=>!Number.isInteger(v)||v<=0))
        throw Error("同一期間の未監査比較に不正");
     interim={date:"2026-06-30",revenueYoY:compare(a.revenue,b.revenue),
      grossProfitYoY:compare(a.gross_profit,b.gross_profit),
      profitYoY:compare(a.profit_for_year,b.profit_for_year),
+     equityRatio:100*b.total_equity/b.total_assets,
      period:"H1 2026 vs H1 2025",audited:false};
    }
    result.push({symbol:s.symbol,issuer:s.name,currency:s.currency,unit:"thousand",
@@ -92,14 +107,16 @@
     for(const fy of stock.historical){
      const tr=root.document.createElement("tr");
      for(const x of [stock.symbol,fy.period,stock.currency,money(fy.revenue),
-       money(fy.gross),money(fy.profit),pct(fy.grossMargin),
-       pct(fy.revenueGrowth),"監査済みの過去年度"]){tr.append(td(x));}
+       money(fy.gross),money(fy.profit),ratio(fy.grossMargin),pct(fy.revenueGrowth),
+       ratio(fy.equityRatio),money(fy.segmentOperatingResult),
+       ratio(fy.segmentOperatingMargin),pct(fy.segmentOperatingGrowth)]){tr.append(td(x));}
      fragment.append(tr);
     }
    }
    body.replaceChildren(fragment);
-   status.textContent="SGX原本PDFの監査済み実績（通貨別・単位：千）。9DCは3月期、MIMは12月期。未監査プロフォーマを除外。MIMの2026年上期は別区分で前年比売上"+
-     pct(rows.find(x=>x.symbol==="MIM").interim.revenueYoY)+"。現在の株価・独立再監査・正式ランキングとは別。";
+   const interim=rows.find(x=>x.symbol==="MIM").interim;
+   status.textContent="SGX原本PDFの監査済み実績。MIMの2026年上期（未監査）は売上前年比"+
+     pct(interim.revenueYoY)+"、6月末の自己資本比率"+ratio(interim.equityRatio)+"。";
   }).catch(e=>{body.replaceChildren();status.textContent="資料照合エラー："+e.message;});
  }
  if(root?.document)root.document.addEventListener("DOMContentLoaded",init);

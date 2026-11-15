@@ -22,8 +22,28 @@ LABELS={
  "revenue":r"^\s*Revenue\s+",
  "gross_profit":r"^\s*Gross profit\s+",
  "profit_for_year":r"^\s*Profit for the (?:financial )?year(?:/period)?\s+",
- "total_equity":r"^\s*Total equity\s+"
+ "total_equity":r"^\s*Total equity\s+",
+ "total_assets":r"^\s*Total assets\s+",
 }
+
+def verify_deluge_segment_note(lines, periods):
+ """Match the total column of Appendix A, Note 31, for each March year."""
+ start=next(i for i,line in enumerate(lines) if re.match(r"^\s*31\.\s+Segment information\s*$",line))
+ end=next(i for i in range(start+1,len(lines)) if re.match(r"^\s*32\.\s+Significant related party transactions\s*$",lines[i]))
+ for period in periods:
+  year=period["period_end"][:4]
+  expected=period["segment_operating_result"]
+  matches=[]
+  for i in range(start,end):
+   if lines[i].strip()!=year or "Elimination" not in lines[i-2] or not lines[i-2].rstrip().endswith("Total"):
+    continue
+   for row in lines[i+1:i+9]:
+    match=re.fullmatch(r"\s*Profit from operations\s+.+?\s+([\d,]+)\s*",row)
+    if match:
+     matches.append(int(match[1].replace(",","")))
+  if matches!=[expected]:
+   raise ValueError(f"9DC Note 31 FY{year} operating result mismatch: {matches}, expected {expected}")
+
 def values_from_row(line,label,count):
  pattern=LABELS[label]
  if not re.match(pattern,line,re.IGNORECASE):return None
@@ -57,9 +77,9 @@ def verify_section(text,record):
  for label in LABELS:
   expected=[x[label] for x in periods]
   if any(x is None for x in expected):
-   # MIM's equity snapshot has four columns (2023, 2024, 2025, 2026-H1),
+   # MIM's balance sheet has four columns (2023, 2024, 2025, 2026-H1),
    # unlike the five-column income statement (which has both H1 years).
-   if label!="total_equity" or record["symbol"]!="MIM":
+   if label not in {"total_equity","total_assets"} or record["symbol"]!="MIM" or [i for i,x in enumerate(expected) if x is None]!=[3]:
     raise ValueError("Missing unexpectedly required financial figure")
    expected=[periods[i][label] for i in [0,1,2,4]]
   for line in scope:
@@ -77,11 +97,19 @@ def verify_section(text,record):
   if counts[label]!=1:raise ValueError(record["symbol"]+" audited scope row mismatch: "+label+
     " expected "+str(expected)+" matched "+str(counts[label]))
  if record["symbol"]=="9DC":
+  if record["operating_result_basis"]!="SEGMENT_NOTE_PROFIT_FROM_OPERATIONS":
+   raise ValueError("9DC operating result must be labelled as a segment note figure")
+  verify_deluge_segment_note(lines,record["periods"])
+  counts["segment_operating_result"]=len(record["periods"])
   pro=record["rejected_lookalike_pro_forma"]
   pro_scope=lines[end:end+800]
   for label in ["revenue","gross_profit","profit_for_year"]:
    if not any(values_from_row(line,label,1)==[pro[label]] for line in pro_scope):
     raise ValueError("9DC excluded unaudited pro forma value not corroborated: "+label)
+ elif record["operating_result_basis"]!="NO_SEPARATE_OPERATING_PROFIT_SUBTOTAL" or any(
+  period["segment_operating_result"] is not None for period in record["periods"]
+ ):
+  raise ValueError("MIM has no separately reported operating profit subtotal")
  return {"symbol":record["symbol"],"fiscal_years":len(record["periods"]),
   "interim_periods":len(record.get("interim",[])),
   "rows_confirmed":counts,
@@ -118,7 +146,8 @@ def main():
   result=verify_section(text,record)
   result["original_pdf_sha256"]=source["github_actions_confirmed_sha256"]
   out.append(result)
-  print("v298 "+result["symbol"]+" VERIFIED original SHA + audited table revenue/gross/PAT/equity; periods="+str(result["fiscal_years"])+" audited, "+str(result["interim_periods"])+" unaudited")
+  print(f'{result["symbol"]} VERIFIED original SHA and rows {result["rows_confirmed"]}; '
+        f'{result["fiscal_years"]} annual and {result["interim_periods"]} interim periods')
  report={"schema_version":"sgx-ipo-original-audited-financial-reconciliation-v298",
   "checked_at_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "sources":out,"all_source_tables_reconciled":len(out)==2,
