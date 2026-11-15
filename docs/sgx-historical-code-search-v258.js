@@ -199,6 +199,13 @@
      financeTd.title=item.financialRegistered?
       "除外理由："+item.financialExclusionReasons.join(" / "):
       "財務データは未登録。株価の利用権も未検証";
+     if(item.financialRegistered && /^[A-Z0-9]{1,8}$/.test(item.code)){
+      const link=document.createElement("a");
+      link.href="#issuer="+item.code;
+      link.textContent="財務詳細を見る";
+      link.title=item.code+" の財務・根拠・ランキング除外理由を見る";
+      financeTd.append(document.createTextNode(" / "),link);
+     }
      tr.append(financeTd);
      const td=document.createElement("td"),a=document.createElement("a");
      a.href=item.source;a.target="_blank";a.rel="noopener noreferrer";
