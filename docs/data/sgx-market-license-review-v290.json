@@ -1,0 +1,26 @@
+{
+  "schema_version": "sgx-quote-license-research-v290",
+  "reviewed_at_date": "2026-11-15",
+  "status": "NO_LICENSE_GRANT_OBTAINED",
+  "current_sgx_policy_effective_date": "2026-07-01",
+  "official_policy_index_url": "https://www.datadirect.sgx.com/Market-Data-Policy",
+  "official_market_data_vendor_url": "https://www.sgx.com/data-connectivity/our-data-vendors",
+  "official_contact": "data@sgx.com",
+  "required_uses": [
+    "BROWSER_DISPLAY",
+    "BACKEND_NON_DISPLAY_ANALYTICS",
+    "REDISTRIBUTION_IF_APPLICABLE"
+  ],
+  "rights_granted": {
+    "browser_display": false,
+    "backend_non_display_analytics": false,
+    "redistribution": false
+  },
+  "notes": [
+    "The official SGX policy index labels July 1 2026 as current and distinguishes display and non-display usage; this research record is not a license.",
+    "Third-party vendor listings do not transfer rights to this application.",
+    "Historical unofficial Yahoo quotes in latest.json remain informational and are not approved for automated investment ranking.",
+    "An actual executed grant, product scope, recipient identity, start/end dates and permission for both use types must be reviewed before altering ranking gate."
+  ],
+  "next_action": "Request written scope and fees for a public Japanese-language SGX security comparison and algorithmic screening application via SGX Data Direct; do not treat an unanswered inquiry as approval."
+}
