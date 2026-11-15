@@ -60,6 +60,14 @@ assert.deepEqual(calculated.results.map(row => [row.price, row.valuation.cap]), 
 ]);
 assert.ok(calculated.results.every(row => row.status === "trial_calculated" &&
   row.valuation.per > 0 && row.valuation.pbr > 0 && row.financeSource.startsWith("https://")));
+assert.deepEqual(calculated.results.map(({valuation}) =>
+  [valuation.annualNetIncome, valuation.annualParentEquity]), [
+  [3848098000000, 39918854000000], [10593000000, 32648000000], [462770000, 2573638000],
+]);
+for (const {valuation} of calculated.results) {
+  assert.equal(valuation.per, valuation.cap / valuation.annualNetIncome);
+  assert.equal(valuation.pbr, valuation.cap / valuation.annualParentEquity);
+}
 quotes.delete("SG:S63:2026-11-13");
 assert.equal(reviewRepresentativeValuations(rows, shares, quotes).results[2].status, "missing_exact_close");
 const current = readQuoteHistory([

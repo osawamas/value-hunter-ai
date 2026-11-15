@@ -340,6 +340,7 @@ function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
     cap, per: last.net_income > 0 ? cap / last.net_income : null,
     pbr: last.parent_equity > 0 ? cap / last.parent_equity : null,
     currency, periodEnd: last.end,
+    annualNetIncome: last.net_income, annualParentEquity: last.parent_equity,
   };
 }
 
@@ -523,13 +524,15 @@ function personalBatchCsv(results) {
   const headers = ["market_id", "company", "date", "currency", "close", "shares_excluding_treasury",
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
     "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date",
-    "share_disclosed_at", "share_disclosure_timing", "prior_share_reference_date", "prior_share_reference_source"];
+    "share_disclosed_at", "share_disclosure_timing", "prior_share_reference_date", "prior_share_reference_source",
+    "annual_net_income", "annual_parent_equity"];
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
     Number.isFinite(row.salesGrowth) ? row.salesGrowth * 100 : null,
     Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate,
-    row.shareDisclosedAt, row.shareDisclosureTiming, row.referenceShareDate, row.referenceShareSource].map(csvCell).join(","));
+    row.shareDisclosedAt, row.shareDisclosureTiming, row.referenceShareDate, row.referenceShareSource,
+    row.result?.annualNetIncome, row.result?.annualParentEquity].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
