@@ -46,17 +46,17 @@ def read_monthly_rights(path):
             ]
             parsed_actions = 0
             for x, y, code in words:
-                if not .12 < x < .18 or not CODE.fullmatch(code):
+                if not .16 < x < .20 or not CODE.fullmatch(code):
                     continue
                 line = sorted(word for word in words if abs(word[1] - y) < 2.5)
-                description = "".join(word[2] for word in line if word[0] >= .75)
+                description = "".join(word[2] for word in line if word[0] >= .79)
                 if not ACTION.search(description):
                     continue
                 ratio = RATIO.fullmatch(description)
                 if not ratio:
                     raise ValueError(f"Could not read the JPX corporate-action ratio for {code}")
-                ex_on = table_date("".join(word[2] for word in line if .58 < word[0] < .668))
-                record_on = table_date("".join(word[2] for word in line if .668 <= word[0] < .75))
+                ex_on = table_date("".join(word[2] for word in line if .65 < word[0] < .72))
+                record_on = table_date("".join(word[2] for word in line if .72 <= word[0] < .79))
                 old, new = int(ratio[1]), int(ratio[2])
                 valid_ratio = 0 < old < new if ratio[3] == "分割" else 0 < new < old
                 if ex_on.replace(day=1) != month or ex_on > record_on or not valid_ratio:
@@ -64,11 +64,6 @@ def read_monthly_rights(path):
                 events[code].add(ShareEvent(ex_on, record_on, old, new))
                 parsed_actions += 1
             if expected_actions != parsed_actions:
-                for _, center, code in words:
-                    if code in {"4452", "8336", "6731"}:
-                        line = [(round(x, 3), round(y - center, 2), value)
-                                for x, y, value in words if abs(y - center) < 5]
-                        print(f"JPX page {page.number + 1}, sample {code}: {line}")
                 raise ValueError(
                     f"JPX page {page.number + 1} declares {expected_actions} split or "
                     f"consolidation rows, but extracted {parsed_actions}"
