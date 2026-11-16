@@ -155,14 +155,24 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
         if (!quote) throw new QuoteImportError("RESPONSE", "SGX response is missing the S63 close");
         const {trial, interimTrial} = reviewStoredS63(feed, session, quote.close);
         check = {
-          session, annualStatus: trial.status,
+          session, closeRetrieval: "retrieved", annualStatus: trial.status,
           completeAnnualRatios: ["cap", "per", "pbr"].every(key => Number.isFinite(trial.valuation?.[key])),
           interimStatus: interimTrial.status,
         };
       });
       check.publicationErrors = checkRefresh(feed, staged);
     } catch (error) {
-      if (!check || !(error instanceof QuoteImportError) || error.stage !== "VALIDATION") throw error;
+      if (!(error instanceof QuoteImportError)) throw error;
+      if (!check) {
+        sessions.push({session, closeRetrieval: "failed", errorStage: error.stage, error: error.message});
+        return {
+          symbol: "S63",
+          closeRetrieval: sessions.length === 1 ? "failed" : "partial",
+          valuationCheck: "blocked",
+          sessions,
+        };
+      }
+      if (error.stage !== "VALIDATION") throw error;
       check.publicationErrors = [error.message];
     }
     sessions.push(check);
@@ -190,7 +200,8 @@ async function main() {
   if (compare) {
     const result = await compareS63Sessions(feed, grant, args[3], args[4]);
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-    if (result.valuationCheck !== "passed") process.exitCode = 2;
+    if (result.closeRetrieval !== "retrieved") process.exitCode = 1;
+    else if (result.valuationCheck !== "passed") process.exitCode = 2;
     return;
   }
   const issuerChecks = [];

@@ -390,7 +390,29 @@ async function test() {
       return true;
     });
     sessionBodies.set("/closes?session=2026-11-16", []);
-    await assert.rejects(run(process.execPath, pairArgs, options), {code: 1, stdout: "", stderr: /missing a configured symbol/});
+    await assert.rejects(run(process.execPath, pairArgs, options), error => {
+      assert.equal(error.code, 1);
+      const partial = JSON.parse(error.stdout);
+      assert.equal(partial.closeRetrieval, "partial");
+      assert.equal(partial.valuationCheck, "blocked");
+      assert.deepEqual(partial.sessions[0], pair.sessions[0]);
+      assert.deepEqual(partial.sessions[1], {
+        session: "2026-11-16", closeRetrieval: "failed", errorStage: "RESPONSE",
+        error: "SGX response is missing a configured symbol",
+      });
+      return true;
+    });
+    const beforeFailure = requests.length;
+    statuses = [403];
+    await assert.rejects(run(process.execPath, pairArgs, options), error => {
+      assert.equal(error.code, 1);
+      const failed = JSON.parse(error.stdout);
+      assert.equal(failed.closeRetrieval, "failed");
+      assert.deepEqual(failed.sessions.map(check => [check.session, check.errorStage]), [["2026-11-13", "FETCH"]]);
+      return true;
+    });
+    assert.deepEqual(requests.slice(beforeFailure), ["/closes?session=2026-11-13"]);
+    assert.deepEqual(fs.readFileSync(feedFile), realFeed);
     console.log("SGX daily refresh and history passed: licensed recovery recorded; invalid grants rejected");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
