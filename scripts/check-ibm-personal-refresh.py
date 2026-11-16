@@ -68,7 +68,24 @@ def complete_trial(trial):
     )
 
 
-def valuation_checks(trials):
+def interim_check(trial):
+    interim = trial.get("interimValuation")
+    if interim is None:
+        return {"status": "unavailable"}
+    complete = all(
+        type(interim.get(metric)) in (int, float)
+        and math.isfinite(interim[metric]) and interim[metric] > 0
+        for metric in ("per", "pbr")
+    )
+    return {
+        "status": "calculated" if complete else "incomplete_ratios",
+        "periodEnd": interim["periodEnd"],
+        "disclosedOn": interim["disclosedOn"],
+        "source": interim["source"],
+    }
+
+
+def valuation_checks(trials, *, include_interim=False):
     return {
         label: {
             "date": trial["date"],
@@ -79,6 +96,7 @@ def valuation_checks(trials):
             **{field: trial[field] for field in ("referenceShareDate", "referenceShareSource",
                                                 "shareDisclosureDate", "shareSource")
                if field in trial},
+            **({"interim": interim_check(trial)} if include_interim else {}),
         }
         for label, trial in trials.items()
     }
@@ -149,7 +167,7 @@ def scheduled_preflight(query, *, demo):
             matched_report = compare(matched, *sorted(matched), demo=demo, retrieved_at=(stamp,))
             report["exactDateCheck"] = {
                 "status": "passed" if matched_report["passed"] else "incomplete_valuation",
-                "checks": matched_report["preflightChecks"],
+                "checks": valuation_checks(matched_report["latestObservedTrials"], include_interim=True),
             }
     return report
 

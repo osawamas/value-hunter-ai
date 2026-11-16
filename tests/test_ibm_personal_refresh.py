@@ -33,6 +33,13 @@ class IBMRefreshTests(unittest.TestCase):
                          "https://www.sec.gov/Archives/edgar/data/51143/000005114326000095/ibm-20260930.htm")
         self.assertNotIn("shares", latest_match)
         self.assertNotIn("valuation", latest_match)
+        for label, day in (("previous", "2026-06-30"), ("current", "2026-09-30")):
+            check = report["exactDateCheck"]["checks"][label]
+            self.assertEqual(check["interim"], {
+                "status": "calculated", "periodEnd": day,
+                "disclosedOn": check["shareDisclosureDate"], "source": check["shareSource"],
+            })
+        self.assertEqual(refresh.interim_check({}), {"status": "unavailable"})
         series["2026-06-30"]["4. close"] = "0"
         with patch.object(refresh, "fetch_daily_series", return_value=response):
             report = refresh.scheduled_preflight("fixture", demo=True)
