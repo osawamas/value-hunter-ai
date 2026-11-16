@@ -32,6 +32,11 @@ work_dir=$(mktemp -d -- "$(dirname -- "$feed")/.sgx-close-XXXXXX")
 trap 'rm -rf "$work_dir"' EXIT
 printf '%s' "$SGX_CLOSE_GRANT_JSON" > "$work_dir/grant.json"
 unset SGX_CLOSE_GRANT_JSON
+if [ "${SGX_PREFLIGHT:-}" = true ]; then
+  node "$script_dir/fetch-sgx-public-quotes.js" "$feed" "$work_dir/grant.json" "$session" |
+    tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+  exit 0
+fi
 node "$script_dir/fetch-sgx-public-quotes.js" "$feed" "$work_dir/grant.json" "$session" > "$work_dir/latest.json"
 mv -- "$work_dir/latest.json" "$feed"
 echo "Licensed SGX closes staged for $session." >> "${GITHUB_STEP_SUMMARY:-/dev/null}"

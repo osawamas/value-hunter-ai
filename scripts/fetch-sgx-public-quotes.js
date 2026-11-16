@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const {setTimeout: delay} = require("node:timers/promises");
 const {stageQuotes} = require("./stage-sgx-public-quotes.js");
+const {checkRefresh} = require("./check-ranking-license-evidence-v290.js");
 const {sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
 
 const MAX_RESPONSE_BYTES = 1024 * 1024;
@@ -110,12 +111,14 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
     throw new QuoteImportError("SESSION", "The feed must contain only closes for the requested Singapore session");
   }
   if (reportTrial) {
-    const s63 = quotes.filter(quote => quote?.symbol === "S63");
-    if (s63.length === 1 && s63[0].currency === "SGD" &&
-        s63[0].source_type === "LICENSED_SGX_EQUITY" &&
-        Number.isFinite(s63[0].close) && s63[0].close > 0) {
-      reportTrial(s63[0].close);
+    if (!quotes.length || quotes.some(quote => typeof quote.symbol !== "string" ||
+        quote.currency !== "SGD" || quote.source_type !== "LICENSED_SGX_EQUITY" ||
+        !Number.isFinite(quote.close) || quote.close <= 0) ||
+        new Set(quotes.map(quote => quote.symbol)).size !== quotes.length) {
+      throw new QuoteImportError("RESPONSE", "Expected unique licensed SGD closes for the requested session");
     }
+    const s63 = quotes.find(quote => quote.symbol === "S63");
+    if (s63) reportTrial(s63.close);
   }
   const {grant_status, grant_evidence_url, licensor, licensee, licensed_product,
     usage_scopes, valid_from, valid_until} = grant;
@@ -152,7 +155,25 @@ async function main() {
       blockers: report.blockers,
     }));
   } : undefined;
-  const staged = await fetchAndStage(feed, grant, args[2], fetch, reportTrial);
+  if (reportTrial) {
+    let validationErrors;
+    try {
+      const staged = await fetchAndStage(feed, grant, args[2], fetch, reportTrial);
+      validationErrors = checkRefresh(feed, staged);
+    } catch (error) {
+      if (!(error instanceof QuoteImportError) || error.stage !== "VALIDATION") throw error;
+      validationErrors = [error.message];
+    }
+    process.stdout.write(JSON.stringify({
+      session: args[2],
+      closeRetrieval: "retrieved",
+      publicationCheck: validationErrors.length ? "blocked" : "passed",
+      validationErrors,
+    }, null, 2) + "\n");
+    return;
+  }
+
+  const staged = await fetchAndStage(feed, grant, args[2]);
   process.stdout.write(JSON.stringify(staged, null, 2) + "\n");
 }
 

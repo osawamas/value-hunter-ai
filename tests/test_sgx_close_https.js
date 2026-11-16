@@ -207,24 +207,62 @@ async function test() {
     }), {code: 1, stdout: /reviewed SGX close grant/});
 
     body = [noticeQuote];
-    await assert.rejects(run(process.execPath, noticeArgs, {
-      ...options, env: {...options.env, SGX_PREFLIGHT: "true"},
-    }), error => {
-      assert.equal(error.stdout, "");
-      const line = error.stderr.split("\n").find(text => text.startsWith("S63 valuation preflight: "));
-      assert.ok(line);
-      const report = JSON.parse(line.slice("S63 valuation preflight: ".length));
-      assert.equal(report.calculated, true);
-      assert.equal(report.completeRatios, true);
-      assert.equal(report.interimStatus, "calculated");
-      assert.equal(report.interimPeriodEnd, "2026-06-30");
-      assert.equal(report.per, undefined);
-      assert.equal(report.pbr, undefined);
-      assert.ok(report.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
-      assert.ok(error.stderr.includes("SGX close VALIDATION:"));
-      return true;
-    });
+    const preflightOptions = {...options, env: {...options.env, SGX_PREFLIGHT: "true"}};
+    const blocked = await run(process.execPath, noticeArgs, preflightOptions);
+    const diagnostic = JSON.parse(blocked.stdout);
+    assert.equal(diagnostic.closeRetrieval, "retrieved");
+    assert.equal(diagnostic.publicationCheck, "blocked");
+    assert.ok(diagnostic.validationErrors.length > 0);
+    assert.equal(diagnostic.records, undefined);
+    const line = blocked.stderr.split("\n").find(text => text.startsWith("S63 valuation preflight: "));
+    assert.ok(line);
+    const report = JSON.parse(line.slice("S63 valuation preflight: ".length));
+    assert.equal(report.calculated, true);
+    assert.equal(report.completeRatios, true);
+    assert.equal(report.interimStatus, "calculated");
+    assert.equal(report.interimPeriodEnd, "2026-06-30");
+    assert.equal(report.per, undefined);
+    assert.equal(report.pbr, undefined);
+    assert.ok(report.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
     assert.deepEqual(fs.readFileSync(feedFile), realFeed);
+
+    const summary = path.join(temp, "summary.md");
+    const livePreflight = {env: {...applyOptions.env, SGX_REQUESTED_SESSION: matchedSession,
+      SGX_PREFLIGHT: "true", GITHUB_STEP_SUMMARY: summary}};
+    await run("bash", applyArgs, livePreflight);
+    assert.match(fs.readFileSync(summary, "utf8"), /"publicationCheck": "blocked"/);
+    assert.deepEqual(fs.readFileSync(feedFile), realFeed);
+
+    const publishable = structuredClone(JSON.parse(realFeed));
+    const sourceRow = publishable.records.find(row => row.symbol === "S63");
+    Object.assign(sourceRow, {
+      quote_timestamp_utc: noticeQuote.timestamp,
+      independent_cross_source_verification: true,
+      exclusion_reasons: [], quality_flags: [],
+    });
+    publishable.quality_checked_at_utc = "2026-11-13T11:30:00Z";
+    const input = JSON.stringify(publishable);
+    fs.writeFileSync(feedFile, input);
+    const valid = await run(process.execPath, noticeArgs, preflightOptions);
+    assert.deepEqual(JSON.parse(valid.stdout), {
+      session: matchedSession, closeRetrieval: "retrieved", publicationCheck: "passed",
+      validationErrors: [],
+    });
+    await run("bash", applyArgs, livePreflight);
+    assert.match(fs.readFileSync(summary, "utf8"), /"publicationCheck": "passed"/);
+    assert.equal(fs.readFileSync(feedFile, "utf8"), input);
+
+    body = [{...noticeQuote, close: 0}];
+    await assert.rejects(run("bash", applyArgs, livePreflight), {
+      code: 1, stderr: /Expected unique licensed SGD closes/,
+    });
+    assert.equal(fs.readFileSync(feedFile, "utf8"), input);
+
+    statuses = [403];
+    await assert.rejects(run("bash", applyArgs, livePreflight), {
+      code: 1, stderr: /HTTP 403/,
+    });
+    assert.equal(fs.readFileSync(feedFile, "utf8"), input);
     console.log("SGX daily refresh and history passed: licensed recovery recorded; invalid grants rejected");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
