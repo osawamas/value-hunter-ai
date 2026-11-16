@@ -56,6 +56,18 @@ assert.equal(readinessTrial.trial.valuation.cap, 31158471150);
 assert.ok(Number.isFinite(readinessTrial.trial.valuation.per));
 assert.ok(Number.isFinite(readinessTrial.trial.valuation.pbr));
 assert.deepEqual(readinessTrial.blockers, s63Readiness.blockers);
+assert.equal(readinessTrial.interimTrial.status, "calculated");
+assert.equal(readinessTrial.interimTrial.trailingProfit, 572067000);
+assert.equal(readinessTrial.interimTrial.parentEquity, 2524548000);
+assert.equal(readinessTrial.interimTrial.per, readinessTrial.trial.valuation.cap / 572067000);
+assert.equal(readinessTrial.interimTrial.pbr, readinessTrial.trial.valuation.cap / 2524548000);
+assert.equal(reviewS63(changedEquity, research, notices, "2026-11-13", 10)
+  .interimTrial.status, "annual_comparative_mismatch");
+assert.equal(reviewS63(sgx, research, notices, "2026-11-16", 10)
+  .interimTrial.status, "annual_valuation_unavailable");
+const beforeInterim = {...shares, session_date_sgt: "2026-08-13"};
+assert.equal(reviewS63(sgx, research, [beforeInterim], "2026-08-13", 10)
+  .interimTrial.status, "interim_not_yet_available");
 assert.ok(s63Readiness.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
 assert.ok(s63Readiness.blockers.includes("PARENT_EQUITY_INDEPENDENCE_UNVERIFIED"));
 assert.equal(reviewS63(sgx, research, notices, "2026-11-16").matchedShares, null);

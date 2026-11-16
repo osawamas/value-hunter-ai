@@ -216,6 +216,10 @@ async function test() {
       const report = JSON.parse(line.slice("S63 valuation preflight: ".length));
       assert.equal(report.calculated, true);
       assert.equal(report.completeRatios, true);
+      assert.equal(report.interimStatus, "calculated");
+      assert.equal(report.interimPeriodEnd, "2026-06-30");
+      assert.equal(report.per, undefined);
+      assert.equal(report.pbr, undefined);
       assert.ok(report.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
       assert.ok(error.stderr.includes("SGX close VALIDATION:"));
       return true;

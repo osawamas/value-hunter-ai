@@ -84,7 +84,32 @@ function reviewIssuer(feed, research, notices, symbol, session, close) {
 }
 
 function reviewS63(feed, research, notices, session, close) {
-  return reviewIssuer(feed, research, notices, "S63", session, close);
+  const report = reviewIssuer(feed, research, notices, "S63", session, close);
+  if (close === undefined) return report;
+
+  const interim = require("../docs/data/sgx-s63-interim-v469.json");
+  const annual = report.trial?.valuation;
+  const {cap, periodEnd, annualNetIncome, annualParentEquity} = annual ?? {};
+  const matchedAnnual = periodEnd === "2025-12-31" && annual?.currency === interim.currency &&
+    annualParentEquity === interim.prior_year_end_parent_equity * 1000;
+  const trailingProfit = annualNetIncome +
+    (interim.attributable_profit_h1 - interim.attributable_profit_prior_h1) * 1000;
+  const parentEquity = interim.parent_equity * 1000;
+  // Require a later session when the evidence has a filing date but no verified release time.
+  const status = !annual ? "annual_valuation_unavailable" :
+    session <= interim.published_on ? "interim_not_yet_available" :
+    !matchedAnnual ? "annual_comparative_mismatch" :
+    trailingProfit <= 0 || parentEquity <= 0 ? "non_positive_denominator" : "calculated";
+  return {...report, interimTrial: {
+    status,
+    periodEnd: interim.period_end,
+    publishedOn: interim.published_on,
+    source: interim.source_url,
+    assurance: interim.assurance,
+    ...(status === "calculated" && {
+      trailingProfit, parentEquity, per: cap / trailingProfit, pbr: cap / parentEquity,
+    }),
+  }};
 }
 
 function reviewStoredS63(feed, session, close) {

@@ -147,6 +147,8 @@ async function main() {
       calculated: Boolean(report.trial.valuation),
       completeRatios: Number.isFinite(report.trial.valuation?.per) &&
         Number.isFinite(report.trial.valuation?.pbr),
+      interimStatus: report.interimTrial.status,
+      interimPeriodEnd: report.interimTrial.periodEnd,
       blockers: report.blockers,
     }));
   } : undefined;
