@@ -19,3 +19,9 @@ In v460, `preflightChecks` records the price retrieval and valuation
 status for each requested observation. When the same-day share count
 is missing, it includes the date and source of the earlier disclosure
 when available. Saved local snapshot reports include the same fields.
+
+In v461, run the **JPX, SEC and SGX market source verification** Actions
+workflow with `check_ibm_demo` enabled to see these statuses and filing
+links in the run summary. If the demo request fails, the job fails. If
+the closes are retrieved but the valuation is incomplete, the summary
+reports the valuation as pending. It excludes the price values and ratios.
