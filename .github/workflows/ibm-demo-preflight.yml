@@ -1,0 +1,46 @@
+name: IBM demo preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ibm-demo-preflight.yml'
+      - 'scripts/check-ibm-personal-refresh.py'
+permissions:
+  contents: read
+jobs:
+  ibm-demo-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check IBM price retrieval and dated share evidence
+        shell: bash
+        run: |
+          report=$(mktemp)
+          trap 'rm -f "$report"' EXIT
+          status=0
+          python3 scripts/check-ibm-personal-refresh.py --demo --latest-two > "$report" || status=$?
+          if (( status != 0 && status != 2 )); then
+            echo "IBM preflight failed before producing a valuation report." >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
+          {
+            echo '### IBM demo preflight'
+            echo
+            echo '| Trading date | Close retrieval | Valuation | Earlier share disclosure |'
+            echo '| --- | --- | --- | --- |'
+            jq -er '.preflightChecks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) | \(if .referenceShareSource then "[\(.referenceShareDate)](\(.referenceShareSource))" else "—" end) |"' "$report"
+            if (( status == 2 )); then
+              echo
+              echo 'Valuation pending. See the per-session status above.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -25,3 +25,7 @@ workflow with `check_ibm_demo` enabled to see these statuses and filing
 links in the run summary. If the demo request fails, the job fails. If
 the closes are retrieved but the valuation is incomplete, the summary
 reports the valuation as pending. It excludes the price values and ratios.
+
+In v462, use the dedicated **IBM demo preflight** Actions workflow for
+manual runs. It also runs on main when its definition or IBM refresh
+script changes. The run summary contains the same diagnostic statuses.
