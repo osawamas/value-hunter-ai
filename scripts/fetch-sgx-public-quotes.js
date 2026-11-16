@@ -15,10 +15,10 @@ class QuoteImportError extends Error {
   }
 }
 
-async function requestClose(endpoint, fetcher) {
+async function requestClose(endpoint, headers, fetcher) {
   try {
     return await fetcher(endpoint, {
-      headers: {accept: "application/json"},
+      headers,
       redirect: "error",
       signal: AbortSignal.timeout(15000),
     });
@@ -59,13 +59,21 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
       endpoint.search || endpoint.hash) {
     throw new QuoteImportError("CONFIG", "Expected an HTTPS feed URL without credentials, query or fragment");
   }
+  const headers = {accept: "application/json"};
+  const token = grant.daily_close_bearer_token;
+  if (token !== undefined) {
+    if (typeof token !== "string" || !/^[A-Za-z0-9._~+/-]+=*$/.test(token)) {
+      throw new QuoteImportError("CONFIG", "Invalid SGX bearer token format");
+    }
+    headers.authorization = "Bearer " + token;
+  }
   endpoint.searchParams.set("session", session);
-  let response = await requestClose(endpoint, fetcher);
+  let response = await requestClose(endpoint, headers, fetcher);
   for (const wait of [250, 500]) {
     if (![502, 503, 504].includes(response.status)) break;
     await response.body?.cancel().catch(() => {});
     await delay(wait);
-    response = await requestClose(endpoint, fetcher);
+    response = await requestClose(endpoint, headers, fetcher);
   }
   if (!response.ok) {
     await response.body?.cancel().catch(() => {});

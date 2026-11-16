@@ -27,11 +27,19 @@ async function test() {
       timestamp: "2026-11-12T09:00:00Z",
     };
     const requests = [];
+    const authorizations = [];
+    let redirectTo;
     let body = [quote, {...quote, symbol: "OTHER", timestamp: "2026-11-11T09:00:00Z"}];
     let statuses = [];
     const sessionBodies = new Map();
     server = https.createServer({key: fs.readFileSync(key), cert: fs.readFileSync(cert)}, (req, res) => {
       requests.push(req.url);
+      authorizations.push(req.headers.authorization);
+      if (redirectTo) {
+        res.writeHead(302, {location: redirectTo});
+        res.end();
+        return;
+      }
       res.writeHead(statuses.shift() ?? 200, {"content-type": "application/json"});
       res.end(JSON.stringify(sessionBodies.get(req.url) ?? body));
     });
@@ -96,6 +104,33 @@ async function test() {
     assert.deepEqual(row.quality_flags, []);
     assert.equal(row.market_data_license_evidence.daily_close_feed_url, undefined);
     assert.equal(row.market_data_license_evidence.daily_close_symbols, undefined);
+    const authToken = "fixture-private-token_123";
+    const authenticatedGrant = {...grant, daily_close_bearer_token: authToken};
+    fs.writeFileSync(grantFile, JSON.stringify(authenticatedGrant));
+    const authorized = await run(process.execPath, args, options);
+    assert.equal(authorizations.at(-1), "Bearer " + authToken);
+    assert.deepEqual(JSON.parse(authorized.stdout), candidate);
+    assert.ok(!authorized.stdout.includes(authToken));
+
+    const firstRequestCount = requests.length;
+    redirectTo = "/redirect-target";
+    await assert.rejects(run(process.execPath, args, options), error => {
+      assert.equal(error.code, 1);
+      assert.match(error.stderr, /failed or timed out/);
+      assert.ok(!error.stderr.includes(authToken));
+      return true;
+    });
+    assert.deepEqual(requests.slice(firstRequestCount), ["/closes?session=2026-11-12"]);
+    redirectTo = undefined;
+
+    const beforeInvalid = requests.length;
+    fs.writeFileSync(grantFile, JSON.stringify({...grant, daily_close_bearer_token: "bad token"}));
+    await assert.rejects(run(process.execPath, args, options), {
+      code: 1, stdout: "", stderr: /Invalid SGX bearer token format/,
+    });
+    assert.equal(requests.length, beforeInvalid);
+    fs.writeFileSync(grantFile, JSON.stringify(grant));
+
     const completeResponse = body;
     body = [{...quote, symbol: "OTHER"}];
     await assert.rejects(run(process.execPath, args, options), {
