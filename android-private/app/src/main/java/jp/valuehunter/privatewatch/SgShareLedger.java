@@ -57,7 +57,7 @@ final class SgShareLedger {
             String source = row.getString("source");
             if (disclosure != null || count <= 0 || count > 10_000_000_000L
                     || !source.matches(
-                            "https://links[.]sgx[.]com/1[.]0[.]0/corporate-announcements/[A-Z0-9]+/(?:[a-f0-9]{64})?")) {
+                            "https://links[.]sgx[.]com/1[.]0[.]0/corporate-announcements/[A-Z0-9]+(?:/[a-f0-9]{64})?/?")) {
                 throw new JSONException("Invalid or conflicting S63 share evidence");
             }
             disclosure = new Disclosure(count, source, disclosed);

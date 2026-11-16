@@ -31,7 +31,7 @@ def unique(pattern,plain,field):
 def validate_source_url(url):
  u=urlsplit(url)
  if (u.scheme!="https" or u.netloc!="links.sgx.com" or u.query or u.fragment
-     or not re.fullmatch(r"/1\.0\.0/corporate-announcements/[A-Z0-9]+/(?:[a-f0-9]{64}/?)?",u.path)):
+     or not re.fullmatch(r"/1\.0\.0/corporate-announcements/[A-Z0-9]+(?:/[a-f0-9]{64})?/?",u.path)):
   raise ValueError("Expected an official SGXNet announcement URL")
 
 def parse_notice(raw,url):
@@ -46,7 +46,10 @@ def parse_notice(raw,url):
  broadcast_text=unique(r"Date\s*&\s*Time of Broadcast\s+(\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2})\b",s,"broadcast time")
  broadcast=datetime.strptime(broadcast_text,"%d-%b-%Y %H:%M:%S")
  purchase=datetime.strptime(unique(r"Date of Purchase\s*\|?\s*(\d{2}/\d{2}/\d{4})\b",s,"purchase date"),"%d/%m/%Y").date()
- if purchase>broadcast.date() or reference[2:8]!=broadcast.strftime("%y%m%d"):
+ status=unique(r"Status\s+(New|Replacement)\s+Announcement Sub Title\b",s,"announcement status")
+ reference_day=datetime.strptime(reference[2:8],"%y%m%d").date()
+ if (not purchase<=reference_day<=broadcast.date()
+     or (status.casefold()=="new" and reference_day!=broadcast.date())):
   raise ValueError("SGX purchase date, broadcast date or reference is inconsistent")
  bought=int(unique(r"Total Number of shares purchased\s*\|?\s*([0-9,]+)\b",s,"bought shares").replace(",",""))
  cancelled=int(unique(r"Number of shares cancelled\s*\|?\s*([0-9,]+)\b",s,"cancelled shares").replace(",",""))
@@ -57,7 +60,7 @@ def parse_notice(raw,url):
   raise ValueError("SGX share count arithmetic mismatch")
  return {"status":"SGX_PRIMARY_BUYBACK_DATED_SNAPSHOT",
          "source_url":url,"source_sha256":hashlib.sha256(raw).hexdigest(),
-         "symbol":SYMBOL,"isin":ISIN,"reference":reference,
+         "symbol":SYMBOL,"isin":ISIN,"reference":reference,"announcement_status":status,
          "broadcast_sgt_text":broadcast_text,
          "purchase_date":purchase.isoformat(),"shares_purchased":bought,
          "shares_cancelled":cancelled,"purchased_as_treasury":treasury_add,
@@ -81,7 +84,7 @@ def parse(raw):
 def fetch(url=URL):
  validate_source_url(url)
  with urlopen(Request(url,headers={"User-Agent":"VALUE-HUNTER-AI/1.0 primary-research","Accept":"text/html"}),timeout=25) as resp:
-  if resp.geturl()!=url or "html" not in resp.headers.get("Content-Type","").lower():
+  if resp.geturl().rstrip("/")!=url.rstrip("/") or "html" not in resp.headers.get("Content-Type","").lower():
    raise ValueError("Unexpected SGX official HTML response")
   raw=resp.read(3_000_001)
  if len(raw)>3_000_000:raise ValueError("Oversized source")

@@ -51,6 +51,28 @@ class AndroidS63LedgerTests(unittest.TestCase):
             update_ledger(self.path, [URL], lambda _: future)
         self.assertEqual(self.path.read_bytes(), baseline)
 
+    def test_accepts_only_a_later_replacement_for_the_registered_reference(self):
+        replacement = "https://links.sgx.com/1.0.0/corporate-announcements/REPLACEMENT"
+        revised = (sample().replace(b"Status New", b"Status Replacement")
+                   .replace(b"13-Nov-2026", b"14-Nov-2026")
+                   .replace(b"3,115,847,115", b"3,115,800,000"))
+        update_ledger(self.path, [URL], lambda _: sample())
+        baseline = self.path.read_bytes()
+        mismatched = revised.replace(b"OTHRPXGV", b"OTHRTEST")
+        with self.assertRaisesRegex(ValueError, "Unverified S63 replacement"):
+            update_ledger(self.path, [replacement], {URL: sample(), replacement: mismatched}.__getitem__)
+        self.assertEqual(self.path.read_bytes(), baseline)
+
+        download = {URL: sample(), replacement: revised}.__getitem__
+        self.assertEqual(update_ledger(self.path, [replacement], download), ["2026-11-13"])
+        row, = json.loads(self.path.read_text(encoding="utf-8"))["records"]
+        self.assertEqual(row["shares"], 3_115_800_000)
+        self.assertEqual(row["source"], replacement)
+        self.assertEqual(row["disclosed_at"], "2026-11-14T18:21:18+08:00")
+        self.assertEqual(update_ledger(self.path, [replacement], download), [])
+        with self.assertRaisesRegex(ValueError, "Conflicting S63"):
+            update_ledger(self.path, [URL], download)
+
     def test_rejects_conflict_and_rolls_back_invalid_batch(self):
         baseline = self.path.read_bytes()
         with self.assertRaisesRegex(ValueError, "official SGXNet"):

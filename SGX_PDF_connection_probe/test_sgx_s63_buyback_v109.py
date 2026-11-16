@@ -4,6 +4,7 @@ def sample():
  return ("""<html><body>Issuer/ Manager SINGAPORE TECHNOLOGIES ENGINEERING LTD
  Securities SINGAPORE TECH ENGINEERING LTD - SG1F60858221 - S63
  Date &amp;Time of Broadcast 13-Nov-2026 18:21:18
+ Status New Announcement Sub Title Daily Share Buy Back Notice
  Announcement Reference SG261113OTHRPXGV
  Announcement Title Share Buy Back - Daily Share Buy-Back Notice
  Date of Purchase | 13/11/2026 |

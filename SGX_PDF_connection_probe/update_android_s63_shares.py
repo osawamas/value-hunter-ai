@@ -11,7 +11,7 @@ from sgx_s63_buyback_v109 import SYMBOL, fetch, parse_notice
 SGT = timezone(timedelta(hours=8))
 SOURCE = re.compile(
     r"https://links[.]sgx[.]com/1[.]0[.]0/corporate-announcements/"
-    r"(?P<announcement>[A-Z0-9]+)/(?P<document>[a-f0-9]{64})?"
+    r"(?P<announcement>[A-Z0-9]+)(?:/(?P<document>[a-f0-9]{64}))?/?"
 )
 
 
@@ -24,6 +24,18 @@ def validate_record(row):
             or type(row["shares"]) is not int or not 0 < row["shares"] <= 10_000_000_000
             or not SOURCE.fullmatch(row["source"])):
         raise ValueError("Invalid date, count or official source in S63 ledger")
+
+
+def notice_record(notice):
+    broadcast = datetime.strptime(notice["broadcast_sgt_text"], "%d-%b-%Y %H:%M:%S")
+    row = {
+        "date": notice["purchase_date"],
+        "shares": notice["issued_excluding_treasury_after_purchase"],
+        "source": notice["source_url"],
+        "disclosed_at": broadcast.replace(tzinfo=SGT).isoformat(),
+    }
+    validate_record(row)
+    return row
 
 
 def update_ledger(path, urls, downloader=fetch):
@@ -43,24 +55,22 @@ def update_ledger(path, urls, downloader=fetch):
         if not source:
             raise ValueError("Expected an official SGXNet announcement URL")
         notice = parse_notice(downloader(url), url)
-        broadcast = datetime.strptime(notice["broadcast_sgt_text"], "%d-%b-%Y %H:%M:%S")
-        row = {
-            "date": notice["purchase_date"],
-            "shares": notice["issued_excluding_treasury_after_purchase"],
-            "source": notice["source_url"],
-            "disclosed_at": broadcast.replace(tzinfo=SGT).isoformat(),
-        }
-        validate_record(row)
+        row = notice_record(notice)
         existing = by_date.get(row["date"])
         if existing is not None:
             previous_source = SOURCE.fullmatch(existing["source"])
             same_announcement = source["announcement"] == previous_source["announcement"]
             documents = source["document"], previous_source["document"]
-            if (not same_announcement or (None not in documents and documents[0] != documents[1])
-                    or existing["shares"] != row["shares"]
-                    or existing["disclosed_at"] != row["disclosed_at"]):
+            if (same_announcement and (None in documents or documents[0] == documents[1])
+                    and existing["shares"] == row["shares"]
+                    and existing["disclosed_at"] == row["disclosed_at"]):
+                continue
+            if notice["announcement_status"].casefold() != "replacement" or row["disclosed_at"] <= existing["disclosed_at"]:
                 raise ValueError(f"Conflicting S63 disclosure for {row['date']}")
-            continue
+            original = parse_notice(downloader(existing["source"]), existing["source"])
+            if (original["reference"] != notice["reference"]
+                    or notice_record(original) != existing):
+                raise ValueError(f"Unverified S63 replacement for {row['date']}")
         by_date[row["date"]] = row
         added.append(row["date"])
 
