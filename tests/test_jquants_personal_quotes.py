@@ -230,6 +230,24 @@ class ToyotaRefreshPairTest(unittest.TestCase):
                     self.assertNotIn("price", check)
 
             incomplete = root / "incomplete"
+            for code, reason, later_status in (
+                (400, "request_rejected", "retrieved"),
+                (401, "authentication_failed", "not_attempted"),
+                (403, "access_denied", "not_attempted"),
+                (429, "rate_limited", "not_attempted"),
+                (503, "provider_error", "not_attempted"),
+            ):
+                def fetch_with_error(command, **options):
+                    if str(command[1]) == str(SCRIPT) and f"--from={days[0]}" in command:
+                        return CompletedProcess(command, 1, "", f"J-Quants returned HTTP {code}.")
+                    return capture(command, **options)
+
+                with patch.object(refresh, "capture", side_effect=fetch_with_error):
+                    checks = refresh.toyota_preflight(days)
+                self.assertEqual(checks[0]["reason"], reason)
+                self.assertEqual(checks[0]["httpStatus"], code)
+                self.assertEqual(checks[1]["close"], later_status)
+
             self.assertEqual(refresh.refresh_toyota_pair(incomplete, (days[0], "2026-10-01")), 2)
             self.assertTrue((incomplete / "later/report.json").is_file())
 

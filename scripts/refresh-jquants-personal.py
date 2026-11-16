@@ -5,6 +5,7 @@ from calendar import monthrange
 from datetime import date, datetime, timedelta
 import json
 from pathlib import Path
+import re
 from shutil import copyfile
 import subprocess
 import sys
@@ -17,6 +18,22 @@ SCRIPTS = Path(__file__).resolve().parent
 
 class MissingClose(ValueError):
     pass
+
+
+class QuoteRetrievalError(ValueError):
+    def __init__(self, message):
+        super().__init__(message)
+        self.reason = "invalid_response"
+        self.http_status = None
+        match = re.match(r"J-Quants returned HTTP ([0-9]{3})\.", message)
+        if match:
+            self.http_status = int(match[1])
+            self.reason = {
+                400: "request_rejected", 401: "authentication_failed", 403: "access_denied",
+                404: "not_found", 422: "request_rejected", 429: "rate_limited",
+            }.get(self.http_status, "provider_error" if self.http_status >= 500 else "http_error")
+        elif message == "J-Quants connection failed or timed out.":
+            self.reason = "connection_failed"
 
 
 def capture(command, *, allowed_exit_codes=(0,)):
@@ -39,9 +56,11 @@ def refresh(destination, previous, export_args, *, require_toyota_refresh=False)
         exported = capture([
             sys.executable, SCRIPTS / "export-jquants-personal-quotes.py",
             "--require-all", "--provenance", "--output", quotes, *export_args,
-        ], allowed_exit_codes=(0, 3))
+        ], allowed_exit_codes=(0, 1, 3))
         if exported.returncode == 3:
             raise MissingClose(exported.stderr.strip())
+        if exported.returncode == 1:
+            raise QuoteRetrievalError(exported.stderr.strip())
         receipt.write_text(exported.stderr, encoding="utf-8")
         filing_dir = snapshot / "filings"
         filing_dir.mkdir()
@@ -133,6 +152,15 @@ def toyota_preflight(sessions):
             except MissingClose:
                 report.append({"date": session, "close": "missing", "annual": "unavailable"})
                 continue
+            except QuoteRetrievalError as error:
+                entry = {"date": session, "close": "retrieval_failed", "annual": "unavailable",
+                         "reason": error.reason}
+                if error.http_status is not None:
+                    entry["httpStatus"] = error.http_status
+                report.append(entry)
+                if error.http_status in (400, 404, 422):
+                    continue
+                break
             except (OSError, ValueError) as error:
                 print(f"Toyota {session}: {error}", file=sys.stderr)
                 report.append({"date": session, "close": "verification_failed", "annual": "unavailable"})

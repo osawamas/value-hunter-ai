@@ -168,8 +168,10 @@ def main():
             rows = [row for code in codes for row in collect_quotes(code, args.from_date, args.to_date, api_key)]
     except HTTPError as error:
         parser.exit(1, f"J-Quants returned HTTP {error.code}. Check your plan, date range and API key.\n")
-    except (URLError, TimeoutError, KeyError, TypeError, ValueError, argparse.ArgumentTypeError):
-        parser.exit(1, "J-Quants response could not be retrieved or validated.\n")
+    except (URLError, TimeoutError):
+        parser.exit(1, "J-Quants connection failed or timed out.\n")
+    except (KeyError, TypeError, ValueError, argparse.ArgumentTypeError):
+        parser.exit(1, "J-Quants response could not be validated.\n")
     if not rows:
         parser.exit(3, "No closes returned for the requested interval.\n")
     retrieved_at = datetime.now(timezone.utc)

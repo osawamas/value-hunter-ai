@@ -72,10 +72,10 @@ jobs:
           checks=$(python3 scripts/refresh-jquants-personal.py --toyota-preflight "$earlier" "$later") || status=$?
           if [[ -n "$checks" ]]; then
             {
-              echo '| Trading date | Close | Annual valuation | Trailing PER / period-end PBR | Interim filing |'
-              echo '| --- | --- | --- | --- | --- |'
+              echo '| Trading date | Close | Retrieval reason | Annual valuation | Trailing PER / period-end PBR | Interim filing |'
+              echo '| --- | --- | --- | --- | --- | --- |'
               jq -er '.[] |
-                "| \(.date) | \(.close) | \(.annual) | \(if .interim then "calculated" else "unavailable" end) | \(if .interim then "[\(.interim.disclosedOn)](\(.interim.source))" else "—" end) |"' <<< "$checks"
+                "| \(.date) | \(.close) | \(.reason // "—")\(if .httpStatus then " (HTTP \(.httpStatus))" else "" end) | \(.annual) | \(if .interim then "calculated" else "unavailable" end) | \(if .interim then "[\(.interim.disclosedOn)](\(.interim.source))" else "—" end) |"' <<< "$checks"
             } | tee -a "$GITHUB_STEP_SUMMARY"
           fi
           exit "$status"
