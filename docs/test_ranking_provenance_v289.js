@@ -22,6 +22,7 @@ r.quote_source_type="LICENSED_SGX_EQUITY";
 r.quote_license_display_allowed=true;
 r.quote_license_non_display_analytics_allowed=true;
 r.independent_cross_source_verification=true;
+r.quote_timestamp_utc="2026-11-13T09:00:00Z";
 r.shares_as_of_date="2026-11-13";
 r.pbr_verified=Number((r.price_sgd*r.shares_outstanding/(1000*r.parent_equity_sgd_thousands)).toFixed(4));
 clean.ranking_eligible_count=1;clean.ranking_enabled=true;
