@@ -16,6 +16,28 @@ spec.loader.exec_module(refresh)
 
 
 class IBMRefreshTests(unittest.TestCase):
+    def test_automatic_comparison_matches_provider_dates_to_filings(self):
+        payload = {
+            "Meta Data": {"2. Symbol": "IBM"},
+            "Time Series (Daily)": {
+                day: {"4. close": "200"} for day in ("2026-06-30", "2026-09-30", "2026-11-13")
+            },
+        }
+        def fetch(query, dates, *, share_dates):
+            return refresh.read_closes(payload, dates, share_dates), "2026-11-17T00:00:00+00:00"
+
+        with patch("sys.argv", ["check-ibm-personal-refresh.py", "--demo", "--latest-with-filings"]), \
+                patch.object(refresh, "fetch_closes", side_effect=fetch) as provider, \
+                redirect_stdout(StringIO()) as output:
+            self.assertEqual(refresh.main(), 0)
+        provider.assert_called_once()
+        report = json.loads(output.getvalue())
+        self.assertEqual([check["date"] for check in report["preflightChecks"].values()],
+                         ["2026-06-30", "2026-09-30"])
+        self.assertFalse(report["publicRankingEligible"])
+        with self.assertRaisesRegex(ValueError, "Fewer than two IBM closes"):
+            refresh.read_closes(payload, None, {"2026-09-30"})
+
     def test_latest_two_uses_provider_trading_dates_and_reports_missing_shares(self):
         payload = {
             "Meta Data": {"2. Symbol": "IBM"},

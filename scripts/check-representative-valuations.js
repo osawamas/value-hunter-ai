@@ -176,8 +176,10 @@ function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows =
 }
 
 function main(args) {
-  const listToyotaShares = args[0] === "--toyota-share-sessions";
-  if (listToyotaShares) args = args.slice(1);
+  const shareIssuer = args[0] === "--toyota-share-sessions" ? "JP:7203" :
+    args[0] === "--ibm-share-sessions" ? "US:IBM" : null;
+  const shareOption = args[0];
+  if (shareIssuer) args = args.slice(1);
   let filingDirectory = data;
   if (args[0] === "--filing-dir") {
     if (!args[1] || args[1].startsWith("--")) throw Error("--filing-dir requires a directory");
@@ -234,9 +236,9 @@ function main(args) {
   const rows = currentFilings.rows;
   const notices = Array.from(s63NoticeUrls, loadS63Notice);
   const shareReview = currentFilings.shareReview.concat(notices);
-  if (listToyotaShares) {
-    if (args.length) throw Error("--toyota-share-sessions accepts no quote inputs");
-    const sessions = publishedShareSessions(rows.filter(row => row.id === "JP:7203"), shareReview);
+  if (shareIssuer) {
+    if (args.length) throw Error(shareOption + " accepts no quote inputs");
+    const sessions = publishedShareSessions(rows.filter(row => row.id === shareIssuer), shareReview);
     process.stdout.write(JSON.stringify([...sessions].map(([date, [share]]) => ({
       date, disclosedOn: share.disclosedOn, source: share.source,
     }))) + "\n");

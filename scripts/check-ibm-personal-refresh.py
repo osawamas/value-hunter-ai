@@ -33,7 +33,7 @@ def trading_date(value):
     raise argparse.ArgumentTypeError("expected YYYY-MM-DD")
 
 
-def read_closes(payload, dates):
+def read_closes(payload, dates, share_dates=None):
     if not isinstance(payload, dict) or not isinstance(payload.get("Meta Data"), dict):
         raise ValueError("Alpha Vantage did not return the daily series. Check access or quota.")
     metadata = payload["Meta Data"]
@@ -41,8 +41,11 @@ def read_closes(payload, dates):
     if metadata.get("2. Symbol") != "IBM" or not isinstance(series, dict):
         raise ValueError("The response does not identify an IBM daily series.")
     if dates is None:
-        dates = sorted(trading_date(day) for day in series)[-2:]
+        available = {trading_date(day) for day in series}
+        dates = sorted(available if share_dates is None else available.intersection(share_dates))[-2:]
         if len(dates) != 2:
+            if share_dates is not None:
+                raise ValueError("Fewer than two IBM closes match exact-date share filings in the returned series.")
             raise ValueError("Alpha Vantage returned fewer than two IBM trading dates.")
     result = {}
     for day in dates:
@@ -111,9 +114,9 @@ def compare(closes, previous, current, *, demo, retrieved_at=()):
     }
 
 
-def fetch_closes(query, dates):
+def fetch_closes(query, dates, *, share_dates=None):
     with urlopen(ENDPOINT + "?" + query, timeout=20) as response:
-        closes = read_closes(json.load(response), dates)
+        closes = read_closes(json.load(response), dates, share_dates)
     return closes, datetime.now(timezone.utc).isoformat()
 
 
@@ -202,8 +205,11 @@ def save_refresh(destination, previous, query, day, *, demo):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--demo", action="store_true", help="Use the public IBM example key")
-    parser.add_argument("--latest-two", action="store_true",
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--latest-two", action="store_true",
                         help="Compare the two latest trading dates returned by the API")
+    selection.add_argument("--latest-with-filings", action="store_true",
+                           help="Compare the latest two returned closes with exact-date share filings")
     parser.add_argument("--separate-requests", action="store_true",
                         help="Fetch each date through a separate API request")
     parser.add_argument("--output-dir", type=Path, help="Save one local snapshot")
@@ -212,9 +218,9 @@ def main():
                         help="First date, or the only date with --output-dir")
     parser.add_argument("current", nargs="?", type=trading_date)
     args = parser.parse_args()
-    if args.latest_two:
+    if args.latest_two or args.latest_with_filings:
         if args.previous or args.output_dir or args.previous_dir or args.separate_requests:
-            parser.error("--latest-two uses one request and accepts no dates or snapshot directories")
+            parser.error("automatic date selection uses one request and accepts no dates or snapshot directories")
     elif args.output_dir:
         if not args.previous or args.current or args.separate_requests:
             parser.error("--output-dir accepts a single trading date")
@@ -231,11 +237,19 @@ def main():
             status = save_refresh(args.output_dir, args.previous_dir, query, args.previous, demo=args.demo)
             print(args.output_dir / "report.json")
             return status
-        dates = None if args.latest_two else (args.previous, args.current)
+        share_dates = None
+        if args.latest_with_filings:
+            result = subprocess.run(["node", CHECKER, "--ibm-share-sessions"],
+                                    capture_output=True, text=True, check=True)
+            share_dates = {entry["date"] for entry in json.loads(result.stdout)}
+        dates = None if args.latest_two or args.latest_with_filings else (args.previous, args.current)
         request_dates = [(day,) for day in dates] if args.separate_requests else [dates]
         closes, retrieved_at = {}, []
         for requested in request_dates:
-            observations, stamp = fetch_closes(query, requested)
+            if share_dates is None:
+                observations, stamp = fetch_closes(query, requested)
+            else:
+                observations, stamp = fetch_closes(query, requested, share_dates=share_dates)
             closes.update(observations)
             retrieved_at.append(stamp)
         report = compare(closes, *(dates or sorted(closes)), demo=args.demo, retrieved_at=retrieved_at)
