@@ -143,28 +143,49 @@ def pdf_text(raw, last_page=None, *, first_page=None):
         return subprocess.check_output(["pdftotext", "-layout", *pages, str(pdf), "-"], text=True)
 
 
-def recalculate_s63_results(raw, balance_text, feed_row):
-    def read_column(text, label, column):
-        cells = re.findall(r"^\s*" + re.escape(label) + r"[ \t]+([()0-9,].*)$", text, re.M)
-        if len(cells) != 1:
-            raise ValueError(f"S63 results: expected one row for {label}")
-        value = cells[0].split()[column].replace(",", "")
-        return -int(value[1:-1]) if value.startswith("(") else int(value)
+def filing_column(text, label, column):
+    cells = re.findall(r"^\s*" + re.escape(label) + r"[ \t]+([()0-9,].*)$", text, re.M)
+    if len(cells) != 1:
+        raise ValueError(f"Issuer results: expected one row for {label}")
+    value = cells[0].split()[column].replace(",", "")
+    return -int(value[1:-1]) if value.startswith("(") else int(value)
 
+
+
+def recalculate_s63_results(raw, balance_text, feed_row):
     income = pdf_text(raw, 2, first_page=2)
-    group_profit = read_column(income, "Profit after taxation", 3)
-    minority_profit = read_column(income, "Non-controlling interests", 3)
-    reported_profit = read_column(income, "Shareholders of the Company", 3)
+    group_profit = filing_column(income, "Profit after taxation", 3)
+    minority_profit = filing_column(income, "Non-controlling interests", 3)
+    reported_profit = filing_column(income, "Shareholders of the Company", 3)
     recalculated_profit = group_profit - minority_profit
     if recalculated_profit != reported_profit or recalculated_profit != feed_row["attributable_profit_sgd_thousands"]:
         raise ValueError("S63 attributable profit recalculation mismatch")
 
     labels = ("Share capital", "Treasury shares", "Capital reserves", "Other reserves", "Retained earnings")
-    recalculated_equity = sum(read_column(balance_text, label, 0) for label in labels)
+    recalculated_equity = sum(filing_column(balance_text, label, 0) for label in labels)
     if recalculated_equity != feed_row["parent_equity_sgd_thousands"]:
         raise ValueError("S63 parent equity component sum mismatch")
     print(f"SG:S63 FY2025 components agree with feed: profit {recalculated_profit:,}, "
           f"parent equity {recalculated_equity:,} (SGD thousands)")
+
+
+def check_g13_financials(raw, row):
+    if hashlib.sha256(raw).hexdigest() != "8cd408f63b9723ea8836cb463c2407954ee51e49d59333e2264060da4e8b1c2a":
+        raise ValueError("G13 FY2025 results PDF hash mismatch")
+    if row["fiscal_year"] != 2025:
+        raise ValueError("G13 feed fiscal year mismatch")
+    income = pdf_text(raw, 1)
+    balance = pdf_text(raw, 4, first_page=4)
+    profit = filing_column(income, "Profit before taxation", 0) + filing_column(income, "Taxation", 0)
+    reported_profit = filing_column(income, "Net profit attributable to ordinary shareholders of the Company", 0)
+    if profit != reported_profit or profit != row["attributable_profit_sgd_thousands"]:
+        raise ValueError("G13 attributable profit recalculation mismatch")
+    labels = ("Share capital", "Treasury shares", "Other reserves", "Retained earnings")
+    equity = sum(filing_column(balance, label, 0) for label in labels)
+    if equity != filing_column(balance, "Total equity", 0) or equity != row["parent_equity_sgd_thousands"]:
+        raise ValueError("G13 parent equity component sum mismatch")
+    print(f"SG:G13 FY2025 components agree with feed: profit {profit:,}, "
+          f"parent equity {equity:,} (SGD thousands)")
 
 
 def check_s63_parent_equity(evidence, source_bytes, feed_row):
@@ -428,6 +449,7 @@ def main():
     modes.add_argument("--sec-originals-only", action="store_true", help="Replay original SEC company facts independently of the listing directory")
     modes.add_argument("--jp-interim-only", action="store_true", help="Replay Japanese interim filing originals")
     modes.add_argument("--jp-only", action="store_true", help="Replay the Japanese originals")
+    modes.add_argument("--sgx-g13-financials-only", action="store_true", help="Recalculate G13 FY2025 issuer financials")
     modes.add_argument("--sgx-s63-equity-only", action="store_true", help="Replay both S63 FY2025 issuer PDFs")
     modes.add_argument("--sgx-s63-shares-only", action="store_true", help="Replay the S63 SGXNet share notice")
     modes.add_argument("--sec-ibm-shares-only", action="store_true", help="Reconcile IBM shares against its original SEC 10-Q")
@@ -446,6 +468,13 @@ def main():
         if not args.fixture_directory and "sec.gov/" in url:
             time.sleep(0.25)
         return (args.fixture_directory / filename).read_bytes() if args.fixture_directory else fetch(url)
+
+    if args.sgx_g13_financials_only:
+        feed = json.loads((ROOT / "docs/data/latest.json").read_text())
+        row = next(row for row in feed["records"] if row["symbol"] == "G13")
+        url = "https://gentingsingapore.listedcompany.com/newsroom/20260224_173326_G13_A7CVA3KL4JFGECGT.2.pdf"
+        check_g13_financials(source_bytes(url, "g13-results.pdf"), row)
+        return
 
     if args.sgx_s63_equity_only:
         equity = json.loads((ROOT / "docs/data/sgx-s63-parent-equity-v395.json").read_text())
