@@ -98,6 +98,9 @@ function referenceValuationLabel(r) {
   const guard=window.VALUE_HUNTER_REF_VALUATION;
   return guard ? guard.label(r) : "—（評価出典の検証待ち）";
 }
+function referenceValuationDisplayPermitted(r) {
+  return r.ranking_eligible === true;
+}
 function freshnessState(value, maxDays, nowMs = Date.now()) {
   if (typeof value !== "string" || !value.length) return "MISSING";
   const parsed = Date.parse(value);
@@ -148,6 +151,10 @@ function setFeed(json, label, allowRanking = false) {
   } else if (sortBy.value === "ranking_score") {
     sortBy.value = "symbol";
   }
+  const prefix = json.ranking_enabled ? "" : "参考";
+  $("capColumnLabel").textContent = prefix + "時価総額";
+  $("perColumnLabel").textContent = prefix + "PER";
+  $("pbrColumnLabel").textContent = prefix + "PBR";
   populateHistorySymbols();
   renderHistory();
   $("dataState").textContent = label;
@@ -207,7 +214,7 @@ function render() {
       id.append(el("div", "issuer caution", "株式数：新しいSGX原本あり・評価未更新"));
     tr.append(id);
     addTextCell(tr, fmt(r.price_sgd), "num");
-    const showValuation = r.ranking_eligible;
+    const showValuation = referenceValuationDisplayPermitted(r);
     addTextCell(tr, showValuation ? fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null) : referenceValuationLabel(r), "num caution");
     addTextCell(tr, showValuation ? fmt(r.per_reference) : referenceValuationLabel(r), "num caution");
     addTextCell(tr, showValuation ? fmt(r.pbr_verified) : referenceValuationLabel(r), "num caution");
