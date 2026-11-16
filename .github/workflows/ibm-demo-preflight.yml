@@ -43,4 +43,4 @@ jobs:
               echo
               echo 'Valuation pending. See the per-session status above.'
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
