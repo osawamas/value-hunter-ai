@@ -25,6 +25,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   validate:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.display_title != 'SGX licensed close preflight'
     runs-on: ubuntu-latest
     outputs:
       validated_sha: ${{ steps.revision.outputs.sha }}

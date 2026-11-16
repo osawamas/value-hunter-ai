@@ -1,4 +1,5 @@
 name: VALUE HUNTER SGX dashboard data refresh v29
+run-name: ${{ inputs.sgx_preflight && 'SGX licensed close preflight' || 'SGX dashboard data refresh' }}
 
 on:
   push:
@@ -126,6 +127,15 @@ on:
       - 'docs/style.css'
       - '.github/workflows/value-hunter-v29.yml'
   workflow_dispatch:
+    inputs:
+      sgx_session:
+        description: 'Singapore trading date (YYYY-MM-DD). Blank uses the current Singapore date.'
+        type: string
+        required: false
+      sgx_preflight:
+        description: 'Validate the licensed close without recording history or publishing.'
+        type: boolean
+        default: false
   schedule:
     - cron: '30 11 * * 1-5'
   pull_request:
@@ -162,6 +172,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - name: Require main for explicit SGX runs
+        if: github.ref != 'refs/heads/main' && (inputs.sgx_preflight || inputs.sgx_session != '')
+        run: |
+          echo "::error::Run the licensed SGX check on main."
+          exit 1
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
@@ -334,8 +349,14 @@ jobs:
         shell: bash
         env:
           SGX_CLOSE_GRANT_JSON: ${{ secrets.SGX_CLOSE_GRANT_JSON }}
+          SGX_REQUESTED_SESSION: ${{ inputs.sgx_session }}
+          SGX_PREFLIGHT: ${{ inputs.sgx_preflight }}
         run: |
           if [ -z "$SGX_CLOSE_GRANT_JSON" ]; then
+            if [ "$SGX_PREFLIGHT" = true ] || [ -n "$SGX_REQUESTED_SESSION" ]; then
+              echo "::error::A reviewed SGX close grant must be configured for this run."
+              exit 1
+            fi
             echo "Licensed SGX close feed is not configured." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -343,18 +364,24 @@ jobs:
           trap 'rm -rf "$work_dir"' EXIT
           printf '%s' "$SGX_CLOSE_GRANT_JSON" > "$work_dir/grant.json"
           unset SGX_CLOSE_GRANT_JSON
-          session=$(TZ=Asia/Singapore date +%F)
+          today=$(TZ=Asia/Singapore date +%F)
+          session=${SGX_REQUESTED_SESSION:-$today}
+          if [[ ! "$session" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ || "$session" > "$today" ]]; then
+            echo "::error::SGX session is in the future or is not a YYYY-MM-DD date."
+            exit 1
+          fi
           node scripts/fetch-sgx-public-quotes.js docs/data/latest.json "$work_dir/grant.json" "$session" > "$work_dir/latest.json"
           mv "$work_dir/latest.json" docs/data/latest.json
           echo "Licensed SGX closes staged for $session." >> "$GITHUB_STEP_SUMMARY"
       - name: Validate generated ranking feed before recording history
         run: git show HEAD:docs/data/latest.json | node scripts/check-ranking-license-evidence-v290.js --previous-stdin
       - name: Record validated feed history
+        if: inputs.sgx_preflight != true
         run: |
           python SGX_PDF_connection_probe/value_hunter_history_v34.py --source docs/data/latest.json --history-dir docs/data/history
           cat value_hunter_v28_results/summary_v28.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit updated public feed
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.sgx_preflight != true
         shell: bash
         run: |
           if ! git diff --quiet -- docs/data/latest.json docs/data/g13_balance_status.json docs/data/sgx-universe-candidates.json || [ -n "$(git ls-files --others --exclude-standard docs/data/history docs/data/g13_balance_status.json docs/data/sgx-universe-candidates.json)" ] || ! git diff --quiet -- docs/data/history; then
