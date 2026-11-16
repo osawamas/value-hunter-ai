@@ -115,7 +115,7 @@ async function test() {
     assert.deepEqual(JSON.parse(fs.readFileSync(feedFile)), feed);
     const applyArgs = [path.join(__dirname, "../scripts/apply-sgx-public-quotes.sh"), feedFile];
     const applyOptions = {timeout: options.timeout, env: {
-      ...options.env, SGX_REQUESTED_SESSION: "2026-11-13", SGX_PREFLIGHT: "true",
+      ...options.env, SGX_REQUESTED_SESSION: "2026-11-13", SGX_PREFLIGHT: "false",
       SGX_CLOSE_GRANT_JSON: JSON.stringify(grant),
     }};
     body = [quote];

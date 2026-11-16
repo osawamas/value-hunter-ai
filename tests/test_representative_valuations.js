@@ -14,6 +14,15 @@ const shares = require("../docs/data/sgx-s63-two-website-close-v129.json");
 const rows = buildMarketRows(research, sgx);
 const equityReview = require("../docs/data/sgx-s63-parent-equity-v395.json");
 const s63Issuer = rows.find(row => row.id === "SG:S63");
+const {reviewS63} = require("../scripts/check-sgx-close-readiness.js");
+const s63October = require("../docs/data/sgx-s63-historical-shares-v423.json");
+const notices = [shares, s63October];
+assert.equal(reviewS63(sgx, research, notices, "2026-10-26").matchedShares.value, 3116347115);
+assert.equal(reviewS63(sgx, research, notices, "2026-11-13").matchedShares.value, 3115847115);
+assert.equal(reviewS63(sgx, research, notices, "2026-11-16").matchedShares, null);
+const conflictingNotices = [...notices, {...shares, original_sgx_shares_ex_treasury: 3115847116}];
+assert.equal(reviewS63(sgx, research, conflictingNotices, "2026-11-13").matchedShares, null);
+assert.ok(reviewS63(sgx, research, conflictingNotices, "2026-11-13").conflictingShares);
 const laterS63 = {...shares, session_date_sgt: "2026-11-16",
   original_sgx_shares_ex_treasury: 3115347115,
   sgx_share_disclosed_at_sgt: "2026-11-16T18:21:18+08:00", sgx_session_end_at_sgt: undefined};
