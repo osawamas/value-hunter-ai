@@ -278,6 +278,26 @@ def toyota_financials(raw, record):
         raise ValueError("Toyota March share capital mismatch")
 
 
+def check_toyota_q1_shares(raw, report):
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != report["source_sha256"]:
+        raise ValueError("Toyota Q1 share disclosure hash mismatch")
+    cover = pdf_text(raw, 2, first_page=2)
+    notes = pdf_text(raw, 3, first_page=3)
+    if (report["as_of"] != "2026-06-30" or report["disclosedOn"] != "2026-08-04"
+            or report["rounded"] is not False
+            or "August 4, 2026" not in cover or "June 30, 2026" not in cover
+            or not re.search(r"Code number\s*:\s*7203\b", cover)
+            or not re.search(r"shares held by the Trust are included in both the number of shares of treasury stock", notes)):
+        raise ValueError("Toyota Q1 share disclosure date or scope mismatch")
+    issued = re.search(r"including treasury stock\): FY2027 first quarter ([\d,]+)\s+shares", notes)
+    treasury = re.search(r"Number of treasury stock at the end of each period: FY2027 first quarter ([\d,]+) shares", notes)
+    counts = tuple(int(match[1].replace(",", "")) for match in (issued, treasury) if match)
+    if counts != (report["issued"], report["treasury"]) or report["issued"] - report["treasury"] != report["value"]:
+        raise ValueError("Toyota Q1 share counts mismatch")
+    print(f"JP:7203 June quarter shares matched (ESOP shares included in treasury), SHA256 {digest}")
+
+
 def check_toyota_month_end_treasury(raw, report):
     digest = hashlib.sha256(raw).hexdigest()
     if digest != report["source_sha256"]:
@@ -591,6 +611,8 @@ def main():
                 japanese_interim(raw, record)
                 print(f"{record['id']} interim matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
             if record["id"] == "JP:7203":
+                q1 = next(item for item in record["historical_share_filings"] if item["as_of"] == "2026-06-30")
+                check_toyota_q1_shares(source_bytes(q1["source"], "7203-q1.pdf"), q1)
                 report = record["month_end_treasury_report"]
                 check_toyota_month_end_treasury(source_bytes(report["source"], "7203-edinet.pdf"), report)
         return

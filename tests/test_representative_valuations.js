@@ -141,6 +141,12 @@ latestToyota.parent_equity = 0;
 const [undefinedRatios] = evaluatePersonalQuotes([toyota],
   new Map([["JP:7203", {date: "2026-09-30", currency: "JPY", price: 2500}]]), new Map(), shares);
 assert.equal(undefinedRatios.result.cap, 2500 * 11778247313);
+const juneToyota = reviewRepresentativeValuations(rows, shares,
+  readQuoteHistory("market_id,date,currency,close\nJP:7203,2026-06-30,JPY,2900")).results[0].latestAvailableTrial;
+assert.equal(juneToyota.shares, 11841833660);
+assert.equal(juneToyota.valuation.cap, 2900 * 11841833660);
+assert.match(juneToyota.shareSource, /2027_1q_summary_en\.pdf$/);
+assert.equal(juneToyota.shareDisclosureDate, "2026-08-04");
 assert.equal(undefinedRatios.result.per, null);
 assert.equal(undefinedRatios.result.pbr, null);
 assert.match(personalBatchCsv([undefinedRatios]), /-1,0,"non_positive_net_income","non_positive_parent_equity"\r\n/);
@@ -422,7 +428,7 @@ try {
   const jpUsCurrent = path.join(work, "jp-us-current.csv");
   fs.writeFileSync(jpUsPrevious, [
     "market_id,date,currency,close",
-    "JP:7203,2026-03-31,JPY,2900",
+    "JP:7203,2026-06-30,JPY,2900",
     "US:IBM,2026-06-30,USD,200",
   ].join("\n"));
   fs.writeFileSync(jpUsCurrent, csv.split("\n").slice(0, 3).join("\n"));

@@ -262,6 +262,18 @@
           "value": 13033384474
         }
       },
+      "historical_share_filings": [
+        {
+          "as_of": "2026-06-30",
+          "disclosedOn": "2026-08-04",
+          "issued": 14594987460,
+          "treasury": 2753153800,
+          "value": 11841833660,
+          "rounded": false,
+          "source": "https://global.toyota/pages/global_toyota/ir/financial-results/2027_1q_summary_en.pdf",
+          "source_sha256": "a28b4e5a37b626a24ad7028e2e9245f90297a6b4089556638862e379cd4446ed"
+        }
+      ],
       "month_end_treasury_report": {
         "as_of": "2026-10-31",
         "filed": "2026-11-13",
