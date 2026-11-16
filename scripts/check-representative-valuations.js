@@ -30,7 +30,7 @@ function loadS63Notice(url) {
   if (result.status !== 0) throw Error(result.stderr.trim() || "S63 notice verification failed");
   const notice = JSON.parse(result.stdout);
   return {
-    schema_version: "sgx-s63-historical-close-second-website-v129",
+    schema_version: "sgx-s63-dated-share-notice-v423",
     symbol: notice.symbol,
     session_date_sgt: notice.purchase_date,
     original_sgx_share_snapshot_on_same_date: true,
@@ -193,7 +193,12 @@ function main(args) {
     const research = loadSnapshot(directory, "market-research-v315.json", evidence);
     const sgx = loadSnapshot(directory, "latest.json", evidence);
     const shares = loadSnapshot(directory, "sgx-s63-two-website-close-v129.json", evidence);
-    return {rows: buildMarketRows(research, sgx), shareReview: [shares].flat()};
+    const shareReview = [shares].flat();
+    const historicalName = "sgx-s63-historical-shares-v423.json";
+    if (fs.existsSync(path.join(directory, historicalName))) {
+      shareReview.push(loadSnapshot(directory, historicalName, evidence));
+    }
+    return {rows: buildMarketRows(research, sgx), shareReview};
   };
   const currentFilings = loadFilings(filingDirectory, filingDataSha256);
   const rows = currentFilings.rows;

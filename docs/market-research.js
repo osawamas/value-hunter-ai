@@ -87,7 +87,7 @@ function rankingEvidence(row, shareReview, equityReview) {
 }
 
 function sgxSupplementalShare(row, date, review) {
-  if (row.id !== "SG:S63" || review?.schema_version !== "sgx-s63-historical-close-second-website-v129" ||
+  if (row.id !== "SG:S63" || !["sgx-s63-historical-close-second-website-v129", "sgx-s63-dated-share-notice-v423"].includes(review?.schema_version) ||
       review.symbol !== row.symbol || review.session_date_sgt !== date ||
       review.original_sgx_share_snapshot_on_same_date !== true ||
       !Number.isSafeInteger(review.original_sgx_shares_ex_treasury) || review.original_sgx_shares_ex_treasury <= 0 ||
@@ -847,12 +847,13 @@ async function initMarketResearch() {
       if (!response.ok) throw Error("資料取得 HTTP " + response.status);
       return response.json();
     };
-    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview] = await Promise.all([
+    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview, s63HistoricalShares] = await Promise.all([
       load("market-research-v315.json"), load("latest.json"),
       load("sgx-g13-2026q3-v121.json").catch(() => null),
       load("sgx-s63-9m2026-v125.json").catch(() => null),
       load("sgx-s63-two-website-close-v129.json").catch(() => null),
       load("sgx-s63-parent-equity-v395.json").catch(() => null),
+      load("sgx-s63-historical-shares-v423.json").catch(() => null),
     ]);
     const updateRows = [];
     const genting = g13?.record;
@@ -957,7 +958,7 @@ async function initMarketResearch() {
     });
     paintAnnual();
     marketRows = rows;
-    shareReview = s63ShareReview;
+    shareReview = [s63ShareReview, s63HistoricalShares];
     const shareDates = byId("publishedShareDate");
     const shareItems = byId("publishedShareItems");
     const sessions = publishedShareSessions(rows, shareReview);

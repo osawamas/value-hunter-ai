@@ -373,9 +373,9 @@ def check_ibm_annual_filing(main_filing, exhibit, finance):
 
 def check_s63_share_notice(raw, evidence):
     sys.path.insert(0, str(ROOT / "SGX_PDF_connection_probe"))
-    from sgx_s63_buyback_v109 import parse
+    from sgx_s63_buyback_v109 import parse_notice
 
-    notice = parse(raw)
+    notice = parse_notice(raw, evidence["sgx_share_source_url"])
     broadcast = dt.datetime.strptime(notice["broadcast_sgt_text"], "%d-%b-%Y %H:%M:%S")
     broadcast = broadcast.replace(tzinfo=dt.timezone(dt.timedelta(hours=8))).isoformat()
     fields = {
@@ -427,13 +427,18 @@ def main():
         return
 
     if args.sgx_s63_shares_only:
-        evidence = json.loads((ROOT / "docs/data/sgx-s63-two-website-close-v129.json").read_text())
         from urllib.parse import urlsplit
-        source = evidence["sgx_share_source_url"]
-        url = urlsplit(source)
-        if url.scheme != "https" or url.netloc != "links.sgx.com":
-            raise ValueError("S63 share notice must use the official SGX archive")
-        check_s63_share_notice(source_bytes(source, "S63-buyback.html"), evidence)
+
+        for name, fixture in (
+            ("sgx-s63-two-website-close-v129.json", "S63-buyback.html"),
+            ("sgx-s63-historical-shares-v423.json", "S63-buyback-2026-10-26.html"),
+        ):
+            evidence = json.loads((ROOT / "docs/data" / name).read_text())
+            source = evidence["sgx_share_source_url"]
+            url = urlsplit(source)
+            if url.scheme != "https" or url.netloc != "links.sgx.com":
+                raise ValueError("S63 share notice must use the official SGX archive")
+            check_s63_share_notice(source_bytes(source, fixture), evidence)
         return
 
     if args.sec_ibm_shares_only:

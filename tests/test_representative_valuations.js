@@ -229,7 +229,8 @@ try {
   const cli = path.join(__dirname, "../scripts/check-representative-valuations.js");
   const report = JSON.parse(execFileSync(process.execPath, [cli, "--compare", previous, current], {encoding: "utf8"}));
   const hash = name => createHash("sha256").update(fs.readFileSync(name)).digest("hex");
-  const evidence = ["market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json"];
+  const evidence = ["market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json",
+    "sgx-s63-historical-shares-v423.json"];
   assert.deepEqual(report.filingDataSha256, Object.fromEntries(evidence.map(name =>
     [name, hash(path.join(__dirname, "../docs/data", name))])));
   assert.equal(report.snapshots.previous.sha256, hash(previous));
@@ -238,6 +239,13 @@ try {
   assert.equal(report.results[1].valuation.cap, 201 * 945120805);
   assert.deepEqual(report.results[2].newTradingDates, ["2026-11-16"]);
   assert.deepEqual(report.results[2].newerUnmatchedDates, ["2026-11-16"]);
+  const october = path.join(work, "october.csv");
+  fs.writeFileSync(october, "market_id,date,currency,close\nSG:S63,2026-10-26,SGD,10");
+  const historical = JSON.parse(execFileSync(process.execPath, [cli, "--compare", october, previous], {encoding: "utf8"}));
+  const trials = historical.results.find(row => row.id === "SG:S63").latestObservedTrials;
+  assert.deepEqual([trials.previous.date, trials.previous.shares, trials.previous.valuation.cap],
+    ["2026-10-26", 3116347115, 31163471150]);
+  assert.equal(trials.current.shares, 3115847115);
   const strict = (...args) => {
     const result = spawnSync(process.execPath, [cli, "--require-latest-trials", ...args], {encoding: "utf8"});
     assert.equal(result.stderr, "");

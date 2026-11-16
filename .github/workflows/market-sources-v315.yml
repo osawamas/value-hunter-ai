@@ -21,6 +21,7 @@ on:
       - 'docs/market-research.js'
       - 'docs/data/latest.json'
       - 'docs/data/sgx-s63-two-website-close-v129.json'
+      - 'docs/data/sgx-s63-historical-shares-v423.json'
       - 'SGX_PDF_connection_probe/sgx_s63_buyback_v109.py'
       - 'SGX_PDF_connection_probe/test_sgx_s63_buyback_v109.py'
       - 'docs/data/sgx-s63-parent-equity-v395.json'
