@@ -165,7 +165,7 @@ assert.match(juneToyota.shareSource, /2027_1q_summary_en\.pdf$/);
 assert.equal(juneToyota.shareDisclosureDate, "2026-08-04");
 assert.equal(undefinedRatios.result.per, null);
 assert.equal(undefinedRatios.result.pbr, null);
-assert.match(personalBatchCsv([undefinedRatios]), /-1,0,"non_positive_net_income","non_positive_parent_equity"\r\n/);
+assert.match(personalBatchCsv([undefinedRatios]), /-1,0,"non_positive_net_income","non_positive_parent_equity",{8}\r\n/);
 assert.equal(rankingEvidence(s63Issuer, shares, equityReview).matchedEquity.parent_equity, 2573638);
 for (const mismatch of [{period_end: "2024-12-31"}, {parent_equity: 2921245},
   {non_controlling_interests: 0}, {independent_verification: true}]) {

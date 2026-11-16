@@ -349,9 +349,25 @@ try{
   await page.locator("#personalBatchDate").fill(date);
   assert.ok((await ibmTrial.innerText()).includes("直近12か月PER " + per + "倍、期末PBR " + pbr + "倍"));
   assert.match(await ibmTrial.getByRole("link",{name:"SEC四半期資料（"+disclosure+"提出）"}).getAttribute("href"), /^https:\/\/www\.sec\.gov\//);
+  const download = page.waitForEvent("download");
+  await page.locator("#personalBatchDownload").click();
+  const csv = fs.readFileSync(await (await download).path(),"utf8");
+  const [header, row] = csv.trimEnd().split("\r\n");
+  assert.match(header, /interim_valuation_basis,interim_period_end,interim_disclosure_date,interim_financial_source,trailing_net_income,interim_parent_equity,trailing_per,interim_pbr$/);
+  const [basis, period, filed, source, income, equity, exportedPer, exportedPbr] = row.split(",").slice(-8);
+  assert.deepEqual([basis, period, filed], ['"retrospective"', JSON.stringify(date), JSON.stringify(disclosure)]);
+  assert.match(source, /^"https:\/\/www\.sec\.gov\//);
+  assert.equal(income, date === "2026-06-30" ? "10725000000" : "11171000000");
+  assert.equal(equity, date === "2026-06-30" ? "34452000000" : "35537000000");
+  assert.equal(Number(exportedPer).toFixed(2), per);
+  assert.equal(Number(exportedPbr).toFixed(2), pbr);
  }
  await page.locator("#personalBatchDate").fill("2026-11-13");
  assert.doesNotMatch(await ibmTrial.innerText(), /直近12か月PER/);
+ const unmatchedDownload = page.waitForEvent("download");
+ await page.locator("#personalBatchDownload").click();
+ const unmatchedCsv = fs.readFileSync(await (await unmatchedDownload).path(),"utf8");
+ assert.match(unmatchedCsv.trimEnd().split("\r\n")[1], /,{8}$/);
  await page.locator("#personalBatchDate").fill("");
  await page.locator("#marketQuery").fill("US:GOOGL");
  await page.getByRole("button",{name:"財務を見る"}).click();

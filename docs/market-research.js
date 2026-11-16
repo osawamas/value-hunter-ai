@@ -584,7 +584,9 @@ function personalBatchCsv(results) {
     "estimated_market_cap", "estimated_per", "estimated_pbr", "financial_period_end",
     "match_status", "financial_source", "share_source", "match_detail", "estimated_listed_class_value", "annual_sales_growth_pct", "annual_parent_equity_ratio_pct", "share_disclosure_date",
     "share_disclosed_at", "share_disclosure_timing", "prior_share_reference_date", "prior_share_reference_source",
-    "annual_net_income", "annual_parent_equity", "per_unavailable_reason", "pbr_unavailable_reason"];
+    "annual_net_income", "annual_parent_equity", "per_unavailable_reason", "pbr_unavailable_reason",
+    "interim_valuation_basis", "interim_period_end", "interim_disclosure_date", "interim_financial_source",
+    "trailing_net_income", "interim_parent_equity", "trailing_per", "interim_pbr"];
   const lines = results.map(row => [row.id, row.label, row.quote.date, row.quote.currency, row.quote.price,
     row.shares, row.result?.cap, row.result?.per, row.result?.pbr, row.financialPeriodEnd,
     row.state, row.financeSource, row.shareSource, row.detail, row.classValue,
@@ -592,7 +594,10 @@ function personalBatchCsv(results) {
     Number.isFinite(row.equityRatio) ? row.equityRatio * 100 : null, row.shareDisclosureDate,
     row.shareDisclosedAt, row.shareDisclosureTiming, row.referenceShareDate, row.referenceShareSource,
     row.result?.annualNetIncome, row.result?.annualParentEquity,
-    row.result?.perUnavailableReason, row.result?.pbrUnavailableReason].map(csvCell).join(","));
+    row.result?.perUnavailableReason, row.result?.pbrUnavailableReason,
+    row.interimValuation?.basis, row.interimValuation?.periodEnd, row.interimValuation?.disclosedOn,
+    row.interimValuation?.source, row.interimValuation?.trailingNetIncome, row.interimValuation?.parentEquity,
+    row.interimValuation?.per, row.interimValuation?.pbr].map(csvCell).join(","));
   return "\uFEFF" + [headers.join(","), ...lines].join("\r\n") + "\r\n";
 }
 
