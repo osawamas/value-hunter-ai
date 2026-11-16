@@ -138,7 +138,7 @@ public final class SgCheckWorker extends Worker {
                                        SgCloseCheck.Close close, boolean showPurchaseCost, int attempts) {
         StringBuilder details = new StringBuilder();
         SgShareLedger.Disclosure disclosure = null;
-        boolean cached = false;
+        String ledgerNote = "";
         boolean retryableFailure = false;
         boolean financialsAvailable = SgValuation.financialsAvailable(close.session());
         String blockingReason = "";
@@ -146,7 +146,7 @@ public final class SgCheckWorker extends Worker {
             try {
                 var lookup = disclosures.forSession(close.session());
                 disclosure = lookup.disclosure();
-                cached = lookup.cached();
+                ledgerNote = lookup.source().note;
             } catch (IOException | JSONException error) {
                 blockingReason = "開示台帳の更新データを取得・照合できなかった";
                 if (error instanceof IOException) {
@@ -199,7 +199,7 @@ public final class SgCheckWorker extends Worker {
                 "\n株数の開示日時 " + disclosure.disclosedAt().format(
                         java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'SGT'", Locale.JAPAN))
                         + "\nSGX原本 " + disclosure.source()
-                        + (cached ? "\n開示台帳は端末に保存したデータを使用" : "");
+                        + (ledgerNote.isEmpty() ? "" : "\n" + ledgerNote);
         return new Evaluation(details.toString(), disclosureDetails, qualified, blockingReason, retryableFailure);
     }
 }

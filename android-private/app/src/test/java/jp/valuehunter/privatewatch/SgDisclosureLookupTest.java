@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -21,7 +22,7 @@ public class SgDisclosureLookupTest {
 
     @Test public void savesVerifiedUpdateAndFallsBackOnlyForTheSameSessionOnTemporaryError() throws Exception {
         var online = new SgDisclosureLookup(null, "", CHECKED_AT, () -> LEDGER);
-        assertFalse(online.forSession(DATE).cached());
+        assertEquals(SgDisclosureLookup.Source.ONLINE, online.forSession(DATE).source());
         assertEquals(LEDGER, online.verifiedUpdate());
 
         var requests = new java.util.concurrent.atomic.AtomicInteger();
@@ -30,10 +31,23 @@ public class SgDisclosureLookupTest {
             throw new UsScanWorker.HttpFailure(503);
         });
         var result = fallback.forSession(DATE);
-        assertTrue(result.cached());
+        assertEquals(SgDisclosureLookup.Source.CACHED, result.source());
         assertEquals(3_115_347_115L, result.disclosure().shares());
         assertThrows(IOException.class, () -> fallback.forSession(DATE.plusDays(1)));
         assertEquals(1, requests.get());
+    }
+
+    @Test public void onlineCorrectionOverridesBundledSharesAndLocalFallbackUsesIt() throws Exception {
+        var bundled = new JSONObject(LEDGER);
+        var corrected = LEDGER.replace("3115347115", "3115347000");
+        var online = new SgDisclosureLookup(bundled, LEDGER, CHECKED_AT, () -> corrected);
+        assertEquals(3_115_347_000L, online.forSession(DATE).disclosure().shares());
+
+        SgDisclosureLookup.Fetch unavailable = () -> { throw new UsScanWorker.HttpFailure(503); };
+        var cached = new SgDisclosureLookup(bundled, online.verifiedUpdate(), CHECKED_AT, unavailable);
+        assertEquals(3_115_347_000L, cached.forSession(DATE).disclosure().shares());
+        var freshInstall = new SgDisclosureLookup(bundled, "", CHECKED_AT, unavailable);
+        assertEquals(SgDisclosureLookup.Source.BUNDLED, freshInstall.forSession(DATE).source());
     }
 
     @Test public void doesNotHideInvalidOrRemovedOnlineEvidence() throws Exception {
@@ -42,11 +56,12 @@ public class SgDisclosureLookupTest {
         var forbidden = new SgDisclosureLookup(null, LEDGER, CHECKED_AT,
                 () -> { throw new UsScanWorker.HttpFailure(403); });
         assertThrows(IOException.class, () -> forbidden.forSession(DATE));
-        var removed = new SgDisclosureLookup(null, LEDGER, CHECKED_AT,
+        var bundled = new JSONObject(LEDGER);
+        var removed = new SgDisclosureLookup(bundled, LEDGER, CHECKED_AT,
                 () -> "{\"schema\":1,\"symbol\":\"S63\",\"records\":[]}");
         assertNull(removed.forSession(DATE).disclosure());
         assertNotNull(removed.verifiedUpdate());
-        var offlineAfterRemoval = new SgDisclosureLookup(null, removed.verifiedUpdate(), CHECKED_AT,
+        var offlineAfterRemoval = new SgDisclosureLookup(bundled, removed.verifiedUpdate(), CHECKED_AT,
                 () -> { throw new UsScanWorker.HttpFailure(503); });
         assertThrows(IOException.class, () -> offlineAfterRemoval.forSession(DATE));
     }

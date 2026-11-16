@@ -12,7 +12,19 @@ final class SgDisclosureLookup {
         String get() throws IOException;
     }
 
-    record Lookup(SgShareLedger.Disclosure disclosure, boolean cached) {}
+    enum Source {
+        ONLINE(""),
+        CACHED("開示台帳は端末に保存したデータを使用"),
+        BUNDLED("開示台帳はアプリに同梱したデータを使用");
+
+        final String note;
+
+        Source(String note) {
+            this.note = note;
+        }
+    }
+
+    record Lookup(SgShareLedger.Disclosure disclosure, Source source) {}
 
     private final JSONObject bundled;
     private final String cache;
@@ -35,14 +47,6 @@ final class SgDisclosureLookup {
     }
 
     Lookup forSession(LocalDate session) throws IOException, JSONException {
-        if (bundled != null) {
-            try {
-                var disclosure = SgShareLedger.read(bundled, session, checkedAt);
-                if (disclosure != null) return new Lookup(disclosure, false);
-            } catch (JSONException ignored) {
-                // A bad bundled row can be replaced by a verified row from the updated ledger.
-            }
-        }
         try {
             if (updateFailure != null) throw updateFailure;
             if (updated == null) {
@@ -51,16 +55,20 @@ final class SgDisclosureLookup {
             }
             var disclosure = SgShareLedger.read(updated, session, checkedAt);
             verifiedUpdate = downloaded;
-            return new Lookup(disclosure, false);
+            return new Lookup(disclosure, Source.ONLINE);
         } catch (IOException error) {
             updateFailure = error;
             int status = error instanceof UsScanWorker.HttpFailure failure ? failure.status : 0;
-            if (!cache.isEmpty() && SgCheckWorker.shouldRetry(status, 0)) {
+            if (SgCheckWorker.shouldRetry(status, 0)) {
                 try {
-                    var disclosure = SgShareLedger.read(new JSONObject(cache), session, checkedAt);
-                    if (disclosure != null) return new Lookup(disclosure, true);
+                    boolean hasCache = !cache.isEmpty();
+                    var local = hasCache ? new JSONObject(cache) : bundled;
+                    if (local != null) {
+                        var disclosure = SgShareLedger.read(local, session, checkedAt);
+                        if (disclosure != null) return new Lookup(disclosure, hasCache ? Source.CACHED : Source.BUNDLED);
+                    }
                 } catch (JSONException ignored) {
-                    // Keep the original retrieval error if the cached row cannot be verified.
+                    // Report the retrieval failure when no local row can be verified.
                 }
             }
             throw error;
