@@ -4,6 +4,11 @@ const fs = require("node:fs");
 const {buildMarketRows, conflictingFilingShares, evaluatePersonalQuotes, publishedShareSessions} = require("../docs/market-research.js");
 const {validDate} = require("../docs/sgx-ranking-validation.js");
 
+const thirdPartyEvidence = new Map([
+  ["S63", require("../docs/data/sgx-s63-third-party-financial-crosscheck-v448.json")],
+  ["G13", require("../docs/data/sgx-g13-third-party-financial-crosscheck-v454.json")],
+]);
+
 function compareThirdPartyFinancials(row, evidence) {
   if (evidence.symbol !== row.symbol || evidence.unit !== "SGD_thousands" ||
       evidence.period_end !== row.fiscal_year + "-12-31") return null;
@@ -50,6 +55,7 @@ function reviewIssuer(feed, research, notices, symbol, session, close) {
   if (Array.isArray(exclusions) && exclusions.includes("PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"))
     blockers.push("PARENT_EQUITY_INDEPENDENCE_UNVERIFIED");
 
+  const financialEvidence = thirdPartyEvidence.get(symbol);
   const trial = close === undefined ? null : evaluatePersonalQuotes(rows,
     new Map([[issuer.id, {date: session, currency: "SGD", price: close}]]),
     new Map(), notices)[0];
@@ -64,9 +70,8 @@ function reviewIssuer(feed, research, notices, symbol, session, close) {
     currentFeedExclusions: exclusions,
     independentlyVerifiedFinancials: independentFinancials === true,
     blockers,
-    ...(symbol === "S63" && {
-      thirdPartyFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence,
-        require("../docs/data/sgx-s63-third-party-financial-crosscheck-v448.json")),
+    ...(financialEvidence && {
+      thirdPartyFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence, financialEvidence),
     }),
     ...(trial && {trial: {
       status: trial.state,

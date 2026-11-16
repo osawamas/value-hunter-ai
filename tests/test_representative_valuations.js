@@ -21,6 +21,14 @@ assert.equal(g13.trial.valuation.cap, 12063642274);
 assert.ok(g13.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
 const g13November = reviewIssuer(sgx, research, [], "G13", "2026-11-13", 1);
 assert.equal(g13November.matchedShares, null);
+assert.equal(g13November.thirdPartyFinancialCrosscheck.attributableProfit.status, "matches_display_precision");
+assert.equal(g13November.thirdPartyFinancialCrosscheck.parentEquity.status, "matches_display_precision");
+assert.equal(g13November.thirdPartyFinancialCrosscheck.parentEquity.issuerValue, 8205416);
+assert.ok(g13November.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
+const g13DifferentPeriod = structuredClone(sgx);
+g13DifferentPeriod.records.find(row => row.symbol === "G13").fiscal_year = 2026;
+assert.equal(reviewIssuer(g13DifferentPeriod, research, [], "G13", "2026-11-13")
+  .thirdPartyFinancialCrosscheck, null);
 assert.equal(g13November.previousShares.date, "2026-06-30");
 assert.equal(g13November.previousShares.value, 12063642274);
 assert.match(g13November.previousShares.source, /^https:\/\//);

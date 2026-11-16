@@ -34,6 +34,7 @@ on:
       - 'SGX_PDF_connection_probe/test_sgx_s63_buyback_v109.py'
       - 'docs/data/sgx-s63-parent-equity-v395.json'
       - 'docs/data/sgx-s63-third-party-financial-crosscheck-v448.json'
+      - 'docs/data/sgx-g13-third-party-financial-crosscheck-v454.json'
       - 'scripts/export-jquants-personal-quotes.py'
       - 'scripts/refresh-jquants-personal.py'
       - 'scripts/verify-jquants-personal-snapshot.py'
