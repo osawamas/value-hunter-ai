@@ -242,6 +242,10 @@ try {
  await second.goto(base+"/index.html#issuer=U11",{waitUntil:"domcontentloaded"});
  await second.locator("#detailContent h3").getByText(/U11/).waitFor({timeout:25000});
  await second.screenshot({path:screenshot,fullPage:false});
+ await second.goto(base+"/index.html#issuer=S63",{waitUntil:"domcontentloaded"});
+ await second.locator("#detailContent").getByText("S63：2026年6月末までの参考財務（未監査・未レビュー）").waitFor({timeout:25000});
+ await second.locator("#detailContent").getByText("572,067",{exact:true}).waitFor();
+ await second.locator("#detailContent").getByText("2,524,548",{exact:true}).waitFor();
  await second.goto(base+"/index.html#issuer=FAKE",{waitUntil:"domcontentloaded"});
  await second.locator("#sgxHistoricalCodeShown").getByText(/30 \/ 30 件/).waitFor({timeout:25000});
  assert.equal((await second.locator("#detailContent h3").allInnerTexts()).some(s=>s.includes("FAKE")),false);

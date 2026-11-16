@@ -48,7 +48,7 @@ const reasons = {
 };
 if (typeof window !== "undefined") window.VALUE_HUNTER_EXCLUSION_LABELS = Object.freeze({...reasons});
 const $ = id => document.getElementById(id);
-const state = { feed: null, selected: null, visible: [], shareAudit: null, g13QuarterRisk: null, s63NineMonth: null };
+const state = { feed: null, selected: null, visible: [], shareAudit: null, g13QuarterRisk: null, s63NineMonth: null, s63Interim: null };
 
 function el(tag, cls = "", text = null) {
   const node = document.createElement(tag);
@@ -293,6 +293,20 @@ function showDetail(r) {
       "十億SGD、受注残約"+q.orderBookSgdBillion+"十億SGD。"));
     note.append(safeLink(q.source,"SGX公式の9か月間事業報告を開く ↗"));
     parent.append(note);
+  }
+  const interim = state.s63Interim;
+  if (r.symbol === "S63" && r.fiscal_year === 2025 && interim &&
+      r.parent_equity_sgd_thousands === interim.prior_year_end_parent_equity &&
+      Number.isSafeInteger(r.attributable_profit_sgd_thousands)) {
+    const trailingProfit = r.attributable_profit_sgd_thousands +
+      interim.attributable_profit_h1 - interim.attributable_profit_prior_h1;
+    parent.append(field("財務", "S63：2026年6月末までの参考財務（未監査・未レビュー）", [
+      ["2026年上期の親会社株主帰属利益（千SGD）", fmt(interim.attributable_profit_h1, 0)],
+      ["直近12か月の親会社株主帰属利益（千SGD）", fmt(trailingProfit, 0)],
+      ["2026年6月末の親会社持分（千SGD）", fmt(interim.parent_equity, 0)],
+      ["直近12か月の計算", "2025年通期＋2026年上期−2025年上期。正式ランキングの評価には未使用。"],
+      ["SGXNet上期決算原本", interim.source_url, true],
+    ]));
   }
   if (r.symbol === "S63" && state.shareAudit) {
     const a=state.shareAudit;
@@ -719,6 +733,20 @@ async function start() {
     const response = await fetch("./data/latest.json", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
     setFeed(await response.json(), "GitHub上の公開データ", true);
+    try {
+      const response = await fetch("./data/sgx-s63-interim-v469.json", {cache: "no-store"});
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const interim = await response.json();
+      if (interim.symbol === "S63" && interim.period_end === "2026-06-30" &&
+          interim.unit === "SGD_thousands" && interim.assurance === "UNAUDITED_AND_UNREVIEWED" &&
+          [interim.attributable_profit_h1, interim.attributable_profit_prior_h1, interim.parent_equity,
+            interim.prior_year_end_parent_equity].every(Number.isSafeInteger)) {
+        state.s63Interim = interim;
+        render();
+      }
+    } catch (error) {
+      console.warn("S63 interim data unavailable:", error.message);
+    }
     try {
       const q=await fetch("./data/sgx-s63-9m2026-v125.json",{cache:"no-store"});
       if(!q.ok)throw new Error("HTTP "+q.status);

@@ -169,6 +169,39 @@ def recalculate_s63_results(raw, balance_text, feed_row):
           f"parent equity {recalculated_equity:,} (SGD thousands)")
 
 
+def check_s63_interim(raw, evidence, row):
+    if hashlib.sha256(raw).hexdigest() != evidence["source_sha256"]:
+        raise ValueError("S63 interim PDF hash mismatch")
+    income = pdf_text(raw, 6, first_page=6)
+    balance = pdf_text(raw, 12, first_page=12)
+    audit = pdf_text(raw, 22, first_page=22)
+    if (evidence["symbol"], evidence["period_end"], evidence["currency"], evidence["unit"],
+            evidence["assurance"]) != ("S63", "2026-06-30", "SGD", "SGD_thousands", "UNAUDITED_AND_UNREVIEWED"):
+        raise ValueError("Unexpected S63 interim metadata")
+    if ("SINGAPORE TECHNOLOGIES ENGINEERING LTD" not in income
+            or "CONSOLIDATED INCOME STATEMENT FOR THE FIRST HALF-YEAR ENDED 30 JUNE 2026" not in income
+            or not re.search(r"Group\s+1H2026\s+1H2025[^\n]*\n\s*\$'000\s+\$'000", income)
+            or not re.search(r"Group\s+Company\s+30-Jun-26\s+31-Dec-25[^\n]*\n\s*\$'000\s+\$'000", balance)
+            or "have not been audited or reviewed" not in audit):
+        raise ValueError("Unexpected S63 interim filing scope")
+    owner_equity = re.sub(r"Equity attributable to owners\s+of the Company", "Parent equity", balance)
+    for column, profit_key, equity_key in (
+        (0, "attributable_profit_h1", "parent_equity"),
+        (1, "attributable_profit_prior_h1", "prior_year_end_parent_equity"),
+    ):
+        profit = filing_column(income, "Profit after taxation", column) - filing_column(income, "Non-controlling interests", column)
+        equity = filing_column(balance, "NET ASSETS", column) - filing_column(balance, "Non-controlling interests", column)
+        if profit != evidence[profit_key] or profit != filing_column(income, "Shareholders of the Company", column):
+            raise ValueError("S63 interim attributable profit mismatch")
+        if equity != evidence[equity_key] or equity != filing_column(owner_equity, "Parent equity", column):
+            raise ValueError("S63 interim parent equity mismatch")
+    if row["fiscal_year"] != 2025 or row["parent_equity_sgd_thousands"] != evidence["prior_year_end_parent_equity"]:
+        raise ValueError("S63 interim comparative equity does not match the annual feed")
+    trailing_profit = row["attributable_profit_sgd_thousands"] + evidence["attributable_profit_h1"] - evidence["attributable_profit_prior_h1"]
+    print(f"SG:S63 interim filing matched (unaudited and unreviewed), trailing profit {trailing_profit:,}, "
+          f"parent equity {evidence['parent_equity']:,} (SGD thousands), SHA256 {evidence['source_sha256']}")
+
+
 def check_g13_financials(raw, row):
     if row["fiscal_year"] != 2025:
         raise ValueError("G13 feed fiscal year mismatch")
@@ -491,6 +524,8 @@ def main():
         if row["fiscal_year"] != int(equity["period_end"][:4]):
             raise ValueError("S63 feed fiscal year mismatch")
         check_s63_parent_equity(equity, source_bytes, row)
+        interim = json.loads((ROOT / "docs/data/sgx-s63-interim-v469.json").read_text())
+        check_s63_interim(source_bytes(interim["source_url"], "S63-interim.pdf"), interim, row)
         return
 
     if args.sgx_s63_shares_only:

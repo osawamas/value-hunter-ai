@@ -1,0 +1,14 @@
+{
+  "symbol": "S63",
+  "currency": "SGD",
+  "unit": "SGD_thousands",
+  "period_end": "2026-06-30",
+  "published_on": "2026-08-13",
+  "assurance": "UNAUDITED_AND_UNREVIEWED",
+  "source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%201H2026%20Results%20Announcement.ashx?App=Announcement&FileID=900701",
+  "source_sha256": "ee4cfd090c47c3530d22936b32d8f2dfc8b455b31319193b35dfc455f692d96e",
+  "attributable_profit_h1": 512126,
+  "attributable_profit_prior_h1": 402829,
+  "parent_equity": 2524548,
+  "prior_year_end_parent_equity": 2573638
+}
