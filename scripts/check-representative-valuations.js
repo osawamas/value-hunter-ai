@@ -5,7 +5,7 @@ const path = require("node:path");
 const {createHash} = require("node:crypto");
 const {spawnSync} = require("node:child_process");
 const {
-  buildMarketRows, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory, selectQuoteDate,
+  buildMarketRows, conflictingFilingShares, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory, selectQuoteDate,
 } = require("../docs/market-research.js");
 
 const data = path.join(__dirname, "../docs/data");
@@ -80,6 +80,16 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
   return {scope: "local_trial", basis: "retrospective", results};
 }
 
+function reviewObservedSession(rows, shareReview, quote, shares) {
+  const {id, date, price} = quote;
+  if (shares) return reviewShareSession(rows, shareReview, id, date, shares, quote);
+  const shareConflicts = conflictingFilingShares(rows.find(row => row.id === id), date, shareReview);
+  if (shareConflicts) {
+    return {id, date, price, status: "conflict", shareConflicts};
+  }
+  return {id, date, price, status: "no_exact_share_evidence"};
+}
+
 function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows = rows, previousShareReview = shareReview) {
   const latest = reviewRepresentativeValuations(rows, shareReview, current);
   const shareSessions = publishedShareSessions(rows, shareReview);
@@ -101,12 +111,16 @@ function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows =
       hasExactShares: Boolean(shares),
     };
     const earlierShares = previousShareSessions.get(date)?.find(record => record.id === id);
-    if ((shares || earlierShares) && change !== "unchanged") {
-      session.valuationImpact = {
-        previous: before && earlierShares ?
-          reviewShareSession(previousRows, previousShareReview, id, date, earlierShares, before) : null,
-        current: after && shares ? reviewShareSession(rows, shareReview, id, date, shares, after) : null,
-      };
+    if (change !== "unchanged") {
+      const previousTrial = before && reviewObservedSession(previousRows, previousShareReview, before, earlierShares);
+      const currentTrial = after && reviewObservedSession(rows, shareReview, after, shares);
+      const relevant = trial => trial && trial.status !== "no_exact_share_evidence";
+      if (relevant(previousTrial) || relevant(currentTrial)) {
+        session.valuationImpact = {
+          previous: relevant(previousTrial) ? previousTrial : null,
+          current: relevant(currentTrial) ? currentTrial : null,
+        };
+      }
     }
     changes.push(session);
   }
@@ -124,8 +138,7 @@ function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows =
       const date = coverage.last;
       const quote = history.get(id + ":" + date);
       const shares = trialShareSessions.get(date)?.find(record => record.id === id);
-      return shares ? reviewShareSession(trialRows, trialShareReview, id, date, shares, quote) :
-        {id, date, price: quote.price, status: "no_exact_share_evidence"};
+      return reviewObservedSession(trialRows, trialShareReview, quote, shares);
     };
     // File coverage bounds alone cannot establish that a session was dropped by the provider.
     const first = before && after ? [before.first, after.first].sort().at(-1) : null;
@@ -281,6 +294,7 @@ function main(args) {
         const previousTrial = comparison.latestObservedTrials.previous;
         const ratios = previousTrial?.valuation;
         sessionAdvance.previousStatus = previousTrial?.status ?? "missing_close";
+        if (previousTrial?.shareConflicts) sessionAdvance.previousShareConflicts = previousTrial.shareConflicts;
         if (previousTrial?.status === "trial_calculated" &&
             !(Number.isFinite(ratios?.per) && Number.isFinite(ratios?.pbr))) {
           sessionAdvance.previousStatus = "incomplete_ratios";
@@ -293,7 +307,8 @@ function main(args) {
         Number.isFinite(valuation?.per) && Number.isFinite(valuation?.pbr) ?
           "trial_calculated" : "incomplete_ratios";
       return {id, date: quote.date, status, price: quote.price, shares: trial.shares,
-        shareSource: trial.shareSource, financeSource: trial.financeSource, valuation, ...sessionAdvance};
+        shareSource: trial.shareSource, shareConflicts: trial.shareConflicts,
+        financeSource: trial.financeSource, valuation, ...sessionAdvance};
     });
     const passed = checks.every(check => check.status === "trial_calculated" &&
       (!requireNewSessions || check.hasNewSession) &&

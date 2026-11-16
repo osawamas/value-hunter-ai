@@ -283,6 +283,12 @@ function filingSharesOn(row, date, shareReview) {
   return [interim, annual, currentShare, ...supplemental].filter(share => share?.as_of === date && !share.rounded);
 }
 
+function conflictingFilingShares(row, date, shareReview) {
+  if (!row || row.financials?.share_classes) return undefined;
+  const evidence = filingSharesOn(row, date, shareReview);
+  return matchScenarioShares(row.id, date, evidence, new Map()).shareConflicts;
+}
+
 function publishedShareSessions(rows, shareReview) {
   const sessions = new Map();
   for (const row of rows) {
@@ -306,9 +312,13 @@ function publishedShareSessions(rows, shareReview) {
 function matchScenarioShares(id, date, published, personalShares) {
   const csv = personalShares.get(id + ":" + date);
   const filings = Array.isArray(published) ? published : [published];
-  const exactCounts = new Set(filings.filter(share => share?.as_of === date && !share.rounded &&
-    Number.isSafeInteger(share.value) && share.value > 0).map(share => share.value));
-  if (exactCounts.size > 1) return {value: null, state: "conflict"};
+  const exactFilings = filings.filter(share => share?.as_of === date && !share.rounded &&
+    Number.isSafeInteger(share.value) && share.value > 0);
+  const exactCounts = new Set(exactFilings.map(share => share.value));
+  if (exactCounts.size > 1) {
+    const shareConflicts = exactFilings.map(({value, source}) => ({value, source}));
+    return {value: null, state: "conflict", shareConflicts};
+  }
   const exact = exactCounts.values().next().value;
   if (exact !== undefined && csv !== undefined && exact !== csv) return {value: null, state: "conflict"};
   if (exact !== undefined) {
@@ -446,7 +456,7 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
         if (reference) return {...entry, state: match.state, referenceShareDate, referenceShareSource: reference.source};
       }
     }
-    if (match.value === null) return {...entry, state: match.state};
+    if (match.value === null) return {...entry, state: match.state, shareConflicts: match.shareConflicts};
     try {
       const inputs = {...quote, shares: match.value};
       const result = calculateWithAnnualPeriod(currency, latest, inputs);
@@ -679,6 +689,10 @@ async function initMarketResearch() {
       const sourceCell = element("td", "");
       if (row.financeSource?.startsWith("https://")) sourceCell.append(link(row.financeSource, "財務資料"));
       if (row.shareSource?.startsWith("https://")) sourceCell.append(" ", link(row.shareSource, "株数資料"));
+      for (const filing of row.shareConflicts ?? []) {
+        const label = money.format(filing.value) + "株";
+        sourceCell.append(" ", filing.source?.startsWith("https://") ? link(filing.source, label) : label);
+      }
       if (row.referenceShareDate) {
         if (sourceCell.childNodes.length) sourceCell.append(" ");
         sourceCell.append(link(row.referenceShareSource, "直前の株数資料（" + row.referenceShareDate + "）"));
@@ -1074,4 +1088,4 @@ async function initMarketResearch() {
 }
 
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", initMarketResearch);
-if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, annualScreenRows, screenAnnualFinancials, annualScreenCsv, publishedShareSessions, readQuoteHistory, selectQuoteDate};
+if (typeof module !== "undefined") module.exports = {buildMarketRows, filterMarketRows, compareAnnual, calculateMarketScenario, readPersonalQuotes, readPersonalShares, matchScenarioShares, rankingEvidence, summarizeMarketCoverage, evaluatePersonalQuotes, personalBatchCsv, screenPersonalBatch, annualScreenRows, screenAnnualFinancials, annualScreenCsv, conflictingFilingShares, publishedShareSessions, readQuoteHistory, selectQuoteDate};

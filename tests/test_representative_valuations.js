@@ -34,6 +34,22 @@ assert.deepEqual(Object.values(s63Refresh.latestObservedTrials).map(trial => [
   ["2026-11-13", 3115847115, 31158471150, shares.sgx_share_source_url],
   ["2026-11-16", 3115347115, 34268818265, laterS63.sgx_share_source_url],
 ]);
+const competingNotice = {...laterS63, original_sgx_shares_ex_treasury: 3115347116,
+  sgx_share_source_url: "https://links.sgx.com/fixture-corrected-notice"};
+const conflictRefresh = reviewQuoteRefresh(rows, [shares, laterS63, competingNotice], s63Previous, s63Current).results[2];
+const conflictTrial = conflictRefresh.latestObservedTrials.current;
+assert.equal(conflictTrial.status, "conflict");
+assert.deepEqual(conflictTrial.shareConflicts, [
+  {value: 3115347115, source: laterS63.sgx_share_source_url},
+  {value: 3115347116, source: competingNotice.sgx_share_source_url},
+]);
+assert.equal(conflictTrial.valuation, undefined);
+assert.deepEqual(conflictRefresh.sessionChanges.at(-1).valuationImpact.current, conflictTrial);
+const priorConflict = reviewQuoteRefresh(
+  rows, [shares, laterS63], s63Current, s63Current, rows, [laterS63, competingNotice]
+).results[2];
+assert.equal(priorConflict.latestObservedTrials.previous.status, "conflict");
+assert.equal(priorConflict.latestObservedTrials.current.status, "trial_calculated");
 assert.equal(reviewQuoteRefresh(rows, shares, s63Previous, s63Current)
   .results[2].latestObservedTrials.current.status, "no_exact_share_evidence");
 const toyota = structuredClone(rows.find(row => row.id === "JP:7203"));
