@@ -29,6 +29,8 @@ jobs:
           gradle-version: '8.9'
           cache-read-only: true
       - name: Verify stock calculations and merge the disclosure asset
-        run: gradle --no-daemon :app:testDebugUnitTest :app:mergeDebugAssets
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:mergeDebugAssets
+      - name: Confirm the private APK was built (do not publish it)
+        run: test -s app/build/outputs/apk/debug/app-debug.apk
       - name: Verify the bundled disclosure asset matches the ledger
         run: cmp ../docs/data/android-s63-shares.json app/build/generated/s63LedgerAssets/android-s63-shares.json
