@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-16T06:19:09.889803+00:00",
-  "input_generated_at_utc": "2026-11-16T06:19:09.832704+00:00",
+  "updated_at_utc": "2026-11-16T06:25:28.331981+00:00",
+  "input_generated_at_utc": "2026-11-16T06:25:28.274396+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -40,11 +40,11 @@
       "parent_equity_status": "AUDITED_ISSUER_GROUP_OWNER_COMPONENTS_RECONCILED",
       "parent_equity_source_url": "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5",
       "attributable_profit_sgd_thousands": 698411,
-      "price_sgd": 20.55,
+      "price_sgd": 20.54,
       "shares_outstanding": 1070843484,
-      "market_cap_sgd": 22005833596.2,
-      "per_reference": 31.5084,
-      "pbr_reference_unverified": 9.3127,
+      "market_cap_sgd": 21995125161.36,
+      "per_reference": 31.4931,
+      "pbr_reference_unverified": 9.3082,
       "pbr_verified": null,
       "financial_source_url": "https://investorrelations.sgx.com/static-files/3f7a49c0-fc5e-44fa-a851-bf26067249c5",
       "financial_source_kind": "LIVE_ISSUER_FY2026_PDF",
@@ -64,7 +64,7 @@
       "treasury_shares": 798916,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S68.SI?interval=1d&range=5d",
-      "quote_timestamp_utc": "2026-11-16T06:08:42+00:00",
+      "quote_timestamp_utc": "2026-11-16T06:15:19+00:00",
       "shares_source_url": "https://links.sgx.com/FileOpen/2026%20SGX%20Annual%20Report.ashx?App=Announcement&FileID=905317",
       "shares_as_of_date": "2026-09-01",
       "audit_states": {
@@ -131,7 +131,7 @@
       "treasury_shares": 30384550,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/G13.SI?interval=1d&range=5d",
-      "quote_timestamp_utc": "2026-11-16T06:09:00+00:00",
+      "quote_timestamp_utc": "2026-11-16T06:15:02+00:00",
       "shares_source_url": "https://links.sgx.com/FileOpen/2.%20GENS%201H2026%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=900902",
       "shares_as_of_date": "2026-06-30",
       "audit_states": {
@@ -264,7 +264,7 @@
       "treasury_shares": null,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S63.SI?interval=1d&range=5d",
-      "quote_timestamp_utc": "2026-11-16T06:09:00+00:00",
+      "quote_timestamp_utc": "2026-11-16T06:15:14+00:00",
       "shares_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/C8BD8IFF6BB243DP/0a8a417f60e150a464d73fc1b700be52d55bfaee8642d5e1641d90a447e95c7c",
       "shares_as_of_date": "2026-06-30",
       "audit_states": {
@@ -1540,7 +1540,7 @@
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-16T06:19:09.922351+00:00",
+  "quality_checked_at_utc": "2026-11-16T06:25:28.365629+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
