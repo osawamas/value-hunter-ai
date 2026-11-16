@@ -344,13 +344,14 @@ jobs:
           else
             echo "Company directory unavailable. Preserve previous candidate snapshot only; do not add new issuer financial records." >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Recalculate S63 FY2025 financials from source PDFs in preflight
+      - name: Recalculate S63 and G13 FY2025 financials from source PDFs in preflight
         if: github.ref == 'refs/heads/main' && inputs.sgx_preflight == true
         shell: bash
         run: |
           python -m pip install openpyxl==3.1.5
           command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
           python scripts/verify-market-sources-v315.py --sgx-s63-equity-only | tee -a "$GITHUB_STEP_SUMMARY"
+          python scripts/verify-market-sources-v315.py --sgx-g13-financials-only | tee -a "$GITHUB_STEP_SUMMARY"
           echo "The recalculation checks issuer disclosures and arithmetic. Independent financial verification is a separate publication condition." >> "$GITHUB_STEP_SUMMARY"
       - name: Apply licensed SGX closing prices when configured
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
