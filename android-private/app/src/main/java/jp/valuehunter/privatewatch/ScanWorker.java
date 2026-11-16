@@ -46,14 +46,27 @@ public final class ScanWorker extends Worker {
     }
 
     static void schedule(Context context) {
-        var connected = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC,
-                ExistingPeriodicWorkPolicy.KEEP, new PeriodicWorkRequest.Builder(ScanWorker.class, 6, TimeUnit.HOURS)
+        var connected = connected();
+        var work = WorkManager.getInstance(context);
+        work.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP,
+                new PeriodicWorkRequest.Builder(ScanWorker.class, 6, TimeUnit.HOURS)
                         .setConstraints(connected).build());
     }
 
+    static void scheduleUs(Context context) {
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork("us-watch", ExistingPeriodicWorkPolicy.KEEP,
+                new PeriodicWorkRequest.Builder(UsScanWorker.class, 6, TimeUnit.HOURS)
+                        .setInitialDelay(6, TimeUnit.HOURS).setConstraints(connected()).build());
+        WorkManager.getInstance(context).enqueueUniqueWork("us-check-now", ExistingWorkPolicy.KEEP,
+                new OneTimeWorkRequest.Builder(UsScanWorker.class).setConstraints(connected()).build());
+    }
+
+    private static Constraints connected() {
+        return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+    }
+
     static void checkNow(Context context) {
-        var connected = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        var connected = connected();
         WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP,
                 new OneTimeWorkRequest.Builder(ScanWorker.class).setConstraints(connected).build());
     }
@@ -141,7 +154,7 @@ public final class ScanWorker extends Worker {
         postNotification(context, 2, "VALUE HUNTER AI 無音通知テスト", "新しい候補が見つかると、この通知欄に表示される");
     }
 
-    private static void postNotification(Context context, int id, String title, String detail) {
+    static void postNotification(Context context, int id, String title, String detail) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) return;
         var manager = context.getSystemService(NotificationManager.class);

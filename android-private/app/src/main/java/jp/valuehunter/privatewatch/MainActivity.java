@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.method.LinkMovementMethod;
 import android.text.InputType;
 import android.view.View;
 import android.widget.Button;
@@ -23,6 +24,7 @@ public final class MainActivity extends Activity {
     private SharedPreferences state;
     private TextView status;
     private TextView results;
+    private TextView usResults;
     private EditText key;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
@@ -104,6 +106,53 @@ public final class MainActivity extends Activity {
         });
         content.addView(test);
 
+        var usTitle = new TextView(this);
+        usTitle.setText("米国株 · IBM接続試験");
+        usTitle.setTextSize(18);
+        content.addView(usTitle);
+
+        var usKey = new EditText(this);
+        usKey.setHint("自分のAlpha Vantage APIキー");
+        usKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        usKey.setSaveEnabled(false);
+        usKey.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+        content.addView(usKey);
+
+        var usRefresh = new Button(this);
+        usRefresh.setText("米国株の設定を保存して確認");
+        usRefresh.setOnClickListener(view -> {
+            String entered = usKey.getText().toString().trim();
+            String previous = state.getString("us_key", "");
+            if (entered.isEmpty() && previous.isEmpty()) {
+                usKey.setError("各自のAPIキーを入力して");
+                return;
+            }
+            var editor = state.edit().putString("us_status", "米国株の確認を予約した");
+            if (!entered.isEmpty() && !entered.equals(previous)) {
+                editor.putString("us_key", entered).remove("us_date").remove("us_result")
+                        .remove("us_qualified");
+            }
+            editor.apply();
+            usKey.setText("");
+            requestNotifications();
+            ScanWorker.scheduleUs(this);
+        });
+        content.addView(usRefresh);
+
+        usResults = new TextView(this);
+        usResults.setTextIsSelectable(true);
+        content.addView(usResults);
+
+        var source = new TextView(this);
+        source.setText(android.text.Html.fromHtml("<a href='" + UsScreen.FILING + "'>IBMのSEC開示</a>",
+                android.text.Html.FROM_HTML_MODE_LEGACY));
+        source.setMovementMethod(LinkMovementMethod.getInstance());
+        content.addView(source);
+
+        var jpTitle = new TextView(this);
+        jpTitle.setText("日本株の候補");
+        jpTitle.setTextSize(18);
+        content.addView(jpTitle);
         status = new TextView(this);
         content.addView(status);
         results = new TextView(this);
@@ -135,6 +184,9 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
+        String usResult = state.getString("us_result", "");
+        usResults.setText(state.getString("us_status", "Alpha VantageのキーでIBMの取得を開始")
+                + (usResult.isEmpty() ? "" : "\n" + usResult));
         String date = state.getString("latest_date", "");
         boolean enabled = getSystemService(NotificationManager.class).areNotificationsEnabled();
         String dataLabel = state.getBoolean("delayed", true) ? "（遅延データ）" : "";
