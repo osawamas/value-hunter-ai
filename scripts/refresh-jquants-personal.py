@@ -60,19 +60,23 @@ def refresh(destination, previous, export_args, *, require_toyota_refresh=False)
         return report.returncode
 
 
-def toyota_free_sessions(as_of):
+def toyota_free_share_evidence(as_of):
     cutoff = (as_of - timedelta(weeks=12)).isoformat()
     first_year = as_of.year - 2
     first_day = min(as_of.day, monthrange(first_year, as_of.month)[1])
     earliest = as_of.replace(year=first_year, day=first_day).isoformat()
     result = capture(["node", SCRIPTS / "check-representative-valuations.js", "--toyota-share-sessions"])
-    sessions = sorted({
-        share["date"] for share in json.loads(result.stdout)
+    sessions = {
+        share["date"]: share for share in json.loads(result.stdout)
         if earliest <= share["date"] <= cutoff and (share.get("disclosedOn") or share["date"]) <= as_of.isoformat()
-    })
+    }
     if len(sessions) < 2:
         raise ValueError(f"Fewer than two Toyota share dates in the estimated free-plan window ({earliest} to {cutoff}).")
-    return sessions[-2:]
+    return [sessions[day] for day in sorted(sessions)[-2:]]
+
+
+def toyota_free_sessions(as_of):
+    return [share["date"] for share in toyota_free_share_evidence(as_of)]
 
 
 def refresh_toyota_pair(destination, sessions):
@@ -96,7 +100,7 @@ def refresh_toyota_pair(destination, sessions):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--previous-dir", type=Path)
     parser.add_argument("--require-toyota-refresh", action="store_true",
                         help="With --previous-dir, require complete Toyota valuations and a later session")
@@ -108,8 +112,22 @@ def main():
                         help="Retrieve and compare two exact Toyota sessions into one local directory")
     toyota.add_argument("--toyota-free-latest", action="store_true",
                         help="Select the latest Toyota share dates beyond the free-plan delay")
+    toyota.add_argument("--toyota-free-evidence", action="store_true",
+                        help="List the two eligible Toyota share filings without fetching prices")
     parser.add_argument("codes", nargs="*")
     args = parser.parse_args()
+    if args.toyota_free_evidence:
+        if any((args.codes, args.date, args.first, args.last, args.previous_dir,
+                args.require_toyota_refresh, args.output_dir)):
+            parser.error("--toyota-free-evidence accepts no snapshot or quote options")
+        try:
+            evidence = toyota_free_share_evidence(datetime.now(ZoneInfo("Asia/Tokyo")).date())
+        except (OSError, ValueError) as error:
+            parser.exit(1, f"Evidence selection failed: {error}\n")
+        print(json.dumps(evidence, indent=2))
+        return 0
+    if args.output_dir is None:
+        parser.error("--output-dir is required to save a snapshot")
     if args.toyota_sessions or args.toyota_free_latest:
         if any((args.codes, args.date, args.first, args.last, args.previous_dir, args.require_toyota_refresh)):
             parser.error("Toyota pair modes accept only --output-dir and the selected Toyota option")

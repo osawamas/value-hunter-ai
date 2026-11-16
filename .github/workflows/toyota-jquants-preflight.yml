@@ -37,6 +37,14 @@ jobs:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
         run: |
           echo '### Toyota J-Quants preflight' >> "$GITHUB_STEP_SUMMARY"
+          evidence=$(python3 scripts/refresh-jquants-personal.py --toyota-free-evidence)
+          {
+            echo
+            echo '| Share count date | Filing |'
+            echo '| --- | --- |'
+            jq -er '.[] | "| \(.date) | [\(.disclosedOn // "Issuer filing")](\(.source)) |"' <<< "$evidence"
+            echo
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           if [[ -z "$JQUANTS_API_KEY" ]]; then
             echo 'Live retrieval skipped because JQUANTS_API_KEY is unavailable.' | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -45,7 +53,10 @@ jobs:
           work=$(mktemp -d "$RUNNER_TEMP/toyota.XXXXXX")
           trap 'rm -rf -- "$work"' EXIT
           status=0
-          python3 scripts/refresh-jquants-personal.py --output-dir "$work/pair" --toyota-free-latest || status=$?
+          earlier=$(jq -er '.[0].date' <<< "$evidence")
+          later=$(jq -er '.[1].date' <<< "$evidence")
+          python3 scripts/refresh-jquants-personal.py --output-dir "$work/pair" \
+            --toyota-sessions "$earlier" "$later" || status=$?
           if (( status != 0 && status != 2 )); then
             echo 'J-Quants retrieval or receipt verification failed. See step logs.' >> "$GITHUB_STEP_SUMMARY"
             exit "$status"
