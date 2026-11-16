@@ -88,6 +88,13 @@ const olderQuoteFeed = {...baseline, quality_checked_at_utc:"2026-11-23T09:00:00
 assert.throws(()=>stageQuotes(olderQuoteFeed,[incoming],grant),/too old for the public ranking/);
 const boundary = {...baseline, quality_checked_at_utc:"2026-11-20T09:00:00Z"};
 assert.equal(stageQuotes(boundary,[incoming],grant).records[0].quote_freshness,"RECENT");
+assert.deepEqual(checkFeed({...staged, quality_checked_at_utc:boundary.quality_checked_at_utc}), []);
+assert.ok(checkFeed({...staged, quality_checked_at_utc:"2026-11-20T09:00:01Z"})
+  .some(error => error.includes("ranked close is too old")));
+assert.ok(checkFeed({...staged, quality_checked_at_utc:"invalid"})
+  .some(error => error.includes("no valid quality-check timestamp")));
+assert.ok(checkFeed({...staged, quality_checked_at_utc:"2026-11-12T08:59:59Z"})
+  .some(error => error.includes("ranked close timestamp is in the future")));
 assert.throws(()=>stageQuotes({...baseline, quality_checked_at_utc:"invalid"},[incoming],grant),
   /no valid quality-check timestamp/);
 const staleRankedFeed = structuredClone(staged);

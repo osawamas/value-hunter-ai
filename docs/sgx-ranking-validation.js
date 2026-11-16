@@ -16,6 +16,12 @@
     return Number.isFinite(time) ? singaporeDate.format(time) : null;
   }
   const VALUE_SCORE_METHOD = "average_earnings_and_book_yield_v1";
+  const MAX_RANKED_QUOTE_AGE_DAYS = 7;
+
+  function quoteAgeInDays(feed, timestamp) {
+    return (Date.parse(feed.quality_checked_at_utc ?? feed.updated_at_utc) -
+      Date.parse(timestamp)) / 86400000;
+  }
 
   function valueScore(row) {
     const cap = row.price_sgd * row.shares_outstanding;
@@ -80,6 +86,15 @@
             r.shares_count_basis !== "issued_excluding_treasury")
           errors.push(id + ": ex-treasury share count not verified");
         const quoteDate = sgxQuoteDate(r.quote_timestamp_utc);
+        if (quoteDate) {
+          const quoteAge = quoteAgeInDays(feed, r.quote_timestamp_utc);
+          if (!Number.isFinite(quoteAge))
+            errors.push(id + ": no valid quality-check timestamp for ranked close");
+          else if (quoteAge > MAX_RANKED_QUOTE_AGE_DAYS)
+            errors.push(id + ": ranked close is too old for the public ranking");
+          else if (quoteAge < -1)
+            errors.push(id + ": ranked close timestamp is in the future");
+        }
         if (!quoteDate || !validDate(r.shares_as_of_date))
           errors.push(id + ": missing dated quote/shares");
         else if (r.shares_as_of_date !== quoteDate)
@@ -140,7 +155,8 @@
     return errors;
   }
 
-  const api = {hasGrantProvenance, checkFeed, checkProvenance, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD};
+  const api = {hasGrantProvenance, checkFeed, checkProvenance, sgxQuoteDate, validDate, valueScore,
+    VALUE_SCORE_METHOD, quoteAgeInDays, MAX_RANKED_QUOTE_AGE_DAYS};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.SgxRankingValidation = api;
 })(typeof window !== "undefined" ? window : null);

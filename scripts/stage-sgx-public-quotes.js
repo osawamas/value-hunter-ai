@@ -2,7 +2,8 @@
 
 const fs = require("node:fs");
 const {reviewStoredS63, reviewStoredG13} = require("./check-sgx-close-readiness.js");
-const {checkFeed, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD} = require("../docs/sgx-ranking-validation.js");
+const {checkFeed, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD,
+  quoteAgeInDays, MAX_RANKED_QUOTE_AGE_DAYS} = require("../docs/sgx-ranking-validation.js");
 
 // These exclusions describe the old close or calculations replaced below.
 const REPLACED_QUOTE_FLAGS = new Set([
@@ -40,12 +41,13 @@ function stageQuotes(feed, quotes, grant) {
     }
     const session = sgxQuoteDate(quote.timestamp);
     if (!session) throw new Error(symbol + ": invalid Singapore close timestamp");
-    const quoteAge = (checkedAt - Date.parse(quote.timestamp)) / 86400000;
+    const quoteAge = quoteAgeInDays(feed, quote.timestamp);
     if (quoteAge < -1) throw new Error(symbol + ": incoming close timestamp is in the future");
     const existingSession = sgxQuoteDate(row.quote_timestamp_utc);
     if (existingSession && session < existingSession)
       throw new Error(symbol + ": incoming close predates the published close");
-    if (quoteAge > 7) throw new Error(symbol + ": incoming close is too old for the public ranking");
+    if (quoteAge > MAX_RANKED_QUOTE_AGE_DAYS)
+      throw new Error(symbol + ": incoming close is too old for the public ranking");
     if (row.ranking_eligible && session === existingSession && quote.close !== row.price_sgd)
       throw new Error(symbol + ": same-session close conflicts with the published close");
     // SGXNet evidence is usable only for the session it explicitly covers.
