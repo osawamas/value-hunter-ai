@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 
 import androidx.annotation.NonNull;
+import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.ExistingWorkPolicy;
@@ -63,13 +64,15 @@ public final class ScanWorker extends Worker {
 
     static void checkSingapore(Context context) {
         WorkManager.getInstance(context).enqueueUniqueWork("sg-check-now", ExistingWorkPolicy.REPLACE,
-                new OneTimeWorkRequest.Builder(SgCheckWorker.class).setConstraints(connected()).build());
+                new OneTimeWorkRequest.Builder(SgCheckWorker.class).setConstraints(connected())
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES).build());
     }
 
     static void scheduleSingaporeWatch(Context context) {
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("sg-watch", ExistingPeriodicWorkPolicy.KEEP,
                 new PeriodicWorkRequest.Builder(SgCheckWorker.class, 6, TimeUnit.HOURS)
-                        .setInitialDelay(6, TimeUnit.HOURS).setConstraints(connected()).build());
+                        .setInitialDelay(6, TimeUnit.HOURS).setConstraints(connected())
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES).build());
     }
 
     static void stopSingaporeWatch(Context context) {

@@ -205,6 +205,7 @@ public final class MainActivity extends Activity {
             boolean watch = sgWatch.isChecked();
             var editor = state.edit().putString("sg_key", selected).putBoolean("sg_watch", watch)
                     .putString("sg_result", "接続確認を予約した");
+            if (!selected.equals(savedKey)) editor.remove("sg_last_result");
             if (!selected.equals(savedKey) || watch != state.getBoolean("sg_watch", false)) {
                 editor.remove("sg_qualified_date").remove("sg_qualified");
             }

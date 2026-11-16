@@ -36,6 +36,7 @@ public final class SgCheckWorker extends Worker {
         String result;
         SgCloseCheck.Pair pair = null;
         Evaluation evaluation = null;
+        boolean retryableFailure = false;
         try {
             var now = ZonedDateTime.now(SgCloseCheck.SINGAPORE);
             var cutoff = now.toLocalTime().isBefore(LocalTime.of(18, 0))
@@ -46,9 +47,10 @@ public final class SgCheckWorker extends Worker {
             pair = SgCloseCheck.read(payload, cutoff);
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
-            evaluation = evaluate(pair.latest());
+            evaluation = evaluate(pair.latest(), getRunAttemptCount());
             result += evaluation.details();
         } catch (UsScanWorker.HttpFailure error) {
+            retryableFailure = shouldRetry(error.status, getRunAttemptCount());
             result = switch (error.status) {
                 case 401 -> "DataCedarのAPIキーを確認して";
                 case 403 -> "DataCedarが取得を拒否した。プランと銘柄へのアクセス権を確認して";
@@ -59,10 +61,20 @@ public final class SgCheckWorker extends Worker {
             result = "S63の応答を照合できなかった。2取引日分の未調整日足が必要";
         } catch (IOException error) {
             result = "DataCedarに接続できなかった";
+            retryableFailure = shouldRetry(0, getRunAttemptCount());
         }
         if (isStopped() || !key.equals(state.getString("sg_key", ""))
                 || watch != state.getBoolean("sg_watch", false)) return Result.success();
-        var editor = state.edit().putString("sg_result", result);
+        var editor = state.edit();
+        if (pair != null) {
+            editor.putString("sg_last_result", result);
+            retryableFailure = evaluation.retryableFailure();
+        } else {
+            String previousResult = state.getString("sg_last_result", "");
+            if (!previousResult.isEmpty()) result += "\n\n前回取得したデータ\n" + previousResult;
+        }
+        if (retryableFailure) result += "\n一時エラー。再試行を予約した";
+        editor.putString("sg_result", result);
         boolean alert = false;
         if (watch && pair != null && evaluation.qualified() != null) {
             String last = state.getString("sg_qualified_date", "");
@@ -80,28 +92,42 @@ public final class SgCheckWorker extends Worker {
                     close.session() + "終値 " + String.format(Locale.JAPAN, "%.3f SGD", close.sgd())
                             + evaluation.details());
         }
+        if (retryableFailure) return Result.retry();
         return pair == null ? Result.failure() : Result.success();
     }
 
-    private record Evaluation(String details, Boolean qualified) {}
+    static boolean shouldRetry(int httpStatus, int attempts) {
+        return attempts < 2 && (httpStatus == 0 || httpStatus == 408 || httpStatus == 429
+                || (httpStatus >= 500 && httpStatus <= 599));
+    }
 
-    private static Evaluation evaluate(SgCloseCheck.Close close) {
+    private record Evaluation(String details, Boolean qualified, boolean retryableFailure) {}
+
+    private static Evaluation evaluate(SgCloseCheck.Close close, int attempts) {
         StringBuilder details = new StringBuilder();
         var trial = SgValuation.forClose(close);
-        if (trial == null) {
+        boolean retryableFailure = false;
+        if (trial == null && SgValuation.financialsAvailable(close.session())) {
             try {
                 var ledger = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
                 trial = SgValuation.forClose(close, SgShareLedger.readShares(ledger, close.session()));
             } catch (IOException | JSONException error) {
                 details.append("\n開示株数の更新データを確認できなかった");
+                if (error instanceof IOException) {
+                    retryableFailure = shouldRetry(error instanceof UsScanWorker.HttpFailure failure
+                            ? failure.status : 0, attempts);
+                }
             }
         }
         Boolean qualified = null;
-        if (trial == null) {
-            details.append("\n同日の開示株数が未登録。時価総額・PER・PBRは保留");
+        if (!SgValuation.financialsAvailable(close.session())) {
+            details.append("\n取引日時点の財務が未登録。時価総額・PER・PBRは保留");
+        } else if (trial == null) {
+            details.append("\n同日の開示株数を確認できず、時価総額・PER・PBRは保留");
         } else {
             details.append(String.format(Locale.JAPAN,
                     "\n同日の開示株数 %,d株（事後照合）"
+                            + "\n財務基準日 " + SgValuation.FINANCIAL_PERIOD
                             + "\n参考時価総額 %,.0f SGD · 参考PER %.2f倍 · 参考PBR %.2f倍",
                     trial.shares(), trial.cap(), trial.per(), trial.pbr()));
         }
@@ -120,7 +146,11 @@ public final class SgCheckWorker extends Worker {
             }
         } catch (IOException | JSONException error) {
             details.append("\n為替を取得できなかったため、円換算は保留");
+            if (error instanceof IOException) {
+                retryableFailure |= shouldRetry(error instanceof UsScanWorker.HttpFailure failure
+                        ? failure.status : 0, attempts);
+            }
         }
-        return new Evaluation(details.toString(), qualified);
+        return new Evaluation(details.toString(), qualified, retryableFailure);
     }
 }

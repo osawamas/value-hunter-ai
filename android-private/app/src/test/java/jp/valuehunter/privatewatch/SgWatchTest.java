@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 
 public class SgWatchTest {
     @Test public void alertsOnlyOnEntryFromTheImmediatelyPreviousSession() {
@@ -16,6 +18,22 @@ public class SgWatchTest {
         assertFalse(SgValuation.shouldAlert(pair, "2026-11-16", false, true));
         assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", true, true));
         assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", false, false));
+    }
+
+    @Test public void distinguishesTemporaryFailuresAndLimitsRetries() {
+        for (int status : new int[]{0, 408, 429, 503}) {
+            assertTrue(SgCheckWorker.shouldRetry(status, 0));
+            assertTrue(SgCheckWorker.shouldRetry(status, 1));
+            assertFalse(SgCheckWorker.shouldRetry(status, 2));
+        }
+        for (int status : new int[]{400, 401, 403, 404}) {
+            assertFalse(SgCheckWorker.shouldRetry(status, 0));
+        }
+    }
+
+    @Test public void doesNotApplyFinancialsBeforeTheyWerePublished() {
+        assertNull(SgValuation.forClose(new SgCloseCheck.Close(LocalDate.of(2026, 8, 13), 9), 100));
+        assertNotNull(SgValuation.forClose(new SgCloseCheck.Close(LocalDate.of(2026, 8, 14), 9), 100));
     }
 
     @Test public void checksYenBudgetAndPositiveValuationBounds() {
