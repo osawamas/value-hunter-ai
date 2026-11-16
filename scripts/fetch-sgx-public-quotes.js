@@ -9,9 +9,10 @@ const {hasGrantProvenance, sgxQuoteDate, validDate} = require("../docs/sgx-ranki
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 
 class QuoteImportError extends Error {
-  constructor(stage, message) {
+  constructor(stage, message, httpStatus) {
     super(message);
     this.stage = stage;
+    this.httpStatus = httpStatus;
   }
 }
 
@@ -77,7 +78,7 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
   }
   if (!response.ok) {
     await response.body?.cancel().catch(() => {});
-    throw new QuoteImportError("FETCH", "SGX daily close feed returned HTTP " + response.status);
+    throw new QuoteImportError("FETCH", "SGX daily close feed returned HTTP " + response.status, response.status);
   }
   if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "") ||
       !response.body) {
@@ -175,22 +176,21 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
           session, closeRetrieval: "failed", shareEvidence, financialAndShareBlockers: readiness.blockers,
           errorStage: error.stage, error: error.message,
         });
-        return {
-          symbol: "S63",
-          closeRetrieval: sessions.length === 1 ? "failed" : "partial",
-          valuationCheck: "blocked",
-          sessions,
-        };
+        // Unavailable or malformed data can be specific to one trading session.
+        // Stop on authorization/configuration failures or provider-wide outages.
+        if (["SESSION", "RESPONSE"].includes(error.stage) || error.httpStatus === 404) continue;
+        break;
       }
       if (error.stage !== "VALIDATION") throw error;
       check.publicationErrors = [error.message];
     }
     sessions.push(check);
   }
+  const retrieved = sessions.filter(check => check.closeRetrieval === "retrieved").length;
   return {
     symbol: "S63",
-    closeRetrieval: "retrieved",
-    valuationCheck: sessions.every(check => check.completeAnnualRatios) ? "passed" : "blocked",
+    closeRetrieval: retrieved === 2 ? "retrieved" : retrieved === 1 ? "partial" : "failed",
+    valuationCheck: retrieved === 2 && sessions.every(check => check.completeAnnualRatios) ? "passed" : "blocked",
     sessions,
   };
 }

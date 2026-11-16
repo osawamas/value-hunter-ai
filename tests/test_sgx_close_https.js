@@ -421,6 +421,26 @@ async function test() {
       return true;
     });
     assert.deepEqual(requests.slice(beforeFailure), ["/closes?session=2026-11-13"]);
+    sessionBodies.set("/closes?session=2026-11-16", [{...noticeQuote, timestamp: "2026-11-16T09:00:00Z"}]);
+    statuses = [404];
+    await assert.rejects(run(process.execPath, pairArgs, options), error => {
+      assert.equal(error.code, 1);
+      const partial = JSON.parse(error.stdout);
+      assert.equal(partial.closeRetrieval, "partial");
+      assert.equal(partial.valuationCheck, "blocked");
+      assert.equal(partial.sessions[0].error, "SGX daily close feed returned HTTP 404");
+      assert.deepEqual(partial.sessions[1], pair.sessions[1]);
+      return true;
+    });
+    sessionBodies.set("/closes?session=2026-11-13", []);
+    sessionBodies.set("/closes?session=2026-11-16", []);
+    await assert.rejects(run(process.execPath, pairArgs, options), error => {
+      assert.equal(error.code, 1);
+      const failed = JSON.parse(error.stdout);
+      assert.equal(failed.closeRetrieval, "failed");
+      assert.deepEqual(failed.sessions.map(check => check.errorStage), ["RESPONSE", "RESPONSE"]);
+      return true;
+    });
     assert.deepEqual(fs.readFileSync(feedFile), realFeed);
     console.log("SGX daily refresh and history passed: licensed recovery recorded; invalid grants rejected");
   } finally {
