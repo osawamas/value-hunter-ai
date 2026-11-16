@@ -37,7 +37,12 @@ function reject(mutator,phrase){const a=structuredClone(data);mutator(a.records[
 reject(r=>{r.market_data_license_evidence.grant_status="PENDING"},"provenance incomplete");
 reject(r=>{r.market_data_license_evidence.grant_evidence_url="http://example.org/proof"},"provenance incomplete");
 reject(r=>{r.market_data_license_evidence.usage_scopes=["BROWSER_DISPLAY"]},"usage scopes");
-reject(r=>{r.quote_publicly_redistributed=true;r.market_data_license_evidence.usage_scopes=["BROWSER_DISPLAY","BACKEND_NON_DISPLAY_ANALYTICS"]},"usage scopes");
+for (const redistributionFlag of [undefined, false, true]) {
+  reject(r=>{
+    r.quote_publicly_redistributed=redistributionFlag;
+    r.market_data_license_evidence.usage_scopes=["BROWSER_DISPLAY","BACKEND_NON_DISPLAY_ANALYTICS"];
+  },"usage scopes");
+}
 reject(r=>{r.market_data_license_evidence.valid_from="2026-02-30"},"validity dates");
 reject(r=>{r.market_data_license_evidence.valid_from="2026-11-14";r.market_data_license_evidence.valid_until="2026-11-15"},"outside license validity");
 reject(r=>{r.quote_url="invalid"},"origin URL");

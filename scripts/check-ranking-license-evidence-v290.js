@@ -27,11 +27,12 @@ function checkFeed(feed) {
        typeof proof.licensee !== "string" || !proof.licensee.trim() ||
        typeof proof.licensed_product !== "string" || !proof.licensed_product.trim())
       errors.push(id+": executed license provenance incomplete");
+    // Eligible rows publish the raw close in latest.json and in the dashboard CSV.
     const scopes=proof.usage_scopes;
     if(!Array.isArray(scopes) ||
        !scopes.includes("BROWSER_DISPLAY") ||
        !scopes.includes("BACKEND_NON_DISPLAY_ANALYTICS") ||
-       (r.quote_publicly_redistributed === true && !scopes.includes("REDISTRIBUTION")))
+       !scopes.includes("REDISTRIBUTION"))
       errors.push(id+": required SGX usage scopes missing");
     if(!validDate(proof.valid_from) || !validDate(proof.valid_until) ||
        proof.valid_from > proof.valid_until)
