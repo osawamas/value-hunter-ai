@@ -100,6 +100,7 @@ jobs:
           curl -fsSL --max-time 30 https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt0000013821-att/17_kenri2603.pdf -o "$RUNNER_TEMP/jpx-rights-202603.pdf"
           python - "$RUNNER_TEMP/jpx-rights-202603.pdf" <<'PY'
           from datetime import date
+          from decimal import Decimal
           import sys
           from jpx_share_basis import ShareEvent, load_rights_reports, share_basis_status
 
@@ -110,6 +111,8 @@ jobs:
           assert months == {march}
           assert ShareEvent(ex_on, record_on, 1, 3) in events["8336"]
           assert ShareEvent(ex_on, record_on, 10, 1) in events["6731"]
+          assert any(event.ratio_right == Decimal("1.05") for rows in events.values() for event in rows)
+          assert any(event.ratio_right == Decimal("0.05") for rows in events.values() for event in rows)
           assert "6403" not in events  # Voting record date, no change in shares.
           assert share_basis_status("8336", march, date(2026, 3, 27), rights) == "no_share_change_in_supplied_reports"
           assert share_basis_status("8336", march, ex_on, rights) == "hold_share_basis_change"

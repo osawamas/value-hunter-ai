@@ -2,6 +2,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 import re
 import unicodedata
 
@@ -10,8 +11,8 @@ import pymupdf
 from jpx_daily_probe import CODE
 
 MONTH_HEADER = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月")
-ACTION = re.compile(r"株\s*式\s*(?:分\s*割|併\s*合)")
-RATIO = re.compile(r"(\d+):(\d+)株式(分割|併合)")
+ACTION = re.compile(r"株\s*式\s*(?:分\s*割|併\s*合|無\s*償\s*割\s*当\s*て)")
+RATIO = re.compile(r"(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)株式(分割|併合|無償割当て)")
 TABLE_DATE = re.compile(r"\d{4}\.\d{1,2}\.\d{1,2}")
 
 
@@ -19,8 +20,8 @@ TABLE_DATE = re.compile(r"\d{4}\.\d{1,2}\.\d{1,2}")
 class ShareEvent:
     ex_on: date
     record_on: date
-    old_shares: int
-    new_shares: int
+    ratio_left: Decimal
+    ratio_right: Decimal
 
 
 def table_date(value):
@@ -57,11 +58,14 @@ def read_monthly_rights(path):
                     raise ValueError(f"Could not read the JPX corporate-action ratio for {code}")
                 ex_on = table_date("".join(word[2] for word in line if .65 < word[0] < .72))
                 record_on = table_date("".join(word[2] for word in line if .72 <= word[0] < .79))
-                old, new = int(ratio[1]), int(ratio[2])
-                valid_ratio = 0 < old < new if ratio[3] == "分割" else 0 < new < old
+                left, right = Decimal(ratio[1]), Decimal(ratio[2])
+                valid_ratio = left > 0 and right > 0 and (
+                    ratio[3] == "無償割当て" or
+                    (left < right if ratio[3] == "分割" else right < left)
+                )
                 if ex_on.replace(day=1) != month or ex_on > record_on or not valid_ratio:
                     raise ValueError(f"Inconsistent JPX corporate action for {code}")
-                events[code].add(ShareEvent(ex_on, record_on, old, new))
+                events[code].add(ShareEvent(ex_on, record_on, left, right))
                 parsed_actions += 1
             if expected_actions != parsed_actions:
                 raise ValueError(
