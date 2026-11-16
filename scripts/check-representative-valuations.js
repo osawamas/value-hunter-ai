@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const {createHash} = require("node:crypto");
+const {isDeepStrictEqual} = require("node:util");
 const {spawnSync} = require("node:child_process");
 const {
   buildMarketRows, conflictingFilingShares, evaluatePersonalQuotes, publishedShareSessions, readQuoteHistory, selectQuoteDate,
@@ -111,7 +112,14 @@ function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows =
       hasExactShares: Boolean(shares),
     };
     const earlierShares = previousShareSessions.get(date)?.find(record => record.id === id);
-    if (change !== "unchanged") {
+    if (change === "unchanged" && previousShareSessions !== shareSessions) {
+      const previousTrial = reviewObservedSession(previousRows, previousShareReview, before, earlierShares);
+      const currentTrial = reviewObservedSession(rows, shareReview, after, shares);
+      if (!isDeepStrictEqual(previousTrial, currentTrial)) {
+        session.valuationImpact = {previous: previousTrial, current: currentTrial};
+        session.valuationEvidenceChanged = true;
+      }
+    } else if (change !== "unchanged") {
       const previousTrial = before && reviewObservedSession(previousRows, previousShareReview, before, earlierShares);
       const currentTrial = after && reviewObservedSession(rows, shareReview, after, shares);
       const relevant = trial => trial && trial.status !== "no_exact_share_evidence";

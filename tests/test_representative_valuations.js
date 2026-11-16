@@ -50,6 +50,26 @@ const priorConflict = reviewQuoteRefresh(
 ).results[2];
 assert.equal(priorConflict.latestObservedTrials.previous.status, "conflict");
 assert.equal(priorConflict.latestObservedTrials.current.status, "trial_calculated");
+const correctedShares = reviewQuoteRefresh(
+  rows, [laterS63], s63Current, s63Current, rows, [competingNotice]
+).results[2].sessionChanges[0];
+assert.equal(correctedShares.change, "unchanged");
+assert.equal(correctedShares.valuationEvidenceChanged, true);
+assert.equal(correctedShares.valuationImpact.previous.valuation.cap, 3115347116 * 11);
+assert.equal(correctedShares.valuationImpact.current.valuation.cap, 3115347115 * 11);
+const unchangedEvidence = reviewQuoteRefresh(
+  rows, [laterS63], s63Current, s63Current, rows, [{...laterS63}]
+).results[2].sessionChanges[0];
+assert.equal(unchangedEvidence.valuationImpact, undefined);
+const correctedFinanceRows = structuredClone(rows);
+correctedFinanceRows.find(row => row.id === "SG:S63").sgxEvidence.attributable_profit_sgd_thousands++;
+const correctedFinance = reviewQuoteRefresh(
+  correctedFinanceRows, [laterS63], s63Current, s63Current, rows, [laterS63]
+).results[2].sessionChanges[0];
+assert.equal(correctedFinance.valuationEvidenceChanged, true);
+assert.equal(correctedFinance.valuationImpact.previous.shares, correctedFinance.valuationImpact.current.shares);
+assert.notEqual(correctedFinance.valuationImpact.previous.valuation.per,
+  correctedFinance.valuationImpact.current.valuation.per);
 assert.equal(reviewQuoteRefresh(rows, shares, s63Previous, s63Current)
   .results[2].latestObservedTrials.current.status, "no_exact_share_evidence");
 const toyota = structuredClone(rows.find(row => row.id === "JP:7203"));
