@@ -19,6 +19,10 @@ on:
       - 'scripts/check-ranking-license-evidence-v290.js'
       - 'docs/test_ranking_provenance_v289.js'
       - 'docs/test_ranking_license_evidence_v290.js'
+      - 'docs/sgx-ranking-validation.js'
+      - 'scripts/fetch-sgx-public-quotes.js'
+      - 'scripts/stage-sgx-public-quotes.js'
+      - 'tests/test_sgx_close_https.js'
       - 'docs/data/sgx-market-license-review-v290.json'
       - 'docs/market-research.js'
       - 'docs/data/latest.json'
@@ -54,6 +58,7 @@ jobs:
       - run: |
           node docs/test_ranking_provenance_v289.js
           node docs/test_ranking_license_evidence_v290.js
+          node tests/test_sgx_close_https.js
   japan-originals:
     runs-on: ubuntu-latest
     timeout-minutes: 10
