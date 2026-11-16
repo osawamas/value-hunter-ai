@@ -14,4 +14,12 @@ assert.equal(results.length, 2, "repeat/undated/missing quotes must not add data
 assert.deepEqual(results.map(r => r.date), ["2026-11-13", "2026-11-16"]);
 assert.deepEqual(results.map(r => r.value), [9.67, 9.81]);
 assert.equal(historicalObservations(entries, "G13", "price_sgd").length, 0);
-console.log("v38 JS history observation tests passed");
+const rankedHistory = entries.map(({date_utc, records}, i) => ({
+  date_utc,
+  records: [{...records[0], pbr_verified: 1.2 + i, ranking_eligible: i >= 2}],
+}));
+rankedHistory[2].records[0].pbr_verified = 0;
+const verified = historicalObservations(rankedHistory, "S63", "pbr_verified");
+assert.deepEqual(verified.map(({date, value}) => [date, value]), [["2026-11-16", 4.2]]);
+assert.deepEqual(historicalObservations(entries, "S63", "pbr_verified"), []);
+console.log("SGX history: verified PBR requires a ranked record, positive value, and dated quote");

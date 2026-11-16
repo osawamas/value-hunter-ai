@@ -788,6 +788,7 @@ function historicalObservations(entries, symbol, metric) {
   for (const entry of entries) {
     if (typeof entry.date_utc !== "string") continue;
     const found = (entry.records || []).find(r => r.symbol === symbol);
+    if (metric === "pbr_verified" && (found?.ranking_eligible !== true || !(found.pbr_verified > 0))) continue;
     const value = found ? found[metric] : null;
     const timestamp = found?.quote_timestamp_utc;
     // Do not plot an undated market quote or pretend repeated stale quotes

@@ -289,6 +289,25 @@ try {
  assert.equal(await rankingPage.locator("#eligibleCount").innerText(),"0");
  await rankingPage.close();
 
+ const historyPage=await browser.newPage();
+ historyPage.on("pageerror",e=>failures.push(e.message));
+ const point={symbol:"S63",pbr_verified:1.25,quote_timestamp_utc:"2026-11-13T09:00:00Z"};
+ await historyPage.route("**/data/history/index.json",route=>route.fulfill({json:{
+  schema_version:"value_hunter_history_v34", entries:[
+   {date_utc:"2026-11-12",records:[{...point,pbr_verified:9.99}]},
+   {date_utc:"2026-11-13",records:[{...point,ranking_eligible:true}]},
+  ],
+ }}));
+ await historyPage.goto(base+"/index.html");
+ await historyPage.locator('#historySymbol option[value="S63"]').waitFor({state:"attached"});
+ await historyPage.locator("#historySymbol").selectOption("S63");
+ await historyPage.locator("#historyMetric").selectOption("pbr_verified");
+ await historyPage.locator("#historyStatus").getByText(/PBR（倍・検証済み）.*1回/).waitFor();
+ const chart=historyPage.locator("#historyChart");
+ assert.equal(await chart.locator("circle").count(),1);
+ assert.match(await chart.locator("circle title").textContent(),/2026-11-13.*1\.25/);
+ await historyPage.close();
+
  const degraded=await browser.newPage();
  degraded.on("pageerror",e=>failures.push(e.message));
  await degraded.route("**/data/sgx-nineteen-original-html-sha-v262.json",route=>route.abort());
