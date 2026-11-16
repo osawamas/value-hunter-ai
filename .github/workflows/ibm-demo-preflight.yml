@@ -44,7 +44,10 @@ jobs:
           fi
           latest=$(jq -er '.preflightChecks.current.date | select(test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))' "$report")
           previous_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=ibm-preflight-session&per_page=100" \
-            --jq '[.artifacts[] | select(.expired == false) | .workflow_run.id | select(. != null and . < '"$GITHUB_RUN_ID"')] | max // empty')
+            --jq '[.artifacts[]
+              | select(.expired == false and .workflow_run.head_branch == "main"
+                and .workflow_run.head_repository_id == '"$GITHUB_REPOSITORY_ID"')
+              | .workflow_run.id | select(. < '"$GITHUB_RUN_ID"')] | max // empty')
           previous=''
           if [[ -n "$previous_run" ]]; then
             gh run download "$previous_run" --repo "$GITHUB_REPOSITORY" --name ibm-preflight-session --dir "$RUNNER_TEMP/ibm-previous"
@@ -65,6 +68,9 @@ jobs:
             echo '### IBM demo preflight'
             echo
             echo "$update"
+            if [[ -n "$previous_run" ]]; then
+              echo "Comparison baseline: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$previous_run"
+            fi
             echo
             echo '| Trading date | Close retrieval | Valuation | Earlier share disclosure |'
             echo '| --- | --- | --- | --- |'
