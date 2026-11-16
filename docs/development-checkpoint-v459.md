@@ -14,3 +14,8 @@ coverage through the latest completed market session. Use a personal Alpha
 Vantage key by omitting `--demo` and setting `ALPHA_VANTAGE_API_KEY`.
 This manual check stays local. Production scheduling and public price
 rights remain pending.
+
+In v460, `preflightChecks` records the price retrieval and valuation
+status for each requested observation. When the same-day share count
+is missing, it includes the date and source of the earlier disclosure
+when available. Saved local snapshot reports include the same fields.

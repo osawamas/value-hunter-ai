@@ -35,6 +35,15 @@ class IBMRefreshTests(unittest.TestCase):
         self.assertIsNone(fetch.call_args.args[1])
         report = json.loads(output.getvalue())
         self.assertEqual(report["latestObservedTrials"]["current"]["status"], "no_exact_share_evidence")
+        checks = report["preflightChecks"]
+        self.assertEqual(checks["previous"]["valuationStatus"], "trial_calculated")
+        self.assertEqual(checks["current"], {
+            "date": "2026-11-13",
+            "closeStatus": "retrieved",
+            "valuationStatus": "no_exact_share_evidence",
+            "referenceShareDate": "2026-09-30",
+            "referenceShareSource": report["latestObservedTrials"]["current"]["referenceShareSource"],
+        })
         self.assertFalse(report["publicRankingEligible"])
         del payload["Time Series (Daily)"]["2026-09-29"]
         del payload["Time Series (Daily)"]["2026-09-30"]
@@ -89,6 +98,7 @@ class IBMRefreshTests(unittest.TestCase):
             self.assertTrue(report["passed"])
             self.assertEqual(report["latestObservedTrials"]["previous"]["shares"], 942134390)
             self.assertEqual(report["latestObservedTrials"]["current"]["shares"], 945120805)
+            self.assertEqual(report["preflightChecks"]["current"]["valuationStatus"], "trial_calculated")
             self.assertEqual(fetch.call_count, 2)
             (old / "quotes.csv").write_text("modified")
             with self.assertRaisesRegex(ValueError, "does not match its receipt"):

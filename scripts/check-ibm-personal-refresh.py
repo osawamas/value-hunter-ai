@@ -65,6 +65,21 @@ def complete_trial(trial):
     )
 
 
+def valuation_checks(trials):
+    return {
+        label: {
+            "date": trial["date"],
+            "closeStatus": "retrieved",
+            "valuationStatus": "incomplete_ratios"
+            if trial["status"] == "trial_calculated" and not complete_trial(trial)
+            else trial["status"],
+            **{field: trial[field] for field in ("referenceShareDate", "referenceShareSource")
+               if field in trial},
+        }
+        for label, trial in trials.items()
+    }
+
+
 def compare(closes, previous, current, *, demo, retrieved_at=()):
     with TemporaryDirectory(prefix="value-hunter-ibm-") as directory:
         snapshots = []
@@ -92,6 +107,7 @@ def compare(closes, previous, current, *, demo, retrieved_at=()):
         "passed": passed,
         "filingDataSha256": report["filingDataSha256"],
         "latestObservedTrials": trials,
+        "preflightChecks": valuation_checks(trials),
     }
 
 
@@ -175,6 +191,7 @@ def save_refresh(destination, previous, query, day, *, demo):
             "scope": "local_personal_research", "publicRankingEligible": False,
             "currentReceipt": receipt, "previousReceipt": earlier, "passed": passed,
             "latestObservedTrials": trials,
+            "preflightChecks": valuation_checks(trials),
         }
         (snapshot / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
         (snapshot / "report.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
