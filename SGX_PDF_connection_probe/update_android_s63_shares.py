@@ -49,7 +49,7 @@ def update_ledger(path, urls, downloader=fetch):
             raise ValueError(f"Duplicate S63 date: {row['date']}")
         by_date[row["date"]] = row
 
-    added = []
+    changed = set()
     for url in dict.fromkeys(urls):
         source = SOURCE.fullmatch(url)
         if not source:
@@ -65,16 +65,21 @@ def update_ledger(path, urls, downloader=fetch):
                     and existing["shares"] == row["shares"]
                     and existing["disclosed_at"] == row["disclosed_at"]):
                 continue
-            if notice["announcement_status"].casefold() != "replacement" or row["disclosed_at"] <= existing["disclosed_at"]:
+            incoming_is_newer = row["disclosed_at"] > existing["disclosed_at"]
+            if (row["disclosed_at"] == existing["disclosed_at"]
+                    or (incoming_is_newer and notice["announcement_status"].casefold() != "replacement")):
                 raise ValueError(f"Conflicting S63 disclosure for {row['date']}")
-            original = parse_notice(downloader(existing["source"]), existing["source"])
-            if (original["reference"] != notice["reference"]
-                    or notice_record(original) != existing):
+            registered = parse_notice(downloader(existing["source"]), existing["source"])
+            if registered["reference"] != notice["reference"] or notice_record(registered) != existing:
                 raise ValueError(f"Unverified S63 replacement for {row['date']}")
+            if not incoming_is_newer:
+                if registered["announcement_status"].casefold() != "replacement":
+                    raise ValueError(f"Conflicting S63 disclosure for {row['date']}")
+                continue
         by_date[row["date"]] = row
-        added.append(row["date"])
+        changed.add(row["date"])
 
-    if added:
+    if changed:
         ledger["records"] = [by_date[day] for day in sorted(by_date)]
         temporary = None
         try:
@@ -86,7 +91,7 @@ def update_ledger(path, urls, downloader=fetch):
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
-    return sorted(added)
+    return sorted(changed)
 
 
 def main():

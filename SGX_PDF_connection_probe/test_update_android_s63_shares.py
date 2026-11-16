@@ -70,8 +70,13 @@ class AndroidS63LedgerTests(unittest.TestCase):
         self.assertEqual(row["source"], replacement)
         self.assertEqual(row["disclosed_at"], "2026-11-14T18:21:18+08:00")
         self.assertEqual(update_ledger(self.path, [replacement], download), [])
-        with self.assertRaisesRegex(ValueError, "Conflicting S63"):
-            update_ledger(self.path, [URL], download)
+        corrected = self.path.read_bytes()
+        self.assertEqual(update_ledger(self.path, [URL, replacement], download), [])
+        self.assertEqual(self.path.read_bytes(), corrected)
+        unrelated = sample().replace(b"OTHRPXGV", b"OTHRTEST")
+        with self.assertRaisesRegex(ValueError, "Unverified S63 replacement"):
+            update_ledger(self.path, [URL], {URL: unrelated, replacement: revised}.__getitem__)
+        self.assertEqual(self.path.read_bytes(), corrected)
 
     def test_rejects_conflict_and_rolls_back_invalid_batch(self):
         baseline = self.path.read_bytes()

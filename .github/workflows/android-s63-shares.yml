@@ -74,17 +74,30 @@ jobs:
           )
           PY
 
-      - name: Verify the format of an official S63 replacement
+      - name: Exercise the full ledger update with real S63 original and replacement notices
         run: |
-          PYTHONPATH=SGX_PDF_connection_probe python3 - <<'PY'
-          from sgx_s63_buyback_v109 import fetch, parse_notice
+          PYTHONPATH=SGX_PDF_connection_probe python3 - "$RUNNER_TEMP/s63-replacement.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
 
-          url = "https://links.sgx.com/1.0.0/corporate-announcements/UFRW2EHLH42ODOFI"
-          notice = parse_notice(fetch(url), url)
-          assert notice["announcement_status"] == "Replacement"
-          assert notice["reference"] == "SG260602OTHRC2X0"
-          assert notice["purchase_date"] == "2026-06-02"
-          assert notice["issued_excluding_treasury_after_purchase"] == 3_120_799_238
+          from update_android_s63_shares import update_ledger
+
+          path = Path(sys.argv[1])
+          path.write_text('{"schema":1,"symbol":"S63","records":[]}', encoding="utf-8")
+          original = "https://links.sgx.com/1.0.0/corporate-announcements/1TBOVXDT5HP5EDOZ"
+          replacement = "https://links.sgx.com/1.0.0/corporate-announcements/UFRW2EHLH42ODOFI"
+          assert update_ledger(path, [original, replacement]) == ["2026-06-02"]
+          record, = json.loads(path.read_text(encoding="utf-8"))["records"]
+          assert record == {
+              "date": "2026-06-02",
+              "shares": 3_120_799_238,
+              "source": replacement,
+              "disclosed_at": "2026-06-02T17:55:29+08:00",
+          }
+          corrected = path.read_bytes()
+          assert update_ledger(path, [original, replacement]) == []
+          assert path.read_bytes() == corrected
           PY
 
   register:
