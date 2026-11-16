@@ -74,7 +74,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pdf")
     parser.add_argument("universe")
-    parser.add_argument("--check", nargs=2, metavar=("CODE", "CLOSE"))
+    parser.add_argument("--check", action="append", nargs=2, default=[], metavar=("CODE", "CLOSE"))
     args = parser.parse_args()
     stocks = ordinary_stocks(args.universe)
     prices, duplicates = read_quotes(args.pdf, stocks)
@@ -96,8 +96,7 @@ def main():
             else:
                 count["no_close"] += 1
     print(json.dumps(counts, indent=2))
-    if args.check:
-        code, expected = args.check
+    for code, expected in args.check:
         morning, afternoon = prices.get(code, (None, None))
         if (afternoon if afternoon is not None else morning) != Decimal(expected):
             raise SystemExit(f"JPX reference close did not match for {code}")

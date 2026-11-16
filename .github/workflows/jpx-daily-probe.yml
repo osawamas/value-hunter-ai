@@ -45,5 +45,5 @@ jobs:
           curl -fsSL --max-time 45 "$master_url" -o "$RUNNER_TEMP/jpx-list.xlsx"
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202610/stq_20261029.pdf -o "$RUNNER_TEMP/jpx-20261029.pdf"
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202611/stq_20261111.pdf -o "$RUNNER_TEMP/jpx-20261111.pdf"
-          python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-list.xlsx" --check 1301 4475
+          python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-list.xlsx" --check 1301 4475 --check 8894 15 --check 1401 1386
           python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261111.pdf" "$RUNNER_TEMP/jpx-list.xlsx"
