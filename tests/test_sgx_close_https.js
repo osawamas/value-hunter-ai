@@ -320,6 +320,18 @@ async function test() {
     body.push(noticeQuote);
     await assert.rejects(run(process.execPath, noticeArgs, partialOptions),
       {code: 1, stdout: "", stderr: /Expected unique registered SGX symbols/});
+    body = [noticeQuote];
+    const missing = await run(process.execPath, noticeArgs, partialOptions);
+    assert.match(missing.stderr, /G13: close missing from provider response/);
+    assert.deepEqual(JSON.parse(missing.stdout), partialFeed);
+    for (const settings of [options, preflightOptions]) {
+      await assert.rejects(run(process.execPath, noticeArgs, settings),
+        {code: 1, stdout: "", stderr: /missing a configured symbol/});
+    }
+    body = [];
+    await assert.rejects(run(process.execPath, noticeArgs, partialOptions),
+      {code: 1, stdout: "", stderr: /missing a configured symbol/});
+    assert.equal(fs.readFileSync(feedFile, "utf8"), input);
     fs.writeFileSync(grantFile, JSON.stringify(grant));
 
     body = [{...noticeQuote, close: 0}];

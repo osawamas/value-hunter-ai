@@ -28,7 +28,7 @@ async function requestClose(endpoint, headers, fetcher) {
   }
 }
 
-async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial, stage = stageQuotes) {
+async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial, allowPartial = false) {
   if (!validDate(session)) throw new QuoteImportError("SESSION", "Expected a Singapore session date (YYYY-MM-DD)");
   if (grant?.grant_status !== "EXECUTED" ||
       !Array.isArray(grant.usage_scopes) ||
@@ -111,11 +111,13 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
   if (!Array.isArray(quotes)) {
     throw new QuoteImportError("RESPONSE", "Expected an array of SGX closing prices");
   }
+  let missingSymbols = [];
   if (symbols !== undefined) {
     const selected = new Set(symbols);
     quotes = quotes.filter(quote => selected.has(quote?.symbol));
     const received = new Set(quotes.map(quote => quote.symbol));
-    if (symbols.some(symbol => !received.has(symbol))) {
+    missingSymbols = symbols.filter(symbol => !received.has(symbol));
+    if (missingSymbols.length && (!allowPartial || !quotes.length)) {
       throw new QuoteImportError("RESPONSE", "SGX response is missing a configured symbol");
     }
   }
@@ -136,7 +138,8 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
     licensed_product, usage_scopes, valid_from, valid_until};
   if (reportTrial) reportTrial(quotes, publicGrant);
   try {
-    return stage(feed, quotes, publicGrant);
+    return allowPartial ? stagePartialQuotes(feed, quotes, publicGrant, missingSymbols) :
+      stageQuotes(feed, quotes, publicGrant);
   } catch (error) {
     throw new QuoteImportError("VALIDATION", error.message);
   }
@@ -264,30 +267,32 @@ async function main() {
     return;
   }
 
-  const stage = process.env.SGX_ALLOW_PARTIAL === "true" ? (baseline, quotes, grant) => {
-    const registered = new Set(baseline.records.map(row => row.symbol));
-    const symbols = quotes.map(quote => quote?.symbol);
-    if (symbols.some(symbol => !registered.has(symbol)) || new Set(symbols).size !== symbols.length)
-      throw new Error("Expected unique registered SGX symbols for partial refresh");
-    const accepted = [];
-    const blocked = [];
-    for (const quote of quotes) {
-      try {
-        stageQuotes(baseline, [quote], grant);
-        accepted.push(quote);
-      } catch (error) {
-        blocked.push(error.message);
-      }
-    }
-    if (!accepted.length) throw new Error(blocked.join("\n") || "Expected at least one SGX quote");
-    const candidate = stageQuotes(baseline, accepted, grant);
-    const refreshErrors = checkRefresh(baseline, candidate);
-    if (refreshErrors.length) throw new Error(refreshErrors.join("\n"));
-    if (blocked.length) console.error("SGX partial refresh skipped:\n" + blocked.join("\n"));
-    return candidate;
-  } : stageQuotes;
-  const staged = await fetchAndStage(feed, grant, args[2], fetch, undefined, stage);
+  const staged = await fetchAndStage(feed, grant, args[2], fetch, undefined,
+    process.env.SGX_ALLOW_PARTIAL === "true");
   process.stdout.write(JSON.stringify(staged, null, 2) + "\n");
+}
+
+function stagePartialQuotes(baseline, quotes, grant, missingSymbols) {
+  const registered = new Set(baseline.records.map(row => row.symbol));
+  const symbols = quotes.map(quote => quote?.symbol);
+  if (symbols.some(symbol => !registered.has(symbol)) || new Set(symbols).size !== symbols.length)
+    throw new Error("Expected unique registered SGX symbols for partial refresh");
+  const accepted = [];
+  const blocked = missingSymbols.map(symbol => symbol + ": close missing from provider response");
+  for (const quote of quotes) {
+    try {
+      stageQuotes(baseline, [quote], grant);
+      accepted.push(quote);
+    } catch (error) {
+      blocked.push(error.message);
+    }
+  }
+  if (!accepted.length) throw new Error(blocked.join("\n") || "Expected at least one SGX quote");
+  const candidate = stageQuotes(baseline, accepted, grant);
+  const refreshErrors = checkRefresh(baseline, candidate);
+  if (refreshErrors.length) throw new Error(refreshErrors.join("\n"));
+  if (blocked.length) console.error("SGX partial refresh skipped:\n" + blocked.join("\n"));
+  return candidate;
 }
 
 if (require.main === module) {
