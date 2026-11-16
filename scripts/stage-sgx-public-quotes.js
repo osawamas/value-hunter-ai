@@ -1,7 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
-const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
+const {reviewStoredS63, reviewStoredG13} = require("./check-sgx-close-readiness.js");
 const {checkFeed, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD} = require("../docs/sgx-ranking-validation.js");
 
 // These exclusions describe the old close or calculations replaced below.
@@ -16,6 +16,8 @@ const REPLACED_SHARE_FLAGS = new Set([
   "SHARES_NOT_AVAILABLE", "SHARES_DATE_MISSING", "SHARES_STALE", "SHARES_DATE_IN_FUTURE",
   "TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH", "SHARE_SOURCE_PDF_SHA256_INVALID",
 ]);
+
+const SHARE_REVIEWS = new Map([["S63", reviewStoredS63], ["G13", reviewStoredG13]]);
 
 function stageQuotes(feed, quotes, grant) {
   const checkedAt = Date.parse(feed.quality_checked_at_utc ?? feed.updated_at_utc);
@@ -44,10 +46,11 @@ function stageQuotes(feed, quotes, grant) {
       throw new Error(symbol + ": incoming close predates the published close");
     if (row.ranking_eligible && session === existingSession && quote.close !== row.price_sgd)
       throw new Error(symbol + ": same-session close conflicts with the published close");
-    // S63's SGXNet notices provide exact counts for specific sessions.
+    // SGXNet evidence is usable only for the session it explicitly covers.
     let replacedShares = false;
-    if (symbol === "S63") {
-      const {matchedShares, conflictingShares} = reviewStoredS63(feed, session);
+    const reviewShares = SHARE_REVIEWS.get(symbol);
+    if (reviewShares) {
+      const {matchedShares, conflictingShares} = reviewShares(feed, session);
       if (conflictingShares || (matchedShares && row.shares_as_of_date === session &&
           row.shares_outstanding !== matchedShares.value)) {
         throw new Error(symbol + ": conflicting same-session share counts");

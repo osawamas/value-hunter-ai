@@ -272,6 +272,54 @@ async function test() {
     });
     assert.equal(fs.readFileSync(feedFile, "utf8"), input);
 
+    const june = "2026-06-10";
+    const juneArgs = [...args.slice(0, -1), june];
+    const genting = JSON.parse(realFeed);
+    const g13 = genting.records.find(row => row.symbol === "G13");
+    const originalG13 = structuredClone(g13);
+    genting.quality_checked_at_utc = june + "T11:30:00Z";
+    Object.assign(g13, {
+      quote_timestamp_utc: null,
+      shares_as_of_date: "2026-06-09",
+      shares_outstanding: 12065642274,
+    });
+    const g13Grant = {...grant, daily_close_symbols: ["G13"]};
+    fs.writeFileSync(grantFile, JSON.stringify(g13Grant));
+    fs.writeFileSync(feedFile, JSON.stringify(genting));
+    body = [{...quote, symbol: "G13", timestamp: june + "T09:00:00Z"}];
+    await assert.rejects(run(process.execPath, juneArgs, options), {
+      code: 1, stderr: /existing financial or publication exclusions remain/,
+    });
+
+    Object.assign(g13, {
+      independent_cross_source_verification: true, exclusion_reasons: [], quality_flags: [],
+    });
+    fs.writeFileSync(feedFile, JSON.stringify(genting));
+    const stagedG13 = JSON.parse((await run(process.execPath, juneArgs, options)).stdout)
+      .records.find(row => row.symbol === "G13");
+    assert.equal(stagedG13.shares_outstanding, 12063642274);
+    assert.equal(stagedG13.shares_as_of_date, june);
+    assert.equal(stagedG13.shares_disclosed_at_sgt, june + "T17:55:09+08:00");
+    assert.match(stagedG13.shares_source_url, /CHP29KEV0YJ4ZBNY/);
+    assert.equal(stagedG13.market_cap_sgd, 24127284548);
+
+    body[0].timestamp = "2026-06-11T09:00:00Z";
+    await assert.rejects(run(process.execPath, [...args.slice(0, -1), "2026-06-11"], options), {
+      code: 1, stderr: /close and shares need the same Singapore date/,
+    });
+    body[0].timestamp = june + "T09:00:00Z";
+    g13.shares_as_of_date = originalG13.shares_as_of_date;
+    fs.writeFileSync(feedFile, JSON.stringify(genting));
+    await assert.rejects(run(process.execPath, juneArgs, options), {
+      code: 1, stderr: /close and shares need the same Singapore date/,
+    });
+    fs.writeFileSync(feedFile, realFeed);
+    await assert.rejects(run(process.execPath, juneArgs, options), {
+      code: 1, stderr: /incoming close predates the published close/,
+    });
+    fs.writeFileSync(feedFile, input);
+    fs.writeFileSync(grantFile, JSON.stringify(grant));
+
     statuses = [403];
     await assert.rejects(run("bash", applyArgs, livePreflight), {
       code: 1, stderr: /HTTP 403/,
