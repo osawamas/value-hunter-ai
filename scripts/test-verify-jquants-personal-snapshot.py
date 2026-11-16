@@ -72,7 +72,7 @@ class SnapshotTests(unittest.TestCase):
             for snapshot in (baseline, current):
                 report = json.loads((snapshot / "report.json").read_text())
                 files = list((snapshot / "filings").glob("*.json"))
-                self.assertEqual(len(files), 4)
+                self.assertEqual(len(files), 5)
                 self.assertEqual(report["filingDataSha256"], {
                     file.name: hashlib.sha256(file.read_bytes()).hexdigest() for file in files
                 })
