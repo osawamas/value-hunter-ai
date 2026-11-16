@@ -121,6 +121,8 @@ try{
  await page.locator("#marketQuery").fill("US:IBM");
  await page.locator("#marketRows summary").click();
  assert.match(await page.locator("#marketRows details").innerText(),/財務 2025-12-31.*株価の公開利用許諾が未確認/s);
+ assert.match(await page.locator("#marketRows details").innerText(),/株価 未接続.*過去2営業日の終値とSEC開示株数を照合済み（遡及試算）/s);
+ assert.match(await page.getByRole("link",{name:"検証履歴"}).getAttribute("href"),/ibm-demo-preflight[.]yml$/);
  assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/sec\.gov.*ibm-20251231\.htm/);
  await page.locator("#marketQuery").fill("GOOG");
  assert.equal(await page.locator("#marketRows tr").count(),1);
@@ -135,6 +137,8 @@ try{
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
  await page.locator("#marketRows summary").click();
  assert.match(await page.locator("#marketRows details").innerText(),/2026-09-30.*公開用の株価データが未接続/s);
+ assert.match(await page.locator("#marketRows details").innerText(),/J-Quantsの認証付き終値取得と同日株数の照合は未確認/);
+ assert.match(await page.getByRole("link",{name:"検証履歴"}).getAttribute("href"),/toyota-jquants-preflight[.]yml$/);
  assert.match(await page.locator("#marketRows details").innerText(),/EDINET月末開示 2026-10-31・差引 11,737,603,369株/);
  assert.match(await page.getByRole("link",{name:"EDINET自己株券買付状況報告書"}).getAttribute("href"),/S100ZH9B\.pdf$/);
  assert.match(await page.locator("#marketRows details").innerText(),/財務 2026-03-31.*株価の公開利用許諾が未確認/s);
@@ -405,6 +409,7 @@ try{
  await page.locator("#marketQuery").fill("S20");
  await page.locator("#marketRows summary").click();
  assert.match(await page.locator("#marketRows details").innerText(),/株価と株数の基準日が異なる/);
+ assert.equal(await page.getByRole("link",{name:"検証履歴"}).count(),0);
  assert.match(await page.getByRole("link",{name:"SGXの全除外理由"}).getAttribute("href"),/#issuer=S20$/);
  await page.locator("#marketRows").getByRole("checkbox").check();
  assert.equal(await page.locator("#marketCompareRows tr").count(),2);
@@ -414,6 +419,8 @@ try{
  assert.match(await page.locator("#marketRows details").innerText(),/2026-06-30.*2026-11-13・3,115,847,115株/s);
  assert.match(await page.locator("#marketRows details").innerText(),/財務 FY2025.*株価の公開利用許諾が未確認.*PBRに使う親会社持分の独立検証が未完了/s);
  assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/FileID=880328/);
+ assert.match(await page.locator("#marketRows details").innerText(),/許諾済み終値フィードによる本番と同じ照合は未確認/);
+ assert.match(await page.getByRole("link",{name:"検証履歴"}).getAttribute("href"),/sgx-s63-close-comparison[.]yml$/);
  assert.match(await page.locator("#marketRows details").innerText(),/親会社持分 2,573,638,000 SGD（年次報告書と発行体決算資料で一致）/);
  assert.match(await page.locator("#marketRows").getByRole("link",{name:"発行体決算資料"}).getAttribute("href"),/^https:\/\/www\.stengg\.com\/.*FY2025-Results-Financial-Statements\.pdf$/);
  assert.match(await page.getByRole("link",{name:"SGX自己株式取得報告"}).getAttribute("href"),/^https:\/\/links\.sgx\.com\//);

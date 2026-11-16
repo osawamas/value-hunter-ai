@@ -4,6 +4,21 @@ const marketLabels = {JP: "日本", US: "米国", SG: "シンガポール"};
 const money = new Intl.NumberFormat("ja-JP");
 const percent = new Intl.NumberFormat("ja-JP", {style: "percent", maximumFractionDigits: 1});
 
+const quoteTrialEvidence = {
+  "JP:7203": {
+    status: "J-Quantsの認証付き終値取得と同日株数の照合は未確認",
+    workflow: "toyota-jquants-preflight.yml",
+  },
+  "US:IBM": {
+    status: "デモで過去2営業日の終値とSEC開示株数を照合済み（遡及試算）",
+    workflow: "ibm-demo-preflight.yml",
+  },
+  "SG:S63": {
+    status: "許諾済み終値フィードによる本番と同じ照合は未確認",
+    workflow: "sgx-s63-close-comparison.yml",
+  },
+};
+
 function annualGrowth(previous, current) {
   return previous > 0 && Number.isFinite(current) ? (current - previous) / previous : null;
 }
@@ -1104,6 +1119,12 @@ async function initMarketResearch() {
           [row.market === "SG" ? "掲載株数の基準日" : "株数", evidence.share, evidence.shareSource]]) {
           const line = element("div", label + " " + value);
           if (url?.startsWith("https://")) line.append(" ", link(url, label + "出典"));
+          detail.append(line);
+        }
+        if (Object.hasOwn(quoteTrialEvidence, row.id)) {
+          const {status, workflow} = quoteTrialEvidence[row.id];
+          const line = element("div", "株価取得の検証記録 " + status + " ");
+          line.append(link("https://github.com/osawamas/value-hunter-ai/actions/workflows/" + workflow, "検証履歴"));
           detail.append(line);
         }
         const monthEnd = row.month_end_treasury_report;
