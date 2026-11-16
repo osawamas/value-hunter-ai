@@ -1,0 +1,24 @@
+package jp.valuehunter.privatewatch;
+
+import java.time.LocalDate;
+
+final class SgValuation {
+    // S63 FY2025 annual report and 1H2026 results, amounts in SGD.
+    private static final long TTM_PROFIT = (462_770L + 512_126L - 402_829L) * 1000;
+    private static final long PARENT_EQUITY = 2_524_548_000L;
+
+    record Trial(long shares, double cap, double per, double pbr) {}
+
+    static Trial forClose(SgCloseCheck.Close close) {
+        // SGXNet buyback notices supply dated shares excluding treasury.
+        long shares = switch (close.session().toString()) {
+            case "2026-10-26" -> 3_116_347_115L;
+            case "2026-11-13" -> 3_115_847_115L;
+            case "2026-11-16" -> 3_115_347_115L;
+            default -> 0;
+        };
+        if (shares == 0) return null;
+        double cap = close.sgd() * shares;
+        return new Trial(shares, cap, cap / TTM_PROFIT, cap / PARENT_EQUITY);
+    }
+}

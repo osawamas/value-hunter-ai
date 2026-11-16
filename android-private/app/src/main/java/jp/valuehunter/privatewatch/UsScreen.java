@@ -43,15 +43,19 @@ final class UsScreen {
     }
 
     static Fx readFx(JSONArray payload, LocalDate closeDate) throws JSONException {
+        return readFx(payload, closeDate, "USD");
+    }
+
+    static Fx readFx(JSONArray payload, LocalDate closeDate, String base) throws JSONException {
         Fx latest = null;
         for (int i = 0; i < payload.length(); i++) {
             var row = payload.getJSONObject(i);
-            if (!"USD".equals(row.optString("base")) || !"JPY".equals(row.optString("quote"))) continue;
+            if (!base.equals(row.optString("base")) || !"JPY".equals(row.optString("quote"))) continue;
             LocalDate date = date(row.getString("date"));
             if (date.isAfter(closeDate) || date.isBefore(closeDate.minusDays(4))) continue;
             if (latest == null || date.isAfter(latest.date())) latest = new Fx(date, positive(row.optDouble("rate")));
         }
-        if (latest == null) throw new JSONException("株価基準日までのドル円レートが見つからない");
+        if (latest == null) throw new JSONException("株価基準日までの円換算レートが見つからない");
         return latest;
     }
 
