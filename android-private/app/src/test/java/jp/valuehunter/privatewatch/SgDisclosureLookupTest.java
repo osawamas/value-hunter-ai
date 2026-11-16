@@ -41,5 +41,9 @@ public class SgDisclosureLookupTest {
         var removed = new SgDisclosureLookup(null, LEDGER, CHECKED_AT,
                 () -> "{\"schema\":1,\"symbol\":\"S63\",\"records\":[]}");
         assertNull(removed.forSession(DATE).disclosure());
+        assertNotNull(removed.verifiedUpdate());
+        var offlineAfterRemoval = new SgDisclosureLookup(null, removed.verifiedUpdate(), CHECKED_AT,
+                () -> { throw new UsScanWorker.HttpFailure(503); });
+        assertThrows(IOException.class, () -> offlineAfterRemoval.forSession(DATE));
     }
 }

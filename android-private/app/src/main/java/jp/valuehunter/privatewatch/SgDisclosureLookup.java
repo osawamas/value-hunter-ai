@@ -48,7 +48,7 @@ final class SgDisclosureLookup {
                 updated = new JSONObject(downloaded);
             }
             var disclosure = SgShareLedger.read(updated, session, checkedAt);
-            if (disclosure != null) verifiedUpdate = downloaded;
+            verifiedUpdate = downloaded;
             return new Lookup(disclosure, false);
         } catch (IOException error) {
             int status = error instanceof UsScanWorker.HttpFailure failure ? failure.status : 0;
