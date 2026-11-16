@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/export-jquants-personal-quotes.py"
@@ -16,6 +16,33 @@ spec.loader.exec_module(exporter)
 
 
 class JQuantsExportTest(unittest.TestCase):
+    def test_retry_recovers_transient_page_failure(self):
+        for error in (URLError("unavailable"), TimeoutError(), ConnectionResetError(),
+                      HTTPError(exporter.ENDPOINT, 503, "unavailable", {}, io.BytesIO())):
+            with self.subTest(error=error), patch.object(exporter, "sleep") as pause, \
+                    patch.object(exporter, "urlopen", side_effect=[error, io.StringIO('{"data": []}')]) as fetch:
+                self.assertEqual(exporter.fetch_page({"code": "7203"}, "fixture-key"), {"data": []})
+                pause.assert_called_once_with(1)
+                self.assertEqual(fetch.call_count, 2)
+                self.assertIs(fetch.call_args_list[0].args[0], fetch.call_args_list[1].args[0])
+
+    def test_retry_stops_after_one_attempt_or_on_non_transient_http_status(self):
+        with patch.object(exporter, "sleep") as pause, \
+                patch.object(exporter, "urlopen", side_effect=TimeoutError()) as fetch:
+            with self.assertRaises(TimeoutError):
+                exporter.fetch_page({"code": "7203"}, "fixture-key")
+            pause.assert_called_once_with(1)
+            self.assertEqual(fetch.call_count, 2)
+        for status in (401, 403, 429):
+            error = HTTPError(exporter.ENDPOINT, status, "rejected", {}, None)
+            with self.subTest(status=status), patch.object(exporter, "sleep") as pause, \
+                    patch.object(exporter, "urlopen", side_effect=error) as fetch:
+                with self.assertRaises(HTTPError) as raised:
+                    exporter.fetch_page({"code": "7203"}, "fixture-key")
+                self.assertEqual(raised.exception.code, status)
+                pause.assert_not_called()
+                fetch.assert_called_once()
+
     def test_provenance_matches_saved_snapshot_and_excludes_credential(self):
         with tempfile.TemporaryDirectory() as directory:
             snapshot = Path(directory) / "quotes.csv"

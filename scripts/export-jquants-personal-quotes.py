@@ -12,6 +12,7 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from time import sleep
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -38,8 +39,18 @@ def trading_date(value):
 
 def fetch_page(query, api_key):
     request = Request(ENDPOINT + "?" + urlencode(query), headers={"x-api-key": api_key})
-    with urlopen(request, timeout=30) as response:
-        return json.load(response)
+    for attempt in range(2):
+        try:
+            with urlopen(request, timeout=30) as response:
+                return json.load(response)
+        except HTTPError as error:
+            if attempt or error.code not in (502, 503, 504):
+                raise
+            error.close()
+        except (URLError, TimeoutError, ConnectionError):
+            if attempt:
+                raise
+        sleep(1)
 
 
 def daily_bars(query, api_key, fetch):
@@ -168,7 +179,7 @@ def main():
             rows = [row for code in codes for row in collect_quotes(code, args.from_date, args.to_date, api_key)]
     except HTTPError as error:
         parser.exit(1, f"J-Quants returned HTTP {error.code}. Check your plan, date range and API key.\n")
-    except (URLError, TimeoutError):
+    except (URLError, TimeoutError, ConnectionError):
         parser.exit(1, "J-Quants connection failed or timed out.\n")
     except (KeyError, TypeError, ValueError, argparse.ArgumentTypeError):
         parser.exit(1, "J-Quants response could not be validated.\n")
