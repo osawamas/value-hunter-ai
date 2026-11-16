@@ -3,6 +3,14 @@
 const fs = require("node:fs");
 const {checkFeed, sgxQuoteDate} = require("../docs/sgx-ranking-validation.js");
 
+// These exclusions describe the old close or calculations replaced below.
+const REPLACED_QUOTE_FLAGS = new Set([
+  "PRICE_MISSING", "QUOTE_OLD_OR_UNDATED", "QUOTE_NOT_AVAILABLE",
+  "QUOTE_TIMESTAMP_MISSING", "QUOTE_STALE", "QUOTE_DATE_IN_FUTURE",
+  "MARKET_CAP_ARITHMETIC_MISMATCH", "PER_ARITHMETIC_MISMATCH_OR_INVALID",
+  "VERIFIED_PBR_LABEL_UNSUPPORTED",
+]);
+
 function stageQuotes(feed, quotes, grant) {
   const baselineErrors = checkFeed(feed);
   if (baselineErrors.length) throw new Error(baselineErrors.join("\n"));
@@ -29,8 +37,15 @@ function stageQuotes(feed, quotes, grant) {
       throw new Error(symbol + ": incoming close predates the published close");
     if (row.ranking_eligible && session === existingSession && quote.close !== row.price_sgd)
       throw new Error(symbol + ": same-session close conflicts with the published close");
-    if (!Array.isArray(row.exclusion_reasons) || row.exclusion_reasons.length)
+    if (!Array.isArray(row.exclusion_reasons) ||
+        row.exclusion_reasons.some(reason => !REPLACED_QUOTE_FLAGS.has(reason) &&
+          reason !== "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE")) {
       throw new Error(symbol + ": existing financial or publication exclusions remain");
+    }
+    const qualityFlags = (row.quality_flags ?? []).filter(flag =>
+      !REPLACED_QUOTE_FLAGS.has(flag) && flag !== "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE");
+    if (qualityFlags.length)
+      throw new Error(symbol + ": existing data quality exclusions remain");
     const cap = quote.close * row.shares_outstanding;
     Object.assign(row, {
       price_sgd: quote.close,
@@ -44,7 +59,10 @@ function stageQuotes(feed, quotes, grant) {
       quote_publicly_redistributed: true,
       market_cap_sgd: Number(cap.toFixed(2)),
       per_reference: Number((cap / (1000 * row.attributable_profit_sgd_thousands)).toFixed(4)),
+      pbr_reference_unverified: null,
       pbr_verified: Number((cap / (1000 * row.parent_equity_sgd_thousands)).toFixed(4)),
+      exclusion_reasons: [],
+      quality_flags: qualityFlags,
       ranking_eligible: true,
       ranking_score: quote.ranking_score,
     });

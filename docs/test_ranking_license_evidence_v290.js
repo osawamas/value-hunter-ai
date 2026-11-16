@@ -67,6 +67,13 @@ assert.equal(staged.records[0].market_cap_sgd,Number((2.5*previous.shares_outsta
 assert.equal(staged.records[0].pbr_verified,Number((2.5*previous.shares_outstanding/
   (1000*previous.parent_equity_sgd_thousands)).toFixed(4)));
 assert.equal(baseline.records[0].ranking_eligible,false);
+for (const reason of ["PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
+  "TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH", "UNRECOGNIZED_EXCLUSION"]) {
+  const blocked = structuredClone(baseline);
+  blocked.records[0].exclusion_reasons = ["QUOTE_STALE", reason];
+  assert.throws(() => stageQuotes(blocked,[incoming],grant),/existing financial or publication exclusions/);
+}
+
 assert.deepEqual(checkFeed(staged),[]);
 assert.deepEqual(stageQuotes(staged,[incoming],grant),staged);
 assert.throws(()=>stageQuotes(staged,[{...incoming,close:3}],grant),/same-session close conflicts/);
