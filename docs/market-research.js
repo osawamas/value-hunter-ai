@@ -75,7 +75,8 @@ function rankingEvidence(row, shareReview, equityReview) {
     equityReview.results_url?.startsWith("https://www.stengg.com/") ? equityReview : null;
   return {
     matchedEquity,
-    supplementalShare: sgxSupplementalShare(row, quoteDate, shareReview),
+    supplementalShare: sgxSupplementalShare(row, shareReview?.session_date_sgt, shareReview),
+    quoteDate,
     quote: observed ? quoteDate + (sgx.quote_source_type === "YAHOO_FINANCE_UNOFFICIAL_CHART" ? "（参考）" : "（掲載資料）") : "未取得",
     quoteSource: observed ? sgx.quote_url : null,
     finance: row.sgxAnnual?.end || "未取得",
@@ -1054,7 +1055,8 @@ async function initMarketResearch() {
         }
         if (evidence.supplementalShare) {
           const {as_of: date, value, source} = evidence.supplementalShare;
-          const line = element("div", "別資料の同日株数 " + date + "・" + money.format(value) + "株 ");
+          const label = date === evidence.quoteDate ? "別資料の同日株数 " : "別資料の開示株数 ";
+          const line = element("div", label + date + "・" + money.format(value) + "株 ");
           line.append(link(source, "SGX自己株式取得報告"));
           detail.append(line);
         }
