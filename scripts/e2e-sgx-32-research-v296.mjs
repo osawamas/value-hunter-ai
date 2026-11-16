@@ -155,6 +155,9 @@ try{
  await page.getByText("株数の開示がある日を探す",{exact:true}).click();
  await page.locator("#publishedShareDate").selectOption("2026-09-30");
  const shareDay = page.locator("#publishedShareItems");
+ await page.locator("#publishedShareDate").selectOption("2026-06-10");
+ assert.match(await shareDay.innerText(), /SG:G13 12,063,642,274株/);
+ await page.locator("#publishedShareDate").selectOption("2026-09-30");
  await page.locator("#publishedShareDate").selectOption("2026-06-30");
  assert.match(await shareDay.innerText(),/JP:7203 11,841,833,660株/);
  await page.locator("#publishedShareDate").selectOption("2026-09-30");

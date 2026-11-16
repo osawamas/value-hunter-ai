@@ -142,8 +142,7 @@ async function main() {
   }
   const issuerChecks = [];
   const reportTrial = process.env.SGX_PREFLIGHT === "true" ? (quotes, publicGrant) => {
-    const {reviewStoredS63, reviewIssuer} = require("./check-sgx-close-readiness.js");
-    const research = require("../docs/data/market-research-v315.json");
+    const {reviewStoredS63, reviewStoredG13} = require("./check-sgx-close-readiness.js");
     const registered = new Set(feed.records.map(row => row.symbol));
     for (const quote of quotes) {
       if (!registered.has(quote.symbol)) continue;
@@ -158,7 +157,7 @@ async function main() {
         ...(validationError && {validationError}),
       });
       const report = quote.symbol === "S63" ? reviewStoredS63(feed, args[2], quote.close) :
-        quote.symbol === "G13" ? reviewIssuer(feed, research, [], "G13", args[2], quote.close) : null;
+        quote.symbol === "G13" ? reviewStoredG13(feed, args[2], quote.close) : null;
       if (!report) continue;
       console.error(quote.symbol + " valuation preflight: " + JSON.stringify({
         status: report.trial.status,

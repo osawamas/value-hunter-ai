@@ -119,13 +119,18 @@ function reviewStoredS63(feed, session, close) {
   ], session, close);
 }
 
+function reviewStoredG13(feed, session, close) {
+  return reviewIssuer(feed, require("../docs/data/market-research-v315.json"),
+    [require("../docs/data/sgx-g13-june10-shares-v122.json")], "G13", session, close);
+}
+
 if (require.main === module) {
   try {
     const [feedPath, session, symbol = "S63"] = process.argv.slice(2);
     if (!["S63", "G13"].includes(symbol)) throw new Error("Expected S63 or G13");
     const feed = JSON.parse(fs.readFileSync(feedPath, "utf8"));
     const report = symbol === "S63" ? reviewStoredS63(feed, session) :
-      reviewIssuer(feed, require("../docs/data/market-research-v315.json"), [], symbol, session);
+      reviewStoredG13(feed, session);
     process.stdout.write(JSON.stringify(report, null, 2) + "\n");
   } catch (error) {
     console.error(error.message);
@@ -133,4 +138,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = {reviewIssuer, reviewS63, reviewStoredS63};
+module.exports = {reviewIssuer, reviewS63, reviewStoredS63, reviewStoredG13};

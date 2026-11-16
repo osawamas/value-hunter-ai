@@ -88,6 +88,19 @@ function rankingEvidence(row, shareReview, equityReview) {
 }
 
 function sgxSupplementalShare(row, date, review) {
+  if (row.id === "SG:G13" && review?.schema_version === "sgx-g13-buyback-share-basis-v122") {
+    const record = review.record;
+    if (review.status !== "SGX_G13_PRIMARY_JUNE10_BUYBACK_SHARE_SNAPSHOT" ||
+        record?.symbol !== "G13" || record.isin !== "SGXE21576413" ||
+        record.reference !== "SG260610OTHRU53S" || date !== "2026-06-10" ||
+        record.purchase_date !== date || record.proof_applies_only_to_june_10 !== true ||
+        record.broadcast_sgt_text !== "10-Jun-2026 17:55:09" ||
+        record.source_url !== "https://links.sgx.com/1.0.0/corporate-announcements/CHP29KEV0YJ4ZBNY/" ||
+        !Number.isSafeInteger(record.issued_excluding_treasury_after_purchase) ||
+        record.issued_excluding_treasury_after_purchase <= 0) return null;
+    return {as_of: date, value: record.issued_excluding_treasury_after_purchase,
+      source: record.source_url, disclosedOn: date, disclosedAt: date + "T17:55:09+08:00"};
+  }
   if (row.id !== "SG:S63" || !["sgx-s63-historical-close-second-website-v129", "sgx-s63-dated-share-notice-v423"].includes(review?.schema_version) ||
       review.symbol !== row.symbol || review.session_date_sgt !== date ||
       review.original_sgx_share_snapshot_on_same_date !== true ||
@@ -296,8 +309,8 @@ function publishedShareSessions(rows, shareReview) {
     if (row.financials?.share_classes || (!row.financials && !sgxValuationFinance(row))) continue;
     const dates = new Set([row.financials?.shares?.as_of, row.quarterly?.shares?.as_of,
       ...(row.historical_share_filings ?? []).map(share => share.as_of),
-      row.sgxEvidence?.shares_as_of_date, ...(row.id === "SG:S63" ?
-        [shareReview].flat().map(review => review?.session_date_sgt) : [])]);
+      row.sgxEvidence?.shares_as_of_date, ...(row.sgxEvidence ?
+        [shareReview].flat().map(review => review?.session_date_sgt ?? review?.record?.purchase_date) : [])]);
     for (const date of dates) {
       if (!isMarketDate(date)) continue;
       const evidence = filingSharesOn(row, date, shareReview).filter(share => share.source?.startsWith("https://"));
@@ -863,13 +876,14 @@ async function initMarketResearch() {
       if (!response.ok) throw Error("資料取得 HTTP " + response.status);
       return response.json();
     };
-    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview, s63HistoricalShares] = await Promise.all([
+    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview, s63HistoricalShares, g13HistoricalShares] = await Promise.all([
       load("market-research-v315.json"), load("latest.json"),
       load("sgx-g13-2026q3-v121.json").catch(() => null),
       load("sgx-s63-9m2026-v125.json").catch(() => null),
       load("sgx-s63-two-website-close-v129.json").catch(() => null),
       load("sgx-s63-parent-equity-v395.json").catch(() => null),
       load("sgx-s63-historical-shares-v423.json").catch(() => null),
+      load("sgx-g13-june10-shares-v122.json").catch(() => null),
     ]);
     const updateRows = [];
     const genting = g13?.record;
@@ -974,7 +988,7 @@ async function initMarketResearch() {
     });
     paintAnnual();
     marketRows = rows;
-    shareReview = [s63ShareReview, s63HistoricalShares];
+    shareReview = [s63ShareReview, s63HistoricalShares, g13HistoricalShares];
     const shareDates = byId("publishedShareDate");
     const shareItems = byId("publishedShareItems");
     const sessions = publishedShareSessions(rows, shareReview);

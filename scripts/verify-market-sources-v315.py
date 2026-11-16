@@ -555,6 +555,14 @@ def main():
         if not raw.startswith(b"%PDF-"):
             raise ValueError("SGX did not return the G13 FY2025 results PDF")
         check_g13_financials(raw, row)
+        sys.path.insert(0, str(ROOT / "SGX_PDF_connection_probe"))
+        from g13_sgx_buyback_v122 import URL, parse
+
+        saved = json.loads((ROOT / "docs/data/sgx-g13-june10-shares-v122.json").read_text())
+        notice = parse(source_bytes(URL, "G13-buyback-2026-06-10.html"))
+        if saved["source_url"] != URL or saved["status"] != notice["status"] or notice != saved["record"]:
+            raise ValueError("G13 SGXNet June 10 share evidence differs from saved original")
+        print(f"SG:G13 June 10 share notice matched, SHA256 {notice['html_sha256']}")
         return
 
     if args.sgx_s63_equity_only:
