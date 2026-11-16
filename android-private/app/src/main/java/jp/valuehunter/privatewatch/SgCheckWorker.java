@@ -40,6 +40,7 @@ public final class SgCheckWorker extends Worker {
         SgCloseCheck.Pair pair = null;
         Evaluation evaluation = null;
         Evaluation previous = null;
+        var decision = SgValuation.WatchDecision.UNCHANGED;
         boolean retryableFailure = false;
         try {
             var now = ZonedDateTime.now(SgCloseCheck.SINGAPORE);
@@ -57,6 +58,13 @@ public final class SgCheckWorker extends Worker {
             if (watch && SgValuation.needsPreviousEvaluation(
                     pair, lastEvaluated, Boolean.TRUE.equals(evaluation.qualified()))) {
                 previous = evaluate(disclosures, pair.previous(), getRunAttemptCount());
+            }
+            if (watch) {
+                decision = SgValuation.watchDecision(pair, lastEvaluated, wasQualified, evaluation.qualified(),
+                        previous == null ? null : previous.qualified());
+                if (decision == SgValuation.WatchDecision.WAIT_FOR_PREVIOUS) {
+                    result += "\n通知は保留。直前取引日 " + pair.previous().session() + " の判定に必要なデータを確認中";
+                }
             }
         } catch (UsScanWorker.HttpFailure error) {
             retryableFailure = shouldRetry(error.status, getRunAttemptCount());
@@ -85,17 +93,13 @@ public final class SgCheckWorker extends Worker {
         }
         if (retryableFailure) result += "\n一時エラー。再試行を予約した";
         editor.putString("sg_result", result);
-        boolean alert = false;
-        if (watch && pair != null && evaluation.qualified() != null) {
-            String next = pair.latest().session().toString();
-            if (next.compareTo(lastEvaluated) > 0 && (previous == null || !previous.retryableFailure())) {
-                alert = SgValuation.shouldAlert(pair, lastEvaluated, wasQualified, evaluation.qualified(),
-                        previous == null ? null : previous.qualified());
-                editor.putString("sg_qualified_date", next).putBoolean("sg_qualified", evaluation.qualified());
-            }
+        if (decision == SgValuation.WatchDecision.SAVE || decision == SgValuation.WatchDecision.ALERT) {
+            editor.putString("sg_qualified_date", pair.latest().session().toString())
+                    .putBoolean("sg_qualified", evaluation.qualified());
         }
         if (!editor.commit()) return Result.retry();
-        if (alert && key.equals(state.getString("sg_key", "")) && state.getBoolean("sg_watch", false)) {
+        if (decision == SgValuation.WatchDecision.ALERT && key.equals(state.getString("sg_key", ""))
+                && state.getBoolean("sg_watch", false)) {
             var close = pair.latest();
             ScanWorker.postNotification(context, 4, "S63が割安条件に該当（参考）",
                     close.session() + "終値 " + String.format(Locale.JAPAN, "%.3f SGD", close.sgd())

@@ -26,12 +26,20 @@ final class SgValuation {
                 && lastEvaluated.compareTo(pair.previous().session().toString()) < 0;
     }
 
-    static boolean shouldAlert(SgCloseCheck.Pair pair, String lastEvaluated, boolean wasQualified,
-                               boolean qualified, Boolean previousQualified) {
+    enum WatchDecision { UNCHANGED, WAIT_FOR_PREVIOUS, SAVE, ALERT }
+
+    static WatchDecision watchDecision(SgCloseCheck.Pair pair, String lastEvaluated, boolean wasQualified,
+                                       Boolean qualified, Boolean previousQualified) {
+        String latest = pair.latest().session().toString();
         String previous = pair.previous().session().toString();
-        if (!qualified || !pair.latest().session().isAfter(pair.previous().session())) return false;
-        if (previous.equals(lastEvaluated)) return !wasQualified;
-        return needsPreviousEvaluation(pair, lastEvaluated, qualified) && Boolean.FALSE.equals(previousQualified);
+        if (qualified == null || latest.compareTo(lastEvaluated) <= 0 || latest.compareTo(previous) <= 0) {
+            return WatchDecision.UNCHANGED;
+        }
+        if (!qualified) return WatchDecision.SAVE;
+        if (previous.equals(lastEvaluated)) return wasQualified ? WatchDecision.SAVE : WatchDecision.ALERT;
+        if (!needsPreviousEvaluation(pair, lastEvaluated, qualified)) return WatchDecision.SAVE;
+        if (previousQualified == null) return WatchDecision.WAIT_FOR_PREVIOUS;
+        return previousQualified ? WatchDecision.SAVE : WatchDecision.ALERT;
     }
 
     static Trial forClose(SgCloseCheck.Close close, long shares) {

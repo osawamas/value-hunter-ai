@@ -2,37 +2,42 @@ package jp.valuehunter.privatewatch;
 
 import java.time.LocalDate;
 import org.junit.Test;
+import static jp.valuehunter.privatewatch.SgValuation.WatchDecision.*;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
 
 public class SgWatchTest {
+    private final SgCloseCheck.Close previous = new SgCloseCheck.Close(LocalDate.of(2026, 11, 13), 10);
+    private final SgCloseCheck.Close current = new SgCloseCheck.Close(LocalDate.of(2026, 11, 16), 8);
+    private final SgCloseCheck.Pair pair = new SgCloseCheck.Pair(previous, current);
+
     @Test public void alertsOnlyOnEntryFromTheImmediatelyPreviousSession() {
-        var previous = new SgCloseCheck.Close(LocalDate.of(2026, 11, 13), 10);
-        var current = new SgCloseCheck.Close(LocalDate.of(2026, 11, 16), 8);
-        var pair = new SgCloseCheck.Pair(previous, current);
-        assertTrue(SgValuation.shouldAlert(pair, "2026-11-13", false, true, null));
-        assertFalse(SgValuation.shouldAlert(pair, "", false, true, null));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-12", false, true, null));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-16", false, true, null));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", true, true, null));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", false, false, null));
+        assertEquals(ALERT, SgValuation.watchDecision(pair, "2026-11-13", false, true, null));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, "", false, true, null));
+        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-16", false, true, null));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, "2026-11-13", true, true, null));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, "2026-11-13", false, false, null));
+        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-13", false, null, null));
     }
 
-    @Test public void usesLatePreviousEvidenceWithoutSendingAFirstRunOrDuplicateAlert() {
-        var previous = new SgCloseCheck.Close(LocalDate.of(2026, 11, 13), 10);
-        var current = new SgCloseCheck.Close(LocalDate.of(2026, 11, 16), 8);
-        var pair = new SgCloseCheck.Pair(previous, current);
+    @Test public void retainsBaselineUntilLateEvidenceResolvesTheCurrentPair() {
         String older = "2026-11-12";
         assertTrue(SgValuation.needsPreviousEvaluation(pair, older, true));
         assertFalse(SgValuation.needsPreviousEvaluation(pair, "", true));
         assertFalse(SgValuation.needsPreviousEvaluation(pair, older, false));
-        assertTrue(SgValuation.shouldAlert(pair, older, true, true, false));
-        assertFalse(SgValuation.shouldAlert(pair, older, false, true, true));
-        assertFalse(SgValuation.shouldAlert(pair, older, false, true, null));
-        assertFalse(SgValuation.shouldAlert(pair, "", false, true, false));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-16", true, true, false));
+
+        assertEquals(WAIT_FOR_PREVIOUS, SgValuation.watchDecision(pair, older, false, true, null));
+        assertEquals(ALERT, SgValuation.watchDecision(pair, older, false, true, false));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, older, false, true, true));
+        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-16", true, true, false));
+
+        var next = new SgCloseCheck.Close(LocalDate.of(2026, 11, 17), 9);
+        var nextPair = new SgCloseCheck.Pair(current, next);
+        assertEquals(SAVE, SgValuation.watchDecision(nextPair, older, false, true, true));
+        assertEquals(SAVE, SgValuation.watchDecision(nextPair, older, false, false, null));
     }
 
     @Test public void distinguishesTemporaryFailuresAndLimitsRetries() {
