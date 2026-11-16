@@ -477,8 +477,11 @@ def main():
     if args.sgx_g13_financials_only:
         feed = json.loads((ROOT / "docs/data/latest.json").read_text())
         row = next(row for row in feed["records"] if row["symbol"] == "G13")
-        url = "https://gentingsingapore.listedcompany.com/newsroom/20260224_173326_G13_A7CVA3KL4JFGECGT.2.pdf"
-        check_g13_financials(source_bytes(url, "g13-results.pdf"), row)
+        url = "https://links.sgx.com/FileOpen/2.%20GENS%20FY2025%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=875733"
+        raw = source_bytes(url, "g13-results.pdf")
+        if not raw.startswith(b"%PDF-"):
+            raise ValueError("SGX did not return the G13 FY2025 results PDF")
+        check_g13_financials(raw, row)
         return
 
     if args.sgx_s63_equity_only:
