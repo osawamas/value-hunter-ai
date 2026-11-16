@@ -43,6 +43,7 @@ jobs:
             exit "$status"
           fi
           latest=$(jq -er '.preflightChecks.current.date | select(test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))' "$report")
+          observed=$latest
           previous_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=ibm-preflight-session&per_page=100" \
             --jq '[.artifacts[]
               | select(.expired == false and .workflow_run.head_branch == "main"
@@ -55,12 +56,16 @@ jobs:
             [[ "$previous" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
           fi
           if [[ -z "$previous" ]]; then
+            comparison=first
             update="First recorded trading date ($latest)."
           elif [[ "$latest" > "$previous" ]]; then
+            comparison=advanced
             update="Trading date advanced from $previous to $latest."
           elif [[ "$latest" == "$previous" ]]; then
+            comparison=unchanged
             update="No new trading date since the preceding recorded run ($latest)."
           else
+            comparison=older
             update="Provider returned an older date ($latest; last recorded: $previous)."
             latest=$previous
           fi
@@ -81,10 +86,23 @@ jobs:
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
           printf '%s\n' "$latest" > "$RUNNER_TEMP/session.txt"
+          jq -e --arg comparison "$comparison" --arg observed "$observed" \
+            --arg retained "$latest" --arg previousRun "$previous_run" '
+            {
+              schemaVersion: 1,
+              comparison: $comparison,
+              observedDate: $observed,
+              retainedDate: $retained,
+              baselineRunId: (if $previousRun == "" then null else $previousRun end),
+              checks: (.preflightChecks | map_values({date, closeStatus, valuationStatus,
+                referenceShareDate, referenceShareSource}))
+            }' "$report" > "$RUNNER_TEMP/session.json"
       - uses: actions/upload-artifact@v4
         with:
           name: ibm-preflight-session
-          path: ${{ runner.temp }}/session.txt
+          path: |
+            ${{ runner.temp }}/session.txt
+            ${{ runner.temp }}/session.json
           retention-days: 14
           if-no-files-found: error
           overwrite: true
