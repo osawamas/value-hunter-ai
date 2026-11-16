@@ -1,7 +1,7 @@
 {
   "schema_version": "sgx-ranking-readiness-evidence-v117",
-  "generated_at_utc": "2026-11-16T06:00:22.084741+00:00",
-  "published_feed_updated_at_utc": "2026-11-16T05:59:32.524362+00:00",
+  "generated_at_utc": "2026-11-16T06:06:26.022125+00:00",
+  "published_feed_updated_at_utc": "2026-11-16T06:05:31.458659+00:00",
   "registered_issuers": 7,
   "third_party_candidate_count_is_not_registered_count": true,
   "issuer_source_evidence_not_independent_numerical_verification": true,
