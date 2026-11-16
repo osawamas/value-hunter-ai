@@ -12,16 +12,30 @@ function reviewS63(feed, research, notices, session) {
   const sessions = publishedShareSessions(rows, notices);
   const matched = sessions.get(session)?.[0];
   const conflicts = conflictingFilingShares(issuer, session, notices);
+  const {shares_as_of_date: feedShareDate, shares_outstanding: feedShares,
+    shares_count_basis: shareBasis, exclusion_reasons: exclusions,
+    independent_cross_source_verification: independentFinancials} = issuer.sgxEvidence;
+  const sameDateFeedShares = feedShareDate === session &&
+    shareBasis === "issued_excluding_treasury" && Number.isSafeInteger(feedShares) && feedShares > 0;
+  const blockers = [];
+  if (conflicts) blockers.push("CONFLICTING_SHARE_FILINGS");
+  else if (!matched) blockers.push("NO_MATCHING_SHARE_FILING");
+  else if (!sameDateFeedShares || feedShares !== matched.value)
+    blockers.push("MATCHED_SHARES_NOT_IN_IMPORT_FEED");
+  if (independentFinancials !== true) blockers.push("FINANCIAL_INDEPENDENCE_UNVERIFIED");
+  if (Array.isArray(exclusions) && exclusions.includes("PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED"))
+    blockers.push("PARENT_EQUITY_INDEPENDENCE_UNVERIFIED");
+
   return {
     symbol: issuer.symbol,
     session,
     matchedShares: matched ?? null,
     conflictingShares: conflicts ?? null,
     availableShareDates: [...sessions.keys()],
-    currentFeedShareDate: issuer.sgxEvidence.shares_as_of_date,
-    currentFeedExclusions: issuer.sgxEvidence.exclusion_reasons,
-    independentlyVerifiedFinancials:
-      issuer.sgxEvidence.independent_cross_source_verification === true,
+    currentFeedShareDate: feedShareDate,
+    currentFeedExclusions: exclusions,
+    independentlyVerifiedFinancials: independentFinancials === true,
+    blockers,
   };
 }
 

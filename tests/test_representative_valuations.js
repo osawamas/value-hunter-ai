@@ -18,11 +18,18 @@ const {reviewS63} = require("../scripts/check-sgx-close-readiness.js");
 const s63October = require("../docs/data/sgx-s63-historical-shares-v423.json");
 const notices = [shares, s63October];
 assert.equal(reviewS63(sgx, research, notices, "2026-10-26").matchedShares.value, 3116347115);
-assert.equal(reviewS63(sgx, research, notices, "2026-11-13").matchedShares.value, 3115847115);
+const s63Readiness = reviewS63(sgx, research, notices, "2026-11-13");
+assert.equal(s63Readiness.matchedShares.value, 3115847115);
+assert.ok(s63Readiness.blockers.includes("MATCHED_SHARES_NOT_IN_IMPORT_FEED"));
+assert.equal(s63Readiness.matchedShares.disclosureTiming, "after_close");
+assert.ok(s63Readiness.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
+assert.ok(s63Readiness.blockers.includes("PARENT_EQUITY_INDEPENDENCE_UNVERIFIED"));
 assert.equal(reviewS63(sgx, research, notices, "2026-11-16").matchedShares, null);
 const conflictingNotices = [...notices, {...shares, original_sgx_shares_ex_treasury: 3115847116}];
 assert.equal(reviewS63(sgx, research, conflictingNotices, "2026-11-13").matchedShares, null);
 assert.ok(reviewS63(sgx, research, conflictingNotices, "2026-11-13").conflictingShares);
+assert.ok(reviewS63(sgx, research, conflictingNotices, "2026-11-13").blockers.includes("CONFLICTING_SHARE_FILINGS"));
+assert.ok(reviewS63(sgx, research, notices, "2026-11-16").blockers.includes("NO_MATCHING_SHARE_FILING"));
 const laterS63 = {...shares, session_date_sgt: "2026-11-16",
   original_sgx_shares_ex_treasury: 3115347115,
   sgx_share_disclosed_at_sgt: "2026-11-16T18:21:18+08:00", sgx_session_end_at_sgt: undefined};
