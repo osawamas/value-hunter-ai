@@ -21,6 +21,7 @@ final class SgDisclosureLookup {
     private JSONObject updated;
     private String downloaded;
     private String verifiedUpdate;
+    private IOException updateFailure;
 
     SgDisclosureLookup(JSONObject bundled, String cache, Instant checkedAt, Fetch fetch) {
         this.bundled = bundled;
@@ -43,6 +44,7 @@ final class SgDisclosureLookup {
             }
         }
         try {
+            if (updateFailure != null) throw updateFailure;
             if (updated == null) {
                 downloaded = fetch.get();
                 updated = new JSONObject(downloaded);
@@ -51,6 +53,7 @@ final class SgDisclosureLookup {
             verifiedUpdate = downloaded;
             return new Lookup(disclosure, false);
         } catch (IOException error) {
+            updateFailure = error;
             int status = error instanceof UsScanWorker.HttpFailure failure ? failure.status : 0;
             if (!cache.isEmpty() && SgCheckWorker.shouldRetry(status, 0)) {
                 try {

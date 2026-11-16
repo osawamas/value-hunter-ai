@@ -24,12 +24,16 @@ public class SgDisclosureLookupTest {
         assertFalse(online.forSession(DATE).cached());
         assertEquals(LEDGER, online.verifiedUpdate());
 
-        var fallback = new SgDisclosureLookup(null, online.verifiedUpdate(), CHECKED_AT,
-                () -> { throw new UsScanWorker.HttpFailure(503); });
+        var requests = new java.util.concurrent.atomic.AtomicInteger();
+        var fallback = new SgDisclosureLookup(null, online.verifiedUpdate(), CHECKED_AT, () -> {
+            requests.incrementAndGet();
+            throw new UsScanWorker.HttpFailure(503);
+        });
         var result = fallback.forSession(DATE);
         assertTrue(result.cached());
         assertEquals(3_115_347_115L, result.disclosure().shares());
         assertThrows(IOException.class, () -> fallback.forSession(DATE.plusDays(1)));
+        assertEquals(1, requests.get());
     }
 
     @Test public void doesNotHideInvalidOrRemovedOnlineEvidence() throws Exception {
