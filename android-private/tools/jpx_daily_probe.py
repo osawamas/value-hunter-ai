@@ -7,7 +7,7 @@ from collections import Counter
 from decimal import Decimal
 
 import fitz
-import xlrd
+from openpyxl import load_workbook
 
 MARKETS = {"プライム": "prime", "スタンダード": "standard", "グロース": "growth"}
 CODE = re.compile(r"[0-9][0-9A-Z]{3}")
@@ -15,17 +15,18 @@ PRICE = re.compile(r"[0-9][0-9,]*(?:\.[0-9]+)?")
 
 
 def ordinary_stocks(path):
-    sheet = xlrd.open_workbook(path).sheet_by_index(0)
+    workbook = load_workbook(path, read_only=True, data_only=True)
     stocks = {}
-    for row in list(sheet.get_rows())[1:]:
-        segment = str(row[3].value)
+    for row in workbook.worksheets[0].iter_rows(min_row=2, values_only=True):
+        segment = str(row[3])
         for label, market in MARKETS.items():
             if segment != f"{label}（内国株式）":
                 continue
-            value = row[1].value
+            value = row[1]
             code = str(int(value)) if isinstance(value, float) else str(value)
             if CODE.fullmatch(code):
                 stocks[code] = market
+    workbook.close()
     if len(stocks) < 3000:
         raise ValueError("Unexpected JPX domestic common-stock universe")
     return stocks

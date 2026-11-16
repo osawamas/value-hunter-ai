@@ -22,11 +22,28 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install 'PyMuPDF>=1.24,<2' 'xlrd>=2,<3'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2' 'openpyxl>=3.1,<4'
       - name: Compare two published JPX reports with the exchange symbol list
         run: |
-          curl -fsSL --max-time 45 https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xls -o "$RUNNER_TEMP/jpx-list.xls"
+          master_page=https://www.jpx.co.jp/markets/statistics-equities/misc/01.html
+          curl -fsSL --max-time 45 "$master_page" -o "$RUNNER_TEMP/jpx-master.html"
+          master_url=$(python - "$master_page" "$RUNNER_TEMP/jpx-master.html" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+          from urllib.parse import urljoin, urlsplit
+
+          links = re.findall(r'href=["\']([^"\']+/data_j\.xlsx)["\']',
+                             Path(sys.argv[2]).read_text(encoding="utf-8"), re.I)
+          urls = {urljoin(sys.argv[1], link) for link in links}
+          url, = urls
+          if urlsplit(url).netloc != "www.jpx.co.jp" or urlsplit(url).scheme != "https":
+              raise SystemExit("Unexpected JPX symbol list link")
+          print(url)
+          PY
+          )
+          curl -fsSL --max-time 45 "$master_url" -o "$RUNNER_TEMP/jpx-list.xlsx"
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202610/stq_20261029.pdf -o "$RUNNER_TEMP/jpx-20261029.pdf"
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202611/stq_20261111.pdf -o "$RUNNER_TEMP/jpx-20261111.pdf"
-          python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-list.xls" --check 1301 4475
-          python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261111.pdf" "$RUNNER_TEMP/jpx-list.xls"
+          python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-list.xlsx" --check 1301 4475
+          python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261111.pdf" "$RUNNER_TEMP/jpx-list.xlsx"
