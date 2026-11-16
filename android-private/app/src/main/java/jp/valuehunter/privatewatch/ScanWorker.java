@@ -66,6 +66,16 @@ public final class ScanWorker extends Worker {
                 new OneTimeWorkRequest.Builder(SgCheckWorker.class).setConstraints(connected()).build());
     }
 
+    static void scheduleSingaporeWatch(Context context) {
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork("sg-watch", ExistingPeriodicWorkPolicy.KEEP,
+                new PeriodicWorkRequest.Builder(SgCheckWorker.class, 6, TimeUnit.HOURS)
+                        .setInitialDelay(6, TimeUnit.HOURS).setConstraints(connected()).build());
+    }
+
+    static void stopSingaporeWatch(Context context) {
+        WorkManager.getInstance(context).cancelUniqueWork("sg-watch");
+    }
+
     private static Constraints connected() {
         return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
     }

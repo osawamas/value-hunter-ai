@@ -30,6 +30,7 @@ public final class MainActivity extends Activity {
     private EditText key;
     private EditText usKey;
     private EditText sgKey;
+    private CheckBox sgWatch;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
 
@@ -120,11 +121,13 @@ public final class MainActivity extends Activity {
             work.cancelUniqueWork("us-watch");
             work.cancelUniqueWork("us-check-now");
             work.cancelUniqueWork("sg-check-now");
+            ScanWorker.stopSingaporeWatch(this);
             state.edit().clear().commit();
             getSystemService(NotificationManager.class).cancelAll();
             key.setText("");
             if (usKey != null) usKey.setText("");
             if (sgKey != null) sgKey.setText("");
+            if (sgWatch != null) sgWatch.setChecked(false);
             render();
         });
         content.addView(erase);
@@ -184,8 +187,13 @@ public final class MainActivity extends Activity {
         sgKey.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         content.addView(sgKey);
 
+        sgWatch = new CheckBox(this);
+        sgWatch.setText("S63を定期確認して、新しく条件に入ったら無音通知");
+        sgWatch.setChecked(state.getBoolean("sg_watch", false));
+        content.addView(sgWatch);
+
         var sgCheck = new Button(this);
-        sgCheck.setText("S63の終値を2取引日分確認");
+        sgCheck.setText("S63の設定を保存して確認");
         sgCheck.setOnClickListener(view -> {
             String entered = sgKey.getText().toString().trim();
             String savedKey = state.getString("sg_key", "");
@@ -194,8 +202,20 @@ public final class MainActivity extends Activity {
                 sgKey.setError("各自のAPIキーを確認して");
                 return;
             }
-            state.edit().putString("sg_key", selected).putString("sg_result", "接続確認を予約した").apply();
+            boolean watch = sgWatch.isChecked();
+            var editor = state.edit().putString("sg_key", selected).putBoolean("sg_watch", watch)
+                    .putString("sg_result", "接続確認を予約した");
+            if (!selected.equals(savedKey) || watch != state.getBoolean("sg_watch", false)) {
+                editor.remove("sg_qualified_date").remove("sg_qualified");
+            }
+            editor.apply();
             sgKey.setText("");
+            if (watch) {
+                ScanWorker.scheduleSingaporeWatch(this);
+                requestNotifications();
+            } else {
+                ScanWorker.stopSingaporeWatch(this);
+            }
             ScanWorker.checkSingapore(this);
         });
         content.addView(sgCheck);

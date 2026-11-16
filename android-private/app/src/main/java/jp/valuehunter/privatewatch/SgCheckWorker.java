@@ -16,16 +16,26 @@ import java.time.ZonedDateTime;
 import java.util.Locale;
 
 public final class SgCheckWorker extends Worker {
+    private static final Object LOCK = new Object();
     public SgCheckWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         super(context, parameters);
     }
 
     @NonNull @Override public Result doWork() {
-        var state = ScanWorker.prefs(getApplicationContext());
+        synchronized (LOCK) {
+            return check();
+        }
+    }
+
+    private Result check() {
+        var context = getApplicationContext();
+        var state = ScanWorker.prefs(context);
         String key = state.getString("sg_key", "");
         if (key.isEmpty()) return Result.success();
+        boolean watch = state.getBoolean("sg_watch", false);
         String result;
-        boolean passed = false;
+        SgCloseCheck.Pair pair = null;
+        Evaluation evaluation = null;
         try {
             var now = ZonedDateTime.now(SgCloseCheck.SINGAPORE);
             var cutoff = now.toLocalTime().isBefore(LocalTime.of(18, 0))
@@ -33,11 +43,11 @@ public final class SgCheckWorker extends Worker {
             var payload = new JSONObject(UsScanWorker.get(
                     "https://api.datacedar.com/v3/stocks/sgx%3AS63/bars"
                             + "?timeframe=1Day&adjustment=raw&order=desc&limit=8", key));
-            var pair = SgCloseCheck.read(payload, cutoff);
+            pair = SgCloseCheck.read(payload, cutoff);
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
-            passed = true;
-            result += valuationDetails(pair.latest());
+            evaluation = evaluate(pair.latest());
+            result += evaluation.details();
         } catch (UsScanWorker.HttpFailure error) {
             result = switch (error.status) {
                 case 401 -> "DataCedarのAPIキーを確認して";
@@ -50,14 +60,35 @@ public final class SgCheckWorker extends Worker {
         } catch (IOException error) {
             result = "DataCedarに接続できなかった";
         }
-        if (isStopped() || !key.equals(state.getString("sg_key", ""))) return Result.success();
-        state.edit().putString("sg_result", result).apply();
-        return passed ? Result.success() : Result.failure();
+        if (isStopped() || !key.equals(state.getString("sg_key", ""))
+                || watch != state.getBoolean("sg_watch", false)) return Result.success();
+        var editor = state.edit().putString("sg_result", result);
+        boolean alert = false;
+        if (watch && pair != null && evaluation.qualified() != null) {
+            String last = state.getString("sg_qualified_date", "");
+            String next = pair.latest().session().toString();
+            if (next.compareTo(last) > 0) {
+                alert = SgValuation.shouldAlert(pair, last, state.getBoolean("sg_qualified", false),
+                        evaluation.qualified());
+                editor.putString("sg_qualified_date", next).putBoolean("sg_qualified", evaluation.qualified());
+            }
+        }
+        if (!editor.commit()) return Result.retry();
+        if (alert && key.equals(state.getString("sg_key", "")) && state.getBoolean("sg_watch", false)) {
+            var close = pair.latest();
+            ScanWorker.postNotification(context, 4, "S63が割安条件に該当（参考）",
+                    close.session() + "終値 " + String.format(Locale.JAPAN, "%.3f SGD", close.sgd())
+                            + evaluation.details());
+        }
+        return pair == null ? Result.failure() : Result.success();
     }
 
-    private static String valuationDetails(SgCloseCheck.Close close) {
+    private record Evaluation(String details, Boolean qualified) {}
+
+    private static Evaluation evaluate(SgCloseCheck.Close close) {
         StringBuilder details = new StringBuilder();
         var trial = SgValuation.forClose(close);
+        Boolean qualified = null;
         if (trial == null) {
             details.append("\n同日の開示株数が未登録。時価総額・PER・PBRは保留");
         } else {
@@ -75,9 +106,13 @@ public final class SgCheckWorker extends Worker {
             details.append(String.format(Locale.JAPAN,
                     "\n為替基準日 %s · 1株 約%,.0f円 · 100株 約%,.0f円（手数料別）",
                     fx.date(), oneShare, oneShare * 100));
+            if (trial != null) {
+                qualified = trial.qualifies(oneShare);
+                details.append(qualified ? "\n割安条件に該当（参考）" : "\n割安条件外（参考）");
+            }
         } catch (IOException | JSONException error) {
             details.append("\n為替を取得できなかったため、円換算は保留");
         }
-        return details.toString();
+        return new Evaluation(details.toString(), qualified);
     }
 }

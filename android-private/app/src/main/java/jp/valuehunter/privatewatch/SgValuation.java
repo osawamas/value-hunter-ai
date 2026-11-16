@@ -1,13 +1,22 @@
 package jp.valuehunter.privatewatch;
 
-import java.time.LocalDate;
-
 final class SgValuation {
     // S63 FY2025 annual report and 1H2026 results, amounts in SGD.
     private static final long TTM_PROFIT = (462_770L + 512_126L - 402_829L) * 1000;
     private static final long PARENT_EQUITY = 2_524_548_000L;
 
-    record Trial(long shares, double cap, double per, double pbr) {}
+    record Trial(long shares, double cap, double per, double pbr) {
+        boolean qualifies(double oneShareYen) {
+            return Double.isFinite(oneShareYen) && oneShareYen > 0 && oneShareYen <= JapanScreen.BUDGET
+                    && per > 0 && per <= JapanScreen.MAX_PER && pbr > 0 && pbr <= JapanScreen.MAX_PBR;
+        }
+    }
+
+    static boolean shouldAlert(SgCloseCheck.Pair pair, String lastEvaluated, boolean wasQualified, boolean qualified) {
+        // Consecutive provider sessions only. A gap establishes a new baseline.
+        return qualified && !wasQualified && pair.previous().session().toString().equals(lastEvaluated)
+                && pair.latest().session().isAfter(pair.previous().session());
+    }
 
     static Trial forClose(SgCloseCheck.Close close) {
         // SGXNet buyback notices supply dated shares excluding treasury.
