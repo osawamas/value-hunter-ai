@@ -91,3 +91,29 @@ assert.ok(checkRefresh(nextFeed,staged).some(error=>error.includes("roll back"))
 const revised=stageQuotes(baseline,[{...incoming,close:3}],grant);
 assert.ok(checkRefresh(staged,revised).some(error=>error.includes("same session")));
 console.log("v432 PASS: routine refresh cannot roll back or remove ranked closes");
+
+const {fetchAndStage}=require("../scripts/fetch-sgx-public-quotes.js");
+async function checkRemoteQuotes() {
+  const reviewedGrant={...grant,daily_close_feed_url:"https://example.org/sgx/daily"};
+  const serve=(body,status=200,type="application/json")=>new Response(JSON.stringify(body),{
+    status,headers:{"content-type":type},
+  });
+  const fetched=await fetchAndStage(baseline,reviewedGrant,"2026-11-13",async (url,options)=>{
+    assert.equal(url.href,"https://example.org/sgx/daily?session=2026-11-13");
+    assert.equal(options.redirect,"error");
+    return serve([incoming]);
+  });
+  assert.deepEqual(fetched,staged);
+  await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-16",
+    async ()=>serve([incoming])),/requested Singapore session/);
+  await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
+    async ()=>serve([],503)),/HTTP 503/);
+  await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
+    async ()=>serve([],200,"text/html")),/Expected JSON/);
+  await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
+    async ()=>serve("x".repeat(1024*1024))),/exceeds 1 MiB/);
+  await assert.rejects(fetchAndStage(baseline,{...reviewedGrant,grant_status:"PENDING"},"2026-11-13",
+    async ()=>{throw new Error("unexpected request");}),/executed grant/);
+  console.log("v433 PASS: reviewed HTTPS feed stages the requested Singapore session");
+}
+checkRemoteQuotes().catch(error=>{console.error(error);process.exitCode=1;});
