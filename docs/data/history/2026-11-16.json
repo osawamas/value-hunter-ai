@@ -1,6 +1,6 @@
 {
   "date_utc": "2026-11-16",
-  "source_updated_at_utc": "2026-11-16T05:59:32.524362+00:00",
+  "source_updated_at_utc": "2026-11-16T06:05:31.458659+00:00",
   "records": [
     {
       "symbol": "S68",
@@ -8,18 +8,18 @@
       "per_reference": 31.4778,
       "pbr_reference_unverified": 9.3037,
       "market_cap_sgd": 21984416726.52,
-      "quote_timestamp_utc": "2026-11-16T05:49:17+00:00",
+      "quote_timestamp_utc": "2026-11-16T05:55:21+00:00",
       "quote_freshness": "RECENT",
       "shares_as_of_date": "2026-09-01",
       "quality_flags": []
     },
     {
       "symbol": "G13",
-      "price_sgd": 0.55,
-      "per_reference": 16.9977,
-      "pbr_reference_unverified": 0.8086,
-      "market_cap_sgd": 6635003250.7,
-      "quote_timestamp_utc": "2026-11-16T05:49:22+00:00",
+      "price_sgd": 0.555,
+      "per_reference": 17.1523,
+      "pbr_reference_unverified": 0.816,
+      "market_cap_sgd": 6695321462.07,
+      "quote_timestamp_utc": "2026-11-16T05:55:05+00:00",
       "quote_freshness": "RECENT",
       "shares_as_of_date": "2026-06-30",
       "quality_flags": []
@@ -41,7 +41,7 @@
       "per_reference": 61.6757,
       "pbr_reference_unverified": 11.09,
       "market_cap_sgd": 28541640640.2,
-      "quote_timestamp_utc": "2026-11-16T05:49:12+00:00",
+      "quote_timestamp_utc": "2026-11-16T05:55:17+00:00",
       "quote_freshness": "RECENT",
       "shares_as_of_date": "2026-06-30",
       "quality_flags": []
