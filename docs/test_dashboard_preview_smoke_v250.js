@@ -7,8 +7,7 @@ const checklist=[
  /z\.testzip\(\)/,/MAX_UNCOMPRESSED/,/MAX_FILES/,/Duplicate path/,
  /Unsafe file path/,/Symlinks are not allowed/,
  /docs\/data\/latest\.json/,/docs\/README-PREVIEW-v249\.md/,
- /feed\.get\("ranking_enabled"\) is not False/,
- /feed\.get\("ranking_eligible_count"\) != 0/,
+ /sgx-ranking-validation\.js/,/checkFeed\(JSON\.parse/,/check=True/,
  /http\.server\.ThreadingHTTPServer/,
  /urllib\.request\.urlopen/,/server\.shutdown\(\)/,
  /github_pages_deployed_verified/,/licensed_sgx_quotes_verified/
