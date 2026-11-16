@@ -466,6 +466,24 @@ def japanese_interim(raw, record):
             raise ValueError(f"Interim shares differ: {record['id']} {key}")
     if shares["value"] != shares["issued"] - shares["treasury"] or shares["as_of"] != end.isoformat():
         raise ValueError(f"Interim share calculation/date differs: {record['id']}")
+    if record["id"] == "JP:7203":
+        prior, current = filing["periods"]
+        basis = filing["valuation_basis"]
+        annual_end = start - dt.timedelta(days=1)
+        if (basis["period_end"] != current["end"] or basis["annual_period_end"] != annual_end.isoformat()
+                or basis["current_net_income"] != current["net_income"]
+                or basis["prior_net_income"] != prior["net_income"]
+                or "百万円未満四捨五入" not in compact):
+            raise ValueError("Toyota half-year valuation period, income or unit mismatch")
+        position = text.split("連結財政状態", 1)[1].split("配当の状況", 1)[0]
+        if "帰属する持分" not in position:
+            raise ValueError("Toyota half-year parent equity heading missing")
+        for label, field in ((share_label, "parent_equity"),
+                             (f"{annual_end.year}年3月期", "comparative_parent_equity")):
+            match = re.search(rf"^[ \t]*{label}[ \t]+[\d,]+[ \t]+[\d,]+[ \t]+([\d,]+)[ \t]+[\d.]+[ \t]*$",
+                              position, re.M)
+            if not match or int(match[1].replace(",", "")) * 1_000_000 != basis[field]:
+                raise ValueError(f"Toyota half-year parent equity mismatch: {label}")
 
 
 def check_sec_originals(records, source_bytes):

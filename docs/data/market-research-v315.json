@@ -297,6 +297,14 @@
         "source": "https://www2.jpx.co.jp/disc/72030/140120261030561115.pdf",
         "form": "決算短信",
         "filed": "2026-11-05",
+        "valuation_basis": {
+          "period_end": "2026-09-30",
+          "annual_period_end": "2026-03-31",
+          "current_net_income": 2236446000000,
+          "prior_net_income": 1773426000000,
+          "parent_equity": 37447031000000,
+          "comparative_parent_equity": 39918854000000
+        },
         "periods": [
           {
             "start": "2025-04-01",
