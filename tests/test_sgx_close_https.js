@@ -148,6 +148,7 @@ async function test() {
     const requestCount = requests.length;
     const evidenceOnly = await run("bash", applyArgs, evidenceOnlyOptions);
     assert.match(evidenceOnly.stdout, /3115847115/);
+    assert.match(evidenceOnly.stdout, /"symbol": "G13"/);
     assert.match(evidenceOnly.stdout, /Evidence-only SGX preflight/);
     assert.equal(requests.length, requestCount);
     assert.deepEqual(fs.readFileSync(feedFile), realFeed);

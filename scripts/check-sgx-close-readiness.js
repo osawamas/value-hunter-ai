@@ -26,11 +26,11 @@ function compareThirdPartyFinancials(row, evidence) {
   };
 }
 
-function reviewS63(feed, research, notices, session, close) {
+function reviewIssuer(feed, research, notices, symbol, session, close) {
   if (!validDate(session)) throw new Error("Expected a Singapore trading date (YYYY-MM-DD)");
-  const rows = buildMarketRows(research, feed).filter(row => row.id === "SG:S63");
+  const rows = buildMarketRows(research, feed).filter(row => row.id === "SG:" + symbol);
   const issuer = rows[0];
-  if (!issuer?.sgxEvidence) throw new Error("S63 is absent from the SGX feed");
+  if (!issuer?.sgxEvidence) throw new Error(symbol + " is absent from the SGX feed");
   const sessions = publishedShareSessions(rows, notices);
   const matched = sessions.get(session)?.[0];
   const conflicts = conflictingFilingShares(issuer, session, notices);
@@ -61,8 +61,10 @@ function reviewS63(feed, research, notices, session, close) {
     currentFeedExclusions: exclusions,
     independentlyVerifiedFinancials: independentFinancials === true,
     blockers,
-    thirdPartyFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence,
-      require("../docs/data/sgx-s63-third-party-financial-crosscheck-v448.json")),
+    ...(symbol === "S63" && {
+      thirdPartyFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence,
+        require("../docs/data/sgx-s63-third-party-financial-crosscheck-v448.json")),
+    }),
     ...(trial && {trial: {
       status: trial.state,
       ...(trial.result && {
@@ -71,6 +73,10 @@ function reviewS63(feed, research, notices, session, close) {
       }),
     }}),
   };
+}
+
+function reviewS63(feed, research, notices, session, close) {
+  return reviewIssuer(feed, research, notices, "S63", session, close);
 }
 
 function reviewStoredS63(feed, session, close) {
@@ -82,9 +88,11 @@ function reviewStoredS63(feed, session, close) {
 
 if (require.main === module) {
   try {
-    const [feedPath, session] = process.argv.slice(2);
+    const [feedPath, session, symbol = "S63"] = process.argv.slice(2);
+    if (!["S63", "G13"].includes(symbol)) throw new Error("Expected S63 or G13");
     const feed = JSON.parse(fs.readFileSync(feedPath, "utf8"));
-    const report = reviewStoredS63(feed, session);
+    const report = symbol === "S63" ? reviewStoredS63(feed, session) :
+      reviewIssuer(feed, require("../docs/data/market-research-v315.json"), [], symbol, session);
     process.stdout.write(JSON.stringify(report, null, 2) + "\n");
   } catch (error) {
     console.error(error.message);
@@ -92,4 +100,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = {reviewS63, reviewStoredS63};
+module.exports = {reviewIssuer, reviewS63, reviewStoredS63};

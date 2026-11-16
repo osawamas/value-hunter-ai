@@ -11,7 +11,8 @@ if [[ ! "$session" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ || "$session" > "$today" ]]; 
   exit 1
 fi
 if [ "${SGX_PREFLIGHT:-}" = true ]; then
-  node "$script_dir/check-sgx-close-readiness.js" "$feed" "$session"
+  node "$script_dir/check-sgx-close-readiness.js" "$feed" "$session" S63
+  node "$script_dir/check-sgx-close-readiness.js" "$feed" "$session" G13
 fi
 
 if [ -z "${SGX_CLOSE_GRANT_JSON:-}" ]; then
