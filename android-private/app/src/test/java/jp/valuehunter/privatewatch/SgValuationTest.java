@@ -18,6 +18,26 @@ public class SgValuationTest {
         assertEquals(cap / 2_524_548_000L, trial.pbr(), 0.0001);
     }
 
+    @Test public void usesOneFxSnapshotAndSelectsEachSessionsRate() throws Exception {
+        var previous = LocalDate.of(2026, 11, 13);
+        var latest = LocalDate.of(2026, 11, 16);
+        var pair = new SgCloseCheck.Pair(new SgCloseCheck.Close(previous, 10), new SgCloseCheck.Close(latest, 9));
+        var requests = new java.util.ArrayList<String>();
+        var rates = new SgExchangeRates(pair, true, url -> {
+            requests.add(url);
+            return new JSONArray("""
+                    [
+                      {"base":"SGD","quote":"JPY","date":"2026-11-12","rate":120},
+                      {"base":"SGD","quote":"JPY","date":"2026-11-16","rate":125}
+                    ]
+                    """);
+        });
+        assertEquals(125, rates.forSession(latest).yenPerDollar(), 0);
+        assertEquals(120, rates.forSession(previous).yenPerDollar(), 0);
+        assertEquals(java.util.List.of("https://api.frankfurter.dev/v2/rates?base=SGD&quotes=JPY"
+                + "&from=2026-11-09&to=2026-11-16"), requests);
+    }
+
     @Test public void selectsRecentSgdRateWithoutUsingFutureOrUsdRates() throws JSONException {
         var payload = new JSONArray("""
                 [

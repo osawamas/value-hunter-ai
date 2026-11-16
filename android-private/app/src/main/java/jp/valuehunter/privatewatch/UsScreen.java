@@ -42,6 +42,8 @@ final class UsScreen {
         return new Close(latest, positive(series.getJSONObject(latest.toString()).optDouble("4. close")));
     }
 
+    static final int FX_LOOKBACK_DAYS = 4;
+
     static Fx readFx(JSONArray payload, LocalDate closeDate) throws JSONException {
         return readFx(payload, closeDate, "USD");
     }
@@ -52,7 +54,7 @@ final class UsScreen {
             var row = payload.getJSONObject(i);
             if (!base.equals(row.optString("base")) || !"JPY".equals(row.optString("quote"))) continue;
             LocalDate date = date(row.getString("date"));
-            if (date.isAfter(closeDate) || date.isBefore(closeDate.minusDays(4))) continue;
+            if (date.isAfter(closeDate) || date.isBefore(closeDate.minusDays(FX_LOOKBACK_DAYS))) continue;
             if (latest == null || date.isAfter(latest.date())) latest = new Fx(date, positive(row.optDouble("rate")));
         }
         if (latest == null) throw new JSONException("株価基準日までの円換算レートが見つからない");

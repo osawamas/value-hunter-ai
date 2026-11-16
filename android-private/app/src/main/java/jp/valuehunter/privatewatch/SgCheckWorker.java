@@ -53,11 +53,13 @@ public final class SgCheckWorker extends Worker {
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
             var disclosures = new Disclosures(context, now.toInstant());
-            evaluation = evaluate(disclosures, pair.latest(), getRunAttemptCount());
+            boolean mayNeedPrevious = watch && SgValuation.needsPreviousEvaluation(pair, lastEvaluated, true);
+            var rates = new SgExchangeRates(pair, mayNeedPrevious,
+                    url -> new JSONArray(UsScanWorker.get(url, null)));
+            evaluation = evaluate(disclosures, rates, pair.latest(), true, getRunAttemptCount());
             result += evaluation.details() + evaluation.disclosureDetails();
-            if (watch && SgValuation.needsPreviousEvaluation(
-                    pair, lastEvaluated, Boolean.TRUE.equals(evaluation.qualified()))) {
-                previous = evaluate(disclosures, pair.previous(), getRunAttemptCount());
+            if (mayNeedPrevious && Boolean.TRUE.equals(evaluation.qualified())) {
+                previous = evaluate(disclosures, rates, pair.previous(), false, getRunAttemptCount());
             }
             if (watch) {
                 decision = SgValuation.watchDecision(pair, lastEvaluated, wasQualified, evaluation.qualified(),
@@ -147,7 +149,8 @@ public final class SgCheckWorker extends Worker {
         }
     }
 
-    private static Evaluation evaluate(Disclosures disclosures, SgCloseCheck.Close close, int attempts) {
+    private static Evaluation evaluate(Disclosures disclosures, SgExchangeRates rates, SgCloseCheck.Close close,
+                                       boolean showPurchaseCost, int attempts) {
         StringBuilder details = new StringBuilder();
         SgShareLedger.Disclosure disclosure = null;
         boolean retryableFailure = false;
@@ -175,11 +178,11 @@ public final class SgCheckWorker extends Worker {
                             + "\n参考時価総額 %,.0f SGD · 参考PER %.2f倍 · 参考PBR %.2f倍",
                     trial.shares(), trial.cap(), trial.per(), trial.pbr()));
         }
+        if (trial == null && !showPurchaseCost) {
+            return new Evaluation(details.toString(), "", null, retryableFailure);
+        }
         try {
-            var fx = UsScreen.readFx(new JSONArray(UsScanWorker.get(
-                    "https://api.frankfurter.dev/v2/rates?base=SGD&quotes=JPY"
-                            + "&from=" + close.session().minusDays(4)
-                            + "&to=" + close.session(), null)), close.session(), "SGD");
+            var fx = rates.forSession(close.session());
             double oneShare = close.sgd() * fx.yenPerDollar();
             details.append(String.format(Locale.JAPAN,
                     "\n為替基準日 %s · 1株 約%,.0f円 · 100株 約%,.0f円（手数料別）",
