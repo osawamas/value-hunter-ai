@@ -28,6 +28,8 @@ public final class MainActivity extends Activity {
     private TextView usResults;
     private TextView sgResults;
     private EditText key;
+    private EditText usKey;
+    private EditText sgKey;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
 
@@ -121,6 +123,8 @@ public final class MainActivity extends Activity {
             state.edit().clear().commit();
             getSystemService(NotificationManager.class).cancelAll();
             key.setText("");
+            if (usKey != null) usKey.setText("");
+            if (sgKey != null) sgKey.setText("");
             render();
         });
         content.addView(erase);
@@ -130,7 +134,7 @@ public final class MainActivity extends Activity {
         usTitle.setTextSize(18);
         content.addView(usTitle);
 
-        var usKey = new EditText(this);
+        usKey = new EditText(this);
         usKey.setHint("自分のAlpha Vantage APIキー");
         usKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         usKey.setSaveEnabled(false);
@@ -173,7 +177,7 @@ public final class MainActivity extends Activity {
         sgTitle.setTextSize(18);
         content.addView(sgTitle);
 
-        var sgKey = new EditText(this);
+        sgKey = new EditText(this);
         sgKey.setHint("自分のDataCedar APIキー");
         sgKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         sgKey.setSaveEnabled(false);
