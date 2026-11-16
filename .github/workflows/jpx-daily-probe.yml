@@ -91,3 +91,29 @@ jobs:
           assert associate(date(2026, 5, 16), stocks, quotes, {"1301"}, fixture)["1301"]["status"] == "ambiguous_close"
           print("JPX closing prices and source-checked annual earnings/book value matched on two dates.")
           PY
+
+  hachiquant:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify the public financial API against the issuer's published values
+        run: |
+          curl -fsS --max-time 25 https://hachiquant.com/api/v1/companies/1301/metrics -o "$RUNNER_TEMP/kyokuyo-metrics.json"
+          python3 - "$RUNNER_TEMP/kyokuyo-metrics.json" <<'PY'
+          from decimal import Decimal
+          import json
+          from pathlib import Path
+          import sys
+
+          record, = json.loads(Path("android-private/tools/fixtures/jpx-annual-reference.json").read_text())
+          metrics = json.loads(Path(sys.argv[1]).read_text(), parse_float=Decimal)
+          annual, = [item for item in metrics if item.get("period_end") == record["period_end"]
+                     and item.get("quarter") == 4 and item.get("currency") == "JPY"]
+          assert annual["source_doc_id"] == "S100YE8K"
+          assert annual["eps"] == Decimal(record["eps_jpy"])
+          assert annual["bvps"] == Decimal(record["bps_jpy"])
+          print("Keyless financial API: annual EPS and BPS matched the issuer report.")
+          PY

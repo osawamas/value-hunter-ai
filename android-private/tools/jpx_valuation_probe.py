@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import unicodedata
 
-import fitz
+import pymupdf as fitz
 
 from jpx_daily_probe import CODE, ordinary_stocks, read_quotes
 

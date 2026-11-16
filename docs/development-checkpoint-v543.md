@@ -5,3 +5,5 @@
 - 出力は年次開示ベースの参考試算。銘柄ごとの最新四半期反映、分割・併合照合、全銘柄の財務自動更新、定期取得の運用確認とAndroid監視への接続は未実装。
 - [EDINET DBの開発者向け案内](https://edinetdb.jp/developers) で個社財務には無料キーが必要と確認した。無料枠は1日100回。全銘柄の初回取得とその後の差分更新は分けて検討する。[IRBANK規約](https://corp.irbank.net/terms/) は正規API以外の自動取得を禁止。
 - [DataCedarのSGX一覧](https://datacedar.com/markets/sgx) は485銘柄。[API仕様](https://datacedar.com/docs) に無料枠1回3銘柄・毎秒1回とあり、全掲載銘柄で最低162回。公式上場一覧との差分と無料認証後の終値取得率は未実測。
+
+- キー不要の財務候補として [Hachiquant REST API](https://hachiquant.com/docs) を追加調査。約4,000社、毎分60リクエスト、毎日更新。極洋の有報（S100YE8K）を参照した年次EPS・BPSと発行体決算短信が一致。API実接続と数値再照合を別CIジョブで検証する。

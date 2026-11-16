@@ -6,7 +6,7 @@ import unicodedata
 from collections import Counter
 from decimal import Decimal
 
-import fitz
+import pymupdf as fitz
 from openpyxl import load_workbook
 
 MARKETS = {"プライム": "prime", "スタンダード": "standard", "グロース": "growth"}
