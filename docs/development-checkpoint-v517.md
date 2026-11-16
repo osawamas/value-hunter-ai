@@ -1,7 +1,8 @@
 # VALUE HUNTER AI v517
 
-The first Android preview for the owner and two friends fetches Japanese
-stock data with each person's J-Quants API key. The app saves its settings,
+The first Android preview is for the owner and a small private circle,
+expected to be under ten people. Each user fetches Japanese stock data
+with their own J-Quants API key. The app saves its settings,
 latest matches and previous qualifying set in Android private app storage
 with backups disabled. There is no shared price, account or notification
 server. The first successful session establishes the baseline. Subsequent

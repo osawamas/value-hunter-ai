@@ -1,6 +1,7 @@
 # VALUE HUNTER AI Android試用版
 
-Android 8以降。各自のJ-Quants APIキーを使う。
+身内の数人で使う非公開の試用版。10人未満を想定している。
+同じAPKを使う人に個別に渡し、それぞれのAndroid 8以降の端末で自分のJ-Quants APIキーを使う。株価取得・判定・通知は各自の端末で行う。
 
 1. APKをインストールしてアプリを開く。
 2. [J-Quants](https://jpx-jquants.com/ja)で各自のAPIキーを発行し、アプリの入力欄に貼り付ける。
