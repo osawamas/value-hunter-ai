@@ -1,0 +1,73 @@
+name: SGX S63 two-session close check
+
+on:
+  workflow_dispatch:
+    inputs:
+      earlier_session:
+        description: 'Earlier Singapore trading date (YYYY-MM-DD)'
+        type: string
+        required: true
+      later_session:
+        description: 'Later Singapore trading date (YYYY-MM-DD)'
+        type: string
+        required: true
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sgx-s63-close-comparison.yml'
+      - 'scripts/fetch-sgx-public-quotes.js'
+      - 'tests/test_sgx_close_https.js'
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-check:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/test_sgx_close_https.js
+
+  licensed-check:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run the licensed S63 comparison on main."
+          exit 1
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check the two licensed closing sessions
+        shell: bash
+        env:
+          SGX_CLOSE_GRANT_JSON: ${{ secrets.SGX_CLOSE_GRANT_JSON }}
+          EARLIER_SESSION: ${{ inputs.earlier_session }}
+          LATER_SESSION: ${{ inputs.later_session }}
+        run: |
+          if [[ -z "$SGX_CLOSE_GRANT_JSON" ]]; then
+            echo "Licensed comparison unavailable: no reviewed SGX close grant is configured." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::A reviewed SGX close grant is required."
+            exit 1
+          fi
+          umask 077
+          grant=$(mktemp "$RUNNER_TEMP/sgx-grant.XXXXXX")
+          trap 'rm -f -- "$grant"' EXIT
+          printf '%s' "$SGX_CLOSE_GRANT_JSON" > "$grant"
+          unset SGX_CLOSE_GRANT_JSON
+          node scripts/fetch-sgx-public-quotes.js docs/data/latest.json "$grant" \
+            --compare-s63 "$EARLIER_SESSION" "$LATER_SESSION" |
+            tee -a "$GITHUB_STEP_SUMMARY"
