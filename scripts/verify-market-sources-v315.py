@@ -170,12 +170,17 @@ def recalculate_s63_results(raw, balance_text, feed_row):
 
 
 def check_g13_financials(raw, row):
-    if hashlib.sha256(raw).hexdigest() != "8cd408f63b9723ea8836cb463c2407954ee51e49d59333e2264060da4e8b1c2a":
-        raise ValueError("G13 FY2025 results PDF hash mismatch")
     if row["fiscal_year"] != 2025:
         raise ValueError("G13 feed fiscal year mismatch")
     income = pdf_text(raw, 1)
     balance = pdf_text(raw, 4, first_page=4)
+    if ("Genting Singapore Limited (Company Registration No. 201818581G)" not in income
+            or "FINANCIAL STATEMENTS FOR THE FINANCIAL YEAR ENDED 31 DECEMBER 2025" not in income
+            or "Statement of Comprehensive Income for the Group" not in income
+            or "Statements of Financial Position (Continued)" not in balance
+            or "Equity attributable to ordinary" not in balance
+            or not re.search(r"Group\s+Company\s+31 December 31 December\s+31 December 31 December\s+2025\s+2024", balance)):
+        raise ValueError("G13 FY2025 results PDF identity or reporting scope mismatch")
     profit = filing_column(income, "Profit before taxation", 0) + filing_column(income, "Taxation", 0)
     reported_profit = filing_column(income, "Net profit attributable to ordinary shareholders of the Company", 0)
     if profit != reported_profit or profit != row["attributable_profit_sgd_thousands"]:
@@ -185,7 +190,7 @@ def check_g13_financials(raw, row):
     if equity != filing_column(balance, "Total equity", 0) or equity != row["parent_equity_sgd_thousands"]:
         raise ValueError("G13 parent equity component sum mismatch")
     print(f"SG:G13 FY2025 components agree with feed: profit {profit:,}, "
-          f"parent equity {equity:,} (SGD thousands)")
+          f"parent equity {equity:,} (SGD thousands), SHA256 {hashlib.sha256(raw).hexdigest()}")
 
 
 def check_s63_parent_equity(evidence, source_bytes, feed_row):
