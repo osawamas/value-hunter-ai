@@ -1,7 +1,7 @@
 {
   "schema_version": "value_hunter_web_v29",
-  "updated_at_utc": "2026-11-16T05:36:10.732102+00:00",
-  "input_generated_at_utc": "2026-11-16T05:36:10.684869+00:00",
+  "updated_at_utc": "2026-11-16T05:37:19.976309+00:00",
+  "input_generated_at_utc": "2026-11-16T05:37:19.935351+00:00",
   "source_type": "GITHUB_ACTIONS_PDF_AND_UNOFFICIAL_MARKET_FEED",
   "ranking_eligible_count": 0,
   "ranking_enabled": false,
@@ -64,7 +64,7 @@
       "treasury_shares": 798916,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S68.SI?interval=1d&range=5d",
-      "quote_timestamp_utc": "2026-11-16T05:25:52+00:00",
+      "quote_timestamp_utc": "2026-11-16T05:27:10+00:00",
       "shares_source_url": "https://links.sgx.com/FileOpen/2026%20SGX%20Annual%20Report.ashx?App=Announcement&FileID=905317",
       "shares_as_of_date": "2026-09-01",
       "audit_states": {
@@ -131,7 +131,7 @@
       "treasury_shares": 30384550,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/G13.SI?interval=1d&range=5d",
-      "quote_timestamp_utc": "2026-11-16T05:26:01+00:00",
+      "quote_timestamp_utc": "2026-11-16T05:27:02+00:00",
       "shares_source_url": "https://links.sgx.com/FileOpen/2.%20GENS%201H2026%20SGX%20Results%20Announcement.ashx?App=Announcement&FileID=900902",
       "shares_as_of_date": "2026-06-30",
       "audit_states": {
@@ -234,11 +234,11 @@
       "parent_equity_status": "EXTRACTED_AUDITED_ISSUER_PDF_ARITHMETIC_MATCHED",
       "parent_equity_source_url": null,
       "attributable_profit_sgd_thousands": 462770,
-      "price_sgd": 9.18,
+      "price_sgd": 9.17,
       "shares_outstanding": 3119304988,
-      "market_cap_sgd": 28635219789.84,
-      "per_reference": 61.8779,
-      "pbr_reference_unverified": 11.1264,
+      "market_cap_sgd": 28604026739.96,
+      "per_reference": 61.8105,
+      "pbr_reference_unverified": 11.1142,
       "pbr_verified": null,
       "financial_source_url": "https://links.sgx.com/FileOpen/ST%20Engineering%20Annual%20Report%202025.ashx?App=Announcement&FileID=880328",
       "financial_source_kind": "LIVE_S63_AUDITED_ANNUAL_REPORT_V32",
@@ -264,7 +264,7 @@
       "treasury_shares": null,
       "quote_source_type": "YAHOO_FINANCE_UNOFFICIAL_CHART",
       "quote_url": "https://query1.finance.yahoo.com/v8/finance/chart/S63.SI?interval=1d&range=5d",
-      "quote_timestamp_utc": "2026-11-16T05:26:00+00:00",
+      "quote_timestamp_utc": "2026-11-16T05:26:53+00:00",
       "shares_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/C8BD8IFF6BB243DP/0a8a417f60e150a464d73fc1b700be52d55bfaee8642d5e1641d90a447e95c7c",
       "shares_as_of_date": "2026-06-30",
       "audit_states": {
@@ -1540,7 +1540,7 @@
       }
     }
   ],
-  "quality_checked_at_utc": "2026-11-16T05:36:10.759884+00:00",
+  "quality_checked_at_utc": "2026-11-16T05:37:19.999706+00:00",
   "quality_schema_version": "value_hunter_quality_v33",
   "quality_counts": {
     "issuers": 7,
