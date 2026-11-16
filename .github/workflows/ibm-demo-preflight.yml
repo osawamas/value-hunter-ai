@@ -9,6 +9,8 @@ on:
     paths:
       - '.github/workflows/ibm-demo-preflight.yml'
       - 'scripts/check-ibm-personal-refresh.py'
+      - 'scripts/check-representative-valuations.js'
+      - 'docs/data/market-research-v315.json'
 permissions:
   contents: read
   actions: read
@@ -106,3 +108,22 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           overwrite: true
+      - name: Verify the two latest IBM closes with exact-date share filings
+        shell: bash
+        run: |
+          report=$(mktemp)
+          trap 'rm -f "$report"' EXIT
+          status=0
+          python3 scripts/check-ibm-personal-refresh.py --demo --latest-with-filings > "$report" || status=$?
+          {
+            echo '### IBM valuation with exact-date SEC shares'
+            echo
+            if (( status == 0 || status == 2 )); then
+              echo '| Trading date | Close retrieval | Valuation |'
+              echo '| --- | --- | --- |'
+              jq -er '.preflightChecks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) |"' "$report"
+            else
+              echo 'Could not complete the two-session check. See the step log for the reason.'
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$status"
