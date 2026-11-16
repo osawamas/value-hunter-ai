@@ -416,6 +416,8 @@ async function test() {
     sessionBodies.set("/closes?session=2026-11-16", [{...noticeQuote, timestamp: "2026-11-16T09:00:00Z"}]);
     const pair = JSON.parse((await run(process.execPath, pairArgs, options)).stdout);
     assert.equal(pair.valuationCheck, "passed");
+    assert.equal(pair.publicationCheck, "blocked");
+    assert.ok(pair.sessions.every(check => check.publicationCheck === "blocked"));
     assert.deepEqual(pair.sessions.map(check => [check.session, check.annualStatus, check.interimStatus]),
       [["2026-11-13", "filing", "calculated"], ["2026-11-16", "filing", "calculated"]]);
     assert.deepEqual(pair.sessions.map(check => [check.shareEvidence.status, check.shareEvidence.filing.value]),
@@ -426,6 +428,38 @@ async function test() {
     assert.ok(pair.sessions.every(check => check.publicationErrors.length));
     assert.ok(pair.sessions.every(check => !("valuation" in check) && !("price" in check)));
     assert.deepEqual(fs.readFileSync(feedFile), realFeed);
+
+    const readyBaseline = JSON.parse(input);
+    readyBaseline.quality_checked_at_utc = "2026-11-16T11:30:00Z";
+    const readyInput = JSON.stringify(readyBaseline);
+    fs.writeFileSync(feedFile, readyInput);
+    const readyPair = JSON.parse((await run(process.execPath, pairArgs, options)).stdout);
+    assert.equal(readyPair.publicationCheck, "passed", JSON.stringify(readyPair.sessions.map(check => check.publicationErrors)));
+    assert.ok(readyPair.sessions.every(check => check.publicationCheck === "passed"));
+    assert.equal(fs.readFileSync(feedFile, "utf8"), readyInput);
+    fs.writeFileSync(feedFile, realFeed);
+
+    // Other symbols in the grant or response must not affect the S63 comparison.
+    sessionBodies.get("/closes?session=2026-11-13").push({...noticeQuote, symbol: "G13", timestamp: "invalid"});
+    for (const daily_close_symbols of [["S63", "G13"], undefined]) {
+      fs.writeFileSync(grantFile, JSON.stringify({...grant, daily_close_symbols}));
+      const result = await run(process.execPath, pairArgs, options);
+      assert.deepEqual(JSON.parse(result.stdout), pair);
+    }
+
+    fs.writeFileSync(grantFile, JSON.stringify({...grant, daily_close_symbols: ["G13"]}));
+    const beforeExcludedIssuer = requests.length;
+    await assert.rejects(run(process.execPath, pairArgs, options), error => {
+      assert.equal(error.code, 1);
+      const excluded = JSON.parse(error.stdout);
+      assert.equal(excluded.closeRetrieval, "failed");
+      assert.equal(excluded.publicationCheck, "blocked");
+      assert.equal(excluded.sessions[0].error, "SGX close selection does not include S63");
+      return true;
+    });
+    assert.equal(requests.length, beforeExcludedIssuer);
+    fs.writeFileSync(grantFile, JSON.stringify(grant));
+    sessionBodies.set("/closes?session=2026-11-13", [noticeQuote]);
     await assert.rejects(run(process.execPath, [...pairArgs.slice(0, -2), "2026-11-16", "2026-11-13"], options),
       {code: 1, stderr: /in increasing/});
     sessionBodies.set("/closes?session=2026-11-17", [{...noticeQuote, timestamp: "2026-11-17T09:00:00Z"}]);
@@ -445,7 +479,8 @@ async function test() {
       assert.deepEqual(partial.sessions[0], pair.sessions[0]);
       assert.deepEqual(partial.sessions[1], {
         session: "2026-11-16", closeRetrieval: "failed", shareEvidence: pair.sessions[1].shareEvidence,
-        financialAndShareBlockers: pair.sessions[1].financialAndShareBlockers, errorStage: "RESPONSE",
+        financialAndShareBlockers: pair.sessions[1].financialAndShareBlockers,
+        publicationCheck: "blocked", errorStage: "RESPONSE",
         error: "SGX response is missing a configured symbol",
       });
       return true;

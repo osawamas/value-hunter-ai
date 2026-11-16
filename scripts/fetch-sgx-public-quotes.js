@@ -29,7 +29,7 @@ async function requestClose(endpoint, headers, fetcher) {
 }
 
 async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial, allowPartial = false,
-  reportMissing = false) {
+  reportMissing = false, issuer) {
   if (!validDate(session)) throw new QuoteImportError("SESSION", "Expected a Singapore session date (YYYY-MM-DD)");
   if (grant?.grant_status !== "EXECUTED" ||
       !Array.isArray(grant.usage_scopes) ||
@@ -42,15 +42,19 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
   if (!hasGrantProvenance(grant)) {
     throw new QuoteImportError("GRANT", "SGX grant requires a licensor, licensee, licensed product and HTTPS evidence URL");
   }
-  const symbols = grant.daily_close_symbols;
-  if (symbols !== undefined) {
+  const configuredSymbols = grant.daily_close_symbols;
+  if (configuredSymbols !== undefined) {
     const registered = new Set(feed.records.map(row => row.symbol));
-    if (!Array.isArray(symbols) || !symbols.length ||
-        new Set(symbols).size !== symbols.length ||
-        symbols.some(symbol => !registered.has(symbol))) {
+    if (!Array.isArray(configuredSymbols) || !configuredSymbols.length ||
+        new Set(configuredSymbols).size !== configuredSymbols.length ||
+        configuredSymbols.some(symbol => !registered.has(symbol))) {
       throw new QuoteImportError("CONFIG", "SGX close selection must contain unique registered symbols");
     }
   }
+  if (issuer && configuredSymbols && !configuredSymbols.includes(issuer)) {
+    throw new QuoteImportError("CONFIG", "SGX close selection does not include " + issuer);
+  }
+  const symbols = issuer ? [issuer] : configuredSymbols;
   let endpoint;
   try {
     endpoint = new URL(grant.daily_close_feed_url);
@@ -166,9 +170,7 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
     };
     let check;
     try {
-      const staged = await fetchAndStage(feed, grant, session, fetcher, quotes => {
-        const quote = quotes.find(row => row.symbol === "S63");
-        if (!quote) throw new QuoteImportError("RESPONSE", "SGX response is missing the S63 close");
+      const staged = await fetchAndStage(feed, grant, session, fetcher, ([quote]) => {
         const {trial, interimTrial} = reviewStoredS63(feed, session, quote.close);
         check = {
           session, closeRetrieval: "retrieved", shareEvidence, annualStatus: trial.status,
@@ -176,14 +178,14 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
           completeAnnualRatios: ["cap", "per", "pbr"].every(key => Number.isFinite(trial.valuation?.[key])),
           interimStatus: interimTrial.status,
         };
-      });
+      }, false, false, "S63");
       check.publicationErrors = checkRefresh(feed, staged);
     } catch (error) {
       if (!(error instanceof QuoteImportError)) throw error;
       if (!check) {
         sessions.push({
           session, closeRetrieval: "failed", shareEvidence, financialAndShareBlockers: readiness.blockers,
-          errorStage: error.stage, error: error.message,
+          publicationCheck: "blocked", errorStage: error.stage, error: error.message,
         });
         // Unavailable or malformed data can be specific to one trading session.
         // Stop on authorization/configuration failures or provider-wide outages.
@@ -193,6 +195,7 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
       if (error.stage !== "VALIDATION") throw error;
       check.publicationErrors = [error.message];
     }
+    check.publicationCheck = check.publicationErrors.length ? "blocked" : "passed";
     sessions.push(check);
   }
   const retrieved = sessions.filter(check => check.closeRetrieval === "retrieved").length;
@@ -200,6 +203,7 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
     symbol: "S63",
     closeRetrieval: retrieved === 2 ? "retrieved" : retrieved === 1 ? "partial" : "failed",
     valuationCheck: retrieved === 2 && sessions.every(check => check.completeAnnualRatios) ? "passed" : "blocked",
+    publicationCheck: retrieved === 2 && sessions.every(check => check.publicationCheck === "passed") ? "passed" : "blocked",
     sessions,
   };
 }
