@@ -71,11 +71,15 @@ def toyota_share_evidence():
     return {share["date"]: share for share in json.loads(result.stdout)}
 
 
-def toyota_free_share_evidence(as_of):
-    cutoff = (as_of - timedelta(weeks=12)).isoformat()
+def free_plan_window(as_of):
+    cutoff = as_of - timedelta(weeks=12)
     first_year = as_of.year - 2
     first_day = min(as_of.day, monthrange(first_year, as_of.month)[1])
-    earliest = as_of.replace(year=first_year, day=first_day).isoformat()
+    return as_of.replace(year=first_year, day=first_day), cutoff
+
+
+def toyota_free_share_evidence(as_of):
+    earliest, cutoff = (day.isoformat() for day in free_plan_window(as_of))
     sessions = {
         share["date"]: share for share in toyota_share_evidence().values()
         if earliest <= share["date"] <= cutoff and (share.get("disclosedOn") or share["date"]) <= as_of.isoformat()
@@ -83,6 +87,20 @@ def toyota_free_share_evidence(as_of):
     if len(sessions) < 2:
         raise ValueError(f"Fewer than two Toyota share dates in the estimated free-plan window ({earliest} to {cutoff}).")
     return [sessions[day] for day in sorted(sessions)[-2:]]
+
+
+def annotate_free_plan(evidence, as_of):
+    earliest, latest = free_plan_window(as_of)
+    annotated = []
+    for row in evidence:
+        session = date.fromisoformat(row["date"])
+        coverage = {"status": "within_estimated_window"}
+        if session < earliest:
+            coverage["status"] = "older_than_estimated_window"
+        elif session > latest:
+            coverage = {"status": "awaiting_delay", "estimatedAvailableOn": (session + timedelta(weeks=12)).isoformat()}
+        annotated.append({**row, "freePlanEstimate": coverage})
+    return annotated
 
 
 def toyota_free_sessions(as_of):
@@ -189,12 +207,13 @@ def main():
             if len(checks) != 2 or any(check["close"] != "retrieved" for check in checks):
                 return 1
             return 0 if all(check["annual"] == "trial_calculated" for check in checks) else 2
+        as_of = datetime.now(ZoneInfo("Asia/Tokyo")).date()
         try:
             evidence = (toyota_pair_evidence(args.toyota_pair_evidence) if args.toyota_pair_evidence
-                        else toyota_free_share_evidence(datetime.now(ZoneInfo("Asia/Tokyo")).date()))
+                        else toyota_free_share_evidence(as_of))
         except (OSError, ValueError) as error:
             parser.exit(1, f"Evidence selection failed: {error}\n")
-        print(json.dumps(evidence, indent=2))
+        print(json.dumps(annotate_free_plan(evidence, as_of), indent=2))
         return 0
     if args.output_dir is None:
         parser.error("--output-dir is required to save a snapshot")

@@ -155,10 +155,20 @@ class ToyotaRefreshPairTest(unittest.TestCase):
             self.refresh.toyota_free_sessions(date(2028, 7, 1))
 
     def test_explicit_pair_requires_two_exact_share_filings(self):
+        from datetime import date
         days = ["2026-06-30", "2026-09-30"]
         evidence = self.refresh.toyota_pair_evidence(days)
         self.assertEqual([row["date"] for row in evidence], days)
         self.assertEqual(evidence[1]["disclosedOn"], "2026-11-05")
+        estimate = self.refresh.annotate_free_plan(evidence, date(2026, 11, 17))
+        self.assertEqual(estimate[0]["freePlanEstimate"]["status"], "within_estimated_window")
+        self.assertEqual(estimate[1]["freePlanEstimate"], {
+            "status": "awaiting_delay", "estimatedAvailableOn": "2026-12-23",
+        })
+        boundary = self.refresh.annotate_free_plan(evidence, date(2026, 12, 23))
+        self.assertEqual(boundary[1]["freePlanEstimate"]["status"], "within_estimated_window")
+        expired = self.refresh.annotate_free_plan(evidence, date(2028, 7, 1))
+        self.assertEqual(expired[0]["freePlanEstimate"]["status"], "older_than_estimated_window")
         with self.assertRaisesRegex(ValueError, "No exact Toyota share filing"):
             self.refresh.toyota_pair_evidence(["2026-06-30", "2026-10-31"])
         with self.assertRaisesRegex(ValueError, "in increasing"):

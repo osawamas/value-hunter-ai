@@ -57,9 +57,9 @@ jobs:
           fi
           {
             echo
-            echo '| Share count date | Filing |'
-            echo '| --- | --- |'
-            jq -er '.[] | "| \(.date) | [\(.disclosedOn // "Issuer filing")](\(.source)) |"' <<< "$evidence"
+            echo '| Share count date | Filing | Estimated free-plan availability |'
+            echo '| --- | --- | --- |'
+            jq -er '.[] | "| \(.date) | [\(.disclosedOn // "Issuer filing")](\(.source)) | \(if .freePlanEstimate.status == "awaiting_delay" then "From \(.freePlanEstimate.estimatedAvailableOn)" elif .freePlanEstimate.status == "older_than_estimated_window" then "Older than estimated range" else "Within estimated range" end) |"' <<< "$evidence"
             echo
           } | tee -a "$GITHUB_STEP_SUMMARY"
           if [[ -z "$JQUANTS_API_KEY" ]]; then
