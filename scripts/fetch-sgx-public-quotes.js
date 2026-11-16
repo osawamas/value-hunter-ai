@@ -26,7 +26,7 @@ async function requestClose(endpoint, fetcher) {
   }
 }
 
-async function fetchAndStage(feed, grant, session, fetcher = fetch) {
+async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial) {
   if (!validDate(session)) throw new QuoteImportError("SESSION", "Expected a Singapore session date (YYYY-MM-DD)");
   if (grant?.grant_status !== "EXECUTED" ||
       !Array.isArray(grant.usage_scopes) ||
@@ -109,6 +109,14 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch) {
   if (quotes.some(quote => sgxQuoteDate(quote?.timestamp) !== session)) {
     throw new QuoteImportError("SESSION", "The feed must contain only closes for the requested Singapore session");
   }
+  if (reportTrial) {
+    const s63 = quotes.filter(quote => quote?.symbol === "S63");
+    if (s63.length === 1 && s63[0].currency === "SGD" &&
+        s63[0].source_type === "LICENSED_SGX_EQUITY" &&
+        Number.isFinite(s63[0].close) && s63[0].close > 0) {
+      reportTrial(s63[0].close);
+    }
+  }
   const {grant_status, grant_evidence_url, licensor, licensee, licensed_product,
     usage_scopes, valid_from, valid_until} = grant;
   const publicGrant = {grant_status, grant_evidence_url, licensor, licensee,
@@ -130,7 +138,19 @@ async function main() {
   } catch {
     throw new QuoteImportError("CONFIG", "Could not read the public feed or grant configuration as JSON");
   }
-  const staged = await fetchAndStage(feed, grant, args[2]);
+  const reportTrial = process.env.SGX_PREFLIGHT === "true" ? close => {
+    const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
+    const report = reviewStoredS63(feed, args[2], close);
+    // Keep the preflight result out of both the candidate JSON and the workflow log prices.
+    console.error("S63 valuation preflight: " + JSON.stringify({
+      status: report.trial.status,
+      calculated: Boolean(report.trial.valuation),
+      completeRatios: Number.isFinite(report.trial.valuation?.per) &&
+        Number.isFinite(report.trial.valuation?.pbr),
+      blockers: report.blockers,
+    }));
+  } : undefined;
+  const staged = await fetchAndStage(feed, grant, args[2], fetch, reportTrial);
   process.stdout.write(JSON.stringify(staged, null, 2) + "\n");
 }
 

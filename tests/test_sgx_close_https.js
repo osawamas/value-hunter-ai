@@ -142,6 +142,22 @@ async function test() {
     fs.writeFileSync(feedFile, JSON.stringify(candidate));
     await assert.rejects(run("python3", historyArgs), {code: 1, stderr: /dated grant evidence missing/});
     assert.deepEqual(fs.readFileSync(indexFile), publishedHistory);
+    const realFeed = fs.readFileSync(path.join(__dirname, "../docs/data/latest.json"));
+    fs.writeFileSync(feedFile, realFeed);
+    await assert.rejects(run(process.execPath, args, {
+      ...options, env: {...options.env, SGX_PREFLIGHT: "true"},
+    }), error => {
+      assert.equal(error.stdout, "");
+      const line = error.stderr.split("\n").find(text => text.startsWith("S63 valuation preflight: "));
+      assert.ok(line);
+      const report = JSON.parse(line.slice("S63 valuation preflight: ".length));
+      assert.equal(report.calculated, true);
+      assert.equal(report.completeRatios, true);
+      assert.ok(report.blockers.includes("FINANCIAL_INDEPENDENCE_UNVERIFIED"));
+      assert.ok(error.stderr.includes("SGX close VALIDATION:"));
+      return true;
+    });
+    assert.deepEqual(fs.readFileSync(feedFile), realFeed);
     console.log("SGX daily refresh and history passed: licensed recovery recorded; invalid grants rejected");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
