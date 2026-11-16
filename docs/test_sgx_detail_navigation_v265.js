@@ -27,7 +27,7 @@ const appSource=fs.readFileSync("docs/app.js","utf8");
 const browserSource=fs.readFileSync("docs/sgx-historical-code-search-v258.js","utf8");
 assert.match(appSource,/window\.addEventListener\("hashchange",openIssuerFromHash\)/);
 assert.match(appSource,/function openIssuerFromHash\(\)/);
-assert.match(appSource,/if\(!rec \|\| rec\.ranking_eligible!==false\)return false/);
+assert.match(appSource,/if\(!rec\)return false/);
 assert.match(appSource,/showDetail\(rec\)/);
 assert.match(browserSource,/link\.href="#issuer="\+item\.code/);
 assert.match(browserSource,/if\(item\.financialRegistered &&/);
