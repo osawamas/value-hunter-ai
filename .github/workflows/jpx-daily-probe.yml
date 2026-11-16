@@ -45,21 +45,5 @@ jobs:
           curl -fsSL --max-time 45 "$master_url" -o "$RUNNER_TEMP/jpx-list.xlsx"
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202610/stq_20261029.pdf -o "$RUNNER_TEMP/jpx-20261029.pdf"
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202611/stq_20261111.pdf -o "$RUNNER_TEMP/jpx-20261111.pdf"
-          python - "$RUNNER_TEMP/jpx-20261029.pdf" <<'PY'
-          import fitz
-          import re
-          import sys
-          import unicodedata
-
-          with fitz.open(sys.argv[1]) as doc:
-              for page in list(doc)[:2]:
-                  print("geometry", page.rect, page.rotation, page.cropbox)
-                  words = page.get_text("words")
-                  for w in words:
-                      if re.search(r"1301|1332|^Close$|終値|^Code$", w[4]):
-                          print("anchor", w[:5])
-                  print("section-headings", [line.strip() for line in unicodedata.normalize("NFKC", page.get_text()).splitlines()
-                    if line.strip() in ("外国株式", "Foreign Stock", "ToSTNeT市場", "国内株式")])
-          PY
           python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-list.xlsx" --check 1301 4475
           python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261111.pdf" "$RUNNER_TEMP/jpx-list.xlsx"

@@ -55,12 +55,12 @@ def read_quotes(path, stocks):
             words = page.get_text("words")
             for word in words:
                 x0, y0, x1, y1, code, *_ = word
-                if code not in stocks or not .095 < (x0 + x1) / (2 * width) < .143:
+                if code not in stocks or not .057 < (x0 + x1) / (2 * width) < .094:
                     continue
                 y = (y0 + y1) / 2
                 row = [item for item in words if abs((item[1] + item[3]) / 2 - y) < 2.5]
-                morning = band_price(row, .433, .487, width)
-                afternoon = band_price(row, .629, .681, width)
+                morning = band_price(row, .389, .439, width)
+                afternoon = band_price(row, .591, .641, width)
                 pair = (morning, afternoon)
                 if code in prices and prices[code] != pair:
                     duplicates.add(code)
