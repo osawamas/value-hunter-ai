@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -28,7 +29,7 @@ final class SgShareLedger {
         }
     }
 
-    static Disclosure read(JSONObject payload, LocalDate session) throws JSONException {
+    static Disclosure read(JSONObject payload, LocalDate session, Instant checkedAt) throws JSONException {
         if (payload.getInt("schema") != 1 || !"S63".equals(payload.getString("symbol"))) {
             throw new JSONException("Unexpected S63 share ledger");
         }
@@ -41,7 +42,7 @@ final class SgShareLedger {
             try {
                 disclosed = OffsetDateTime.parse(row.getString("disclosed_at"));
                 if (!disclosed.getOffset().equals(ZoneOffset.ofHours(8))
-                        || !disclosed.toLocalDate().equals(session)) {
+                        || disclosed.toLocalDate().isBefore(session)) {
                     throw new JSONException("S63 disclosure date mismatch");
                 }
             } catch (DateTimeException error) {
@@ -61,6 +62,7 @@ final class SgShareLedger {
             }
             disclosure = new Disclosure(count, source, disclosed);
         }
-        return disclosure;
+        return disclosure != null && !disclosure.disclosedAt().toInstant().isAfter(checkedAt)
+                ? disclosure : null;
     }
 }

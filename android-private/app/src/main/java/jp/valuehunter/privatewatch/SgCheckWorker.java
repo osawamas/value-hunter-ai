@@ -11,6 +11,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.Locale;
@@ -47,7 +48,7 @@ public final class SgCheckWorker extends Worker {
             pair = SgCloseCheck.read(payload, cutoff);
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
-            evaluation = evaluate(context, pair.latest(), getRunAttemptCount());
+            evaluation = evaluate(context, pair.latest(), now.toInstant(), getRunAttemptCount());
             result += evaluation.details() + evaluation.disclosureDetails();
         } catch (UsScanWorker.HttpFailure error) {
             retryableFailure = shouldRetry(error.status, getRunAttemptCount());
@@ -104,25 +105,26 @@ public final class SgCheckWorker extends Worker {
     private record Evaluation(String details, String disclosureDetails, Boolean qualified,
                               boolean retryableFailure) {}
 
-    private static SgShareLedger.Disclosure readBundledDisclosure(Context context, SgCloseCheck.Close close) {
+    private static SgShareLedger.Disclosure readBundledDisclosure(Context context, SgCloseCheck.Close close,
+                                                                 Instant checkedAt) {
         try {
             var ledger = SgShareLedger.readAsset(context.getAssets().open("android-s63-shares.json"));
-            return SgShareLedger.read(ledger, close.session());
+            return SgShareLedger.read(ledger, close.session(), checkedAt);
         } catch (IOException | JSONException error) {
             return null;
         }
     }
 
-    private static Evaluation evaluate(Context context, SgCloseCheck.Close close, int attempts) {
+    private static Evaluation evaluate(Context context, SgCloseCheck.Close close, Instant checkedAt, int attempts) {
         StringBuilder details = new StringBuilder();
         SgShareLedger.Disclosure disclosure = null;
         boolean retryableFailure = false;
         if (SgValuation.financialsAvailable(close.session())) {
-            disclosure = readBundledDisclosure(context, close);
+            disclosure = readBundledDisclosure(context, close, checkedAt);
             if (disclosure == null) {
                 try {
                     var ledger = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
-                    disclosure = SgShareLedger.read(ledger, close.session());
+                    disclosure = SgShareLedger.read(ledger, close.session(), checkedAt);
                 } catch (IOException | JSONException error) {
                     details.append("\n開示株数の更新データを確認できなかった");
                     if (error instanceof IOException) {
@@ -137,10 +139,10 @@ public final class SgCheckWorker extends Worker {
         if (!SgValuation.financialsAvailable(close.session())) {
             details.append("\n取引日時点の財務が未登録。時価総額・PER・PBRは保留");
         } else if (trial == null) {
-            details.append("\n同日の開示株数を確認できず、時価総額・PER・PBRは保留");
+            details.append("\n取引日付の開示株数を確認できず、時価総額・PER・PBRは保留");
         } else {
             details.append(String.format(Locale.JAPAN,
-                    "\n同日の開示株数 %,d株（事後照合）"
+                    "\n取引日付の開示株数 %,d株（事後照合）"
                             + "\n財務基準日 " + SgValuation.FINANCIAL_PERIOD
                             + "\n参考時価総額 %,.0f SGD · 参考PER %.2f倍 · 参考PBR %.2f倍",
                     trial.shares(), trial.cap(), trial.per(), trial.pbr()));

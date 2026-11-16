@@ -15,8 +15,9 @@ SOURCE = re.compile(r"https://links[.]sgx[.]com/1[.]0[.]0/corporate-announcement
 def validate_record(row):
     day = date.fromisoformat(row["date"])
     disclosed = datetime.fromisoformat(row["disclosed_at"])
-    if (day.isoformat() != row["date"] or disclosed.date() != day
+    if (day.isoformat() != row["date"] or disclosed.date() < day
             or disclosed.utcoffset() != timedelta(hours=8)
+            or disclosed > datetime.now(SGT)
             or type(row["shares"]) is not int or not 0 < row["shares"] <= 10_000_000_000
             or not SOURCE.fullmatch(row["source"])):
         raise ValueError("Invalid date, count or official source in S63 ledger")
@@ -46,8 +47,6 @@ def update_ledger(path, urls, downloader=fetch):
             "disclosed_at": broadcast.replace(tzinfo=SGT).isoformat(),
         }
         validate_record(row)
-        if date.fromisoformat(row["date"]) > datetime.now(SGT).date():
-            raise ValueError("Future S63 disclosure date")
         existing = by_date.get(row["date"])
         if existing is not None:
             if any(existing[field] != value for field, value in row.items()):

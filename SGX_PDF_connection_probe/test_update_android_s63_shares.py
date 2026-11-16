@@ -25,6 +25,22 @@ class AndroidS63LedgerTests(unittest.TestCase):
         self.assertEqual(update_ledger(self.path, [URL], lambda _: sample()), [])
         self.assertEqual(self.path.read_bytes(), unchanged)
 
+    def test_delayed_notice_keeps_purchase_date_and_broadcast_separate(self):
+        delayed = (sample().replace(b"13-Nov-2026", b"14-Nov-2026")
+                   .replace(b"SG261113OTHR", b"SG261114OTHR"))
+        self.assertEqual(update_ledger(self.path, [URL], lambda _: delayed), ["2026-11-13"])
+        row, = json.loads(self.path.read_text(encoding="utf-8"))["records"]
+        self.assertEqual(row["date"], "2026-11-13")
+        self.assertEqual(row["disclosed_at"], "2026-11-14T18:21:18+08:00")
+
+    def test_rejects_future_broadcast_even_for_an_existing_purchase_date(self):
+        future = (sample().replace(b"13-Nov-2026", b"13-Nov-2099")
+                  .replace(b"SG261113OTHR", b"SG991113OTHR"))
+        baseline = self.path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "Invalid date"):
+            update_ledger(self.path, [URL], lambda _: future)
+        self.assertEqual(self.path.read_bytes(), baseline)
+
     def test_rejects_conflict_and_rolls_back_invalid_batch(self):
         baseline = self.path.read_bytes()
         with self.assertRaisesRegex(ValueError, "official SGXNet"):
