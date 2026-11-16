@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -15,7 +16,14 @@ final class WatchTransitions {
         // The first successful scan only establishes a baseline.
         if (lastDate == null || lastDate.isEmpty()) return Collections.emptyList();
         // Never notify twice for one trading session or for older data.
-        if (!sessionDate.isAfter(LocalDate.parse(lastDate))) return Collections.emptyList();
+        LocalDate baseline;
+        try {
+            baseline = LocalDate.parse(lastDate);
+        } catch (DateTimeParseException error) {
+            // Damaged local history must never trigger a burst of false new-entrant alerts.
+            return Collections.emptyList();
+        }
+        if (!sessionDate.isAfter(baseline)) return Collections.emptyList();
         return JapanScreen.newlyQualified(current, previous);
     }
 }
