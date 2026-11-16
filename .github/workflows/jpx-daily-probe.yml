@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/jpx-daily-probe.yml'
       - 'android-private/tools/jpx_daily_probe.py'
+      - 'android-private/tools/jpx_valuation_probe.py'
+      - 'android-private/tools/fixtures/jpx-annual-reference.json'
 
 permissions:
   contents: read
@@ -47,3 +49,45 @@ jobs:
           curl -fsSL --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202611/stq_20261111.pdf -o "$RUNNER_TEMP/jpx-20261111.pdf"
           python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-list.xlsx" --check 1301 4475 --check 8894 15 --check 1401 1386
           python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-20261111.pdf" "$RUNNER_TEMP/jpx-list.xlsx"
+      - name: Verify a source-checked annual valuation against two official JPX reports
+        run: |
+          for day in 20261029 20261111; do
+            python android-private/tools/jpx_valuation_probe.py "$RUNNER_TEMP/jpx-$day.pdf" "$RUNNER_TEMP/jpx-list.xlsx" android-private/tools/fixtures/jpx-annual-reference.json > "$RUNNER_TEMP/valuations-$day.json"
+          done
+          python - "$RUNNER_TEMP" <<'PY'
+          from datetime import date
+          from decimal import Decimal
+          import json
+          from pathlib import Path
+          import sys
+
+          sys.path.insert(0, "android-private/tools")
+          from jpx_valuation_probe import associate, load_financials
+
+          fixture = load_financials("android-private/tools/fixtures/jpx-annual-reference.json")
+          report_dir = Path(sys.argv[1])
+          for day in ("2026-10-29", "2026-11-11"):
+              result = json.loads((report_dir / f"valuations-{day.replace('-', '')}.json").read_text())
+              assert result["trading_date"] == day
+              assert result["valuation_kind"] == "annual_reference_only"
+              item = result["results"]["1301"]
+              assert item["status"] == "annual_reference"
+              assert item["annual_period_end"] == "2026-03-31"
+              assert item["disclosed_on"] == "2026-05-15"
+              assert Decimal(item["annual_reference_per"]) > 0
+              assert Decimal(item["annual_reference_pbr"]) > 0
+              assert sum(v["status"] == "annual_reference" for v in result["results"].values()) == 1
+              if day == "2026-10-29":
+                  assert Decimal(item["close_jpy"]) == Decimal("4475")
+                  assert item["close_session"] == "afternoon"
+                  assert item["annual_reference_per"] == "7.7688"
+                  assert item["annual_reference_pbr"] == "0.6873"
+
+          # Date-only disclosures on the quote date cannot be safely assumed to pre-date the close.
+          quotes = {"1301": (Decimal("10"), None)}
+          stocks = {"1301": "prime"}
+          assert associate(date(2026, 5, 15), stocks, quotes, set(), fixture)["1301"]["status"] == "financials_not_yet_public"
+          assert associate(date(2026, 5, 16), stocks, quotes, set(), fixture)["1301"]["close_session"] == "morning"
+          assert associate(date(2026, 5, 16), stocks, quotes, {"1301"}, fixture)["1301"]["status"] == "ambiguous_close"
+          print("JPX closing prices and source-checked annual earnings/book value matched on two dates.")
+          PY
