@@ -514,6 +514,9 @@ def check_s63_share_notice(raw, evidence):
     for key, value in fields.items():
         if evidence.get(key) != value:
             raise ValueError(f"S63 share evidence does not match the source: {key}")
+    expected_digest = evidence.get("sgx_share_source_sha256")
+    if expected_digest is not None and expected_digest != notice["source_sha256"]:
+        raise ValueError("S63 share notice hash mismatch")
     if evidence.get("original_sgx_share_snapshot_on_same_date") is not True:
         raise ValueError("S63 share evidence is missing its same-date confirmation")
     print(f"SG:S63 share notice matched, SHA256 {notice['source_sha256']}")
@@ -582,6 +585,7 @@ def main():
         for name, fixture in (
             ("sgx-s63-two-website-close-v129.json", "S63-buyback.html"),
             ("sgx-s63-historical-shares-v423.json", "S63-buyback-2026-10-26.html"),
+            ("sgx-s63-shares-2026-11-16-v479.json", "S63-buyback-2026-11-16.html"),
         ):
             evidence = json.loads((ROOT / "docs/data" / name).read_text())
             source = evidence["sgx_share_source_url"]

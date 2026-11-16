@@ -223,9 +223,10 @@ function main(args) {
     const sgx = loadSnapshot(directory, "latest.json", evidence);
     const shares = loadSnapshot(directory, "sgx-s63-two-website-close-v129.json", evidence);
     const shareReview = [shares].flat();
-    const historicalName = "sgx-s63-historical-shares-v423.json";
-    if (fs.existsSync(path.join(directory, historicalName))) {
-      shareReview.push(loadSnapshot(directory, historicalName, evidence));
+    for (const historicalName of ["sgx-s63-historical-shares-v423.json", "sgx-s63-shares-2026-11-16-v479.json"]) {
+      if (fs.existsSync(path.join(directory, historicalName))) {
+        shareReview.push(loadSnapshot(directory, historicalName, evidence));
+      }
     }
     return {rows: buildMarketRows(research, sgx), shareReview};
   };

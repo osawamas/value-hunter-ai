@@ -876,7 +876,7 @@ async function initMarketResearch() {
       if (!response.ok) throw Error("資料取得 HTTP " + response.status);
       return response.json();
     };
-    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview, s63HistoricalShares, g13HistoricalShares] = await Promise.all([
+    const [research, sgx, g13, s63, s63ShareReview, s63EquityReview, s63HistoricalShares, g13HistoricalShares, s63NovemberShares] = await Promise.all([
       load("market-research-v315.json"), load("latest.json"),
       load("sgx-g13-2026q3-v121.json").catch(() => null),
       load("sgx-s63-9m2026-v125.json").catch(() => null),
@@ -884,6 +884,7 @@ async function initMarketResearch() {
       load("sgx-s63-parent-equity-v395.json").catch(() => null),
       load("sgx-s63-historical-shares-v423.json").catch(() => null),
       load("sgx-g13-june10-shares-v122.json").catch(() => null),
+      load("sgx-s63-shares-2026-11-16-v479.json").catch(() => null),
     ]);
     const updateRows = [];
     const genting = g13?.record;
@@ -988,7 +989,7 @@ async function initMarketResearch() {
     });
     paintAnnual();
     marketRows = rows;
-    shareReview = [s63ShareReview, s63HistoricalShares, g13HistoricalShares];
+    shareReview = [s63ShareReview, s63HistoricalShares, g13HistoricalShares, s63NovemberShares];
     const shareDates = byId("publishedShareDate");
     const shareItems = byId("publishedShareItems");
     const sessions = publishedShareSessions(rows, shareReview);

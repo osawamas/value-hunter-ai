@@ -19,7 +19,7 @@ ENDPOINT = "https://www.alphavantage.co/query"
 CHECKER = Path(__file__).with_name("check-representative-valuations.js")
 FILING_FILES = (
     "market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json",
-    "sgx-s63-historical-shares-v423.json",
+    "sgx-s63-historical-shares-v423.json", "sgx-s63-shares-2026-11-16-v479.json",
 )
 PROVIDER = "Alpha Vantage TIME_SERIES_DAILY"
 

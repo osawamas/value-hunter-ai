@@ -40,7 +40,7 @@ def refresh(destination, previous, export_args, *, require_toyota_refresh=False)
         filing_dir = snapshot / "filings"
         filing_dir.mkdir()
         for name in ("market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json",
-                     "sgx-s63-historical-shares-v423.json"):
+                     "sgx-s63-historical-shares-v423.json", "sgx-s63-shares-2026-11-16-v479.json"):
             copyfile(SCRIPTS.parent / "docs" / "data" / name, filing_dir / name)
         valuation_cli = ["node", SCRIPTS / "check-representative-valuations.js", "--filing-dir", filing_dir]
         if previous is None:

@@ -340,7 +340,7 @@ try {
   const report = JSON.parse(execFileSync(process.execPath, [cli, "--compare", previous, current], {encoding: "utf8"}));
   const hash = name => createHash("sha256").update(fs.readFileSync(name)).digest("hex");
   const evidence = ["market-research-v315.json", "latest.json", "sgx-s63-two-website-close-v129.json",
-    "sgx-s63-historical-shares-v423.json"];
+    "sgx-s63-historical-shares-v423.json", "sgx-s63-shares-2026-11-16-v479.json"];
   assert.deepEqual(report.filingDataSha256, Object.fromEntries(evidence.map(name =>
     [name, hash(path.join(__dirname, "../docs/data", name))])));
   assert.equal(report.snapshots.previous.sha256, hash(previous));
@@ -348,7 +348,8 @@ try {
   assert.deepEqual(report.results.map(row => row.status), Array(3).fill("trial_calculated"));
   assert.equal(report.results[1].valuation.cap, 201 * 945120805);
   assert.deepEqual(report.results[2].newTradingDates, ["2026-11-16"]);
-  assert.deepEqual(report.results[2].newerUnmatchedDates, ["2026-11-16"]);
+  assert.deepEqual(report.results[2].newerUnmatchedDates, []);
+  assert.equal(report.results[2].latestObservedTrials.current.shares, 3115347115);
   const october = path.join(work, "october.csv");
   fs.writeFileSync(october, "market_id,date,currency,close\nSG:S63,2026-10-26,SGD,10");
   const historical = JSON.parse(execFileSync(process.execPath, [cli, "--compare", october, previous], {encoding: "utf8"}));
@@ -366,13 +367,15 @@ try {
   assert.equal(matched.latestTrialCheck.passed, true);
   assert.ok(matched.latestTrialCheck.results.every(row =>
     row.valuation.cap === row.price * row.shares && row.shareSource && row.financeSource));
-  const [fail, missingShares] = strict("--compare", previous, current);
+  const unmatched = path.join(work, "unmatched.csv");
+  fs.writeFileSync(unmatched, fs.readFileSync(current, "utf8").replace("2026-11-16,SGD", "2026-11-17,SGD"));
+  const [fail, missingShares] = strict("--compare", previous, unmatched);
   assert.equal(fail, 2);
   assert.equal(missingShares.latestTrialCheck.passed, false);
   assert.deepEqual(missingShares.latestTrialCheck.results.map(row => [row.id, row.status]), [
     ["JP:7203", "trial_calculated"], ["US:IBM", "trial_calculated"], ["SG:S63", "missing"],
   ]);
-  assert.equal(missingShares.latestTrialCheck.results[2].date, "2026-11-16");
+  assert.equal(missingShares.latestTrialCheck.results[2].date, "2026-11-17");
   const [noQuotes, empty] = strict();
   assert.equal(noQuotes, 2);
   assert.ok(empty.latestTrialCheck.results.every(row => row.status === "missing_close"));
@@ -384,7 +387,7 @@ try {
   const [sameExit, sameSessions] = requiresNew(previous, previous);
   assert.equal(sameExit, 2);
   assert.ok(sameSessions.results.every(row => row.status === "trial_calculated" && !row.hasNewSession));
-  const [laterExit, laterSessions] = requiresNew(previous, current);
+  const [laterExit, laterSessions] = requiresNew(previous, unmatched);
   assert.equal(laterExit, 2);
   assert.equal(laterSessions.results[1].hasNewSession, false, "a correction is not a new session");
   assert.equal(laterSessions.results[2].previousDate, "2026-11-13");

@@ -180,10 +180,10 @@ async function test() {
       code: 1, stderr: /conflicting same-session share counts/,
     });
 
-    body = [{...quote, timestamp: "2026-11-16T09:00:00Z"}];
-    lagging.updated_at_utc = "2026-11-16T11:30:00Z";
+    body = [{...quote, timestamp: "2026-11-17T09:00:00Z"}];
+    lagging.updated_at_utc = "2026-11-17T11:30:00Z";
     fs.writeFileSync(feedFile, JSON.stringify(lagging));
-    await assert.rejects(run(process.execPath, [...args.slice(0, -1), "2026-11-16"], options), {
+    await assert.rejects(run(process.execPath, [...args.slice(0, -1), "2026-11-17"], options), {
       code: 1, stderr: /close and shares need the same Singapore date/,
     });
     body = [quote];

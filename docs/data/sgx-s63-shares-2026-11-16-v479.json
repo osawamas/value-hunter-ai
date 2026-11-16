@@ -1,0 +1,12 @@
+{
+  "schema_version": "sgx-s63-dated-share-notice-v423",
+  "symbol": "S63",
+  "session_date_sgt": "2026-11-16",
+  "original_sgx_share_snapshot_on_same_date": true,
+  "original_sgx_shares_ex_treasury": 3115347115,
+  "sgx_share_source_url": "https://links.sgx.com/1.0.0/corporate-announcements/EE91Z8VP8VZN8PJN/e88920826649e589c68fba0c48aae0681ae2fdb10acb81ab3f82c2bd58a0e36b",
+  "sgx_share_announcement_reference": "SG261116OTHRIIOW",
+  "sgx_share_disclosed_at_sgt": "2026-11-16T18:21:27+08:00",
+  "sgx_share_source_sha256": "7805eddff53fa02d5b5f484b18881ee7a2ae613c9271ad932768aa855be679f9",
+  "ranking_eligible": false
+}

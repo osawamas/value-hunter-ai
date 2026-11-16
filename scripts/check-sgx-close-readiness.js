@@ -116,6 +116,7 @@ function reviewStoredS63(feed, session, close) {
   return reviewS63(feed, require("../docs/data/market-research-v315.json"), [
     require("../docs/data/sgx-s63-two-website-close-v129.json"),
     require("../docs/data/sgx-s63-historical-shares-v423.json"),
+    require("../docs/data/sgx-s63-shares-2026-11-16-v479.json"),
   ], session, close);
 }
 
