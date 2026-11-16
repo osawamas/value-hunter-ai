@@ -1,7 +1,8 @@
 "use strict";
 
 const fs = require("node:fs");
-const {checkFeed, sgxQuoteDate} = require("../docs/sgx-ranking-validation.js");
+const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
+const {checkFeed, sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
 
 // These exclusions describe the old close or calculations replaced below.
 const REPLACED_QUOTE_FLAGS = new Set([
@@ -11,9 +12,13 @@ const REPLACED_QUOTE_FLAGS = new Set([
   "VERIFIED_PBR_LABEL_UNSUPPORTED",
 ]);
 
+const REPLACED_SHARE_FLAGS = new Set([
+  "SHARES_NOT_AVAILABLE", "SHARES_DATE_MISSING", "SHARES_STALE", "SHARES_DATE_IN_FUTURE",
+  "TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH", "SHARE_SOURCE_PDF_SHA256_INVALID",
+]);
+
 function stageQuotes(feed, quotes, grant) {
   const checkedAt = Date.parse(feed.quality_checked_at_utc ?? feed.updated_at_utc);
-  const dayMs = 86400000;
   const baselineErrors = checkFeed(feed);
   if (baselineErrors.length) throw new Error(baselineErrors.join("\n"));
   if (!Array.isArray(quotes) || !quotes.length) throw new Error("Expected at least one SGX quote");
@@ -32,22 +37,51 @@ function stageQuotes(feed, quotes, grant) {
       throw new Error(symbol + ": invalid licensed SGD close or ranking score");
     }
     const session = sgxQuoteDate(quote.timestamp);
-    if (!session || row.shares_as_of_date !== session)
-      throw new Error(symbol + ": close and shares need the same Singapore date");
-    const quoteAge = (checkedAt - Date.parse(quote.timestamp)) / dayMs;
+    if (!session) throw new Error(symbol + ": invalid Singapore close timestamp");
+    const quoteAge = (checkedAt - Date.parse(quote.timestamp)) / 86400000;
     if (quoteAge < -1) throw new Error(symbol + ": incoming close timestamp is in the future");
     const existingSession = sgxQuoteDate(row.quote_timestamp_utc);
     if (existingSession && session < existingSession)
       throw new Error(symbol + ": incoming close predates the published close");
     if (row.ranking_eligible && session === existingSession && quote.close !== row.price_sgd)
       throw new Error(symbol + ": same-session close conflicts with the published close");
+    // S63's SGXNet notices provide exact counts for specific sessions.
+    let replacedShares = false;
+    if (symbol === "S63") {
+      const {matchedShares, conflictingShares} = reviewStoredS63(feed, session);
+      if (conflictingShares || (matchedShares && row.shares_as_of_date === session &&
+          row.shares_outstanding !== matchedShares.value)) {
+        throw new Error(symbol + ": conflicting same-session share counts");
+      }
+      if (matchedShares && row.shares_as_of_date !== session &&
+          (!validDate(row.shares_as_of_date) || row.shares_as_of_date < session) &&
+          Number.isFinite(quoteAge) && quoteAge <= 180) {
+        Object.assign(row, {
+          shares_outstanding: matchedShares.value,
+          shares_as_of_date: session,
+          shares_count_basis: "issued_excluding_treasury",
+          shares_source_url: matchedShares.source,
+          shares_verification_status: "DATE_ANCHORED_RECONCILED",
+          shares_disclosed_at_sgt: matchedShares.disclosedAt,
+          shares_disclosure_timing: matchedShares.disclosureTiming,
+          gross_issued_shares: null,
+          treasury_shares: null,
+          shares_pdf_sha256: null,
+          share_freshness: "RECENT",
+        });
+        replacedShares = true;
+      }
+    }
+    if (row.shares_as_of_date !== session)
+      throw new Error(symbol + ": close and shares need the same Singapore date");
+    const replacedReason = reason => REPLACED_QUOTE_FLAGS.has(reason) ||
+      (replacedShares && REPLACED_SHARE_FLAGS.has(reason)) ||
+      reason === "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE";
     if (!Array.isArray(row.exclusion_reasons) ||
-        row.exclusion_reasons.some(reason => !REPLACED_QUOTE_FLAGS.has(reason) &&
-          reason !== "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE")) {
+        row.exclusion_reasons.some(reason => !replacedReason(reason))) {
       throw new Error(symbol + ": existing financial or publication exclusions remain");
     }
-    const qualityFlags = (row.quality_flags ?? []).filter(flag =>
-      !REPLACED_QUOTE_FLAGS.has(flag) && flag !== "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE");
+    const qualityFlags = (row.quality_flags ?? []).filter(flag => !replacedReason(flag));
     if (qualityFlags.length)
       throw new Error(symbol + ": existing data quality exclusions remain");
     const cap = quote.close * row.shares_outstanding;
@@ -79,6 +113,7 @@ function stageQuotes(feed, quotes, grant) {
     Object.assign(staged.quality_counts, {
       quote_stale: rows.filter(row => row.quote_freshness === "STALE").length,
       quote_missing: rows.filter(row => row.quote_freshness === "MISSING").length,
+      shares_stale: rows.filter(row => row.share_freshness === "STALE").length,
       arithmetically_inconsistent: rows.filter(row =>
         (row.quality_flags ?? []).some(flag => flag.includes("MISMATCH"))).length,
       ranking_eligible: staged.ranking_eligible_count,
