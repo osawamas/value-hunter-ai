@@ -247,10 +247,24 @@ async function test() {
     assert.deepEqual(JSON.parse(valid.stdout), {
       session: matchedSession, closeRetrieval: "retrieved", publicationCheck: "passed",
       validationErrors: [],
+      issuerChecks: [{symbol: "S63", stagingCheck: "passed"}],
     });
     await run("bash", applyArgs, livePreflight);
     assert.match(fs.readFileSync(summary, "utf8"), /"publicationCheck": "passed"/);
     assert.equal(fs.readFileSync(feedFile, "utf8"), input);
+
+    const mixedGrant = {...grant, daily_close_symbols: ["S63", "G13"]};
+    fs.writeFileSync(grantFile, JSON.stringify(mixedGrant));
+    body = [noticeQuote, {...noticeQuote, symbol: "G13"}];
+    const mixed = await run(process.execPath, noticeArgs, preflightOptions);
+    const mixedResult = JSON.parse(mixed.stdout);
+    assert.equal(mixedResult.publicationCheck, "blocked");
+    assert.deepEqual(mixedResult.issuerChecks.map(({symbol, stagingCheck}) => [symbol, stagingCheck]),
+      [["S63", "passed"], ["G13", "blocked"]]);
+    assert.match(mixed.stderr, /G13 valuation preflight: .*NO_MATCHING_SHARE_FILING/);
+    await assert.rejects(run(process.execPath, noticeArgs, options), {code: 1, stdout: ""});
+    assert.equal(fs.readFileSync(feedFile, "utf8"), input);
+    fs.writeFileSync(grantFile, JSON.stringify(grant));
 
     body = [{...noticeQuote, close: 0}];
     await assert.rejects(run("bash", applyArgs, livePreflight), {

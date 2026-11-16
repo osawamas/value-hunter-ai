@@ -117,13 +117,12 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
         new Set(quotes.map(quote => quote.symbol)).size !== quotes.length) {
       throw new QuoteImportError("RESPONSE", "Expected unique licensed SGD closes for the requested session");
     }
-    const s63 = quotes.find(quote => quote.symbol === "S63");
-    if (s63) reportTrial(s63.close);
   }
   const {grant_status, grant_evidence_url, licensor, licensee, licensed_product,
     usage_scopes, valid_from, valid_until} = grant;
   const publicGrant = {grant_status, grant_evidence_url, licensor, licensee,
     licensed_product, usage_scopes, valid_from, valid_until};
+  if (reportTrial) reportTrial(quotes, publicGrant);
   try {
     return stageQuotes(feed, quotes, publicGrant);
   } catch (error) {
@@ -141,19 +140,37 @@ async function main() {
   } catch {
     throw new QuoteImportError("CONFIG", "Could not read the public feed or grant configuration as JSON");
   }
-  const reportTrial = process.env.SGX_PREFLIGHT === "true" ? close => {
-    const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
-    const report = reviewStoredS63(feed, args[2], close);
-    // Keep the preflight result out of both the candidate JSON and the workflow log prices.
-    console.error("S63 valuation preflight: " + JSON.stringify({
-      status: report.trial.status,
-      calculated: Boolean(report.trial.valuation),
-      completeRatios: Number.isFinite(report.trial.valuation?.per) &&
-        Number.isFinite(report.trial.valuation?.pbr),
-      interimStatus: report.interimTrial.status,
-      interimPeriodEnd: report.interimTrial.periodEnd,
-      blockers: report.blockers,
-    }));
+  const issuerChecks = [];
+  const reportTrial = process.env.SGX_PREFLIGHT === "true" ? (quotes, publicGrant) => {
+    const {reviewStoredS63, reviewIssuer} = require("./check-sgx-close-readiness.js");
+    const research = require("../docs/data/market-research-v315.json");
+    const registered = new Set(feed.records.map(row => row.symbol));
+    for (const quote of quotes) {
+      if (!registered.has(quote.symbol)) continue;
+      let validationError;
+      try {
+        stageQuotes(feed, [quote], publicGrant);
+      } catch (error) {
+        validationError = error.message;
+      }
+      issuerChecks.push({
+        symbol: quote.symbol, stagingCheck: validationError ? "blocked" : "passed",
+        ...(validationError && {validationError}),
+      });
+      const report = quote.symbol === "S63" ? reviewStoredS63(feed, args[2], quote.close) :
+        quote.symbol === "G13" ? reviewIssuer(feed, research, [], "G13", args[2], quote.close) : null;
+      if (!report) continue;
+      console.error(quote.symbol + " valuation preflight: " + JSON.stringify({
+        status: report.trial.status,
+        calculated: Boolean(report.trial.valuation),
+        completeRatios: Number.isFinite(report.trial.valuation?.per) && Number.isFinite(report.trial.valuation?.pbr),
+        ...(report.interimTrial && {
+          interimStatus: report.interimTrial.status,
+          interimPeriodEnd: report.interimTrial.periodEnd,
+        }),
+        blockers: report.blockers,
+      }));
+    }
   } : undefined;
   if (reportTrial) {
     let validationErrors;
@@ -169,6 +186,7 @@ async function main() {
       closeRetrieval: "retrieved",
       publicationCheck: validationErrors.length ? "blocked" : "passed",
       validationErrors,
+      issuerChecks,
     }, null, 2) + "\n");
     return;
   }
