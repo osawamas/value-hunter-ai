@@ -11,6 +11,10 @@ on:
       - 'scripts/check-ibm-personal-refresh.py'
 permissions:
   contents: read
+  actions: read
+concurrency:
+  group: ibm-demo-preflight
+  cancel-in-progress: false
 jobs:
   ibm-demo-preflight:
     runs-on: ubuntu-latest
@@ -27,6 +31,8 @@ jobs:
           python-version: '3.12'
       - name: Check IBM price retrieval and dated share evidence
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           report=$(mktemp)
           trap 'rm -f "$report"' EXIT
@@ -36,8 +42,29 @@ jobs:
             echo "IBM preflight failed before producing a valuation report." >> "$GITHUB_STEP_SUMMARY"
             exit "$status"
           fi
+          latest=$(jq -er '.preflightChecks.current.date | select(test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))' "$report")
+          previous_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=ibm-preflight-session&per_page=100" \
+            --jq '[.artifacts[] | select(.expired == false) | .workflow_run.id | select(. != null and . < '"$GITHUB_RUN_ID"')] | max // empty')
+          previous=''
+          if [[ -n "$previous_run" ]]; then
+            gh run download "$previous_run" --repo "$GITHUB_REPOSITORY" --name ibm-preflight-session --dir "$RUNNER_TEMP/ibm-previous"
+            previous=$(cat "$RUNNER_TEMP/ibm-previous/session.txt")
+            [[ "$previous" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
+          fi
+          if [[ -z "$previous" ]]; then
+            update="First recorded trading date ($latest)."
+          elif [[ "$latest" > "$previous" ]]; then
+            update="Trading date advanced from $previous to $latest."
+          elif [[ "$latest" == "$previous" ]]; then
+            update="No new trading date since the preceding recorded run ($latest)."
+          else
+            update="Provider returned an older date ($latest; last recorded: $previous)."
+            latest=$previous
+          fi
           {
             echo '### IBM demo preflight'
+            echo
+            echo "$update"
             echo
             echo '| Trading date | Close retrieval | Valuation | Earlier share disclosure |'
             echo '| --- | --- | --- | --- |'
@@ -47,3 +74,11 @@ jobs:
               echo 'Valuation pending. See the per-session status above.'
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$latest" > "$RUNNER_TEMP/session.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ibm-preflight-session
+          path: ${{ runner.temp }}/session.txt
+          retention-days: 14
+          if-no-files-found: error
+          overwrite: true
