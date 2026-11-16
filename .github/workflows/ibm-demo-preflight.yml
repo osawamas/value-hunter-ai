@@ -1,6 +1,9 @@
 name: IBM demo preflight
 on:
   workflow_dispatch:
+  schedule:
+    # Monday–Friday 23:17 UTC, after the regular US session.
+    - cron: '17 23 * * 1-5'
   push:
     branches: [main]
     paths:
