@@ -14,3 +14,7 @@ the earlier snapshot.
 
 This is a local trial. Public closing-price rights, production daily updates
 and formal ranking remain pending.
+
+In v458, the check also reports the date and source of the latest earlier
+share disclosure when either snapshot lacks same-day evidence. That disclosure
+is for reference and is excluded from the valuation.

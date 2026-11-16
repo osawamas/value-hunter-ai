@@ -430,6 +430,17 @@ try {
   assert.equal(jpUsMissingExit, 2);
   assert.equal(jpUsMissingCheck.results[1].hasNewSession, true);
   assert.equal(jpUsMissingCheck.results[1].status, "missing");
+  assert.equal(jpUsMissingCheck.results[1].referenceShareDate, "2026-09-30");
+  assert.match(jpUsMissingCheck.results[1].referenceShareSource, /^https:\/\/www\.sec\.gov\//);
+  assert.equal(jpUsMissingCheck.results[1].valuation, undefined);
+  fs.writeFileSync(jpUsPrevious, fs.readFileSync(jpUsPrevious, "utf8").replace("2026-06-30,USD", "2026-07-01,USD"));
+  fs.writeFileSync(jpUsCurrent, csv.split("\n").slice(0, 3).join("\n"));
+  const [jpUsMissingBaselineExit, jpUsMissingBaseline] = checkJpUs();
+  assert.equal(jpUsMissingBaselineExit, 2);
+  assert.equal(jpUsMissingBaseline.results[1].status, "trial_calculated");
+  assert.equal(jpUsMissingBaseline.results[1].previousStatus, "no_exact_share_evidence");
+  assert.equal(jpUsMissingBaseline.results[1].previousReferenceShareDate, "2026-06-30");
+  assert.match(jpUsMissingBaseline.results[1].previousReferenceShareSource, /^https:\/\/www\.sec\.gov\//);
 } finally {
   fs.rmSync(work, {recursive: true, force: true});
 }

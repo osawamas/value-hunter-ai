@@ -311,6 +311,10 @@ function main(args) {
         const ratios = previousTrial?.valuation;
         sessionAdvance.previousStatus = previousTrial?.status ?? "missing_close";
         if (previousTrial?.shareConflicts) sessionAdvance.previousShareConflicts = previousTrial.shareConflicts;
+        if (previousTrial?.referenceShareDate) {
+          sessionAdvance.previousReferenceShareDate = previousTrial.referenceShareDate;
+          sessionAdvance.previousReferenceShareSource = previousTrial.referenceShareSource;
+        }
         if (previousTrial?.status === "trial_calculated" &&
             !(Number.isFinite(ratios?.per) && Number.isFinite(ratios?.pbr))) {
           sessionAdvance.previousStatus = "incomplete_ratios";
@@ -324,6 +328,7 @@ function main(args) {
           "trial_calculated" : "incomplete_ratios";
       return {id, date: quote.date, status, price: quote.price, shares: trial.shares,
         shareSource: trial.shareSource, shareConflicts: trial.shareConflicts,
+        referenceShareDate: trial.referenceShareDate, referenceShareSource: trial.referenceShareSource,
         financeSource: trial.financeSource, valuation, ...sessionAdvance};
     });
     const passed = checks.every(check => check.status === "trial_calculated" &&
