@@ -34,6 +34,8 @@ function reviewIssuer(feed, research, notices, symbol, session, close) {
   const sessions = publishedShareSessions(rows, notices);
   const matched = sessions.get(session)?.[0];
   const conflicts = conflictingFilingShares(issuer, session, notices);
+  const previous = [...sessions].find(([date]) => date < session);
+  const previousShares = previous ? {date: previous[0], ...previous[1][0]} : null;
   const {shares_as_of_date: feedShareDate, shares_outstanding: feedShares,
     shares_count_basis: shareBasis, exclusion_reasons: exclusions,
     independent_cross_source_verification: independentFinancials} = issuer.sgxEvidence;
@@ -55,6 +57,7 @@ function reviewIssuer(feed, research, notices, symbol, session, close) {
     symbol: issuer.symbol,
     session,
     matchedShares: matched ?? null,
+    previousShares,
     conflictingShares: conflicts ?? null,
     availableShareDates: [...sessions.keys()],
     currentFeedShareDate: feedShareDate,
