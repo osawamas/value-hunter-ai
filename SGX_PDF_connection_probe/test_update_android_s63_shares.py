@@ -1,0 +1,41 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from sgx_s63_buyback_v109 import URL
+from test_sgx_s63_buyback_v109 import sample
+from update_android_s63_shares import update_ledger
+
+
+class AndroidS63LedgerTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.path = Path(directory.name) / "shares.json"
+        self.path.write_text('{"schema":1,"symbol":"S63","records":[]}', encoding="utf-8")
+
+    def test_ingests_verified_notice_once(self):
+        self.assertEqual(update_ledger(self.path, [URL, URL], lambda _: sample()), ["2026-11-13"])
+        row, = json.loads(self.path.read_text())["records"]
+        self.assertEqual(row["shares"], 3_115_847_115)
+        self.assertEqual(row["disclosed_at"], "2026-11-13T18:21:18+08:00")
+        self.assertEqual(row["source"], URL)
+        unchanged = self.path.read_bytes()
+        self.assertEqual(update_ledger(self.path, [URL], lambda _: sample()), [])
+        self.assertEqual(self.path.read_bytes(), unchanged)
+
+    def test_rejects_conflict_and_rolls_back_invalid_batch(self):
+        baseline = self.path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "official SGXNet"):
+            update_ledger(self.path, [URL, "https://example.com/notice"], lambda _: sample())
+        self.assertEqual(self.path.read_bytes(), baseline)
+        update_ledger(self.path, [URL], lambda _: sample())
+        baseline = self.path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "Conflicting S63"):
+            update_ledger(self.path, [URL], lambda _: sample().replace(b"3,115,847,115", b"3,115,800,000"))
+        self.assertEqual(self.path.read_bytes(), baseline)
+
+
+if __name__ == "__main__":
+    unittest.main()

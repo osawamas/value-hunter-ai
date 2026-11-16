@@ -1,0 +1,77 @@
+name: Android S63 share ledger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-s63-shares.yml'
+      - 'SGX_PDF_connection_probe/*sgx_s63_buyback_v109.py'
+      - 'SGX_PDF_connection_probe/*update_android_s63_shares.py'
+      - 'docs/data/android-s63-shares.json'
+  workflow_dispatch:
+    inputs:
+      notice_url:
+        description: Full official SGXNet S63 daily buyback notice URL
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: |
+          python3 -m unittest discover -s SGX_PDF_connection_probe -p 'test_sgx_s63_buyback_v109.py'
+          python3 -m unittest discover -s SGX_PDF_connection_probe -p 'test_update_android_s63_shares.py'
+
+  verify-original:
+    if: github.event_name == 'push'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compare a registered date with the official SGXNet original
+        run: |
+          ledger="$RUNNER_TEMP/s63-shares.json"
+          cp docs/data/android-s63-shares.json "$ledger"
+          python3 SGX_PDF_connection_probe/update_android_s63_shares.py --ledger "$ledger" \
+            'https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92'
+          cmp docs/data/android-s63-shares.json "$ledger"
+
+  register:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: android-s63-share-ledger
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Verify the original SGXNet notice and append its dated shares
+        env:
+          NOTICE_URL: ${{ inputs.notice_url }}
+        run: python3 SGX_PDF_connection_probe/update_android_s63_shares.py -- "$NOTICE_URL"
+      - name: Save the verified share ledger
+        run: |
+          if git diff --quiet -- docs/data/android-s63-shares.json; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data/android-s63-shares.json
+          git commit -m 'data(android): register verified S63 share disclosure'
+          git push origin HEAD:main
