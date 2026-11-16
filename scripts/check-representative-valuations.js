@@ -195,7 +195,8 @@ function main(args) {
     args = args.slice(2);
   }
   const requireToyotaRefresh = args[0] === "--require-toyota-refresh";
-  const requireBothTrials = requireToyotaRefresh || args[0] === "--require-both-trials";
+  const requireJpUsRefresh = args[0] === "--require-jp-us-refresh";
+  const requireBothTrials = requireToyotaRefresh || requireJpUsRefresh || args[0] === "--require-both-trials";
   const requireNewSessions = requireBothTrials || args[0] === "--require-new-sessions";
   const requireLatestTrials = requireNewSessions || args[0] === "--require-latest-trials";
   if (requireLatestTrials) args = args.slice(1);
@@ -212,7 +213,7 @@ function main(args) {
     throw Error("The requested session check requires a two-snapshot comparison");
   }
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--previous-filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions | --require-both-trials | --require-toyota-refresh] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--previous-filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions | --require-both-trials | --require-toyota-refresh | --require-jp-us-refresh] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
   const loadFilings = (directory, evidence) => {
@@ -295,7 +296,9 @@ function main(args) {
   }
   if (requireLatestTrials) {
     const newest = selectQuoteDate(currentQuotes);
-    const checkedIssuers = requireToyotaRefresh ? ["JP:7203"] : representatives;
+    let checkedIssuers = representatives;
+    if (requireToyotaRefresh) checkedIssuers = ["JP:7203"];
+    if (requireJpUsRefresh) checkedIssuers = ["JP:7203", "US:IBM"];
     const checks = checkedIssuers.map(id => {
       const quote = newest.get(id);
       const comparison = requireNewSessions ? report.results.find(row => row.id === id) : null;
@@ -328,6 +331,7 @@ function main(args) {
       (!requireBothTrials || check.previousStatus === "trial_calculated"));
     report.latestTrialCheck = {passed, results: checks};
     if (requireToyotaRefresh) report.latestTrialCheck.scope = "jquants_personal_toyota";
+    if (requireJpUsRefresh) report.latestTrialCheck.scope = "local_trial_jp_us";
     if (!passed) process.exitCode = 2;
   }
   if (notices.length) report.s63ShareNotices = notices;

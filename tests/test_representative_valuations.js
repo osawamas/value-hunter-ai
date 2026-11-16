@@ -405,6 +405,31 @@ try {
     "--previous-filing-dir", path.join(__dirname, "../docs/data"));
   assert.equal(wrongBaseline, 2, "current filings must not backfill an explicit previous snapshot");
   assert.ok(wrongCheck.results.every(row => row.previousStatus === "no_exact_share_evidence"));
+
+  const jpUsPrevious = path.join(work, "jp-us-previous.csv");
+  const jpUsCurrent = path.join(work, "jp-us-current.csv");
+  fs.writeFileSync(jpUsPrevious, [
+    "market_id,date,currency,close",
+    "JP:7203,2026-03-31,JPY,2900",
+    "US:IBM,2026-06-30,USD,200",
+  ].join("\n"));
+  fs.writeFileSync(jpUsCurrent, csv.split("\n").slice(0, 3).join("\n"));
+  const checkJpUs = () => {
+    const result = spawnSync(process.execPath,
+      [cli, "--require-jp-us-refresh", "--compare", jpUsPrevious, jpUsCurrent], {encoding: "utf8"});
+    assert.equal(result.stderr, "");
+    return [result.status, JSON.parse(result.stdout).latestTrialCheck];
+  };
+  const [jpUsExit, jpUsCheck] = checkJpUs();
+  assert.equal(jpUsExit, 0);
+  assert.equal(jpUsCheck.scope, "local_trial_jp_us");
+  assert.deepEqual(jpUsCheck.results.map(row => row.id), ["JP:7203", "US:IBM"]);
+  assert.ok(jpUsCheck.results.every(row => row.hasNewSession && row.previousStatus === "trial_calculated"));
+  fs.writeFileSync(jpUsCurrent, fs.readFileSync(jpUsCurrent, "utf8").replace("2026-09-30,USD", "2026-11-13,USD"));
+  const [jpUsMissingExit, jpUsMissingCheck] = checkJpUs();
+  assert.equal(jpUsMissingExit, 2);
+  assert.equal(jpUsMissingCheck.results[1].hasNewSession, true);
+  assert.equal(jpUsMissingCheck.results[1].status, "missing");
 } finally {
   fs.rmSync(work, {recursive: true, force: true});
 }
