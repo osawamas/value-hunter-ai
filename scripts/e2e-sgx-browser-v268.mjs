@@ -280,7 +280,7 @@ try {
  assert.equal(await rankingPage.locator("#stockRows tr").count(),1);
  await rankingPage.locator("#stockRows button").click();
  await rankingPage.locator("#detailContent").getByText("正式評価",{exact:true}).waitFor();
- await rankingPage.locator("#detailContent").getByText(/75%（利益と純資産の対時価総額比率の平均）/).waitFor();
+ await rankingPage.locator("#detailContent").getByText(/75\.00%（利益と純資産の対時価総額比率の平均）/).waitFor();
  await rankingPage.locator("#fileInput").setInputFiles({
   name:"ranking.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(publicFeed)),
  });
