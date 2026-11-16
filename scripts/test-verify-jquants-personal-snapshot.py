@@ -26,9 +26,9 @@ class SnapshotTests(unittest.TestCase):
         timestamp = "2026-10-01T00:00:00.000001Z"
         close = "2500"
 
-        def capture(command):
+        def capture(command, **kwargs):
             if Path(command[1]).name != "export-jquants-personal-quotes.py":
-                return original_capture(command)
+                return original_capture(command, **kwargs)
             output = command[command.index("--output") + 1]
             raw = f"market_id,date,currency,close\nJP:7203,2026-09-30,JPY,{close}\n".encode()
             output.write_bytes(raw)
@@ -53,6 +53,13 @@ class SnapshotTests(unittest.TestCase):
             self.assertEqual((baseline / "quotes.csv").read_bytes(), original)
 
             timestamp = "2026-10-01T00:00:00.000002Z"
+            incomplete = self.csv.with_name("incomplete")
+            self.assertEqual(refresher.refresh(incomplete, baseline, [], require_toyota_refresh=True), 2)
+            check = json.loads((incomplete / "report.json").read_text())["latestTrialCheck"]
+            self.assertFalse(check["passed"])
+            self.assertEqual(check["scope"], "jquants_personal_toyota")
+            self.assertEqual([(row["id"], row["hasNewSession"]) for row in check["results"]],
+                             [("JP:7203", False)])
             close = "2501"
             baseline_filings = baseline / "filings"
             refresher.refresh(current, baseline, [])
@@ -79,6 +86,33 @@ class SnapshotTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "already exists"):
                 refresher.refresh(current, baseline, [])
             self.assertFalse(list(current.parent.glob(".jquants-*")))
+
+    def test_toyota_refresh_accepts_two_sessions_with_dated_evidence(self):
+        previous = self.csv
+        previous.write_text("market_id,date,currency,close\nJP:7203,2026-03-31,JPY,2900\n")
+        self.record["requested_period"] = {"first": "2026-03-31", "last": "2026-03-31"}
+        self.record["retrieved_at_utc"] = "2026-04-01T00:00:00Z"
+        self.save()
+        current = previous.with_name("current.csv")
+        current.write_text("market_id,date,currency,close\nJP:7203,2026-09-30,JPY,2500\n")
+        current_receipt = previous.with_name("current.json")
+        current_receipt.write_text(json.dumps({
+            **self.record, "requested_period": {"first": "2026-09-30", "last": "2026-09-30"},
+            "retrieved_at_utc": "2026-10-01T00:00:00Z",
+            "csv_sha256": hashlib.sha256(current.read_bytes()).hexdigest(),
+        }))
+        cli = Path(__file__).with_name("check-representative-valuations.js")
+        run = subprocess.run([
+            "node", cli, "--require-toyota-refresh", "--compare-jquants",
+            previous, self.receipt, current, current_receipt,
+        ], check=True, capture_output=True, text=True)
+        check = json.loads(run.stdout)["latestTrialCheck"]
+        self.assertTrue(check["passed"])
+        self.assertEqual([row["id"] for row in check["results"]], ["JP:7203"])
+        row = check["results"][0]
+        self.assertTrue(row["hasNewSession"])
+        self.assertEqual(row["previousStatus"], "trial_calculated")
+        self.assertEqual(row["valuation"]["cap"], 2500 * 11778247313)
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

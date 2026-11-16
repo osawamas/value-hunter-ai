@@ -168,13 +168,17 @@ function main(args) {
     s63NoticeUrls.add(args[1]);
     args = args.slice(2);
   }
-  const requireBothTrials = args[0] === "--require-both-trials";
+  const requireToyotaRefresh = args[0] === "--require-toyota-refresh";
+  const requireBothTrials = requireToyotaRefresh || args[0] === "--require-both-trials";
   const requireNewSessions = requireBothTrials || args[0] === "--require-new-sessions";
   const requireLatestTrials = requireNewSessions || args[0] === "--require-latest-trials";
   if (requireLatestTrials) args = args.slice(1);
   const refresh = args[0] === "--compare" && args.length === 3;
   const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
   const verifiedSnapshot = args[0] === "--jquants" && args.length === 3;
+  if (requireToyotaRefresh && !verifiedRefresh) {
+    throw Error("--require-toyota-refresh requires --compare-jquants");
+  }
   if (previousFilingDirectory && !refresh && !verifiedRefresh) {
     throw Error("--previous-filing-dir requires a two-snapshot comparison");
   }
@@ -182,7 +186,7 @@ function main(args) {
     throw Error("The requested session check requires a two-snapshot comparison");
   }
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--previous-filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions | --require-both-trials] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--previous-filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions | --require-both-trials | --require-toyota-refresh] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
   const loadFilings = (directory, evidence) => {
@@ -260,7 +264,8 @@ function main(args) {
   }
   if (requireLatestTrials) {
     const newest = selectQuoteDate(currentQuotes);
-    const checks = representatives.map(id => {
+    const checkedIssuers = requireToyotaRefresh ? ["JP:7203"] : representatives;
+    const checks = checkedIssuers.map(id => {
       const quote = newest.get(id);
       const comparison = requireNewSessions ? report.results.find(row => row.id === id) : null;
       const previousDate = comparison?.quoteCoverage.previous?.last ?? null;
@@ -289,6 +294,7 @@ function main(args) {
       (!requireNewSessions || check.hasNewSession) &&
       (!requireBothTrials || check.previousStatus === "trial_calculated"));
     report.latestTrialCheck = {passed, results: checks};
+    if (requireToyotaRefresh) report.latestTrialCheck.scope = "jquants_personal_toyota";
     if (!passed) process.exitCode = 2;
   }
   if (notices.length) report.s63ShareNotices = notices;
