@@ -16,6 +16,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import androidx.work.WorkManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -106,6 +107,23 @@ public final class MainActivity extends Activity {
             ScanWorker.testNotification(this);
         });
         content.addView(test);
+
+        var erase = new Button(this);
+        erase.setText("この端末のAPIキー・監視履歴を消去");
+        erase.setOnClickListener(view -> {
+            // Stop every private scan before erasing its locally stored credentials.
+            var work = WorkManager.getInstance(this);
+            work.cancelUniqueWork("japan-watch");
+            work.cancelUniqueWork("japan-check-now");
+            work.cancelUniqueWork("us-watch");
+            work.cancelUniqueWork("us-check-now");
+            work.cancelUniqueWork("sg-check-now");
+            state.edit().clear().commit();
+            getSystemService(NotificationManager.class).cancelAll();
+            key.setText("");
+            render();
+        });
+        content.addView(erase);
 
         var usTitle = new TextView(this);
         usTitle.setText("米国株 · IBM接続試験");
