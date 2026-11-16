@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'android-private/**'
+      - 'docs/data/android-s63-shares.json'
       - '.github/workflows/android-private.yml'
 
 permissions:
@@ -32,5 +33,7 @@ jobs:
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:mergeDebugAssets
       - name: Confirm the private APK was built (do not publish it)
         run: test -s app/build/outputs/apk/debug/app-debug.apk
-      - name: Verify the bundled disclosure asset matches the ledger
-        run: cmp ../docs/data/android-s63-shares.json app/build/generated/s63LedgerAssets/android-s63-shares.json
+      - name: Verify the packaged disclosure asset matches the ledger
+        run: |
+          unzip -p app/build/outputs/apk/debug/app-debug.apk assets/android-s63-shares.json > "$RUNNER_TEMP/packaged-s63-shares.json"
+          cmp ../docs/data/android-s63-shares.json "$RUNNER_TEMP/packaged-s63-shares.json"
