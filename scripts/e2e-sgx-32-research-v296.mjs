@@ -239,8 +239,8 @@ try{
  await page.locator("#personalBatchDownload").click();
  const growthCsv = fs.readFileSync(await (await growthDownload).path(),"utf8");
  assert.match(growthCsv,/annual_sales_growth_pct,annual_parent_equity_ratio_pct/);
- assert.match(growthCsv,/annual_net_income,annual_parent_equity,per_unavailable_reason,pbr_unavailable_reason\r?\n/);
- assert.match(growthCsv,/"JP:7203"[^\r\n]*,3848098000000,39918854000000,,\r?\n/);
+ assert.match(growthCsv,/annual_net_income,annual_parent_equity,per_unavailable_reason,pbr_unavailable_reason,interim_valuation_basis/);
+ assert.match(growthCsv,/"JP:7203"[^\r\n]*,3848098000000,39918854000000,{10}\r?\n/);
  assert.doesNotMatch(growthCsv,/"US:AAPL"/);
  await page.locator("#personalBatchMinSales").fill("");
  await page.locator("#personalBatchMinEquity").fill("");
