@@ -30,7 +30,7 @@ final class SgShareLedger {
             }
             long count;
             try {
-                count = Long.parseLong(row.getString("shares"));
+                count = Long.parseLong(row.get("shares").toString());
             } catch (NumberFormatException error) {
                 throw new JSONException("Invalid share count");
             }
