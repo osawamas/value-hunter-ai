@@ -1,6 +1,6 @@
 {
   "schema_version": "sgx-s63-buyback-original-v109",
-  "attempted_at_utc": "2026-11-15T18:19:13.820353+00:00",
+  "attempted_at_utc": "2026-11-16T22:47:48.587650+00:00",
   "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92",
   "status": "SGX_PRIMARY_BUYBACK_13NOV2026_HISTORICAL_SNAPSHOT",
   "record": {
@@ -10,6 +10,7 @@
     "symbol": "S63",
     "isin": "SG1F60858221",
     "reference": "SG261113OTHRPXGV",
+    "announcement_status": "New",
     "broadcast_sgt_text": "13-Nov-2026 18:21:18",
     "purchase_date": "2026-11-13",
     "shares_purchased": 500000,
