@@ -1,6 +1,8 @@
 """Offline tests for IBM daily-close retrieval and filing reconciliation."""
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from contextlib import redirect_stdout
+from io import StringIO
 import json
 from tempfile import TemporaryDirectory
 import unittest
@@ -14,6 +16,31 @@ spec.loader.exec_module(refresh)
 
 
 class IBMRefreshTests(unittest.TestCase):
+    def test_latest_two_uses_provider_trading_dates_and_reports_missing_shares(self):
+        payload = {
+            "Meta Data": {"2. Symbol": "IBM"},
+            "Time Series (Daily)": {
+                "2026-11-13": {"4. close": "201"},
+                "2026-09-29": {"4. close": "199"},
+                "2026-09-30": {"4. close": "200"},
+            },
+        }
+        closes = refresh.read_closes(payload, None)
+        self.assertEqual(list(closes), ["2026-09-30", "2026-11-13"])
+        with patch("sys.argv", ["check-ibm-personal-refresh.py", "--demo", "--latest-two"]), \
+                patch.object(refresh, "fetch_closes", return_value=(closes, "2026-11-16T07:00:00+00:00")) as fetch, \
+                redirect_stdout(StringIO()) as output:
+            self.assertEqual(refresh.main(), 2)
+        fetch.assert_called_once()
+        self.assertIsNone(fetch.call_args.args[1])
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["latestObservedTrials"]["current"]["status"], "no_exact_share_evidence")
+        self.assertFalse(report["publicRankingEligible"])
+        del payload["Time Series (Daily)"]["2026-09-29"]
+        del payload["Time Series (Daily)"]["2026-09-30"]
+        with self.assertRaisesRegex(ValueError, "fewer than two"):
+            refresh.read_closes(payload, None)
+
     def test_daily_closes_with_and_without_share_evidence(self):
         days = ("2026-09-30", "2026-11-13")
         payload = {

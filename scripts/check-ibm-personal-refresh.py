@@ -40,6 +40,10 @@ def read_closes(payload, dates):
     series = payload.get("Time Series (Daily)")
     if metadata.get("2. Symbol") != "IBM" or not isinstance(series, dict):
         raise ValueError("The response does not identify an IBM daily series.")
+    if dates is None:
+        dates = sorted(trading_date(day) for day in series)[-2:]
+        if len(dates) != 2:
+            raise ValueError("Alpha Vantage returned fewer than two IBM trading dates.")
     result = {}
     for day in dates:
         if day not in series:
@@ -181,15 +185,21 @@ def save_refresh(destination, previous, query, day, *, demo):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--demo", action="store_true", help="Use the public IBM example key")
+    parser.add_argument("--latest-two", action="store_true",
+                        help="Compare the two latest trading dates returned by the API")
     parser.add_argument("--separate-requests", action="store_true",
                         help="Fetch each date through a separate API request")
     parser.add_argument("--output-dir", type=Path, help="Save one local snapshot")
     parser.add_argument("--previous-dir", type=Path, help="Compare with an earlier saved snapshot")
-    parser.add_argument("previous", type=trading_date, help="First date, or the only date with --output-dir")
+    parser.add_argument("previous", nargs="?", type=trading_date,
+                        help="First date, or the only date with --output-dir")
     parser.add_argument("current", nargs="?", type=trading_date)
     args = parser.parse_args()
-    if args.output_dir:
-        if args.current or args.separate_requests:
+    if args.latest_two:
+        if args.previous or args.output_dir or args.previous_dir or args.separate_requests:
+            parser.error("--latest-two uses one request and accepts no dates or snapshot directories")
+    elif args.output_dir:
+        if not args.previous or args.current or args.separate_requests:
             parser.error("--output-dir accepts a single trading date")
     elif args.previous_dir or args.current is None:
         parser.error("provide two dates, or use --output-dir with one date")
@@ -204,14 +214,14 @@ def main():
             status = save_refresh(args.output_dir, args.previous_dir, query, args.previous, demo=args.demo)
             print(args.output_dir / "report.json")
             return status
-        dates = (args.previous, args.current)
+        dates = None if args.latest_two else (args.previous, args.current)
         request_dates = [(day,) for day in dates] if args.separate_requests else [dates]
         closes, retrieved_at = {}, []
         for requested in request_dates:
             observations, stamp = fetch_closes(query, requested)
             closes.update(observations)
             retrieved_at.append(stamp)
-        report = compare(closes, *dates, demo=args.demo, retrieved_at=retrieved_at)
+        report = compare(closes, *(dates or sorted(closes)), demo=args.demo, retrieved_at=retrieved_at)
     except HTTPError as error:
         parser.exit(1, f"Alpha Vantage returned HTTP {error.code}.\n")
     except (URLError, TimeoutError, OSError, subprocess.CalledProcessError, json.JSONDecodeError):
