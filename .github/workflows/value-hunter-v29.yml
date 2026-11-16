@@ -133,7 +133,7 @@ on:
         type: string
         required: false
       sgx_preflight:
-        description: 'Validate the licensed close without recording history or publishing.'
+        description: 'Review SGX evidence without publishing; try the licensed close if a grant is configured.'
         type: boolean
         default: false
   schedule:

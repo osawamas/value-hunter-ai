@@ -144,6 +144,17 @@ async function test() {
     assert.deepEqual(fs.readFileSync(indexFile), publishedHistory);
     const realFeed = fs.readFileSync(path.join(__dirname, "../docs/data/latest.json"));
     fs.writeFileSync(feedFile, realFeed);
+    const evidenceOnlyOptions = {env: {...applyOptions.env, SGX_PREFLIGHT: "true", SGX_CLOSE_GRANT_JSON: ""}};
+    const requestCount = requests.length;
+    const evidenceOnly = await run("bash", applyArgs, evidenceOnlyOptions);
+    assert.match(evidenceOnly.stdout, /3115847115/);
+    assert.match(evidenceOnly.stdout, /Evidence-only SGX preflight/);
+    assert.equal(requests.length, requestCount);
+    assert.deepEqual(fs.readFileSync(feedFile), realFeed);
+    await assert.rejects(run("bash", applyArgs, {
+      env: {...evidenceOnlyOptions.env, SGX_PREFLIGHT: "false"},
+    }), {code: 1, stdout: /reviewed SGX close grant/});
+
     await assert.rejects(run(process.execPath, args, {
       ...options, env: {...options.env, SGX_PREFLIGHT: "true"},
     }), error => {

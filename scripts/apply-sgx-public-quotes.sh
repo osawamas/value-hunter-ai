@@ -15,7 +15,12 @@ if [ "${SGX_PREFLIGHT:-}" = true ]; then
 fi
 
 if [ -z "${SGX_CLOSE_GRANT_JSON:-}" ]; then
-  if [ "${SGX_PREFLIGHT:-}" = true ] || [ -n "${SGX_REQUESTED_SESSION:-}" ]; then
+  if [ "${SGX_PREFLIGHT:-}" = true ]; then
+    echo "Evidence-only SGX preflight: share and financial checks ran; licensed close retrieval was skipped."
+    echo "SGX preflight completed without fetching a close because no reviewed grant is configured." >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+    exit 0
+  fi
+  if [ -n "${SGX_REQUESTED_SESSION:-}" ]; then
     echo "::error::A reviewed SGX close grant must be configured for this run."
     exit 1
   fi
