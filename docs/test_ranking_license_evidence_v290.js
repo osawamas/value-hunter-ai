@@ -48,3 +48,32 @@ reject(r=>{r.market_data_license_evidence.valid_from="2026-02-30"},"validity dat
 reject(r=>{r.market_data_license_evidence.valid_from="2026-11-14";r.market_data_license_evidence.valid_until="2026-11-15"},"outside license validity");
 reject(r=>{r.quote_url="invalid"},"origin URL");
 console.log("v290 PASS: 2026 official policy research and positive/negative grant evidence guard; no actual rights asserted");
+
+const {stageQuotes}=require("../scripts/stage-sgx-public-quotes.js");
+const baseline=structuredClone(data);
+const previous=baseline.records[0];
+previous.ranking_eligible=false;
+previous.ranking_score=null;
+baseline.ranking_eligible_count=0;
+baseline.ranking_enabled=false;
+const grant=previous.market_data_license_evidence;
+const incoming={
+  symbol:previous.symbol,currency:"SGD",close:2.5,source_type:"LICENSED_SGX_EQUITY",
+  source_url:"https://example.org/close",timestamp:"2026-11-13T09:00:00Z",ranking_score:25,
+};
+const staged=stageQuotes(baseline,[incoming],grant);
+assert.equal(staged.ranking_eligible_count,1);
+assert.equal(staged.records[0].market_cap_sgd,Number((2.5*previous.shares_outstanding).toFixed(2)));
+assert.equal(staged.records[0].pbr_verified,Number((2.5*previous.shares_outstanding/
+  (1000*previous.parent_equity_sgd_thousands)).toFixed(4)));
+assert.equal(baseline.records[0].ranking_eligible,false);
+assert.deepEqual(checkFeed(staged),[]);
+assert.deepEqual(stageQuotes(staged,[incoming],grant),staged);
+assert.throws(()=>stageQuotes(staged,[{...incoming,close:3}],grant),/same-session close conflicts/);
+assert.throws(()=>stageQuotes(baseline,[incoming],{...grant,usage_scopes:
+  grant.usage_scopes.filter(scope=>scope!=="REDISTRIBUTION")}),/usage scopes/);
+assert.throws(()=>stageQuotes(baseline,[incoming,{...incoming,currency:"USD"}],grant),/repeated/);
+assert.throws(()=>stageQuotes(baseline,[{...incoming,timestamp:"2026-11-16T09:00:00Z"}],grant),/same Singapore date/);
+assert.throws(()=>stageQuotes(real,[{...incoming,timestamp:real.records[0].shares_as_of_date+"T09:00:00Z"}],grant),
+  /existing financial or publication exclusions remain|predates/);
+console.log("v431 PASS: stage licensed closes atomically with dated share and financial gates");
