@@ -278,6 +278,26 @@ def toyota_financials(raw, record):
         raise ValueError("Toyota March share capital mismatch")
 
 
+def check_toyota_month_end_treasury(raw, report):
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != report["source_sha256"]:
+        raise ValueError("Toyota EDINET monthly report hash mismatch")
+    cover = pdf_text(raw, 1)
+    holding = pdf_text(raw, 3, first_page=3)
+    as_of = dt.date.fromisoformat(report["as_of"])
+    filed = dt.date.fromisoformat(report["filed"])
+    if ("【提出日】" not in cover or f"{filed.year}年{filed.month}月{filed.day}日" not in cover
+            or "トヨタ自動車株式会社(E02144)" not in holding
+            or f"{as_of.year}年{as_of.month}月{as_of.day}日現在" not in holding
+            or report["scope"] != "ISSUER_HELD_TREASURY_EXCLUDES_ESOP_TRUST"
+            or "株式付与ESOP信託が保有する当社株式は含まれておりません" not in holding):
+        raise ValueError("Toyota EDINET monthly report scope mismatch")
+    for key, label in (("issued", "発行済株式総数"), ("treasury", "保有自己株式数")):
+        if filing_column(holding, label, 0) != report[key]:
+            raise ValueError(f"Toyota monthly {key} count mismatch")
+    print(f"JP:7203 EDINET month-end {as_of} shares matched, SHA256 {digest}")
+
+
 def japanese_financials(raw, record):
     text = pdf_text(raw, 2).translate(str.maketrans("　０１２３４５６７８９", " 0123456789"))
     finance = record["financials"]
@@ -570,6 +590,9 @@ def main():
                 raw = source_bytes(record["quarterly"]["source"], record["symbol"] + ".pdf")
                 japanese_interim(raw, record)
                 print(f"{record['id']} interim matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
+            if record["id"] == "JP:7203":
+                report = record["month_end_treasury_report"]
+                check_toyota_month_end_treasury(source_bytes(report["source"], "7203-edinet.pdf"), report)
         return
 
     if args.sec_originals_only:

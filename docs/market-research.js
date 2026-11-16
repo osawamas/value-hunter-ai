@@ -1053,6 +1053,16 @@ async function initMarketResearch() {
           if (url?.startsWith("https://")) line.append(" ", link(url, label + "出典"));
           detail.append(line);
         }
+        const monthEnd = row.month_end_treasury_report;
+        if (monthEnd?.scope === "ISSUER_HELD_TREASURY_EXCLUDES_ESOP_TRUST" &&
+            isMarketDate(monthEnd.as_of) && isMarketDate(monthEnd.filed) &&
+            Number.isSafeInteger(monthEnd.issued) && Number.isSafeInteger(monthEnd.treasury) &&
+            monthEnd.treasury >= 0 && monthEnd.issued > monthEnd.treasury) {
+          const line = element("div", "EDINET月末開示 " + monthEnd.as_of + "・差引 " +
+            money.format(monthEnd.issued - monthEnd.treasury) + "株（会社保有の自己株式を控除。ESOP信託保有分は控除対象外。終値の照合には未使用） ");
+          line.append(link(monthEnd.source, "EDINET自己株券買付状況報告書"));
+          detail.append(line);
+        }
         if (evidence.supplementalShare) {
           const {as_of: date, value, source} = evidence.supplementalShare;
           const label = date === evidence.quoteDate ? "別資料の同日株数 " : "別資料の開示株数 ";

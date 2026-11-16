@@ -135,6 +135,8 @@ try{
  assert.match(await page.locator("#marketDetailTitle").innerText(),/トヨタ/);
  await page.locator("#marketRows summary").click();
  assert.match(await page.locator("#marketRows details").innerText(),/2026-09-30.*公開用の株価データが未接続/s);
+ assert.match(await page.locator("#marketRows details").innerText(),/EDINET月末開示 2026-10-31・差引 11,737,603,369株/);
+ assert.match(await page.getByRole("link",{name:"EDINET自己株券買付状況報告書"}).getAttribute("href"),/S100ZH9B\.pdf$/);
  assert.match(await page.locator("#marketRows details").innerText(),/財務 2026-03-31.*株価の公開利用許諾が未確認/s);
  assert.match(await page.locator("#marketRows").getByRole("link",{name:"財務出典"}).getAttribute("href"),/global\.toyota.*2026_4q_summary/);
  assert.match(await page.locator("#marketQuarterlyTitle").innerText(),/累計決算/);

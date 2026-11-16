@@ -262,6 +262,15 @@
           "value": 13033384474
         }
       },
+      "month_end_treasury_report": {
+        "as_of": "2026-10-31",
+        "filed": "2026-11-13",
+        "issued": 14594987460,
+        "treasury": 2857384091,
+        "source": "https://disclosure2dl.edinet-fsa.go.jp/searchdocument/pdf/S100ZH9B.pdf",
+        "source_sha256": "15e91010f71743660f4efce061d03916a7bb0bef909f050edac0a50e5eea03f5",
+        "scope": "ISSUER_HELD_TREASURY_EXCLUDES_ESOP_TRUST"
+      },
       "quarterly": {
         "scope": "cumulative",
         "currency": "JPY",
