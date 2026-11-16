@@ -143,7 +143,31 @@ def pdf_text(raw, last_page=None, *, first_page=None):
         return subprocess.check_output(["pdftotext", "-layout", *pages, str(pdf), "-"], text=True)
 
 
-def check_s63_parent_equity(evidence, source_bytes):
+def recalculate_s63_results(raw, balance_text, feed_row):
+    def read_column(text, label, column):
+        cells = re.findall(r"^\s*" + re.escape(label) + r"[ \t]+([()0-9,].*)$", text, re.M)
+        if len(cells) != 1:
+            raise ValueError(f"S63 results: expected one row for {label}")
+        value = cells[0].split()[column].replace(",", "")
+        return -int(value[1:-1]) if value.startswith("(") else int(value)
+
+    income = pdf_text(raw, 2, first_page=2)
+    group_profit = read_column(income, "Profit after taxation", 3)
+    minority_profit = read_column(income, "Non-controlling interests", 3)
+    reported_profit = read_column(income, "Shareholders of the Company", 3)
+    recalculated_profit = group_profit - minority_profit
+    if recalculated_profit != reported_profit or recalculated_profit != feed_row["attributable_profit_sgd_thousands"]:
+        raise ValueError("S63 attributable profit recalculation mismatch")
+
+    labels = ("Share capital", "Treasury shares", "Capital reserves", "Other reserves", "Retained earnings")
+    recalculated_equity = sum(read_column(balance_text, label, 0) for label in labels)
+    if recalculated_equity != feed_row["parent_equity_sgd_thousands"]:
+        raise ValueError("S63 parent equity component sum mismatch")
+    print(f"SG:S63 FY2025 components agree with feed: profit {recalculated_profit:,}, "
+          f"parent equity {recalculated_equity:,} (SGD thousands)")
+
+
+def check_s63_parent_equity(evidence, source_bytes, feed_row):
     if (evidence["symbol"], evidence["period_end"], evidence["unit"], evidence["status"],
             evidence["independent_verification"]) != (
             "S63", "2025-12-31", "SGD_thousands", "MATCHED_TWO_ISSUER_FILINGS", False):
@@ -170,6 +194,8 @@ def check_s63_parent_equity(evidence, source_bytes):
             cells = re.findall(r"^\s*" + label + columns + r"([\d,]+)\b", text, re.M | re.I)
             if len(cells) != 1 or int(cells[0].replace(",", "")) != evidence[field]:
                 raise ValueError(f"S63 {name} {field} mismatch")
+        if name == "results":
+            recalculate_s63_results(raw, text, feed_row)
         print(f"SG:S63 {name} matched, SHA256 {digest}")
 
     if evidence["parent_equity"] + evidence["non_controlling_interests"] != evidence["total_equity"]:
@@ -423,7 +449,11 @@ def main():
 
     if args.sgx_s63_equity_only:
         equity = json.loads((ROOT / "docs/data/sgx-s63-parent-equity-v395.json").read_text())
-        check_s63_parent_equity(equity, source_bytes)
+        feed = json.loads((ROOT / "docs/data/latest.json").read_text())
+        row = next(row for row in feed["records"] if row["symbol"] == equity["symbol"])
+        if row["fiscal_year"] != int(equity["period_end"][:4]):
+            raise ValueError("S63 feed fiscal year mismatch")
+        check_s63_parent_equity(equity, source_bytes, row)
         return
 
     if args.sgx_s63_shares_only:
