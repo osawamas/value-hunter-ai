@@ -36,7 +36,6 @@ public final class SgCheckWorker extends Worker {
         if (key.isEmpty()) return Result.success();
         boolean watch = state.getBoolean("sg_watch", false);
         String lastEvaluated = state.getString("sg_qualified_date", "");
-        boolean wasQualified = state.getBoolean("sg_qualified", false);
         String result;
         SgCloseCheck.Pair pair = null;
         Evaluation evaluation = null;
@@ -57,7 +56,7 @@ public final class SgCheckWorker extends Worker {
             disclosures = new SgDisclosureLookup(readBundledLedger(context),
                     state.getString(CACHED_LEDGER, ""), now.toInstant(),
                     () -> UsScanWorker.get(SgShareLedger.URL, null));
-            boolean mayNeedPrevious = watch && SgValuation.needsPreviousEvaluation(pair, lastEvaluated, true);
+            boolean mayNeedPrevious = watch && SgValuation.needsPreviousEvaluation(pair, lastEvaluated);
             var rates = new SgExchangeRates(pair, mayNeedPrevious,
                     url -> new JSONArray(UsScanWorker.get(url, null)));
             evaluation = evaluate(disclosures, rates, pair.latest(), true, getRunAttemptCount());
@@ -66,7 +65,7 @@ public final class SgCheckWorker extends Worker {
                 previous = evaluate(disclosures, rates, pair.previous(), false, getRunAttemptCount());
             }
             if (watch) {
-                decision = SgValuation.watchDecision(pair, lastEvaluated, wasQualified, evaluation.qualified(),
+                decision = SgValuation.watchDecision(pair, lastEvaluated, evaluation.qualified(),
                         previous == null ? null : previous.qualified());
                 if (decision == SgValuation.WatchDecision.WAIT_FOR_PREVIOUS) {
                     result += "\n通知は保留 · 直前取引日 " + pair.previous().session() + " · "
@@ -104,7 +103,7 @@ public final class SgCheckWorker extends Worker {
         editor.putString("sg_result", result);
         if (decision == SgValuation.WatchDecision.SAVE || decision == SgValuation.WatchDecision.ALERT) {
             editor.putString("sg_qualified_date", pair.latest().session().toString())
-                    .putBoolean("sg_qualified", evaluation.qualified());
+                    .remove("sg_qualified");
         }
         if (!editor.commit()) return Result.retry();
         if (decision == SgValuation.WatchDecision.ALERT && key.equals(state.getString("sg_key", ""))

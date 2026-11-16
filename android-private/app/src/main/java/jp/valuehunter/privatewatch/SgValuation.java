@@ -21,23 +21,21 @@ final class SgValuation {
         }
     }
 
-    static boolean needsPreviousEvaluation(SgCloseCheck.Pair pair, String lastEvaluated, boolean qualified) {
-        return qualified && !lastEvaluated.isEmpty()
-                && lastEvaluated.compareTo(pair.previous().session().toString()) < 0;
+    static boolean needsPreviousEvaluation(SgCloseCheck.Pair pair, String lastEvaluated) {
+        return !lastEvaluated.isEmpty() && pair.latest().session().toString().compareTo(lastEvaluated) > 0;
     }
 
     enum WatchDecision { UNCHANGED, WAIT_FOR_PREVIOUS, SAVE, ALERT }
 
-    static WatchDecision watchDecision(SgCloseCheck.Pair pair, String lastEvaluated, boolean wasQualified,
+    static WatchDecision watchDecision(SgCloseCheck.Pair pair, String lastEvaluated,
                                        Boolean qualified, Boolean previousQualified) {
         String latest = pair.latest().session().toString();
         String previous = pair.previous().session().toString();
         if (qualified == null || latest.compareTo(lastEvaluated) <= 0 || latest.compareTo(previous) <= 0) {
             return WatchDecision.UNCHANGED;
         }
-        if (!qualified) return WatchDecision.SAVE;
-        if (previous.equals(lastEvaluated)) return wasQualified ? WatchDecision.SAVE : WatchDecision.ALERT;
-        if (!needsPreviousEvaluation(pair, lastEvaluated, qualified)) return WatchDecision.SAVE;
+        if (!qualified || lastEvaluated.isEmpty()) return WatchDecision.SAVE;
+        // Compare both sessions against the current ledger and FX snapshot, including corrections.
         if (previousQualified == null) return WatchDecision.WAIT_FOR_PREVIOUS;
         return previousQualified ? WatchDecision.SAVE : WatchDecision.ALERT;
     }

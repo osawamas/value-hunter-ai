@@ -14,30 +14,33 @@ public class SgWatchTest {
     private final SgCloseCheck.Close current = new SgCloseCheck.Close(LocalDate.of(2026, 11, 16), 8);
     private final SgCloseCheck.Pair pair = new SgCloseCheck.Pair(previous, current);
 
-    @Test public void alertsOnlyOnEntryFromTheImmediatelyPreviousSession() {
-        assertEquals(ALERT, SgValuation.watchDecision(pair, "2026-11-13", false, true, null));
-        assertEquals(SAVE, SgValuation.watchDecision(pair, "", false, true, null));
-        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-16", false, true, null));
-        assertEquals(SAVE, SgValuation.watchDecision(pair, "2026-11-13", true, true, null));
-        assertEquals(SAVE, SgValuation.watchDecision(pair, "2026-11-13", false, false, null));
-        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-13", false, null, null));
+    @Test public void reevaluatesThePreviousSessionEvenWhenItWasAlreadyRecorded() {
+        String last = "2026-11-13";
+        assertTrue(SgValuation.needsPreviousEvaluation(pair, last));
+        assertEquals(WAIT_FOR_PREVIOUS, SgValuation.watchDecision(pair, last, true, null));
+        assertEquals(ALERT, SgValuation.watchDecision(pair, last, true, false));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, last, true, true));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, last, false, null));
+        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, last, null, null));
     }
 
     @Test public void retainsBaselineUntilLateEvidenceResolvesTheCurrentPair() {
         String older = "2026-11-12";
-        assertTrue(SgValuation.needsPreviousEvaluation(pair, older, true));
-        assertFalse(SgValuation.needsPreviousEvaluation(pair, "", true));
-        assertFalse(SgValuation.needsPreviousEvaluation(pair, older, false));
-
-        assertEquals(WAIT_FOR_PREVIOUS, SgValuation.watchDecision(pair, older, false, true, null));
-        assertEquals(ALERT, SgValuation.watchDecision(pair, older, false, true, false));
-        assertEquals(SAVE, SgValuation.watchDecision(pair, older, false, true, true));
-        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-16", true, true, false));
+        assertTrue(SgValuation.needsPreviousEvaluation(pair, older));
+        assertEquals(WAIT_FOR_PREVIOUS, SgValuation.watchDecision(pair, older, true, null));
+        assertEquals(ALERT, SgValuation.watchDecision(pair, older, true, false));
 
         var next = new SgCloseCheck.Close(LocalDate.of(2026, 11, 17), 9);
         var nextPair = new SgCloseCheck.Pair(current, next);
-        assertEquals(SAVE, SgValuation.watchDecision(nextPair, older, false, true, true));
-        assertEquals(SAVE, SgValuation.watchDecision(nextPair, older, false, false, null));
+        assertEquals(SAVE, SgValuation.watchDecision(nextPair, older, true, true));
+        assertEquals(SAVE, SgValuation.watchDecision(nextPair, older, false, null));
+    }
+
+    @Test public void isQuietOnTheFirstAndAlreadyHandledSessions() {
+        assertFalse(SgValuation.needsPreviousEvaluation(pair, ""));
+        assertEquals(SAVE, SgValuation.watchDecision(pair, "", true, null));
+        assertFalse(SgValuation.needsPreviousEvaluation(pair, "2026-11-16"));
+        assertEquals(UNCHANGED, SgValuation.watchDecision(pair, "2026-11-16", true, false));
     }
 
     @Test public void distinguishesTemporaryFailuresAndLimitsRetries() {
