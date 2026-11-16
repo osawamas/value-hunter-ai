@@ -148,6 +148,12 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
   const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
   const sessions = [];
   for (const session of [earlier, later]) {
+    const readiness = reviewStoredS63(feed, session);
+    const shareEvidence = {
+      status: readiness.conflictingShares ? "conflicting_filings" :
+        readiness.matchedShares ? "matched_filing" : "missing_filing",
+      filing: readiness.matchedShares,
+    };
     let check;
     try {
       const staged = await fetchAndStage(feed, grant, session, fetcher, quotes => {
@@ -155,7 +161,8 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
         if (!quote) throw new QuoteImportError("RESPONSE", "SGX response is missing the S63 close");
         const {trial, interimTrial} = reviewStoredS63(feed, session, quote.close);
         check = {
-          session, closeRetrieval: "retrieved", annualStatus: trial.status,
+          session, closeRetrieval: "retrieved", shareEvidence, annualStatus: trial.status,
+          financialAndShareBlockers: readiness.blockers,
           completeAnnualRatios: ["cap", "per", "pbr"].every(key => Number.isFinite(trial.valuation?.[key])),
           interimStatus: interimTrial.status,
         };
@@ -164,7 +171,10 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
     } catch (error) {
       if (!(error instanceof QuoteImportError)) throw error;
       if (!check) {
-        sessions.push({session, closeRetrieval: "failed", errorStage: error.stage, error: error.message});
+        sessions.push({
+          session, closeRetrieval: "failed", shareEvidence, financialAndShareBlockers: readiness.blockers,
+          errorStage: error.stage, error: error.message,
+        });
         return {
           symbol: "S63",
           closeRetrieval: sessions.length === 1 ? "failed" : "partial",

@@ -378,6 +378,11 @@ async function test() {
     assert.equal(pair.valuationCheck, "passed");
     assert.deepEqual(pair.sessions.map(check => [check.session, check.annualStatus, check.interimStatus]),
       [["2026-11-13", "filing", "calculated"], ["2026-11-16", "filing", "calculated"]]);
+    assert.deepEqual(pair.sessions.map(check => [check.shareEvidence.status, check.shareEvidence.filing.value]),
+      [["matched_filing", 3115847115], ["matched_filing", 3115347115]]);
+    assert.equal(pair.sessions[0].shareEvidence.filing.disclosureTiming, "after_close");
+    assert.equal(pair.sessions[1].shareEvidence.filing.disclosureTiming, "time_unknown");
+    assert.ok(pair.sessions[1].financialAndShareBlockers.includes("MATCHED_SHARES_NOT_IN_IMPORT_FEED"));
     assert.ok(pair.sessions.every(check => check.publicationErrors.length));
     assert.ok(pair.sessions.every(check => !("valuation" in check) && !("price" in check)));
     assert.deepEqual(fs.readFileSync(feedFile), realFeed);
@@ -386,7 +391,9 @@ async function test() {
     sessionBodies.set("/closes?session=2026-11-17", [{...noticeQuote, timestamp: "2026-11-17T09:00:00Z"}]);
     await assert.rejects(run(process.execPath, [...pairArgs.slice(0, -1), "2026-11-17"], options), error => {
       assert.equal(error.code, 2);
-      assert.equal(JSON.parse(error.stdout).valuationCheck, "blocked");
+      const blocked = JSON.parse(error.stdout);
+      assert.equal(blocked.valuationCheck, "blocked");
+      assert.deepEqual(blocked.sessions[1].shareEvidence, {status: "missing_filing", filing: null});
       return true;
     });
     sessionBodies.set("/closes?session=2026-11-16", []);
@@ -397,7 +404,8 @@ async function test() {
       assert.equal(partial.valuationCheck, "blocked");
       assert.deepEqual(partial.sessions[0], pair.sessions[0]);
       assert.deepEqual(partial.sessions[1], {
-        session: "2026-11-16", closeRetrieval: "failed", errorStage: "RESPONSE",
+        session: "2026-11-16", closeRetrieval: "failed", shareEvidence: pair.sessions[1].shareEvidence,
+        financialAndShareBlockers: pair.sessions[1].financialAndShareBlockers, errorStage: "RESPONSE",
         error: "SGX response is missing a configured symbol",
       });
       return true;
@@ -409,6 +417,7 @@ async function test() {
       const failed = JSON.parse(error.stdout);
       assert.equal(failed.closeRetrieval, "failed");
       assert.deepEqual(failed.sessions.map(check => [check.session, check.errorStage]), [["2026-11-13", "FETCH"]]);
+      assert.deepEqual(failed.sessions[0].shareEvidence, pair.sessions[0].shareEvidence);
       return true;
     });
     assert.deepEqual(requests.slice(beforeFailure), ["/closes?session=2026-11-13"]);
