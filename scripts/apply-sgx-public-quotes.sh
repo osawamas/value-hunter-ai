@@ -37,6 +37,9 @@ if [ "${SGX_PREFLIGHT:-}" = true ]; then
     tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
   exit 0
 fi
+if [ -z "${SGX_REQUESTED_SESSION:-}" ]; then
+  export SGX_ALLOW_PARTIAL=true
+fi
 node "$script_dir/fetch-sgx-public-quotes.js" "$feed" "$work_dir/grant.json" "$session" > "$work_dir/latest.json"
 mv -- "$work_dir/latest.json" "$feed"
 echo "Licensed SGX closes staged for $session." >> "${GITHUB_STEP_SUMMARY:-/dev/null}"

@@ -286,6 +286,7 @@ async function test() {
       exclusion_reasons: [], quality_flags: [],
     });
     publishable.quality_checked_at_utc = "2026-11-13T11:30:00Z";
+    publishable.records.find(row => row.symbol === "G13").quote_timestamp_utc = null;
     const input = JSON.stringify(publishable);
     fs.writeFileSync(feedFile, input);
     const valid = await run(process.execPath, noticeArgs, preflightOptions);
@@ -309,6 +310,16 @@ async function test() {
     assert.match(mixed.stderr, /G13 valuation preflight: .*NO_MATCHING_SHARE_FILING/);
     await assert.rejects(run(process.execPath, noticeArgs, options), {code: 1, stdout: ""});
     assert.equal(fs.readFileSync(feedFile, "utf8"), input);
+    const partialOptions = {env: {...options.env, SGX_ALLOW_PARTIAL: "true"}};
+    const partialUpdate = await run(process.execPath, noticeArgs, partialOptions);
+    assert.match(partialUpdate.stderr, /G13: close and shares need the same Singapore date/);
+    const partialFeed = JSON.parse(partialUpdate.stdout);
+    assert.equal(partialFeed.records.find(row => row.symbol === "S63").ranking_eligible, true);
+    assert.deepEqual(partialFeed.records.find(row => row.symbol === "G13"),
+      publishable.records.find(row => row.symbol === "G13"));
+    body.push(noticeQuote);
+    await assert.rejects(run(process.execPath, noticeArgs, partialOptions),
+      {code: 1, stdout: "", stderr: /Expected unique registered SGX symbols/});
     fs.writeFileSync(grantFile, JSON.stringify(grant));
 
     body = [{...noticeQuote, close: 0}];

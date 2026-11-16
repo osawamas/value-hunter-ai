@@ -28,7 +28,7 @@ async function requestClose(endpoint, headers, fetcher) {
   }
 }
 
-async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial) {
+async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial, stage = stageQuotes) {
   if (!validDate(session)) throw new QuoteImportError("SESSION", "Expected a Singapore session date (YYYY-MM-DD)");
   if (grant?.grant_status !== "EXECUTED" ||
       !Array.isArray(grant.usage_scopes) ||
@@ -136,7 +136,7 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
     licensed_product, usage_scopes, valid_from, valid_until};
   if (reportTrial) reportTrial(quotes, publicGrant);
   try {
-    return stageQuotes(feed, quotes, publicGrant);
+    return stage(feed, quotes, publicGrant);
   } catch (error) {
     throw new QuoteImportError("VALIDATION", error.message);
   }
@@ -264,7 +264,29 @@ async function main() {
     return;
   }
 
-  const staged = await fetchAndStage(feed, grant, args[2]);
+  const stage = process.env.SGX_ALLOW_PARTIAL === "true" ? (baseline, quotes, grant) => {
+    const registered = new Set(baseline.records.map(row => row.symbol));
+    const symbols = quotes.map(quote => quote?.symbol);
+    if (symbols.some(symbol => !registered.has(symbol)) || new Set(symbols).size !== symbols.length)
+      throw new Error("Expected unique registered SGX symbols for partial refresh");
+    const accepted = [];
+    const blocked = [];
+    for (const quote of quotes) {
+      try {
+        stageQuotes(baseline, [quote], grant);
+        accepted.push(quote);
+      } catch (error) {
+        blocked.push(error.message);
+      }
+    }
+    if (!accepted.length) throw new Error(blocked.join("\n") || "Expected at least one SGX quote");
+    const candidate = stageQuotes(baseline, accepted, grant);
+    const refreshErrors = checkRefresh(baseline, candidate);
+    if (refreshErrors.length) throw new Error(refreshErrors.join("\n"));
+    if (blocked.length) console.error("SGX partial refresh skipped:\n" + blocked.join("\n"));
+    return candidate;
+  } : stageQuotes;
+  const staged = await fetchAndStage(feed, grant, args[2], fetch, undefined, stage);
   process.stdout.write(JSON.stringify(staged, null, 2) + "\n");
 }
 
