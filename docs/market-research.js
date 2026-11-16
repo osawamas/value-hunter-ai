@@ -372,6 +372,28 @@ function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
   };
 }
 
+function calculateIbmInterim(issuer, date, shareSource, annual) {
+  const quarterly = issuer && [issuer.quarterly, ...(issuer.historical_share_filings ?? [])]
+    .find(filing => filing?.valuation_basis?.period_end === date);
+  const interim = quarterly?.valuation_basis;
+  let interimValuation;
+  if (interim && annual.currency === "USD" && quarterly.source === shareSource &&
+      interim.annual_period_end === annual.periodEnd &&
+      interim.comparative_parent_equity === annual.annualParentEquity) {
+    const trailingNetIncome = annual.annualNetIncome + interim.current_net_income - interim.prior_net_income;
+    if (Number.isSafeInteger(trailingNetIncome) && trailingNetIncome > 0 &&
+        Number.isSafeInteger(interim.parent_equity) && interim.parent_equity > 0) {
+      interimValuation = {
+        basis: "retrospective", periodEnd: date, disclosedOn: quarterly.filed ?? quarterly.disclosedOn,
+        source: quarterly.source,
+        trailingNetIncome, parentEquity: interim.parent_equity,
+        per: annual.cap / trailingNetIncome, pbr: annual.cap / interim.parent_equity,
+      };
+    }
+  }
+  return interimValuation;
+}
+
 function valuationNotes(result) {
   return [
     result?.perUnavailableReason && "PERは年次純利益がゼロ以下のため算出対象外",
@@ -475,7 +497,9 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
     try {
       const inputs = {...quote, shares: match.value};
       const result = calculateWithAnnualPeriod(currency, latest, inputs);
-      return {...entry, state: match.state, shares: match.value, shareSource: match.source, shareDisclosureDate: match.disclosedOn,
+      const interimValuation = id === "US:IBM" && match.state === "filing" ?
+        calculateIbmInterim(row, quote.date, match.source, result) : undefined;
+      return {...entry, ...(interimValuation && {interimValuation}), state: match.state, shares: match.value, shareSource: match.source, shareDisclosureDate: match.disclosedOn,
         shareDisclosedAt: match.disclosedAt, shareDisclosureTiming: match.disclosureTiming, result};
     } catch {
       return {...entry, state: "invalid"};
@@ -704,6 +728,14 @@ async function initMarketResearch() {
       const sourceCell = element("td", "");
       if (row.financeSource?.startsWith("https://")) sourceCell.append(link(row.financeSource, "財務資料"));
       if (row.shareSource?.startsWith("https://")) sourceCell.append(" ", link(row.shareSource, "株数資料"));
+      if (row.interimValuation) {
+        const interim = row.interimValuation;
+        const detail = element("div", "直近12か月PER " + multiple(interim.per) +
+          "、期末PBR " + multiple(interim.pbr) + "（後日開示による試算）");
+        if (interim.source?.startsWith("https://")) detail.append(" ",
+          link(interim.source, "SEC四半期資料（" + interim.disclosedOn + "提出）"));
+        sourceCell.append(detail);
+      }
       for (const filing of row.shareConflicts ?? []) {
         const label = money.format(filing.value) + "株";
         sourceCell.append(" ", filing.source?.startsWith("https://") ? link(filing.source, label) : label);

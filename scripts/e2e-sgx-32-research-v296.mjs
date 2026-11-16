@@ -336,6 +336,23 @@ try{
  const ibmQuarter = await page.locator("#marketQuarterlyRows tr").last().locator("td").allTextContents();
  assert.deepEqual(ibmQuarter.slice(0,4),["2026-09-30","17,103,000,000","—","2,190,000,000"]);
  assert.match(await page.locator("#marketInterimShareCount").innerText(),/945,120,805 株（2026-09-30時点）/);
+ await page.locator("#personalQuoteFile").setInputFiles({
+  name:"ibm-trial.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,currency,close\nUS:IBM,2026-06-30,USD,200\nUS:IBM,2026-09-30,USD,201\nUS:IBM,2026-11-13,USD,202"),
+ });
+ await page.locator("#personalQuoteStatus").getByText(/終値を 3件/).waitFor();
+ const ibmTrial = page.locator("#personalBatchRows tr").filter({hasText:"US:IBM"});
+ for (const [date, disclosure, per, pbr] of [
+  ["2026-06-30","2026-07-23","17.57","5.47"],
+  ["2026-09-30","2026-10-22","17.01","5.35"],
+ ]) {
+  await page.locator("#personalBatchDate").fill(date);
+  assert.ok((await ibmTrial.innerText()).includes("直近12か月PER " + per + "倍、期末PBR " + pbr + "倍"));
+  assert.match(await ibmTrial.getByRole("link",{name:"SEC四半期資料（"+disclosure+"提出）"}).getAttribute("href"), /^https:\/\/www\.sec\.gov\//);
+ }
+ await page.locator("#personalBatchDate").fill("2026-11-13");
+ assert.doesNotMatch(await ibmTrial.innerText(), /直近12か月PER/);
+ await page.locator("#personalBatchDate").fill("");
  await page.locator("#marketQuery").fill("US:GOOGL");
  await page.getByRole("button",{name:"財務を見る"}).click();
  assert.match(await page.locator("#marketShareCount").innerText(),/クラスA（GOOGL） 約5,822,000,000株.*クラスB 約837,000,000株.*クラスC（GOOG） 約5,438,000,000株/s);
