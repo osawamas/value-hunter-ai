@@ -324,13 +324,30 @@ async function test() {
     const missing = await run(process.execPath, noticeArgs, partialOptions);
     assert.match(missing.stderr, /G13: close missing from provider response/);
     assert.deepEqual(JSON.parse(missing.stdout), partialFeed);
-    for (const settings of [options, preflightOptions]) {
-      await assert.rejects(run(process.execPath, noticeArgs, settings),
-        {code: 1, stdout: "", stderr: /missing a configured symbol/});
-    }
+    await assert.rejects(run(process.execPath, noticeArgs, options),
+      {code: 1, stdout: "", stderr: /missing a configured symbol/});
+    await assert.rejects(run(process.execPath, noticeArgs, preflightOptions), error => {
+      assert.equal(error.code, 1);
+      const report = JSON.parse(error.stdout);
+      assert.equal(report.closeRetrieval, "partial");
+      assert.equal(report.publicationCheck, "blocked");
+      assert.deepEqual(report.issuerChecks, [
+        {symbol: "G13", stagingCheck: "blocked", validationError: "close missing from provider response"},
+        {symbol: "S63", stagingCheck: "passed"},
+      ]);
+      return true;
+    });
     body = [];
     await assert.rejects(run(process.execPath, noticeArgs, partialOptions),
       {code: 1, stdout: "", stderr: /missing a configured symbol/});
+    await assert.rejects(run(process.execPath, noticeArgs, preflightOptions), error => {
+      assert.equal(error.code, 1);
+      const report = JSON.parse(error.stdout);
+      assert.equal(report.closeRetrieval, "failed");
+      assert.deepEqual(report.issuerChecks.map(check => [check.symbol, check.stagingCheck]),
+        [["S63", "blocked"], ["G13", "blocked"]]);
+      return true;
+    });
     assert.equal(fs.readFileSync(feedFile, "utf8"), input);
     fs.writeFileSync(grantFile, JSON.stringify(grant));
 

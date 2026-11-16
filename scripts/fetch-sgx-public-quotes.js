@@ -28,7 +28,8 @@ async function requestClose(endpoint, headers, fetcher) {
   }
 }
 
-async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial, allowPartial = false) {
+async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial, allowPartial = false,
+  reportMissing = false) {
   if (!validDate(session)) throw new QuoteImportError("SESSION", "Expected a Singapore session date (YYYY-MM-DD)");
   if (grant?.grant_status !== "EXECUTED" ||
       !Array.isArray(grant.usage_scopes) ||
@@ -117,7 +118,7 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
     quotes = quotes.filter(quote => selected.has(quote?.symbol));
     const received = new Set(quotes.map(quote => quote.symbol));
     missingSymbols = symbols.filter(symbol => !received.has(symbol));
-    if (missingSymbols.length && (!allowPartial || !quotes.length)) {
+    if (missingSymbols.length && !reportMissing && (!allowPartial || !quotes.length)) {
       throw new QuoteImportError("RESPONSE", "SGX response is missing a configured symbol");
     }
   }
@@ -125,7 +126,7 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
     throw new QuoteImportError("SESSION", "The feed must contain only closes for the requested Singapore session");
   }
   if (reportTrial) {
-    if (!quotes.length || quotes.some(quote => typeof quote.symbol !== "string" ||
+    if ((!quotes.length && !missingSymbols.length) || quotes.some(quote => typeof quote.symbol !== "string" ||
         quote.currency !== "SGD" || quote.source_type !== "LICENSED_SGX_EQUITY" ||
         !Number.isFinite(quote.close) || quote.close <= 0) ||
         new Set(quotes.map(quote => quote.symbol)).size !== quotes.length) {
@@ -136,7 +137,12 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
     usage_scopes, valid_from, valid_until} = grant;
   const publicGrant = {grant_status, grant_evidence_url, licensor, licensee,
     licensed_product, usage_scopes, valid_from, valid_until};
-  if (reportTrial) reportTrial(quotes, publicGrant);
+  if (reportTrial) reportTrial(quotes, publicGrant, missingSymbols);
+  if (reportMissing && missingSymbols.length) {
+    const error = new QuoteImportError("RESPONSE", "SGX response is missing a configured symbol");
+    error.missingSymbols = missingSymbols;
+    throw error;
+  }
   try {
     return allowPartial ? stagePartialQuotes(feed, quotes, publicGrant, missingSymbols) :
       stageQuotes(feed, quotes, publicGrant);
@@ -218,7 +224,9 @@ async function main() {
     return;
   }
   const issuerChecks = [];
-  const reportTrial = process.env.SGX_PREFLIGHT === "true" ? (quotes, publicGrant) => {
+  const reportTrial = process.env.SGX_PREFLIGHT === "true" ? (quotes, publicGrant, missingSymbols) => {
+    for (const symbol of missingSymbols)
+      issuerChecks.push({symbol, stagingCheck: "blocked", validationError: "close missing from provider response"});
     const {reviewStoredS63, reviewStoredG13} = require("./check-sgx-close-readiness.js");
     const registered = new Set(feed.records.map(row => row.symbol));
     for (const quote of quotes) {
@@ -250,16 +258,22 @@ async function main() {
   } : undefined;
   if (reportTrial) {
     let validationErrors;
+    let closeRetrieval = "retrieved";
     try {
-      const staged = await fetchAndStage(feed, grant, args[2], fetch, reportTrial);
+      const staged = await fetchAndStage(feed, grant, args[2], fetch, reportTrial, false, true);
       validationErrors = checkRefresh(feed, staged);
     } catch (error) {
-      if (!(error instanceof QuoteImportError) || error.stage !== "VALIDATION") throw error;
+      if (!(error instanceof QuoteImportError) || (error.stage !== "VALIDATION" && !error.missingSymbols)) throw error;
+      if (error.missingSymbols) {
+        closeRetrieval = issuerChecks.length > error.missingSymbols.length ? "partial" : "failed";
+        process.exitCode = 1;
+        console.error("SGX close RESPONSE: " + error.message);
+      }
       validationErrors = [error.message];
     }
     process.stdout.write(JSON.stringify({
       session: args[2],
-      closeRetrieval: "retrieved",
+      closeRetrieval,
       publicationCheck: validationErrors.length ? "blocked" : "passed",
       validationErrors,
       issuerChecks,
