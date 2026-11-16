@@ -154,6 +154,16 @@ class ToyotaRefreshPairTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Fewer than two"):
             self.refresh.toyota_free_sessions(date(2028, 7, 1))
 
+    def test_explicit_pair_requires_two_exact_share_filings(self):
+        days = ["2026-06-30", "2026-09-30"]
+        evidence = self.refresh.toyota_pair_evidence(days)
+        self.assertEqual([row["date"] for row in evidence], days)
+        self.assertEqual(evidence[1]["disclosedOn"], "2026-11-05")
+        with self.assertRaisesRegex(ValueError, "No exact Toyota share filing"):
+            self.refresh.toyota_pair_evidence(["2026-06-30", "2026-10-31"])
+        with self.assertRaisesRegex(ValueError, "in increasing"):
+            self.refresh.toyota_pair_evidence(days[::-1])
+
     def test_pair_commits_two_validated_snapshots_or_keeps_destination_absent(self):
         from datetime import datetime, timezone
         from subprocess import CompletedProcess

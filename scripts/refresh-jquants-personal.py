@@ -66,14 +66,18 @@ def refresh(destination, previous, export_args, *, require_toyota_refresh=False)
         return report.returncode
 
 
+def toyota_share_evidence():
+    result = capture(["node", SCRIPTS / "check-representative-valuations.js", "--toyota-share-sessions"])
+    return {share["date"]: share for share in json.loads(result.stdout)}
+
+
 def toyota_free_share_evidence(as_of):
     cutoff = (as_of - timedelta(weeks=12)).isoformat()
     first_year = as_of.year - 2
     first_day = min(as_of.day, monthrange(first_year, as_of.month)[1])
     earliest = as_of.replace(year=first_year, day=first_day).isoformat()
-    result = capture(["node", SCRIPTS / "check-representative-valuations.js", "--toyota-share-sessions"])
     sessions = {
-        share["date"]: share for share in json.loads(result.stdout)
+        share["date"]: share for share in toyota_share_evidence().values()
         if earliest <= share["date"] <= cutoff and (share.get("disclosedOn") or share["date"]) <= as_of.isoformat()
     }
     if len(sessions) < 2:
@@ -89,6 +93,15 @@ def validate_toyota_pair(sessions):
     earlier, later = sessions
     if date.fromisoformat(earlier).isoformat() != earlier or date.fromisoformat(later).isoformat() != later or earlier >= later:
         raise ValueError("Provide two Toyota sessions in increasing YYYY-MM-DD order.")
+
+
+def toyota_pair_evidence(sessions):
+    validate_toyota_pair(sessions)
+    evidence = toyota_share_evidence()
+    missing = [day for day in sessions if day not in evidence]
+    if missing:
+        raise ValueError("No exact Toyota share filing for: " + ", ".join(missing))
+    return [evidence[day] for day in sessions]
 
 
 def toyota_preflight(sessions):
@@ -157,11 +170,13 @@ def main():
                         help="Select the latest Toyota share dates beyond the free-plan delay")
     toyota.add_argument("--toyota-free-evidence", action="store_true",
                         help="List the two eligible Toyota share filings without fetching prices")
+    toyota.add_argument("--toyota-pair-evidence", nargs=2, metavar=("EARLIER", "LATER"),
+                        help="Verify two specified Toyota share filing dates without fetching prices")
     toyota.add_argument("--toyota-preflight", nargs=2, metavar=("EARLIER", "LATER"),
                         help="Verify each session and emit statuses without saving prices")
     parser.add_argument("codes", nargs="*")
     args = parser.parse_args()
-    if args.toyota_free_evidence or args.toyota_preflight:
+    if args.toyota_free_evidence or args.toyota_pair_evidence or args.toyota_preflight:
         if any((args.codes, args.date, args.first, args.last, args.previous_dir,
                 args.require_toyota_refresh, args.output_dir)):
             parser.error("Toyota evidence and preflight modes accept no snapshot or quote options")
@@ -175,7 +190,8 @@ def main():
                 return 1
             return 0 if all(check["annual"] == "trial_calculated" for check in checks) else 2
         try:
-            evidence = toyota_free_share_evidence(datetime.now(ZoneInfo("Asia/Tokyo")).date())
+            evidence = (toyota_pair_evidence(args.toyota_pair_evidence) if args.toyota_pair_evidence
+                        else toyota_free_share_evidence(datetime.now(ZoneInfo("Asia/Tokyo")).date()))
         except (OSError, ValueError) as error:
             parser.exit(1, f"Evidence selection failed: {error}\n")
         print(json.dumps(evidence, indent=2))

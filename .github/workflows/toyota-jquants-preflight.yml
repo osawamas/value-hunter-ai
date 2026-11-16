@@ -2,6 +2,13 @@ name: Toyota J-Quants preflight
 
 on:
   workflow_dispatch:
+    inputs:
+      earlier_session:
+        description: 'Earlier disclosed Toyota share date (YYYY-MM-DD)'
+        type: string
+      later_session:
+        description: 'Later disclosed Toyota share date (YYYY-MM-DD)'
+        type: string
   schedule:
     - cron: '37 10 * * 1-5'
   push:
@@ -35,9 +42,19 @@ jobs:
         shell: bash
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
+          EARLIER_SESSION: ${{ inputs.earlier_session }}
+          LATER_SESSION: ${{ inputs.later_session }}
         run: |
           echo '### Toyota J-Quants preflight' >> "$GITHUB_STEP_SUMMARY"
-          evidence=$(python3 scripts/refresh-jquants-personal.py --toyota-free-evidence)
+          if [[ -n "$EARLIER_SESSION" || -n "$LATER_SESSION" ]]; then
+            if [[ ! "$EARLIER_SESSION" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ || ! "$LATER_SESSION" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo 'Provide both dates in YYYY-MM-DD format.' | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            evidence=$(python3 scripts/refresh-jquants-personal.py --toyota-pair-evidence "$EARLIER_SESSION" "$LATER_SESSION")
+          else
+            evidence=$(python3 scripts/refresh-jquants-personal.py --toyota-free-evidence)
+          fi
           {
             echo
             echo '| Share count date | Filing |'
