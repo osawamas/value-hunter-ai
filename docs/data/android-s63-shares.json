@@ -3,6 +3,24 @@
   "symbol": "S63",
   "records": [
     {
+      "date": "2026-09-11",
+      "shares": 3117804988,
+      "source": "https://links.sgx.com/1.0.0/corporate-announcements/NW4Z2M7CTBNO8D6Z/b91d80b0914fdcc6631e80cdc274c072027de0b2b36402676154e44de19b7071",
+      "disclosed_at": "2026-09-11T18:07:24+08:00"
+    },
+    {
+      "date": "2026-10-08",
+      "shares": 3117304988,
+      "source": "https://links.sgx.com/1.0.0/corporate-announcements/3M9CFY39IBL0FI9P/9d04e2fda5ec86fcaa63b084e255b5f6a6104461147b177de3399815ffa950fd",
+      "disclosed_at": "2026-10-08T18:39:20+08:00"
+    },
+    {
+      "date": "2026-10-22",
+      "shares": 3116847115,
+      "source": "https://links.sgx.com/1.0.0/corporate-announcements/NTLMKQEZ6PCYVQ5E/fd239ac95cca320f5c6167f673198ca10bbff71a2648b1ff2f327dc3bd9099ae",
+      "disclosed_at": "2026-10-22T18:27:22+08:00"
+    },
+    {
       "date": "2026-10-26",
       "shares": 3116347115,
       "source": "https://links.sgx.com/1.0.0/corporate-announcements/L5ICCSU1HJ6MACLH/1d218748928cb50a2b4e00bdcac70b900bc15e6f443ccbd2557b009698f3e5c3",

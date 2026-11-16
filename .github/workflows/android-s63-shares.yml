@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       notice_url:
-        description: Full official SGXNet S63 daily buyback notice URL
+        description: Full official SGXNet S63 buyback URLs, separated by spaces (max 12)
         required: true
         type: string
 
@@ -39,12 +39,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Compare a registered date with the official SGXNet original
+      - name: Compare registered dates with the official SGXNet originals
         run: |
           ledger="$RUNNER_TEMP/s63-shares.json"
           cp docs/data/android-s63-shares.json "$ledger"
           python3 SGX_PDF_connection_probe/update_android_s63_shares.py --ledger "$ledger" \
-            'https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92'
+            'https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92' \
+            'https://links.sgx.com/1.0.0/corporate-announcements/NW4Z2M7CTBNO8D6Z/b91d80b0914fdcc6631e80cdc274c072027de0b2b36402676154e44de19b7071' \
+            'https://links.sgx.com/1.0.0/corporate-announcements/3M9CFY39IBL0FI9P/9d04e2fda5ec86fcaa63b084e255b5f6a6104461147b177de3399815ffa950fd' \
+            'https://links.sgx.com/1.0.0/corporate-announcements/NTLMKQEZ6PCYVQ5E/fd239ac95cca320f5c6167f673198ca10bbff71a2648b1ff2f327dc3bd9099ae'
           cmp docs/data/android-s63-shares.json "$ledger"
 
   register:
@@ -64,7 +67,14 @@ jobs:
       - name: Verify the original SGXNet notice and append its dated shares
         env:
           NOTICE_URL: ${{ inputs.notice_url }}
-        run: python3 SGX_PDF_connection_probe/update_android_s63_shares.py -- "$NOTICE_URL"
+        run: |
+          # Pass each URL as an argument; the verifier validates every original before writing.
+          read -r -a notices <<< "$(printf '%s' "$NOTICE_URL" | tr '\r\n' '  ')"
+          if (( ${#notices[@]} < 1 || ${#notices[@]} > 12 )); then
+            echo 'Provide 1 to 12 official SGXNet notice URLs.' >&2
+            exit 1
+          fi
+          python3 SGX_PDF_connection_probe/update_android_s63_shares.py -- "${notices[@]}"
       - name: Save the verified share ledger
         run: |
           if git diff --quiet -- docs/data/android-s63-shares.json; then
