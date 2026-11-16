@@ -47,7 +47,8 @@ def parse_notice(raw,url):
  broadcast=datetime.strptime(broadcast_text,"%d-%b-%Y %H:%M:%S")
  purchase=datetime.strptime(unique(r"Date of Purchase\s*\|?\s*(\d{2}/\d{2}/\d{4})\b",s,"purchase date"),"%d/%m/%Y").date()
  status=unique(r"Status\s+(New|Replacement)\s+Announcement Sub Title\b",s,"announcement status")
- reference_day=datetime.strptime(reference[2:8],"%y%m%d").date()
+ reference_year=broadcast.year-(broadcast.year-int(reference[2:4]))%100
+ reference_day=datetime.strptime(f"{reference_year:04d}{reference[4:8]}","%Y%m%d").date()
  if (not purchase<=reference_day<=broadcast.date()
      or (status.casefold()=="new" and reference_day!=broadcast.date())):
   raise ValueError("SGX purchase date, broadcast date or reference is inconsistent")
