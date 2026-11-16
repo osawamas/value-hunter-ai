@@ -1,7 +1,10 @@
 """Offline tests for IBM daily-close retrieval and filing reconciliation."""
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import json
+from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 spec = spec_from_file_location(
     "ibm_refresh", Path(__file__).resolve().parents[1] / "scripts/check-ibm-personal-refresh.py"
@@ -44,3 +47,24 @@ class IBMRefreshTests(unittest.TestCase):
         self.assertEqual(previous["shares"], 942134390)
         self.assertEqual(previous["shareDisclosureDate"], "2026-07-23")
         self.assertEqual(current["shares"], 945120805)
+
+    def test_saved_refresh_uses_validated_previous_snapshot(self):
+        dates = ("2026-06-30", "2026-09-30")
+        with TemporaryDirectory() as directory, patch.object(refresh, "fetch_closes") as fetch:
+            fetch.side_effect = [
+                ({dates[0]: 200}, "2026-11-16T04:00:00+00:00"),
+                ({dates[1]: 210}, "2026-11-16T04:00:01+00:00"),
+            ]
+            old, current, unused = (Path(directory) / name for name in ("old", "current", "unused"))
+            self.assertEqual(refresh.save_refresh(old, None, "", dates[0], demo=True), 0)
+            self.assertEqual(refresh.save_refresh(current, old, "", dates[1], demo=True), 0)
+            report = json.loads((current / "report.json").read_text())
+            self.assertTrue(report["passed"])
+            self.assertEqual(report["latestObservedTrials"]["previous"]["shares"], 942134390)
+            self.assertEqual(report["latestObservedTrials"]["current"]["shares"], 945120805)
+            self.assertEqual(fetch.call_count, 2)
+            (old / "quotes.csv").write_text("modified")
+            with self.assertRaisesRegex(ValueError, "does not match its receipt"):
+                refresh.save_refresh(unused, old, "", dates[1], demo=True)
+            self.assertFalse(unused.exists())
+            self.assertEqual(fetch.call_count, 2)
