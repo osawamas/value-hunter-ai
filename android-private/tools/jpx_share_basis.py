@@ -64,6 +64,11 @@ def read_monthly_rights(path):
                 events[code].add(ShareEvent(ex_on, record_on, old, new))
                 parsed_actions += 1
             if expected_actions != parsed_actions:
+                for _, center, code in words:
+                    if code in {"4452", "8336", "6731"}:
+                        line = [(round(x, 3), round(y - center, 2), value)
+                                for x, y, value in words if abs(y - center) < 5]
+                        print(f"JPX page {page.number + 1}, sample {code}: {line}")
                 raise ValueError(
                     f"JPX page {page.number + 1} declares {expected_actions} split or "
                     f"consolidation rows, but extracted {parsed_actions}"
