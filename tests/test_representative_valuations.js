@@ -304,6 +304,13 @@ try {
   const [bothExit, bothCheck] = bothTrials("--filing-dir", custom);
   assert.equal(bothExit, 0);
   assert.ok(bothCheck.results.every(row => row.previousStatus === "trial_calculated"));
+  const [separateExit, separateCheck] = bothTrials("--previous-filing-dir", custom);
+  assert.equal(separateExit, 0, "each side can use its own dated share evidence");
+  assert.ok(separateCheck.results.every(row => row.previousStatus === "trial_calculated"));
+  const [wrongBaseline, wrongCheck] = bothTrials("--filing-dir", custom,
+    "--previous-filing-dir", path.join(__dirname, "../docs/data"));
+  assert.equal(wrongBaseline, 2, "current filings must not backfill an explicit previous snapshot");
+  assert.ok(wrongCheck.results.every(row => row.previousStatus === "no_exact_share_evidence"));
 } finally {
   fs.rmSync(work, {recursive: true, force: true});
 }

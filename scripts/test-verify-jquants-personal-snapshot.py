@@ -54,7 +54,10 @@ class SnapshotTests(unittest.TestCase):
 
             timestamp = "2026-10-01T00:00:00.000002Z"
             close = "2501"
+            baseline_filings = baseline / "filings"
             refresher.refresh(current, baseline, [])
+            comparison = json.loads((current / "report.json").read_text())
+            self.assertEqual(comparison["previousFilingDataSha256"], first["filingDataSha256"])
             result = json.loads((current / "report.json").read_text())["results"][0]
             self.assertEqual(result["closeChange"], "revised")
             self.assertEqual(result["valuation"]["cap"], 2501 * 11778247313)
@@ -68,7 +71,7 @@ class SnapshotTests(unittest.TestCase):
                 })
             cli = Path(__file__).with_name("check-representative-valuations.js")
             replay = subprocess.run([
-                "node", cli, "--filing-dir", current / "filings", "--compare-jquants",
+                "node", cli, "--filing-dir", current / "filings", "--previous-filing-dir", baseline_filings, "--compare-jquants",
                 baseline / "quotes.csv", baseline / "receipt.json",
                 current / "quotes.csv", current / "receipt.json",
             ], check=True, capture_output=True, text=True)

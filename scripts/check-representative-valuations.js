@@ -80,9 +80,11 @@ function reviewRepresentativeValuations(rows, shareReview, history = new Map()) 
   return {scope: "local_trial", basis: "retrospective", results};
 }
 
-function reviewQuoteRefresh(rows, shareReview, previous, current) {
+function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows = rows, previousShareReview = shareReview) {
   const latest = reviewRepresentativeValuations(rows, shareReview, current);
   const shareSessions = publishedShareSessions(rows, shareReview);
+  const previousShareSessions = previousRows === rows && previousShareReview === shareReview ?
+    shareSessions : publishedShareSessions(previousRows, previousShareReview);
   const changesByIssuer = new Map(representatives.map(id => [id, []]));
   const keys = new Set([...previous.keys(), ...current.keys()]);
   for (const key of keys) {
@@ -98,10 +100,12 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
       date, change, previousPrice: before?.price ?? null, currentPrice: after?.price ?? null,
       hasExactShares: Boolean(shares),
     };
-    if (shares && change !== "unchanged") {
+    const earlierShares = previousShareSessions.get(date)?.find(record => record.id === id);
+    if ((shares || earlierShares) && change !== "unchanged") {
       session.valuationImpact = {
-        previous: before ? reviewShareSession(rows, shareReview, id, date, shares, before) : null,
-        current: after ? reviewShareSession(rows, shareReview, id, date, shares, after) : null,
+        previous: before && earlierShares ?
+          reviewShareSession(previousRows, previousShareReview, id, date, earlierShares, before) : null,
+        current: after && shares ? reviewShareSession(rows, shareReview, id, date, shares, after) : null,
       };
     }
     changes.push(session);
@@ -115,12 +119,12 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
       date && entry.date > date && entry.currentPrice !== null && !entry.hasExactShares).map(entry => entry.date);
     const before = observedCoverage(sessionChanges, "previousPrice");
     const after = observedCoverage(sessionChanges, "currentPrice");
-    const lastTrial = (coverage, history) => {
+    const lastTrial = (coverage, history, trialRows, trialShareReview, trialShareSessions) => {
       if (!coverage) return null;
       const date = coverage.last;
       const quote = history.get(id + ":" + date);
-      const shares = shareSessions.get(date)?.find(record => record.id === id);
-      return shares ? reviewShareSession(rows, shareReview, id, date, shares, quote) :
+      const shares = trialShareSessions.get(date)?.find(record => record.id === id);
+      return shares ? reviewShareSession(trialRows, trialShareReview, id, date, shares, quote) :
         {id, date, price: quote.price, status: "no_exact_share_evidence"};
     };
     // File coverage bounds alone cannot establish that a session was dropped by the provider.
@@ -136,7 +140,10 @@ function reviewQuoteRefresh(rows, shareReview, previous, current) {
     return {...result, closeChange: matchedSession?.change ?? "absent",
       previousPrice: matchedSession?.previousPrice ?? null, newerUnmatchedDates, sessionChanges,
       quoteCoverage: {previous: before, current: after},
-      latestObservedTrials: {previous: lastTrial(before, previous), current: lastTrial(after, current)},
+      latestObservedTrials: {
+        previous: lastTrial(before, previous, previousRows, previousShareReview, previousShareSessions),
+        current: lastTrial(after, current, rows, shareReview, shareSessions),
+      },
       sharedDateRange, datesMissingFromCurrentWithinRange, newTradingDates};
   });
   return {...latest, results: updates};
@@ -147,6 +154,12 @@ function main(args) {
   if (args[0] === "--filing-dir") {
     if (!args[1] || args[1].startsWith("--")) throw Error("--filing-dir requires a directory");
     filingDirectory = args[1];
+    args = args.slice(2);
+  }
+  let previousFilingDirectory;
+  if (args[0] === "--previous-filing-dir") {
+    if (!args[1] || args[1].startsWith("--")) throw Error("--previous-filing-dir requires a directory");
+    previousFilingDirectory = args[1];
     args = args.slice(2);
   }
   const s63NoticeUrls = new Set();
@@ -162,19 +175,26 @@ function main(args) {
   const refresh = args[0] === "--compare" && args.length === 3;
   const verifiedRefresh = args[0] === "--compare-jquants" && args.length === 5;
   const verifiedSnapshot = args[0] === "--jquants" && args.length === 3;
+  if (previousFilingDirectory && !refresh && !verifiedRefresh) {
+    throw Error("--previous-filing-dir requires a two-snapshot comparison");
+  }
   if (requireNewSessions && !refresh && !verifiedRefresh) {
     throw Error("The requested session check requires a two-snapshot comparison");
   }
   if (!refresh && !verifiedRefresh && !verifiedSnapshot && (args.length > 1 || args[0]?.startsWith("--"))) {
-    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions | --require-both-trials] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
+    throw Error("Usage: node scripts/check-representative-valuations.js [--filing-dir directory] [--previous-filing-dir directory] [--s63-notice-url URL ...] [--require-latest-trials | --require-new-sessions | --require-both-trials] [local-quotes.csv | --jquants quotes.csv receipt.json | --compare previous.csv current.csv | --compare-jquants previous.csv previous.json current.csv current.json]");
   }
   const filingDataSha256 = {};
-  const research = loadSnapshot(filingDirectory, "market-research-v315.json", filingDataSha256);
-  const sgx = loadSnapshot(filingDirectory, "latest.json", filingDataSha256);
-  const bundledShareReview = loadSnapshot(filingDirectory, "sgx-s63-two-website-close-v129.json", filingDataSha256);
+  const loadFilings = (directory, evidence) => {
+    const research = loadSnapshot(directory, "market-research-v315.json", evidence);
+    const sgx = loadSnapshot(directory, "latest.json", evidence);
+    const shares = loadSnapshot(directory, "sgx-s63-two-website-close-v129.json", evidence);
+    return {rows: buildMarketRows(research, sgx), shareReview: [shares].flat()};
+  };
+  const currentFilings = loadFilings(filingDirectory, filingDataSha256);
+  const rows = currentFilings.rows;
   const notices = Array.from(s63NoticeUrls, loadS63Notice);
-  const shareReview = [bundledShareReview].flat().concat(notices);
-  const rows = buildMarketRows(research, sgx);
+  const shareReview = currentFilings.shareReview.concat(notices);
   const loadQuotes = (filename, receipt) => {
     const bytes = fs.readFileSync(filename);
     const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -211,7 +231,11 @@ function main(args) {
         throw Error("J-Quants receipts must cover the same requested securities");
       }
     }
-    report = reviewQuoteRefresh(rows, shareReview, previous.quotes, current.quotes);
+    const previousFilingDataSha256 = {};
+    const baseline = previousFilingDirectory && loadFilings(previousFilingDirectory, previousFilingDataSha256);
+    report = reviewQuoteRefresh(rows, shareReview, previous.quotes, current.quotes,
+      baseline?.rows, baseline?.shareReview);
+    if (baseline) report.previousFilingDataSha256 = previousFilingDataSha256;
     if (verifiedRefresh) report.snapshotVerification = "jquants_personal_receipts_matched";
     report.snapshots = {
       previous: {sha256: previous.sha256, observations: previous.quotes.size},

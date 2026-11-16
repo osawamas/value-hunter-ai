@@ -39,6 +39,9 @@ def refresh(destination, previous, export_args):
         if previous is None:
             report = capture([*valuation_cli, "--jquants", quotes, receipt])
         else:
+            previous_filings = previous / "filings"
+            if previous_filings.exists():
+                valuation_cli.extend(["--previous-filing-dir", previous_filings])
             report = capture([
                 *valuation_cli, "--compare-jquants",
                 previous / "quotes.csv", previous / "receipt.json", quotes, receipt,
