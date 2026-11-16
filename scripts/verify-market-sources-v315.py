@@ -226,6 +226,46 @@ def check_g13_financials(raw, row):
           f"parent equity {equity:,} (SGD thousands), SHA256 {hashlib.sha256(raw).hexdigest()}")
 
 
+def check_s63_equity_movements(raw, evidence, feed_row):
+    labels = pdf_text(raw, 132, first_page=132)
+    amounts = pdf_text(raw, 133, first_page=133)
+    if ("CONSOLIDATED STATEMENT OF CHANGES IN EQUITY" not in labels
+            or "FOR THE YEAR ENDED 31 DECEMBER 2025" not in labels
+            or not re.search(r"^\s*ANNUAL REPORT 2025[ \t]+131\b", amounts, re.M)
+            or "Non-controlling" not in amounts):
+        raise ValueError("S63 equity movement table scope mismatch")
+
+    cell = r"(?:–|\([\d,]+\)|[\d,]+)"
+    label_rows = re.findall(rf"^\s*(\S[^\n]*?)[ \t]+{cell}[ \t]+{cell}[ \t]*$", labels, re.M)
+    amount_rows = [line.split() for line in amounts.splitlines()
+                   if re.fullmatch(rf"\s*{cell}(?:[ \t]+{cell}){{5}}\s*", line)]
+    if len(label_rows) != 24 or len(amount_rows) != len(label_rows):
+        raise ValueError("S63 equity movement table row alignment mismatch")
+
+    def values(pattern):
+        matching = [row for label, row in zip(label_rows, amount_rows) if re.fullmatch(pattern, label.strip())]
+        if len(matching) != 1:
+            raise ValueError(f"S63 equity movement row missing or ambiguous: {pattern}")
+        return tuple(0 if value == "–" else int(value.replace(",", "").replace("(", "-").replace(")", ""))
+                     for value in matching[0][3:])
+
+    opening = values("At 1 January 2025")
+    profit = values("Profit after taxation")
+    other = values("Other comprehensive income for the year, net of tax")
+    comprehensive = values("Total comprehensive income for the year, net of tax")
+    hedging = values("cost of inventory")
+    transactions = values("Total transactions with owners of the Company")
+    closing = values("Balance at 31 December 2025")
+    expected = (evidence["parent_equity"], evidence["non_controlling_interests"], evidence["total_equity"])
+    if (profit[0] != feed_row["attributable_profit_sgd_thousands"]
+            or tuple(a + b for a, b in zip(profit, other)) != comprehensive
+            or tuple(sum(parts) for parts in zip(opening, comprehensive, hedging, transactions)) != closing
+            or closing != expected or closing[0] != feed_row["parent_equity_sgd_thousands"]):
+        raise ValueError("S63 equity movement or attributable profit reconciliation failed")
+    print(f"SG:S63 audited equity movements reconcile: shareholder profit {profit[0]:,}, "
+          f"year-end parent equity {closing[0]:,} (SGD thousands)")
+
+
 def check_s63_parent_equity(evidence, source_bytes, feed_row):
     if (evidence["symbol"], evidence["period_end"], evidence["unit"], evidence["status"],
             evidence["independent_verification"]) != (
@@ -253,7 +293,9 @@ def check_s63_parent_equity(evidence, source_bytes, feed_row):
             cells = re.findall(r"^\s*" + label + columns + r"([\d,]+)\b", text, re.M | re.I)
             if len(cells) != 1 or int(cells[0].replace(",", "")) != evidence[field]:
                 raise ValueError(f"S63 {name} {field} mismatch")
-        if name == "results":
+        if name == "annual_report":
+            check_s63_equity_movements(raw, evidence, feed_row)
+        else:
             recalculate_s63_results(raw, text, feed_row)
         print(f"SG:S63 {name} matched, SHA256 {digest}")
 
