@@ -87,7 +87,8 @@ jobs:
               echo 'Valuation pending. See the per-session status above.'
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -e '.exactDateCheck | {status, checks: (.checks | map_values({date, closeStatus, valuationStatus}))}' \
+          jq -e '.exactDateCheck | {status, checks: (.checks | map_values({
+            date, closeStatus, valuationStatus, shareDisclosureDate, shareSource}))}' \
             "$report" > "$RUNNER_TEMP/exact-date-check.json"
           printf '%s\n' "$latest" > "$RUNNER_TEMP/session.txt"
           jq -e --arg comparison "$comparison" --arg observed "$observed" \
@@ -120,8 +121,8 @@ jobs:
             echo
             echo "Status: $(jq -er '.status' "$report")"
             echo
-            echo '| Trading date | Close retrieval | Valuation |'
-            echo '| --- | --- | --- |'
-            jq -r '.checks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) |"' "$report"
+            echo '| Trading date | Close retrieval | Valuation | SEC share filing |'
+            echo '| --- | --- | --- | --- |'
+            jq -r '.checks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) | \(if .shareSource then "[\(.shareDisclosureDate // "SEC filing")](\(.shareSource))" else "—" end) |"' "$report"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           jq -e '.status == "passed"' "$report" > /dev/null

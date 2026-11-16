@@ -76,7 +76,8 @@ def valuation_checks(trials):
             "valuationStatus": "incomplete_ratios"
             if trial["status"] == "trial_calculated" and not complete_trial(trial)
             else trial["status"],
-            **{field: trial[field] for field in ("referenceShareDate", "referenceShareSource")
+            **{field: trial[field] for field in ("referenceShareDate", "referenceShareSource",
+                                                "shareDisclosureDate", "shareSource")
                if field in trial},
         }
         for label, trial in trials.items()

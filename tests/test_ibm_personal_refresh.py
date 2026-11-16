@@ -27,6 +27,12 @@ class IBMRefreshTests(unittest.TestCase):
         self.assertEqual(report["preflightChecks"]["current"]["date"], "2026-11-13")
         self.assertEqual(report["exactDateCheck"]["status"], "passed")
         self.assertEqual(report["exactDateCheck"]["checks"]["current"]["date"], "2026-09-30")
+        latest_match = report["exactDateCheck"]["checks"]["current"]
+        self.assertEqual(latest_match["shareDisclosureDate"], "2026-10-22")
+        self.assertEqual(latest_match["shareSource"],
+                         "https://www.sec.gov/Archives/edgar/data/51143/000005114326000095/ibm-20260930.htm")
+        self.assertNotIn("shares", latest_match)
+        self.assertNotIn("valuation", latest_match)
         series["2026-06-30"]["4. close"] = "0"
         with patch.object(refresh, "fetch_daily_series", return_value=response):
             report = refresh.scheduled_preflight("fixture", demo=True)
