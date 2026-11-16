@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const {setTimeout: delay} = require("node:timers/promises");
 const {stageQuotes} = require("./stage-sgx-public-quotes.js");
 const {sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
 
@@ -10,6 +11,18 @@ class QuoteImportError extends Error {
   constructor(stage, message) {
     super(message);
     this.stage = stage;
+  }
+}
+
+async function requestClose(endpoint, fetcher) {
+  try {
+    return await fetcher(endpoint, {
+      headers: {accept: "application/json"},
+      redirect: "error",
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new QuoteImportError("FETCH", "SGX daily close request failed or timed out");
   }
 }
 
@@ -34,17 +47,17 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch) {
     throw new QuoteImportError("CONFIG", "Expected an HTTPS feed URL without credentials, query or fragment");
   }
   endpoint.searchParams.set("session", session);
-  let response;
-  try {
-    response = await fetcher(endpoint, {
-      headers: {accept: "application/json"},
-      redirect: "error",
-      signal: AbortSignal.timeout(15000),
-    });
-  } catch {
-    throw new QuoteImportError("FETCH", "SGX daily close request failed or timed out");
+  let response = await requestClose(endpoint, fetcher);
+  for (const wait of [250, 500]) {
+    if (![502, 503, 504].includes(response.status)) break;
+    await response.body?.cancel().catch(() => {});
+    await delay(wait);
+    response = await requestClose(endpoint, fetcher);
   }
-  if (!response.ok) throw new QuoteImportError("FETCH", "SGX daily close feed returned HTTP " + response.status);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
+    throw new QuoteImportError("FETCH", "SGX daily close feed returned HTTP " + response.status);
+  }
   if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "") ||
       !response.body) {
     throw new QuoteImportError("RESPONSE", "Expected JSON from the SGX daily close feed");

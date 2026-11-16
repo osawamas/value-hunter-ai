@@ -28,9 +28,10 @@ async function test() {
     };
     const requests = [];
     let body = [quote];
+    let statuses = [];
     server = https.createServer({key: fs.readFileSync(key), cert: fs.readFileSync(cert)}, (req, res) => {
       requests.push(req.url);
-      res.writeHead(200, {"content-type": "application/json"});
+      res.writeHead(statuses.shift() ?? 200, {"content-type": "application/json"});
       res.end(JSON.stringify(body));
     });
     await new Promise((resolve, reject) => {
@@ -72,11 +73,26 @@ async function test() {
     assert.equal(row.pbr_verified, 1);
     assert.equal(row.market_data_license_evidence.daily_close_feed_url, undefined);
 
+    requests.length = 0;
+    statuses = [503, 502];
+    assert.deepEqual(JSON.parse((await run(process.execPath, args, options)).stdout), candidate);
+    assert.deepEqual(requests, Array(3).fill("/closes?session=2026-11-13"));
+
+    for (const [status, count] of [[503, 3], [403, 1], [429, 1]]) {
+      requests.length = 0;
+      statuses = Array(3).fill(status);
+      await assert.rejects(run(process.execPath, args, options), error =>
+        error.code === 1 && error.stdout === "" && error.stderr.includes("HTTP " + status));
+      assert.equal(requests.length, count);
+    }
+    requests.length = 0;
+    statuses = [];
     body = [{...quote, timestamp: "2026-11-12T09:00:00Z"}];
     await assert.rejects(run(process.execPath, args, options), error =>
       error.code === 1 && error.stdout === "" && error.stderr.includes("SGX close SESSION:"));
+    assert.equal(requests.length, 1);
     assert.deepEqual(JSON.parse(fs.readFileSync(feedFile)), feed);
-    console.log("SGX HTTPS CLI passed: requested session, ranking candidate, and stale response rejection");
+    console.log("SGX HTTPS CLI passed: requested session, ranking candidate, bounded retries, and stale response rejection");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
     fs.rmSync(temp, {recursive: true, force: true});
