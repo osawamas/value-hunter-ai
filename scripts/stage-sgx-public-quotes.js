@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
-const {checkFeed, sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
+const {checkFeed, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD} = require("../docs/sgx-ranking-validation.js");
 
 // These exclusions describe the old close or calculations replaced below.
 const REPLACED_QUOTE_FLAGS = new Set([
@@ -32,9 +32,8 @@ function stageQuotes(feed, quotes, grant) {
     if (seen.has(symbol)) throw new Error("Repeated SGX symbol: " + symbol);
     seen.add(symbol);
     if (quote.currency !== "SGD" || quote.source_type !== "LICENSED_SGX_EQUITY" ||
-        !Number.isFinite(quote.close) || quote.close <= 0 ||
-        !Number.isFinite(quote.ranking_score)) {
-      throw new Error(symbol + ": invalid licensed SGD close or ranking score");
+        !Number.isFinite(quote.close) || quote.close <= 0) {
+      throw new Error(symbol + ": invalid licensed SGD close");
     }
     const session = sgxQuoteDate(quote.timestamp);
     if (!session) throw new Error(symbol + ": invalid Singapore close timestamp");
@@ -103,8 +102,9 @@ function stageQuotes(feed, quotes, grant) {
       exclusion_reasons: [],
       quality_flags: qualityFlags,
       ranking_eligible: true,
-      ranking_score: quote.ranking_score,
+      ranking_score_method: VALUE_SCORE_METHOD,
     });
+    row.ranking_score = valueScore(row);
   }
   staged.ranking_eligible_count = staged.records.filter(row => row.ranking_eligible === true).length;
   staged.ranking_enabled = staged.ranking_eligible_count > 0;

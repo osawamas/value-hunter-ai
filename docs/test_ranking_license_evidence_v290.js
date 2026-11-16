@@ -59,13 +59,22 @@ baseline.ranking_enabled=false;
 const grant=previous.market_data_license_evidence;
 const incoming={
   symbol:previous.symbol,currency:"SGD",close:2.5,source_type:"LICENSED_SGX_EQUITY",
-  source_url:"https://example.org/close",timestamp:"2026-11-13T09:00:00Z",ranking_score:25,
+  source_url:"https://example.org/close",timestamp:"2026-11-13T09:00:00Z",
 };
 const staged=stageQuotes(baseline,[incoming],grant);
 assert.equal(staged.ranking_eligible_count,1);
 assert.equal(staged.records[0].market_cap_sgd,Number((2.5*previous.shares_outstanding).toFixed(2)));
 assert.equal(staged.records[0].pbr_verified,Number((2.5*previous.shares_outstanding/
   (1000*previous.parent_equity_sgd_thousands)).toFixed(4)));
+const ranked = staged.records[0];
+assert.equal(ranked.ranking_score, Number((
+  (previous.attributable_profit_sgd_thousands + previous.parent_equity_sgd_thousands) *
+  50000 / (2.5 * previous.shares_outstanding)
+).toFixed(6)));
+assert.deepEqual(stageQuotes(baseline,[{...incoming,ranking_score:99999}],grant),staged);
+const alteredScore = structuredClone(staged);
+alteredScore.records[0].ranking_score += 1;
+assert.ok(checkFeed(alteredScore).some(error => error.includes("score does not match")));
 assert.equal(baseline.records[0].ranking_eligible,false);
 for (const reason of ["PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
   "TREASURY_SHARE_ARITHMETIC_OR_BASIS_MISMATCH", "UNRECOGNIZED_EXCLUSION"]) {

@@ -341,7 +341,8 @@ function showDetail(r) {
       ["時価総額（SGD）", fmt(r.market_cap_sgd, 0)],
       ["PER", fmt(r.per_reference) + " 倍"],
       ["PBR", fmt(r.pbr_verified) + " 倍"],
-      ["ランキングスコア", fmt(r.ranking_score)],
+      ["ランキングスコア", r.ranking_score_method === window.SgxRankingValidation.VALUE_SCORE_METHOD ?
+        fmt(r.ranking_score) + "%（利益と純資産の対時価総額比率の平均）" : fmt(r.ranking_score)],
       ["株価の公開利用根拠", r.market_data_license_evidence.grant_evidence_url, true],
     ]) : field("評価", "異なる基準日の参考計算（正式な評価値ではない・表の比較から除外）", [
       ["正式な評価値の表示可否", "不可：独立したSGX約定株価と株式数の時点整合が未検証"],

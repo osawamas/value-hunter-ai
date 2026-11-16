@@ -23,7 +23,7 @@ async function test() {
 
     const quote = {
       symbol: "S63", currency: "SGD", source_type: "LICENSED_SGX_EQUITY",
-      close: 2, ranking_score: 1, source_url: "https://example.org/quote",
+      close: 2, source_url: "https://example.org/quote",
       timestamp: "2026-11-12T09:00:00Z",
     };
     const requests = [];
@@ -77,6 +77,7 @@ async function test() {
     assert.equal(row.market_cap_sgd, 2000);
     assert.equal(row.per_reference, 2);
     assert.equal(row.pbr_verified, 1);
+    assert.equal(row.ranking_score, 75);
     assert.equal(row.quote_freshness, "RECENT");
     assert.equal(candidate.quality_counts.quote_stale, 0);
     assert.equal(candidate.quality_counts.ranking_eligible, 1);

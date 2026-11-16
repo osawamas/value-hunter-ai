@@ -253,7 +253,8 @@ try {
  const publicFeed=await (await page.request.get(base+"/data/latest.json")).json();
  const candidate=publicFeed.records[0];
  Object.assign(candidate,{
-  ranking_eligible:true, ranking_score:100, exclusion_reasons:[],
+  ranking_eligible:true, ranking_score:75, ranking_score_method:"average_earnings_and_book_yield_v1",
+  exclusion_reasons:[],
   quote_source_type:"LICENSED_SGX_EQUITY",
   quote_license_display_allowed:true, quote_license_non_display_analytics_allowed:true,
   independent_cross_source_verification:true,
@@ -279,6 +280,7 @@ try {
  assert.equal(await rankingPage.locator("#stockRows tr").count(),1);
  await rankingPage.locator("#stockRows button").click();
  await rankingPage.locator("#detailContent").getByText("正式評価",{exact:true}).waitFor();
+ await rankingPage.locator("#detailContent").getByText(/75%（利益と純資産の対時価総額比率の平均）/).waitFor();
  await rankingPage.locator("#fileInput").setInputFiles({
   name:"ranking.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(publicFeed)),
  });

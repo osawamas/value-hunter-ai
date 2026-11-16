@@ -15,6 +15,14 @@
     const time = Date.parse(value);
     return Number.isFinite(time) ? singaporeDate.format(time) : null;
   }
+  const VALUE_SCORE_METHOD = "average_earnings_and_book_yield_v1";
+
+  function valueScore(row) {
+    const cap = row.price_sgd * row.shares_outstanding;
+    return Number(((row.attributable_profit_sgd_thousands + row.parent_equity_sgd_thousands) *
+      50000 / cap).toFixed(6));
+  }
+
   function valuationErrors(row, id) {
     const {price_sgd: price, shares_outstanding: shares,
       attributable_profit_sgd_thousands: profit, parent_equity_sgd_thousands: equity} = row;
@@ -56,6 +64,9 @@
         errors.push(...valuationErrors(r, id));
         if (r.ranking_score == null || !Number.isFinite(r.ranking_score))
           errors.push(id + ": ranking score missing/invalid");
+        if (r.ranking_score_method !== undefined &&
+            (r.ranking_score_method !== VALUE_SCORE_METHOD || r.ranking_score !== valueScore(r)))
+          errors.push(id + ": ranking score does not match the valuation inputs");
         if (UNOFFICIAL.test(String(r.quote_source_type || "")))
           errors.push(id + ": unofficial quote in investable ranking");
         if (r.quote_license_display_allowed !== true ||
@@ -125,7 +136,7 @@
     return errors;
   }
 
-  const api = {checkFeed, checkProvenance, sgxQuoteDate, validDate};
+  const api = {checkFeed, checkProvenance, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.SgxRankingValidation = api;
 })(typeof window !== "undefined" ? window : null);
