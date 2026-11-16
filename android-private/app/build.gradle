@@ -2,7 +2,14 @@ plugins {
     id 'com.android.application' version '8.7.3'
 }
 
+def ledgerAssets = layout.buildDirectory.dir('generated/s63LedgerAssets')
+def syncS63ShareLedger = tasks.register('syncS63ShareLedger', Sync) {
+    from(rootProject.file('../docs/data/android-s63-shares.json'))
+    into(ledgerAssets)
+}
+
 android {
+    sourceSets.main.assets.srcDir(ledgerAssets)
     namespace 'jp.valuehunter.privatewatch'
     compileSdk 35
     defaultConfig {
@@ -16,6 +23,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn(syncS63ShareLedger)
 }
 
 dependencies {

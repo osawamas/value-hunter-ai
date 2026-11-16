@@ -47,8 +47,8 @@ public final class SgCheckWorker extends Worker {
             pair = SgCloseCheck.read(payload, cutoff);
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
-            evaluation = evaluate(pair.latest(), getRunAttemptCount());
-            result += evaluation.details();
+            evaluation = evaluate(context, pair.latest(), getRunAttemptCount());
+            result += evaluation.details() + evaluation.disclosureDetails();
         } catch (UsScanWorker.HttpFailure error) {
             retryableFailure = shouldRetry(error.status, getRunAttemptCount());
             result = switch (error.status) {
@@ -101,24 +101,38 @@ public final class SgCheckWorker extends Worker {
                 || (httpStatus >= 500 && httpStatus <= 599));
     }
 
-    private record Evaluation(String details, Boolean qualified, boolean retryableFailure) {}
+    private record Evaluation(String details, String disclosureDetails, Boolean qualified,
+                              boolean retryableFailure) {}
 
-    private static Evaluation evaluate(SgCloseCheck.Close close, int attempts) {
+    private static SgShareLedger.Disclosure readBundledDisclosure(Context context, SgCloseCheck.Close close) {
+        try {
+            var ledger = SgShareLedger.readAsset(context.getAssets().open("android-s63-shares.json"));
+            return SgShareLedger.read(ledger, close.session());
+        } catch (IOException | JSONException error) {
+            return null;
+        }
+    }
+
+    private static Evaluation evaluate(Context context, SgCloseCheck.Close close, int attempts) {
         StringBuilder details = new StringBuilder();
-        var trial = SgValuation.forClose(close);
+        SgShareLedger.Disclosure disclosure = null;
         boolean retryableFailure = false;
-        if (trial == null && SgValuation.financialsAvailable(close.session())) {
-            try {
-                var ledger = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
-                trial = SgValuation.forClose(close, SgShareLedger.readShares(ledger, close.session()));
-            } catch (IOException | JSONException error) {
-                details.append("\n開示株数の更新データを確認できなかった");
-                if (error instanceof IOException) {
-                    retryableFailure = shouldRetry(error instanceof UsScanWorker.HttpFailure failure
-                            ? failure.status : 0, attempts);
+        if (SgValuation.financialsAvailable(close.session())) {
+            disclosure = readBundledDisclosure(context, close);
+            if (disclosure == null) {
+                try {
+                    var ledger = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
+                    disclosure = SgShareLedger.read(ledger, close.session());
+                } catch (IOException | JSONException error) {
+                    details.append("\n開示株数の更新データを確認できなかった");
+                    if (error instanceof IOException) {
+                        retryableFailure = shouldRetry(error instanceof UsScanWorker.HttpFailure failure
+                                ? failure.status : 0, attempts);
+                    }
                 }
             }
         }
+        var trial = disclosure == null ? null : SgValuation.forClose(close, disclosure.shares());
         Boolean qualified = null;
         if (!SgValuation.financialsAvailable(close.session())) {
             details.append("\n取引日時点の財務が未登録。時価総額・PER・PBRは保留");
@@ -151,6 +165,10 @@ public final class SgCheckWorker extends Worker {
                         ? failure.status : 0, attempts);
             }
         }
-        return new Evaluation(details.toString(), qualified, retryableFailure);
+        String disclosureDetails = disclosure == null ? "" :
+                "\n株数の開示日時 " + disclosure.disclosedAt().format(
+                        java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'SGT'", Locale.JAPAN))
+                        + "\nSGX原本 " + disclosure.source();
+        return new Evaluation(details.toString(), disclosureDetails, qualified, retryableFailure);
     }
 }

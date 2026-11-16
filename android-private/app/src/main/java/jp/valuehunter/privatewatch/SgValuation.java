@@ -27,17 +27,6 @@ final class SgValuation {
                 && pair.latest().session().isAfter(pair.previous().session());
     }
 
-    static Trial forClose(SgCloseCheck.Close close) {
-        // SGXNet buyback notices supply dated shares excluding treasury.
-        long shares = switch (close.session().toString()) {
-            case "2026-10-26" -> 3_116_347_115L;
-            case "2026-11-13" -> 3_115_847_115L;
-            case "2026-11-16" -> 3_115_347_115L;
-            default -> 0;
-        };
-        return forClose(close, shares);
-    }
-
     static Trial forClose(SgCloseCheck.Close close, long shares) {
         if (shares <= 0 || !financialsAvailable(close.session())) return null;
         double cap = close.sgd() * shares;

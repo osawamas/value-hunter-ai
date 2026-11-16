@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  apk:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -28,5 +28,7 @@ jobs:
         with:
           gradle-version: '8.9'
           cache-read-only: true
-      - name: Build APK and verify the stock screen
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify stock calculations and merge the disclosure asset
+        run: gradle --no-daemon :app:testDebugUnitTest :app:mergeDebugAssets
+      - name: Verify the bundled disclosure asset matches the ledger
+        run: cmp ../docs/data/android-s63-shares.json app/build/generated/s63LedgerAssets/android-s63-shares.json

@@ -43,11 +43,19 @@ jobs:
         run: |
           ledger="$RUNNER_TEMP/s63-shares.json"
           cp docs/data/android-s63-shares.json "$ledger"
-          python3 SGX_PDF_connection_probe/update_android_s63_shares.py --ledger "$ledger" \
-            'https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92' \
-            'https://links.sgx.com/1.0.0/corporate-announcements/NW4Z2M7CTBNO8D6Z/b91d80b0914fdcc6631e80cdc274c072027de0b2b36402676154e44de19b7071' \
-            'https://links.sgx.com/1.0.0/corporate-announcements/3M9CFY39IBL0FI9P/9d04e2fda5ec86fcaa63b084e255b5f6a6104461147b177de3399815ffa950fd' \
-            'https://links.sgx.com/1.0.0/corporate-announcements/NTLMKQEZ6PCYVQ5E/fd239ac95cca320f5c6167f673198ca10bbff71a2648b1ff2f327dc3bd9099ae'
+          PYTHONPATH=SGX_PDF_connection_probe python3 - "$ledger" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          from update_android_s63_shares import update_ledger
+
+          path = Path(sys.argv[1])
+          records = json.loads(path.read_text(encoding="utf-8"))["records"]
+          if not records:
+              raise SystemExit("No S63 disclosures to verify")
+          update_ledger(path, [row["source"] for row in records])
+          PY
           cmp docs/data/android-s63-shares.json "$ledger"
 
   register:
