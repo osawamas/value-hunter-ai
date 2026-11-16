@@ -34,6 +34,7 @@ public final class ScanWorker extends Worker {
     private static final String PERIODIC = "japan-watch";
     private static final String MANUAL = "japan-check-now";
     static final String CHANNEL = "value-alerts";
+    private static final int SCREEN_VERSION = 2;
     private static final Object SCAN_LOCK = new Object();
 
     public ScanWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
@@ -69,7 +70,9 @@ public final class ScanWorker extends Worker {
         String key = state.getString("key", "");
         if (key.isEmpty()) return Result.success();
         boolean delayed = state.getBoolean("delayed", true);
-        String lastDate = state.getString("latest_date", "");
+        // Rebuild the baseline when introducing a new screening tier.
+        boolean currentScreen = state.getInt("screen_version", 1) == SCREEN_VERSION;
+        String lastDate = currentScreen ? state.getString("latest_date", "") : "";
         status(state, "株価と指標を確認中…");
         try {
             var snapshot = new JQuants(key).scan(delayed, lastDate);
@@ -88,12 +91,13 @@ public final class ScanWorker extends Worker {
                 codes.add(candidate.code());
                 lines.put(format(candidate));
             }
-            var editor = state.edit().putString("latest_date", snapshot.date().toString())
+            var editor = state.edit().putInt("screen_version", SCREEN_VERSION)
+                    .putString("latest_date", snapshot.date().toString())
                     .putStringSet("qualified", codes).putString("rows", lines.toString())
                     .putString("status", "取得完了 · 条件に該当 " + codes.size() + "銘柄");
             // Commit the date and the qualifying set together before posting the notification.
             if (!editor.commit()) return Result.retry();
-            if (!lastDate.isEmpty() && !added.isEmpty()) {
+            if (!added.isEmpty()) {
                 notifyUser(snapshot.date().toString(), added.size(), format(added.get(0)), delayed);
             }
             return Result.success();
@@ -121,9 +125,11 @@ public final class ScanWorker extends Worker {
     }
 
     private static String format(JapanScreen.Candidate row) {
-        String yen = NumberFormat.getNumberInstance(Locale.JAPAN).format(row.cost());
-        return String.format(Locale.JAPAN, "%s %s\n100株 %s円   PER %.2f倍   PBR %.2f倍",
-                row.code(), row.name(), yen, row.per(), row.pbr());
+        var currency = NumberFormat.getNumberInstance(Locale.JAPAN);
+        currency.setMaximumFractionDigits(3);
+        String lotNote = row.quantity() == 1 ? "（単元未満）" : "";
+        return String.format(Locale.JAPAN, "%s %s\n%d株 %s円%s   PER %.2f倍   PBR %.2f倍",
+                row.code(), row.name(), row.quantity(), currency.format(row.cost()), lotNote, row.per(), row.pbr());
     }
 
     private void notifyUser(String date, int count, String example, boolean delayed) {

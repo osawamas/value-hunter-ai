@@ -21,7 +21,9 @@ final class JapanScreen {
     static final double MAX_PER = 15;
     static final double MAX_PBR = 1;
 
-    record Candidate(String code, String name, double cost, double per, double pbr) {
+    record Candidate(String code, String name, double close, double per, double pbr) {
+        int quantity() { return close <= BUDGET / 100.0 ? 100 : 1; }
+        double cost() { return close * quantity(); }
         double score() { return (1 / per + 1 / pbr) / 2; }
     }
 
@@ -44,12 +46,13 @@ final class JapanScreen {
             double per = valuation.optDouble("PER");
             double pbr = valuation.optDouble("PBR");
             String name = issue.optString("CoName");
-            if (entry.getValue().optDouble("Vo") > 0 && close > 0 && close * 100 <= BUDGET && per > 0 && per <= MAX_PER
+            if (entry.getValue().optDouble("Vo") > 0 && close > 0 && close <= BUDGET && per > 0 && per <= MAX_PER
                     && pbr > 0 && pbr <= MAX_PBR && !name.trim().isEmpty()) {
-                candidates.add(new Candidate(code.substring(0, 4), name, close * 100, per, pbr));
+                candidates.add(new Candidate(code.substring(0, 4), name, close, per, pbr));
             }
         }
-        candidates.sort(Comparator.comparingDouble(Candidate::score).reversed()
+        candidates.sort(Comparator.comparingInt(Candidate::quantity).reversed()
+                .thenComparing(Comparator.comparingDouble(Candidate::score).reversed())
                 .thenComparing(Candidate::code));
         return candidates;
     }

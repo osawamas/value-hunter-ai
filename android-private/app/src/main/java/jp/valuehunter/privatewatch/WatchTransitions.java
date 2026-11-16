@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -12,9 +13,9 @@ final class WatchTransitions {
             String lastDate, LocalDate sessionDate, List<JapanScreen.Candidate> current,
             Set<String> previous) {
         // The first successful scan only establishes a baseline.
-        if (lastDate == null || lastDate.isEmpty()) return List.of();
+        if (lastDate == null || lastDate.isEmpty()) return Collections.emptyList();
         // Never notify twice for one trading session or for older data.
-        if (!sessionDate.isAfter(LocalDate.parse(lastDate))) return List.of();
+        if (!sessionDate.isAfter(LocalDate.parse(lastDate))) return Collections.emptyList();
         return JapanScreen.newlyQualified(current, previous);
     }
 }

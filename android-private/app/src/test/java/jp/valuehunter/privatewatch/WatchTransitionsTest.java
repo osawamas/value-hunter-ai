@@ -8,8 +8,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class WatchTransitionsTest {
-    private static final JapanScreen.Candidate A = new JapanScreen.Candidate("1001", "A", 80000, 10, 0.8);
-    private static final JapanScreen.Candidate B = new JapanScreen.Candidate("1002", "B", 90000, 12, 0.9);
+    private static final JapanScreen.Candidate A = new JapanScreen.Candidate("1001", "A", 800, 10, 0.8);
+    private static final JapanScreen.Candidate B = new JapanScreen.Candidate("1002", "B", 1500, 12, 0.9);
 
     @Test public void firstScanIsBaselineSecondScanOnlyNotifiesNewEntrant() {
         LocalDate first = LocalDate.parse("2026-08-20");

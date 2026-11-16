@@ -43,7 +43,7 @@ public final class MainActivity extends Activity {
         title.setText("VALUE HUNTER AI");
         content.addView(title);
         var filter = new TextView(this);
-        filter.setText("東証の普通株 · 100株10万円以内 · 実績PER 15倍以下 · PBR 1倍以下");
+        filter.setText("東証の普通株 · 実績PER 15倍以下 · PBR 1倍以下\n10万円以内で100株買える候補を優先。次に1株（取扱いは証券会社による）");
         content.addView(filter);
 
         key = new EditText(this);

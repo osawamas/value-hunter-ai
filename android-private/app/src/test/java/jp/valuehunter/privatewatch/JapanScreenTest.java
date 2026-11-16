@@ -23,17 +23,23 @@ public class JapanScreenTest {
         var master = new JSONArray();
         add(bars, metrics, master, "10010", 1000, 15, 1, 30, "011");
         add(bars, metrics, master, "186A0", 700, 8, 0.5, 30, "011");
-        add(bars, metrics, master, "10020", 1000.1, 9, 0.5, 30, "011");
+        add(bars, metrics, master, "10020", 1000.1, 1, 0.1, 30, "011");
+        add(bars, metrics, master, "10070", 100_000, 15, 1, 30, "011");
+        add(bars, metrics, master, "10080", 100_001, 9, 0.5, 30, "011");
         add(bars, metrics, master, "10030", 999, -1, 0.5, 30, "011");
         add(bars, metrics, master, "10040", 999, 10, 1.1, 30, "011");
         add(bars, metrics, master, "10050", 999, 10, 0.5, 0, "011");
         add(bars, metrics, master, "10060", 999, 10, 0.5, 30, "014");
         add(bars, metrics, master, "10069", 999, 10, 0.5, 30, "011");
         var candidates = JapanScreen.find(SESSION, bars, metrics, master);
-        assertEquals(Arrays.asList("186A", "1001"), candidates.stream()
+        assertEquals(Arrays.asList("186A", "1001", "1002", "1007"), candidates.stream()
                 .map(JapanScreen.Candidate::code).collect(Collectors.toList()));
         assertEquals(100_000, candidates.get(1).cost(), 0);
-        assertEquals(List.of(candidates.get(1)),
+        assertEquals(100, candidates.get(1).quantity());
+        assertEquals(1, candidates.get(2).quantity());
+        assertEquals(1000.1, candidates.get(2).cost(), 0);
+        assertEquals(100_000, candidates.get(3).cost(), 0);
+        assertEquals(List.of(candidates.get(1), candidates.get(2), candidates.get(3)),
                 JapanScreen.newlyQualified(candidates, Collections.singleton("186A")));
     }
 
