@@ -88,7 +88,12 @@ function reviewObservedSession(rows, shareReview, quote, shares) {
   if (shareConflicts) {
     return {id, date, price, status: "conflict", shareConflicts};
   }
-  return {id, date, price, status: "no_exact_share_evidence"};
+  const [trial] = evaluatePersonalQuotes(rows.filter(row => row.id === id),
+    new Map([[id, quote]]), new Map(), shareReview);
+  return {id, date, price, status: "no_exact_share_evidence",
+    ...(trial.referenceShareDate && {
+      referenceShareDate: trial.referenceShareDate, referenceShareSource: trial.referenceShareSource,
+    })};
 }
 
 function reviewQuoteRefresh(rows, shareReview, previous, current, previousRows = rows, previousShareReview = shareReview) {

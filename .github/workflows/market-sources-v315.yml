@@ -12,6 +12,8 @@ on:
       - 'docs/data/market-research-v315.json'
       - 'scripts/verify-market-sources-v315.py'
       - 'scripts/check-representative-valuations.js'
+      - 'scripts/check-ibm-personal-refresh.py'
+      - 'tests/test_ibm_personal_refresh.py'
       - 'tests/test_representative_valuations.js'
       - 'scripts/check-ranking-provenance-v289.js'
       - 'scripts/check-ranking-license-evidence-v290.js'
@@ -48,6 +50,7 @@ jobs:
           node-version: "22"
       - run: node tests/test_representative_valuations.js
       - run: python3 scripts/test-verify-jquants-personal-snapshot.py
+      - run: python3 -m unittest discover -s tests -p test_ibm_personal_refresh.py
       - run: |
           node docs/test_ranking_provenance_v289.js
           node docs/test_ranking_license_evidence_v290.js
