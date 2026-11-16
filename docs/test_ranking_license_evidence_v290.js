@@ -77,3 +77,17 @@ assert.throws(()=>stageQuotes(baseline,[{...incoming,timestamp:"2026-11-16T09:00
 assert.throws(()=>stageQuotes(real,[{...incoming,timestamp:real.records[0].shares_as_of_date+"T09:00:00Z"}],grant),
   /existing financial or publication exclusions remain|predates/);
 console.log("v431 PASS: stage licensed closes atomically with dated share and financial gates");
+
+const {checkRefresh}=require("../scripts/check-ranking-license-evidence-v290.js");
+assert.deepEqual(checkRefresh(real,real),[]);
+assert.deepEqual(checkRefresh(baseline,staged),[]);
+assert.deepEqual(checkRefresh(staged,staged),[]);
+assert.ok(checkRefresh(staged,baseline).some(error=>error.includes("remove a ranked record")));
+const nextFeed=structuredClone(staged);
+nextFeed.records[0].quote_timestamp_utc="2026-11-16T09:00:00Z";
+nextFeed.records[0].shares_as_of_date="2026-11-16";
+assert.deepEqual(checkRefresh(staged,nextFeed),[]);
+assert.ok(checkRefresh(nextFeed,staged).some(error=>error.includes("roll back")));
+const revised=stageQuotes(baseline,[{...incoming,close:3}],grant);
+assert.ok(checkRefresh(staged,revised).some(error=>error.includes("same session")));
+console.log("v432 PASS: routine refresh cannot roll back or remove ranked closes");
