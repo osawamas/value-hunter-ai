@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "symbol": "S63",
+  "records": [
+    {
+      "date": "2026-10-26",
+      "shares": 3116347115,
+      "source": "https://links.sgx.com/1.0.0/corporate-announcements/L5ICCSU1HJ6MACLH/1d218748928cb50a2b4e00bdcac70b900bc15e6f443ccbd2557b009698f3e5c3",
+      "disclosed_at": "2026-10-26T18:29:22+08:00"
+    },
+    {
+      "date": "2026-11-13",
+      "shares": 3115847115,
+      "source": "https://links.sgx.com/1.0.0/corporate-announcements/4NRLOX68RVAQLTX7/e975f3ae39506c95439e92080a725fbbaa980e0196ddca2c946c55442faf6d92",
+      "disclosed_at": "2026-11-13T18:21:18+08:00"
+    },
+    {
+      "date": "2026-11-16",
+      "shares": 3115347115,
+      "source": "https://links.sgx.com/1.0.0/corporate-announcements/EE91Z8VP8VZN8PJN/e88920826649e589c68fba0c48aae0681ae2fdb10acb81ab3f82c2bd58a0e36b",
+      "disclosed_at": "2026-11-16T18:21:27+08:00"
+    }
+  ]
+}

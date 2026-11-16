@@ -26,7 +26,11 @@ final class SgValuation {
             case "2026-11-16" -> 3_115_347_115L;
             default -> 0;
         };
-        if (shares == 0) return null;
+        return forClose(close, shares);
+    }
+
+    static Trial forClose(SgCloseCheck.Close close, long shares) {
+        if (shares <= 0) return null;
         double cap = close.sgd() * shares;
         return new Trial(shares, cap, cap / TTM_PROFIT, cap / PARENT_EQUITY);
     }

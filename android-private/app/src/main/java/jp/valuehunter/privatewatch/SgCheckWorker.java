@@ -88,12 +88,20 @@ public final class SgCheckWorker extends Worker {
     private static Evaluation evaluate(SgCloseCheck.Close close) {
         StringBuilder details = new StringBuilder();
         var trial = SgValuation.forClose(close);
+        if (trial == null) {
+            try {
+                var ledger = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
+                trial = SgValuation.forClose(close, SgShareLedger.readShares(ledger, close.session()));
+            } catch (IOException | JSONException error) {
+                details.append("\n開示株数の更新データを確認できなかった");
+            }
+        }
         Boolean qualified = null;
         if (trial == null) {
             details.append("\n同日の開示株数が未登録。時価総額・PER・PBRは保留");
         } else {
             details.append(String.format(Locale.JAPAN,
-                    "\n同日の開示株数 %,d株（取引終了後の開示）"
+                    "\n同日の開示株数 %,d株（事後照合）"
                             + "\n参考時価総額 %,.0f SGD · 参考PER %.2f倍 · 参考PBR %.2f倍",
                     trial.shares(), trial.cap(), trial.per(), trial.pbr()));
         }
