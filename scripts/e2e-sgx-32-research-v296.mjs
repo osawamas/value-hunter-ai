@@ -240,7 +240,7 @@ try{
  const growthCsv = fs.readFileSync(await (await growthDownload).path(),"utf8");
  assert.match(growthCsv,/annual_sales_growth_pct,annual_parent_equity_ratio_pct/);
  assert.match(growthCsv,/annual_net_income,annual_parent_equity,per_unavailable_reason,pbr_unavailable_reason,interim_valuation_basis/);
- assert.match(growthCsv,/"JP:7203"[^\r\n]*,3848098000000,39918854000000,{10}\r?\n/);
+ assert.match(growthCsv,/"JP:7203"[^\r\n]*,3848098000000,39918854000000,,,"retrospective","2026-09-30","2026-11-05",[^\r\n]*,4311118000000,37447031000000,/);
  assert.doesNotMatch(growthCsv,/"US:AAPL"/);
  await page.locator("#personalBatchMinSales").fill("");
  await page.locator("#personalBatchMinEquity").fill("");
