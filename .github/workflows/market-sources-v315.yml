@@ -21,6 +21,7 @@ on:
       - 'docs/test_ranking_license_evidence_v290.js'
       - 'docs/sgx-ranking-validation.js'
       - 'scripts/fetch-sgx-public-quotes.js'
+      - 'scripts/apply-sgx-public-quotes.sh'
       - 'scripts/stage-sgx-public-quotes.js'
       - 'tests/test_sgx_close_https.js'
       - 'docs/data/sgx-market-license-review-v290.json'

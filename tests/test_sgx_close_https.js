@@ -92,7 +92,21 @@ async function test() {
       error.code === 1 && error.stdout === "" && error.stderr.includes("SGX close SESSION:"));
     assert.equal(requests.length, 1);
     assert.deepEqual(JSON.parse(fs.readFileSync(feedFile)), feed);
-    console.log("SGX HTTPS CLI passed: requested session, ranking candidate, bounded retries, and stale response rejection");
+    const applyArgs = [path.join(__dirname, "../scripts/apply-sgx-public-quotes.sh"), feedFile];
+    const applyOptions = {timeout: options.timeout, env: {
+      ...options.env, SGX_REQUESTED_SESSION: "2026-11-13", SGX_PREFLIGHT: "true",
+      SGX_CLOSE_GRANT_JSON: JSON.stringify(grant),
+    }};
+    body = [quote];
+    statuses = [503, 503, 503];
+    const original = fs.readFileSync(feedFile);
+    await assert.rejects(run("bash", applyArgs, applyOptions), {code: 1, stderr: /HTTP 503/});
+    assert.deepEqual(fs.readFileSync(feedFile), original);
+
+    await run("bash", applyArgs, applyOptions);
+    assert.deepEqual(JSON.parse(fs.readFileSync(feedFile)), candidate);
+    assert.deepEqual(fs.readdirSync(temp).sort(), ["cert.pem", "feed.json", "grant.json", "key.pem"]);
+    console.log("SGX daily refresh passed: candidate preserved on failure and replaced on success");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
     fs.rmSync(temp, {recursive: true, force: true});
