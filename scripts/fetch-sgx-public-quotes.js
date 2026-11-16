@@ -130,15 +130,57 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
   }
 }
 
+async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) {
+  if (!validDate(earlier) || !validDate(later) || earlier >= later) {
+    throw new QuoteImportError("SESSION", "Provide two Singapore sessions in increasing YYYY-MM-DD order");
+  }
+  const {reviewStoredS63} = require("./check-sgx-close-readiness.js");
+  const sessions = [];
+  for (const session of [earlier, later]) {
+    let check;
+    try {
+      const staged = await fetchAndStage(feed, grant, session, fetcher, quotes => {
+        const quote = quotes.find(row => row.symbol === "S63");
+        if (!quote) throw new QuoteImportError("RESPONSE", "SGX response is missing the S63 close");
+        const {trial, interimTrial} = reviewStoredS63(feed, session, quote.close);
+        check = {
+          session, annualStatus: trial.status,
+          completeAnnualRatios: ["cap", "per", "pbr"].every(key => Number.isFinite(trial.valuation?.[key])),
+          interimStatus: interimTrial.status,
+        };
+      });
+      check.publicationErrors = checkRefresh(feed, staged);
+    } catch (error) {
+      if (!check || !(error instanceof QuoteImportError) || error.stage !== "VALIDATION") throw error;
+      check.publicationErrors = [error.message];
+    }
+    sessions.push(check);
+  }
+  return {
+    symbol: "S63",
+    closeRetrieval: "retrieved",
+    valuationCheck: sessions.every(check => check.completeAnnualRatios) ? "passed" : "blocked",
+    sessions,
+  };
+}
+
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length !== 3)
-    throw new Error("Usage: node scripts/fetch-sgx-public-quotes.js FEED.json GRANT.json YYYY-MM-DD");
+  const compare = args.length === 5 && args[2] === "--compare-s63";
+  if (args.length !== 3 && !compare) {
+    throw new Error("Usage: node scripts/fetch-sgx-public-quotes.js FEED.json GRANT.json YYYY-MM-DD | --compare-s63 EARLIER LATER");
+  }
   let feed, grant;
   try {
     [feed, grant] = args.slice(0, 2).map(file => JSON.parse(fs.readFileSync(file, "utf8")));
   } catch {
     throw new QuoteImportError("CONFIG", "Could not read the public feed or grant configuration as JSON");
+  }
+  if (compare) {
+    const result = await compareS63Sessions(feed, grant, args[3], args[4]);
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    if (result.valuationCheck !== "passed") process.exitCode = 2;
+    return;
   }
   const issuerChecks = [];
   const reportTrial = process.env.SGX_PREFLIGHT === "true" ? (quotes, publicGrant) => {

@@ -29,10 +29,11 @@ async function test() {
     const requests = [];
     let body = [quote, {...quote, symbol: "OTHER", timestamp: "2026-11-11T09:00:00Z"}];
     let statuses = [];
+    const sessionBodies = new Map();
     server = https.createServer({key: fs.readFileSync(key), cert: fs.readFileSync(cert)}, (req, res) => {
       requests.push(req.url);
       res.writeHead(statuses.shift() ?? 200, {"content-type": "application/json"});
-      res.end(JSON.stringify(body));
+      res.end(JSON.stringify(sessionBodies.get(req.url) ?? body));
     });
     await new Promise((resolve, reject) => {
       server.once("error", reject);
@@ -325,6 +326,27 @@ async function test() {
       code: 1, stderr: /HTTP 403/,
     });
     assert.equal(fs.readFileSync(feedFile, "utf8"), input);
+    const pairArgs = [...args.slice(0, -1), "--compare-s63", "2026-11-13", "2026-11-16"];
+    fs.writeFileSync(feedFile, realFeed);
+    sessionBodies.set("/closes?session=2026-11-13", [noticeQuote]);
+    sessionBodies.set("/closes?session=2026-11-16", [{...noticeQuote, timestamp: "2026-11-16T09:00:00Z"}]);
+    const pair = JSON.parse((await run(process.execPath, pairArgs, options)).stdout);
+    assert.equal(pair.valuationCheck, "passed");
+    assert.deepEqual(pair.sessions.map(check => [check.session, check.annualStatus, check.interimStatus]),
+      [["2026-11-13", "filing", "calculated"], ["2026-11-16", "filing", "calculated"]]);
+    assert.ok(pair.sessions.every(check => check.publicationErrors.length));
+    assert.ok(pair.sessions.every(check => !("valuation" in check) && !("price" in check)));
+    assert.deepEqual(fs.readFileSync(feedFile), realFeed);
+    await assert.rejects(run(process.execPath, [...pairArgs.slice(0, -2), "2026-11-16", "2026-11-13"], options),
+      {code: 1, stderr: /in increasing/});
+    sessionBodies.set("/closes?session=2026-11-17", [{...noticeQuote, timestamp: "2026-11-17T09:00:00Z"}]);
+    await assert.rejects(run(process.execPath, [...pairArgs.slice(0, -1), "2026-11-17"], options), error => {
+      assert.equal(error.code, 2);
+      assert.equal(JSON.parse(error.stdout).valuationCheck, "blocked");
+      return true;
+    });
+    sessionBodies.set("/closes?session=2026-11-16", []);
+    await assert.rejects(run(process.execPath, pairArgs, options), {code: 1, stdout: "", stderr: /missing a configured symbol/});
     console.log("SGX daily refresh and history passed: licensed recovery recorded; invalid grants rejected");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
