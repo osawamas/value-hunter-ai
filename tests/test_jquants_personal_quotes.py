@@ -133,3 +133,58 @@ class JQuantsExportTest(unittest.TestCase):
         ]:
             with self.subTest(items=items), self.assertRaises(ValueError):
                 exporter.collect_session_quotes(["7203"], day, "example", lambda *_: {"data": items})
+
+
+class ToyotaRefreshPairTest(unittest.TestCase):
+    def test_pair_commits_two_validated_snapshots_or_keeps_destination_absent(self):
+        from datetime import datetime, timezone
+        from subprocess import CompletedProcess
+        refresh_script = SCRIPT.with_name("refresh-jquants-personal.py")
+        module_spec = importlib.util.spec_from_file_location("jquants_refresh", refresh_script)
+        refresh = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(refresh)
+        live_capture = refresh.capture
+        days = ("2026-06-30", "2026-09-30")
+        exported_days = []
+
+        def capture(command, **options):
+            if str(command[1]) != str(SCRIPT):
+                return live_capture(command, **options)
+            self.assertEqual(command[-2:], ["--", "7203"])
+            day = command[-4].split("=")[1]
+            self.assertEqual(command[-3], f"--to={day}")
+            exported_days.append(day)
+            csv_digest = exporter.save_snapshot(
+                command[command.index("--output") + 1], [("JP:7203", day, "JPY", 3000)])
+            receipt = io.StringIO()
+            with patch.object(exporter.sys, "stderr", receipt):
+                exporter.report_provenance([day], ["7203"], day, day, csv_digest,
+                                           datetime(2026, 11, 16, 0, 0, len(exported_days), tzinfo=timezone.utc))
+            return CompletedProcess(command, 0, "", receipt.getvalue())
+
+        with tempfile.TemporaryDirectory() as directory, patch.object(refresh, "capture", side_effect=capture):
+            root = Path(directory)
+            out = root / "pair"
+            self.assertEqual(refresh.refresh_toyota_pair(out, days), 0)
+            self.assertEqual(exported_days, list(days))
+            final = json.loads((out / "later/report.json").read_text(encoding="utf-8"))
+            self.assertTrue(final["latestTrialCheck"]["passed"])
+            self.assertEqual(final["latestTrialCheck"]["results"][0]["previousDate"], days[0])
+            self.assertTrue((out / "earlier/receipt.json").is_file())
+
+            incomplete = root / "incomplete"
+            self.assertEqual(refresh.refresh_toyota_pair(incomplete, (days[0], "2026-10-01")), 2)
+            self.assertTrue((incomplete / "later/report.json").is_file())
+
+            failed = root / "failed"
+
+            def fail_later(command, **options):
+                if str(command[1]) == str(SCRIPT) and f"--from={days[1]}" in command:
+                    raise ValueError("provider unavailable")
+                return capture(command, **options)
+
+            with patch.object(refresh, "capture", side_effect=fail_later):
+                with self.assertRaisesRegex(ValueError, "provider unavailable"):
+                    refresh.refresh_toyota_pair(failed, days)
+            self.assertFalse(failed.exists())
+            self.assertEqual(sorted(item.name for item in root.iterdir()), ["incomplete", "pair"])

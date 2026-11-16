@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Save a personal J-Quants snapshot and optionally compare it with a prior snapshot."""
 import argparse
+from datetime import date
 from pathlib import Path
 from shutil import copyfile
 import subprocess
@@ -56,6 +57,25 @@ def refresh(destination, previous, export_args, *, require_toyota_refresh=False)
         return report.returncode
 
 
+def refresh_toyota_pair(destination, sessions):
+    earlier, later = sessions
+    if date.fromisoformat(earlier).isoformat() != earlier or date.fromisoformat(later).isoformat() != later or earlier >= later:
+        raise ValueError("Provide two Toyota sessions in increasing YYYY-MM-DD order.")
+    if destination.exists() or destination.is_symlink():
+        raise ValueError("Snapshot directory already exists. Choose a new destination.")
+    with TemporaryDirectory(prefix=".jquants-pair-", dir=destination.parent) as work:
+        pair = Path(work) / "pair"
+        pair.mkdir(mode=0o700)
+        baseline = pair / "earlier"
+        current = pair / "later"
+        # Query the single security, avoiding market-wide pagination for a single close.
+        refresh(baseline, None, [f"--from={earlier}", f"--to={earlier}", "--", "7203"])
+        status = refresh(current, baseline, [f"--from={later}", f"--to={later}", "--", "7203"],
+                         require_toyota_refresh=True)
+        pair.rename(destination)
+        return status
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", required=True, type=Path)
@@ -65,8 +85,21 @@ def main():
     parser.add_argument("--date")
     parser.add_argument("--from", dest="first")
     parser.add_argument("--to", dest="last")
-    parser.add_argument("codes", nargs="+")
+    parser.add_argument("--toyota-sessions", nargs=2, metavar=("EARLIER", "LATER"),
+                        help="Retrieve and compare two exact Toyota sessions into one local directory")
+    parser.add_argument("codes", nargs="*")
     args = parser.parse_args()
+    if args.toyota_sessions:
+        if any((args.codes, args.date, args.first, args.last, args.previous_dir, args.require_toyota_refresh)):
+            parser.error("--toyota-sessions requires only --output-dir and two dates")
+        try:
+            status = refresh_toyota_pair(args.output_dir, args.toyota_sessions)
+        except (OSError, ValueError) as error:
+            parser.exit(1, f"Refresh failed: {error}\n")
+        print(args.output_dir / "later" / "report.json")
+        return status
+    if not args.codes:
+        parser.error("provide at least one stock code")
     export_args = []
     for option, value in (("--date", args.date), ("--from", args.first), ("--to", args.last)):
         if value is not None:
