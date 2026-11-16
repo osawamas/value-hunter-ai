@@ -663,6 +663,16 @@
         },
         "revenue_tag": "Revenues"
       },
+      "historical_share_filings": [
+        {
+          "as_of": "2026-06-30",
+          "value": 942134390,
+          "rounded": false,
+          "source": "https://www.sec.gov/Archives/edgar/data/51143/000005114326000078/ibm-20260630.htm",
+          "disclosedOn": "2026-07-23",
+          "source_sha256": "a009a9b9f1c298599d0424151df9d99a972708f84b253c4151b5cb1f501ea40a"
+        }
+      ],
       "quarterly": {
         "currency": "USD",
         "source": "https://www.sec.gov/Archives/edgar/data/51143/000005114326000095/ibm-20260930.htm",

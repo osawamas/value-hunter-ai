@@ -5,7 +5,7 @@ import csv
 import json
 import math
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -47,7 +47,7 @@ def read_closes(payload, dates):
     return result
 
 
-def compare(closes, previous, current, *, demo):
+def compare(closes, previous, current, *, demo, retrieved_at=()):
     with TemporaryDirectory(prefix="value-hunter-ibm-") as directory:
         snapshots = []
         for day in (previous, current):
@@ -74,16 +74,25 @@ def compare(closes, previous, current, *, demo):
         "providerAccess": "official_demo" if demo else "personal_api_key",
         "scope": "local_personal_research",
         "publicRankingEligible": False,
-        "retrievals": 1,
+        "retrievals": len(retrieved_at) or 1,
+        "retrievedAtUtc": list(retrieved_at),
         "passed": passed,
         "filingDataSha256": report["filingDataSha256"],
         "latestObservedTrials": trials,
     }
 
 
+def fetch_closes(query, dates):
+    with urlopen(ENDPOINT + "?" + query, timeout=20) as response:
+        closes = read_closes(json.load(response), dates)
+    return closes, datetime.now(timezone.utc).isoformat()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--demo", action="store_true", help="Use the public IBM example key")
+    parser.add_argument("--separate-requests", action="store_true",
+                        help="Fetch each date through a separate API request")
     parser.add_argument("previous", type=trading_date)
     parser.add_argument("current", type=trading_date)
     args = parser.parse_args()
@@ -94,9 +103,14 @@ def main():
         parser.error("set ALPHA_VANTAGE_API_KEY locally or use --demo")
     query = urlencode({"function": "TIME_SERIES_DAILY", "symbol": "IBM", "apikey": key})
     try:
-        with urlopen(ENDPOINT + "?" + query, timeout=20) as response:
-            closes = read_closes(json.load(response), (args.previous, args.current))
-        report = compare(closes, args.previous, args.current, demo=args.demo)
+        dates = (args.previous, args.current)
+        request_dates = [(day,) for day in dates] if args.separate_requests else [dates]
+        closes, retrieved_at = {}, []
+        for requested in request_dates:
+            observations, stamp = fetch_closes(query, requested)
+            closes.update(observations)
+            retrieved_at.append(stamp)
+        report = compare(closes, *dates, demo=args.demo, retrieved_at=retrieved_at)
     except HTTPError as error:
         parser.exit(1, f"Alpha Vantage returned HTTP {error.code}.\n")
     except (URLError, TimeoutError, OSError, subprocess.CalledProcessError, json.JSONDecodeError):

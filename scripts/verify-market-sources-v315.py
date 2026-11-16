@@ -446,6 +446,10 @@ def main():
         raw = source_bytes(record["quarterly"]["source"], "IBM-10Q.html")
         check_ibm_share_filing(raw, record)
         print(f"US:IBM SEC 10-Q shares matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
+        historical, = record["historical_share_filings"]
+        raw = source_bytes(historical["source"], "IBM-10Q-June.html")
+        check_ibm_share_filing(raw, {"quarterly": {"shares": historical}})
+        print(f"US:IBM June SEC 10-Q shares matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
         return
 
     if args.sec_ibm_annual_only:

@@ -32,3 +32,15 @@ class IBMRefreshTests(unittest.TestCase):
         payload["Meta Data"]["2. Symbol"] = "OTHER"
         with self.assertRaisesRegex(ValueError, "IBM daily series"):
             refresh.read_closes(payload, days)
+
+    def test_two_historical_sessions_match_same_date_filings(self):
+        earlier, later = "2026-06-30", "2026-09-30"
+        report = refresh.compare({earlier: 200, later: 201}, earlier, later, demo=True,
+                                 retrieved_at=("2026-11-16T04:00:00+00:00", "2026-11-16T04:00:01+00:00"))
+        self.assertTrue(report["passed"])
+        self.assertFalse(report["publicRankingEligible"])
+        self.assertEqual(report["retrievals"], 2)
+        previous, current = (report["latestObservedTrials"][key] for key in ("previous", "current"))
+        self.assertEqual(previous["shares"], 942134390)
+        self.assertEqual(previous["shareDisclosureDate"], "2026-07-23")
+        self.assertEqual(current["shares"], 945120805)
