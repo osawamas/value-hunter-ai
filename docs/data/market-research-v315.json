@@ -700,6 +700,17 @@
         "form": "10-Q",
         "accession": "0000051143-26-000095",
         "filed": "2026-10-22",
+        "valuation_basis": {
+          "current_start": "2026-01-01",
+          "period_end": "2026-09-30",
+          "current_net_income": 5571000000,
+          "prior_start": "2025-01-01",
+          "prior_end": "2025-09-30",
+          "prior_net_income": 4993000000,
+          "parent_equity": 35537000000,
+          "annual_period_end": "2025-12-31",
+          "comparative_parent_equity": 32648000000
+        },
         "companyfacts_sha256": "10fa1fafa25440b2159e2054dfe47628ba4ed353a258f526704cf9beda432bb8",
         "periods": [
           {

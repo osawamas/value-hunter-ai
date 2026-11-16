@@ -498,6 +498,15 @@ def check_ibm_share_filing(raw, record):
 
 
 def check_ibm_annual_filing(main_filing, exhibit, finance):
+    fields = {"revenue": finance["revenue_tag"], "net_income": SEC_TAGS["net_income"],
+              "assets": SEC_TAGS["assets"], "parent_equity": SEC_TAGS["parent_equity"]}
+    expected = [(tag, period["start"] if field in ("revenue", "net_income") else None,
+                 period["end"], period[field]) for period in finance["periods"]
+                for field, tag in fields.items()]
+    check_ibm_financial_facts(main_filing, exhibit, expected)
+
+
+def check_ibm_financial_facts(main_filing, exhibit, expected):
     namespaces = {"ix": "http://www.xbrl.org/2013/inlineXBRL",
                   "xbrli": "http://www.xbrl.org/2003/instance"}
     root = ElementTree.fromstring(main_filing)
@@ -517,25 +526,21 @@ def check_ibm_annual_filing(main_filing, exhibit, finance):
         unit.get("id") for unit in root.findall(".//xbrli:unit", namespaces)
         if unit.findtext("xbrli:measure", namespaces=namespaces) == "iso4217:USD"
     }
-    fields = {"revenue": finance["revenue_tag"], "net_income": SEC_TAGS["net_income"],
-              "assets": SEC_TAGS["assets"], "parent_equity": SEC_TAGS["parent_equity"]}
     facts = ElementTree.fromstring(exhibit).findall(".//ix:nonFraction", namespaces)
-    for period in finance["periods"]:
-        for field, tag in fields.items():
-            start = period["start"] if field in ("revenue", "net_income") else None
-            values = set()
-            for fact in facts:
-                if (fact.get("name") != "us-gaap:" + tag or fact.get("unitRef") not in usd_units
-                        or contexts.get(fact.get("contextRef")) != (start, period["end"])):
-                    continue
-                digits = "".join(fact.itertext()).strip().replace(",", "")
-                sign = fact.get("sign")
-                if (fact.get("scale") != "6" or fact.get("decimals") != "-6"
-                        or sign not in (None, "-") or not re.fullmatch(r"[0-9]+", digits)):
-                    raise ValueError(f"Unexpected IBM filing numeric format for {field}")
-                values.add(int(digits) * (-1 if sign == "-" else 1) * 1_000_000)
-            if values != {period[field]}:
-                raise ValueError(f"IBM {period['end']} {field} differs from the original 10-K exhibit")
+    for tag, start, end, amount in expected:
+        values = set()
+        for fact in facts:
+            if (fact.get("name") != "us-gaap:" + tag or fact.get("unitRef") not in usd_units
+                    or contexts.get(fact.get("contextRef")) != (start, end)):
+                continue
+            digits = "".join(fact.itertext()).strip().replace(",", "")
+            sign = fact.get("sign")
+            if (fact.get("scale") != "6" or fact.get("decimals") != "-6"
+                    or sign not in (None, "-") or not re.fullmatch(r"[0-9]+", digits)):
+                raise ValueError(f"Unexpected IBM filing numeric format for {tag}")
+            values.add(int(digits) * (-1 if sign == "-" else 1) * 1_000_000)
+        if values != {amount}:
+            raise ValueError(f"IBM {end} {tag} differs from the filing")
 
 
 def check_s63_share_notice(raw, evidence):
@@ -641,7 +646,14 @@ def main():
         record = next(record for record in snapshot["records"] if record["id"] == "US:IBM")
         raw = source_bytes(record["quarterly"]["source"], "IBM-10Q.html")
         check_ibm_share_filing(raw, record)
-        print(f"US:IBM SEC 10-Q shares matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
+        interim = record["quarterly"]["valuation_basis"]
+        check_ibm_financial_facts(raw, raw, [
+            ("NetIncomeLoss", interim["current_start"], interim["period_end"], interim["current_net_income"]),
+            ("NetIncomeLoss", interim["prior_start"], interim["prior_end"], interim["prior_net_income"]),
+            ("StockholdersEquity", None, interim["period_end"], interim["parent_equity"]),
+            ("StockholdersEquity", None, interim["annual_period_end"], interim["comparative_parent_equity"]),
+        ])
+        print(f"US:IBM SEC 10-Q shares and interim financials matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
         historical, = record["historical_share_filings"]
         raw = source_bytes(historical["source"], "IBM-10Q-June.html")
         check_ibm_share_filing(raw, {"quarterly": {"shares": historical}})

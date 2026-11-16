@@ -132,6 +132,13 @@ class IBMRefreshTests(unittest.TestCase):
         self.assertEqual(previous["shares"], 942134390)
         self.assertEqual(previous["shareDisclosureDate"], "2026-07-23")
         self.assertEqual(current["shares"], 945120805)
+        self.assertNotIn("interimValuation", previous)
+        interim = current["interimValuation"]
+        self.assertEqual(interim["trailingNetIncome"], 11171000000)
+        self.assertEqual(interim["parentEquity"], 35537000000)
+        self.assertEqual(interim["disclosedOn"], "2026-10-22")
+        self.assertAlmostEqual(interim["per"], current["valuation"]["cap"] / 11171000000)
+        self.assertAlmostEqual(interim["pbr"], current["valuation"]["cap"] / 35537000000)
 
     def test_saved_refresh_uses_validated_previous_snapshot(self):
         dates = ("2026-06-30", "2026-09-30")
