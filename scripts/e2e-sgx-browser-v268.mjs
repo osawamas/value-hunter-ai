@@ -248,6 +248,47 @@ try {
  // v274: a failed SGX original-source request may suppress evidence badges,
  // but must NOT erase the third-party discovery directory.
  if(!base.startsWith("file:")){
+ const rankingPage=await browser.newPage();
+ rankingPage.on("pageerror",e=>failures.push(e.message));
+ const publicFeed=await (await page.request.get(base+"/data/latest.json")).json();
+ const candidate=publicFeed.records[0];
+ Object.assign(candidate,{
+  ranking_eligible:true, ranking_score:100, exclusion_reasons:[],
+  quote_source_type:"LICENSED_SGX_EQUITY",
+  quote_license_display_allowed:true, quote_license_non_display_analytics_allowed:true,
+  independent_cross_source_verification:true,
+  quote_timestamp_utc:"2026-11-13T09:00:00Z",shares_as_of_date:"2026-11-13",
+  shares_count_basis:"issued_excluding_treasury",quote_url:"https://example.org/test-quote",
+  price_sgd:2,shares_outstanding:1000,attributable_profit_sgd_thousands:1,
+  parent_equity_sgd_thousands:2,market_cap_sgd:2000,per_reference:2,pbr_verified:1,
+  market_data_license_evidence:{
+   grant_status:"EXECUTED",grant_evidence_url:"https://example.org/test-license",
+   licensor:"Test licensor",licensee:"Test licensee",licensed_product:"Test SGX closes",
+   usage_scopes:["BROWSER_DISPLAY","BACKEND_NON_DISPLAY_ANALYTICS","REDISTRIBUTION"],
+   valid_from:"2026-01-01",valid_until:"2026-12-31",
+  },
+ });
+ publicFeed.ranking_eligible_count=1;
+ publicFeed.ranking_enabled=true;
+ await rankingPage.route("**/data/latest.json",route=>route.fulfill({json:publicFeed}));
+ await rankingPage.goto(base+"/index.html");
+ await rankingPage.locator("#eligibleCount").getByText("1",{exact:true}).waitFor();
+ assert.equal(await rankingPage.locator("#sortBy").inputValue(),"ranking_score");
+ assert.equal(await rankingPage.locator("#stockRows .ticker").first().innerText(),candidate.symbol);
+ await rankingPage.locator("#statusFilter").selectOption("eligible");
+ assert.equal(await rankingPage.locator("#stockRows tr").count(),1);
+ await rankingPage.locator("#stockRows button").click();
+ await rankingPage.locator("#detailContent").getByText("正式評価",{exact:true}).waitFor();
+ await rankingPage.locator("#fileInput").setInputFiles({
+  name:"ranking.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(publicFeed)),
+ });
+ await rankingPage.locator("#statusMessage").getByText(/JSONを読み込めなかった/).waitFor();
+ candidate.market_data_license_evidence.usage_scopes.pop();
+ await rankingPage.reload();
+ await rankingPage.locator("#statusMessage").getByText(/公開データを取得できなかった/).waitFor();
+ assert.equal(await rankingPage.locator("#eligibleCount").innerText(),"0");
+ await rankingPage.close();
+
  const degraded=await browser.newPage();
  degraded.on("pageerror",e=>failures.push(e.message));
  await degraded.route("**/data/sgx-nineteen-original-html-sha-v262.json",route=>route.abort());

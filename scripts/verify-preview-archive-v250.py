@@ -9,6 +9,7 @@ import http.server
 import json
 import pathlib
 import re
+import subprocess
 import tempfile
 import threading
 import urllib.request
@@ -63,11 +64,17 @@ def check_archive(archive_path: pathlib.Path) -> dict:
                 or "docs/" + source not in seen):
                 raise ValueError("Missing or unsafe linked asset: " + source)
         feed = json.loads(z.read("docs/data/latest.json"))
-        if (feed.get("ranking_enabled") is not False
-            or feed.get("ranking_eligible_count") != 0
-            or feed.get("coverage", {}).get("all_sgx_listed") is not False
-            or feed["coverage"]["registered_count"] != len(feed["records"])):
-            raise ValueError("Unsafe stock ranking state in preview")
+        if feed.get("coverage", {}).get("all_sgx_listed") is not False:
+            raise ValueError("Unexpected SGX coverage in preview")
+        subprocess.run(
+            ["node", "-e",
+             "const fs = require('node:fs');"
+             "const {checkFeed} = require(process.argv[1]);"
+             "const errors = checkFeed(JSON.parse(fs.readFileSync(0, 'utf8')));"
+             "if (errors.length) { console.error(errors.join('\\n')); process.exit(1); }",
+             str(pathlib.Path(__file__).resolve().parents[1] / "docs/sgx-ranking-validation.js")],
+            input=json.dumps(feed), text=True, check=True,
+        )
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             z.extractall(root)
@@ -101,8 +108,8 @@ def check_archive(archive_path: pathlib.Path) -> dict:
             "archive_files": len(entries),
             "html_static_assets_verified": len(sources),
             "local_http_smoke_passed": True,
-            "feed_ranking_enabled": False,
-            "ranking_eligible_count": 0,
+            "feed_ranking_enabled": feed["ranking_enabled"],
+            "ranking_eligible_count": feed["ranking_eligible_count"],
             "github_pages_deployed_verified": False,
             "licensed_sgx_quotes_verified": False,
         }
@@ -118,7 +125,7 @@ def main():
     args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2)+"\n")
     print(f"v250 PASS: REAL ZIP verified ({report['archive_files']} files), "
           f"{report['html_static_assets_verified']} linked assets, "
-          "localhost HTTP and ranking hold")
+          "localhost HTTP and ranking validation")
 
 if __name__ == "__main__":
     main()

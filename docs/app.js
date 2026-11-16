@@ -78,27 +78,25 @@ function warn(message, error = false) {
   $("statusMessage").textContent = message;
   $("statusMessage").classList.toggle("error", error);
 }
-function validFeed(json) {
+function validFeed(json, allowRanking) {
   if (!json || json.schema_version !== "value_hunter_web_v29" ||
       !Array.isArray(json.records) || !json.records.length ||
-      json.ranking_enabled !== false || !json.coverage ||
+      (!allowRanking && json.ranking_enabled !== false) || !json.coverage ||
       json.coverage.all_sgx_listed !== false) return false;
   const seen = new Set();
   for (const r of json.records) {
     if (!r || typeof r.symbol !== "string" || !/^[A-Z0-9]{1,8}$/.test(r.symbol) ||
-        seen.has(r.symbol) || r.ranking_eligible !== false ||
-        !Array.isArray(r.exclusion_reasons) || !r.exclusion_reasons.length) return false;
+        seen.has(r.symbol) || typeof r.ranking_eligible !== "boolean" ||
+        (!allowRanking && r.ranking_eligible) ||
+        !Array.isArray(r.exclusion_reasons) ||
+        (!r.ranking_eligible && !r.exclusion_reasons.length)) return false;
     seen.add(r.symbol);
   }
-  return true;
+  return !allowRanking || window.SgxRankingValidation?.checkFeed(json).length === 0;
 }
 function referenceValuationLabel(r) {
   const guard=window.VALUE_HUNTER_REF_VALUATION;
   return guard ? guard.label(r) : "—（評価出典の検証待ち）";
-}
-function referenceValuationDisplayPermitted(r) {
-  const guard=window.VALUE_HUNTER_REF_VALUATION;
-  return guard?.canDisplayReferenceValuation(r)===true && r.ranking_eligible===true;
 }
 function freshnessState(value, maxDays, nowMs = Date.now()) {
   if (typeof value !== "string" || !value.length) return "MISSING";
@@ -130,7 +128,7 @@ function openIssuerFromHash(){
   const symbol=parseIssuerHash(window.location.hash);
   if (!symbol || !state.feed) return false;
   const rec=state.feed.records.find(x=>x.symbol===symbol);
-  if(!rec || rec.ranking_eligible!==false)return false;
+  if(!rec)return false;
   state.selected=symbol;
   const history=$("historySymbol");
   if(history && [...history.options].some(x=>x.value===symbol)){
@@ -140,9 +138,16 @@ function openIssuerFromHash(){
   $("detailTitle").scrollIntoView({behavior:"smooth",block:"start"});
   return true;
 }
-function setFeed(json, label) {
-  if (!validFeed(json)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
+function setFeed(json, label, allowRanking = false) {
+  if (!validFeed(json, allowRanking)) throw new Error("対応していないJSON形式、またはランキング状態の不整合");
   state.feed = json;
+  const sortBy = $("sortBy");
+  sortBy.querySelector('[value="ranking_score"]').disabled = !json.ranking_enabled;
+  if (json.ranking_enabled) {
+    sortBy.value = "ranking_score";
+  } else if (sortBy.value === "ranking_score") {
+    sortBy.value = "symbol";
+  }
   populateHistorySymbols();
   renderHistory();
   $("dataState").textContent = label;
@@ -158,20 +163,20 @@ function setFeed(json, label) {
   if (issueCount) notes.push("株価の鮮度・計算に問題：" + issueCount + "件");
   if (quality.staleShares) notes.push("株式数の基準日が180日より古い：" + quality.staleShares + "件");
   warn(notes.length ? "データ品質警告：" + notes.join("。") + "。銘柄詳細を参照。" :
-    "株価・財務は参考値。第三者独立検証が完了するまでランキング対象外。");
+    json.ranking_enabled ? "検証済みの銘柄をランキングに掲載。" :
+      "株価・財務は参考値。第三者独立検証が完了するまでランキング対象外。");
   render();
   openIssuerFromHash();
 }
 function sortRows(items, key) {
   if (key === "symbol") return items.sort((a, b) => a.symbol.localeCompare(b.symbol));
-  const ascending = key === "per_reference" || key === "pbr_reference_unverified";
   return items.sort((a, b) => {
-    const needsVerifiedValuation = ["market_cap_sgd","per_reference","pbr_reference_unverified"].includes(key);
-    const x = (!needsVerifiedValuation || referenceValuationDisplayPermitted(a)) && hasNum(a[key]) ? a[key] : null;
-    const y = (!needsVerifiedValuation || referenceValuationDisplayPermitted(b)) && hasNum(b[key]) ? b[key] : null;
+    const needsVerifiedValuation = key === "ranking_score";
+    const x = (!needsVerifiedValuation || a.ranking_eligible) && hasNum(a[key]) ? a[key] : null;
+    const y = (!needsVerifiedValuation || b.ranking_eligible) && hasNum(b[key]) ? b[key] : null;
     if (x === null) return y === null ? a.symbol.localeCompare(b.symbol) : 1;
     if (y === null) return -1;
-    return ascending ? x - y : y - x;
+    return y - x || a.symbol.localeCompare(b.symbol);
   });
 }
 function render() {
@@ -202,7 +207,7 @@ function render() {
       id.append(el("div", "issuer caution", "株式数：新しいSGX原本あり・評価未更新"));
     tr.append(id);
     addTextCell(tr, fmt(r.price_sgd), "num");
-    const showValuation = referenceValuationDisplayPermitted(r);
+    const showValuation = r.ranking_eligible;
     addTextCell(tr, showValuation ? fmt(hasNum(r.market_cap_sgd) ? r.market_cap_sgd / 1e8 : null) : referenceValuationLabel(r), "num caution");
     addTextCell(tr, showValuation ? fmt(r.per_reference) : referenceValuationLabel(r), "num caution");
     addTextCell(tr, showValuation ? fmt(r.pbr_verified) : referenceValuationLabel(r), "num caution");
@@ -325,7 +330,13 @@ function showDetail(r) {
       ["株式数出典", r.shares_source_url, true],
       ["株式数のPDF識別子（SHA256）", r.shares_pdf_sha256 || "未取得"],
     ]),
-    field("評価", "異なる基準日の参考計算（正式な評価値ではない・表の比較から除外）", [
+    r.ranking_eligible ? field("評価", "正式評価", [
+      ["時価総額（SGD）", fmt(r.market_cap_sgd, 0)],
+      ["PER", fmt(r.per_reference) + " 倍"],
+      ["PBR", fmt(r.pbr_verified) + " 倍"],
+      ["ランキングスコア", fmt(r.ranking_score)],
+      ["株価の公開利用根拠", r.market_data_license_evidence.grant_evidence_url, true],
+    ]) : field("評価", "異なる基準日の参考計算（正式な評価値ではない・表の比較から除外）", [
       ["正式な評価値の表示可否", "不可：独立したSGX約定株価と株式数の時点整合が未検証"],
       ["基準日照合の結果", referenceValuationLabel(r)],
       ["参考時価総額（未検証・SGD）", fmt(r.market_cap_sgd, 0)],
@@ -664,6 +675,7 @@ function exportCsv() {
   const keys = ["symbol", "issuer", "fiscal_year", "price_sgd", "market_cap_sgd",
     "per_reference", "pbr_reference_unverified", "revenue_growth_pct", "operating_margin_pct",
     "equity_ratio_pct", "ranking_eligible", "exclusion_reasons"];
+  if (state.feed.ranking_enabled) keys.push("pbr_verified", "ranking_score");
   const quote = value => {
     const raw = String(value ?? "");
     // Prevent spreadsheet formula execution when exporting imported JSON.
@@ -698,7 +710,7 @@ async function start() {
   try {
     const response = await fetch("./data/latest.json", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
-    setFeed(await response.json(), "GitHub上の公開データ");
+    setFeed(await response.json(), "GitHub上の公開データ", true);
     try {
       const q=await fetch("./data/sgx-s63-9m2026-v125.json",{cache:"no-store"});
       if(!q.ok)throw new Error("HTTP "+q.status);
