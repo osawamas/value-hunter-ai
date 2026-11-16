@@ -99,6 +99,12 @@
     try { const u = new URL(v); return Boolean(u.hostname && !u.username && !u.password); }
     catch { return false; }
   }
+  function hasGrantProvenance(proof) {
+    return proof?.grant_status === "EXECUTED" &&
+      validHTTPS(proof.grant_evidence_url) &&
+      [proof.licensor, proof.licensee, proof.licensed_product]
+        .every(value => typeof value === "string" && value.trim().length > 0);
+  }
   function checkFeed(feed) {
     const errors=checkProvenance(feed);
     if(!feed || !Array.isArray(feed.records)) return errors;
@@ -109,11 +115,7 @@
       if(!proof || typeof proof !== "object" || Array.isArray(proof)) {
         errors.push(id+": dated grant evidence missing"); continue;
       }
-      if(proof.grant_status !== "EXECUTED" ||
-         !validHTTPS(proof.grant_evidence_url) ||
-         typeof proof.licensor !== "string" || !proof.licensor.trim() ||
-         typeof proof.licensee !== "string" || !proof.licensee.trim() ||
-         typeof proof.licensed_product !== "string" || !proof.licensed_product.trim())
+      if (!hasGrantProvenance(proof))
         errors.push(id+": executed license provenance incomplete");
       // Eligible rows publish the raw close in latest.json and in the dashboard CSV.
       const scopes=proof.usage_scopes;
@@ -136,7 +138,7 @@
     return errors;
   }
 
-  const api = {checkFeed, checkProvenance, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD};
+  const api = {hasGrantProvenance, checkFeed, checkProvenance, sgxQuoteDate, validDate, valueScore, VALUE_SCORE_METHOD};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.SgxRankingValidation = api;
 })(typeof window !== "undefined" ? window : null);

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const {setTimeout: delay} = require("node:timers/promises");
 const {stageQuotes} = require("./stage-sgx-public-quotes.js");
 const {checkRefresh} = require("./check-ranking-license-evidence-v290.js");
-const {sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
+const {hasGrantProvenance, sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
 
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 
@@ -36,6 +36,9 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial)
       !validDate(grant.valid_from) || !validDate(grant.valid_until) ||
       session < grant.valid_from || session > grant.valid_until) {
     throw new QuoteImportError("GRANT", "An executed grant covering the session and all publication scopes is required");
+  }
+  if (!hasGrantProvenance(grant)) {
+    throw new QuoteImportError("GRANT", "SGX grant requires a licensor, licensee, licensed product and HTTPS evidence URL");
   }
   const symbols = grant.daily_close_symbols;
   if (symbols !== undefined) {

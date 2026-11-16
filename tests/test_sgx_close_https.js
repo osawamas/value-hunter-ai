@@ -70,6 +70,15 @@ async function test() {
       feedFile, grantFile, "2026-11-12"];
     const options = {env: {...process.env, NODE_EXTRA_CA_CERTS: cert}, timeout: 20000};
 
+    for (const invalid of [
+      {licensor: " "}, {licensee: null}, {licensed_product: ""}, {grant_evidence_url: "http://example.org/license"},
+    ]) {
+      fs.writeFileSync(grantFile, JSON.stringify({...grant, ...invalid}));
+      await assert.rejects(run(process.execPath, args, options),
+        {code: 1, stdout: "", stderr: /SGX close GRANT:/});
+    }
+    assert.deepEqual(requests, []);
+    fs.writeFileSync(grantFile, JSON.stringify(grant));
     const {stdout} = await run(process.execPath, args, options);
     const candidate = JSON.parse(stdout);
     assert.deepEqual(requests, ["/closes?session=2026-11-12"]);
