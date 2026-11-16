@@ -18,6 +18,7 @@ import java.util.Locale;
 
 public final class SgCheckWorker extends Worker {
     private static final Object LOCK = new Object();
+    private static final String CACHED_LEDGER = "sg_verified_ledger";
     public SgCheckWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         super(context, parameters);
     }
@@ -40,6 +41,7 @@ public final class SgCheckWorker extends Worker {
         SgCloseCheck.Pair pair = null;
         Evaluation evaluation = null;
         Evaluation previous = null;
+        SgDisclosureLookup disclosures = null;
         var decision = SgValuation.WatchDecision.UNCHANGED;
         boolean retryableFailure = false;
         try {
@@ -52,7 +54,9 @@ public final class SgCheckWorker extends Worker {
             pair = SgCloseCheck.read(payload, cutoff);
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
-            var disclosures = new Disclosures(context, now.toInstant());
+            disclosures = new SgDisclosureLookup(readBundledLedger(context),
+                    state.getString(CACHED_LEDGER, ""), now.toInstant(),
+                    () -> UsScanWorker.get(SgShareLedger.URL, null));
             boolean mayNeedPrevious = watch && SgValuation.needsPreviousEvaluation(pair, lastEvaluated, true);
             var rates = new SgExchangeRates(pair, mayNeedPrevious,
                     url -> new JSONArray(UsScanWorker.get(url, null)));
@@ -89,6 +93,8 @@ public final class SgCheckWorker extends Worker {
         var editor = state.edit();
         if (pair != null) {
             editor.putString("sg_last_result", result);
+            String verifiedLedger = disclosures.verifiedUpdate();
+            if (verifiedLedger != null) editor.putString(CACHED_LEDGER, verifiedLedger);
             retryableFailure = evaluation.retryableFailure() || (previous != null && previous.retryableFailure());
         } else {
             String previousResult = state.getString("sg_last_result", "");
@@ -120,46 +126,27 @@ public final class SgCheckWorker extends Worker {
     private record Evaluation(String details, String disclosureDetails, Boolean qualified,
                               String blockingReason, boolean retryableFailure) {}
 
-    private static final class Disclosures {
-        private final JSONObject bundled;
-        private final Instant checkedAt;
-        private JSONObject updated;
-
-        Disclosures(Context context, Instant checkedAt) {
-            this.checkedAt = checkedAt;
-            JSONObject asset;
-            try {
-                asset = SgShareLedger.readAsset(context.getAssets().open("android-s63-shares.json"));
-            } catch (IOException | JSONException error) {
-                asset = null;
-            }
-            bundled = asset;
-        }
-
-        SgShareLedger.Disclosure forClose(SgCloseCheck.Close close) throws IOException, JSONException {
-            if (bundled != null) {
-                try {
-                    var disclosure = SgShareLedger.read(bundled, close.session(), checkedAt);
-                    if (disclosure != null) return disclosure;
-                } catch (JSONException ignored) {
-                    // Try the updated ledger if the bundled record cannot be validated.
-                }
-            }
-            if (updated == null) updated = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
-            return SgShareLedger.read(updated, close.session(), checkedAt);
+    private static JSONObject readBundledLedger(Context context) {
+        try {
+            return SgShareLedger.readAsset(context.getAssets().open("android-s63-shares.json"));
+        } catch (IOException | JSONException error) {
+            return null;
         }
     }
 
-    private static Evaluation evaluate(Disclosures disclosures, SgExchangeRates rates, SgCloseCheck.Close close,
-                                       boolean showPurchaseCost, int attempts) {
+    private static Evaluation evaluate(SgDisclosureLookup disclosures, SgExchangeRates rates,
+                                       SgCloseCheck.Close close, boolean showPurchaseCost, int attempts) {
         StringBuilder details = new StringBuilder();
         SgShareLedger.Disclosure disclosure = null;
+        boolean cached = false;
         boolean retryableFailure = false;
         boolean financialsAvailable = SgValuation.financialsAvailable(close.session());
         String blockingReason = "";
         if (financialsAvailable) {
             try {
-                disclosure = disclosures.forClose(close);
+                var lookup = disclosures.forSession(close.session());
+                disclosure = lookup.disclosure();
+                cached = lookup.cached();
             } catch (IOException | JSONException error) {
                 blockingReason = "開示台帳の更新データを取得・照合できなかった";
                 if (error instanceof IOException) {
@@ -211,7 +198,8 @@ public final class SgCheckWorker extends Worker {
         String disclosureDetails = disclosure == null ? "" :
                 "\n株数の開示日時 " + disclosure.disclosedAt().format(
                         java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'SGT'", Locale.JAPAN))
-                        + "\nSGX原本 " + disclosure.source();
+                        + "\nSGX原本 " + disclosure.source()
+                        + (cached ? "\n開示台帳は端末に保存したデータを使用" : "");
         return new Evaluation(details.toString(), disclosureDetails, qualified, blockingReason, retryableFailure);
     }
 }
