@@ -8,6 +8,7 @@ on:
       - '.github/workflows/jpx-daily-probe.yml'
       - 'android-private/tools/jpx_daily_probe.py'
       - 'android-private/tools/jpx_valuation_probe.py'
+      - 'android-private/tools/jpx_hachiquant_coverage.py'
       - 'android-private/tools/fixtures/jpx-annual-reference.json'
 
 permissions:
@@ -91,6 +92,12 @@ jobs:
           assert associate(date(2026, 5, 16), stocks, quotes, {"1301"}, fixture)["1301"]["status"] == "ambiguous_close"
           print("JPX closing prices and source-checked annual earnings/book value matched on two dates.")
           PY
+
+      - name: Measure JPX and Hachiquant coverage, with one original filing ID check
+        run: |
+          python android-private/tools/jpx_hachiquant_coverage.py \
+            "$RUNNER_TEMP/jpx-list.xlsx" "$RUNNER_TEMP/jpx-20261029.pdf" \
+            "$RUNNER_TEMP/jpx-20261111.pdf" --check-filing 1301
 
   hachiquant:
     runs-on: ubuntu-latest
