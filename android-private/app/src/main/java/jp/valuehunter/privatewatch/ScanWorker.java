@@ -81,7 +81,7 @@ public final class ScanWorker extends Worker {
             }
             var candidates = snapshot.candidates();
             var previous = state.getStringSet("qualified", new HashSet<>());
-            var added = JapanScreen.newlyQualified(candidates, previous);
+            var added = WatchTransitions.newEntrants(lastDate, snapshot.date(), candidates, previous);
             var codes = new HashSet<String>();
             var lines = new JSONArray();
             for (var candidate : candidates) {
