@@ -1,0 +1,18 @@
+{
+  "symbol": "S63",
+  "period_end": "2025-12-31",
+  "unit": "SGD_thousands",
+  "provider": "S&P Global Market Intelligence via Stock Analysis",
+  "reviewed_on": "2026-11-16",
+  "attributable_profit": {
+    "display_value": 462770,
+    "display_increment": 10,
+    "source": "https://stockanalysis.com/quote/sgx/S63/financials/"
+  },
+  "parent_equity": {
+    "display_value": 2574000,
+    "display_increment": 1000,
+    "source": "https://stockanalysis.com/quote/sgx/S63/financials/balance-sheet/"
+  },
+  "scope": "Cross-check at displayed precision. The provider's underlying evidence and independent recalculation have not been verified."
+}

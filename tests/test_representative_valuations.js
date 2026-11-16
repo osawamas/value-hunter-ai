@@ -22,6 +22,15 @@ const s63Readiness = reviewS63(sgx, research, notices, "2026-11-13");
 assert.equal(s63Readiness.matchedShares.value, 3115847115);
 assert.ok(s63Readiness.blockers.includes("MATCHED_SHARES_NOT_IN_IMPORT_FEED"));
 assert.equal(s63Readiness.matchedShares.disclosureTiming, "after_close");
+const crosscheck = s63Readiness.thirdPartyFinancialCrosscheck;
+assert.equal(crosscheck.attributableProfit.status, "matches_display_precision");
+assert.equal(crosscheck.parentEquity.status, "matches_display_precision");
+assert.equal(crosscheck.parentEquity.displayValue - crosscheck.parentEquity.issuerValue, 362);
+const changedEquity = structuredClone(sgx);
+changedEquity.records.find(row => row.symbol === "S63").parent_equity_sgd_thousands -= 1000;
+assert.equal(reviewS63(changedEquity, research, notices, "2026-11-13")
+  .thirdPartyFinancialCrosscheck.parentEquity.status, "mismatch");
+
 const readinessTrial = reviewS63(sgx, research, notices, "2026-11-13", 10);
 assert.equal(readinessTrial.trial.status, "filing");
 assert.equal(readinessTrial.trial.valuation.cap, 31158471150);

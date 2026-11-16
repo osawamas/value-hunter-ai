@@ -4,6 +4,28 @@ const fs = require("node:fs");
 const {buildMarketRows, conflictingFilingShares, evaluatePersonalQuotes, publishedShareSessions} = require("../docs/market-research.js");
 const {validDate} = require("../docs/sgx-ranking-validation.js");
 
+function compareThirdPartyFinancials(row, evidence) {
+  if (evidence.symbol !== row.symbol || evidence.unit !== "SGD_thousands" ||
+      evidence.period_end !== row.fiscal_year + "-12-31") return null;
+  const compare = (issuerValue, reference) => ({
+    status: !Number.isSafeInteger(issuerValue) ? "issuer_value_missing" :
+      Math.abs(issuerValue - reference.display_value) <= reference.display_increment / 2 ?
+        "matches_display_precision" : "mismatch",
+    issuerValue,
+    displayValue: reference.display_value,
+    displayIncrement: reference.display_increment,
+    source: reference.source,
+  });
+  return {
+    provider: evidence.provider,
+    periodEnd: evidence.period_end,
+    unit: evidence.unit,
+    scope: evidence.scope,
+    attributableProfit: compare(row.attributable_profit_sgd_thousands, evidence.attributable_profit),
+    parentEquity: compare(row.parent_equity_sgd_thousands, evidence.parent_equity),
+  };
+}
+
 function reviewS63(feed, research, notices, session, close) {
   if (!validDate(session)) throw new Error("Expected a Singapore trading date (YYYY-MM-DD)");
   const rows = buildMarketRows(research, feed).filter(row => row.id === "SG:S63");
@@ -39,6 +61,8 @@ function reviewS63(feed, research, notices, session, close) {
     currentFeedExclusions: exclusions,
     independentlyVerifiedFinancials: independentFinancials === true,
     blockers,
+    thirdPartyFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence,
+      require("../docs/data/sgx-s63-third-party-financial-crosscheck-v448.json")),
     ...(trial && {trial: {
       status: trial.state,
       ...(trial.result && {
