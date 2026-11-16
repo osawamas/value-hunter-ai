@@ -70,6 +70,33 @@ jobs:
           node docs/test_ranking_provenance_v289.js
           node docs/test_ranking_license_evidence_v290.js
           node tests/test_sgx_close_https.js
+      - name: Summarize representative-market release readiness
+        shell: bash
+        run: |
+          evidence=$(node scripts/check-representative-valuations.js)
+          s63_date=$(jq -r '.results[] | select(.id == "SG:S63") | .date // empty' <<< "$evidence")
+          s63='{"blockers":["NO_MATCHING_SHARE_FILING"]}'
+          if [[ -n "$s63_date" ]]; then
+            s63=$(node scripts/check-sgx-close-readiness.js docs/data/latest.json "$s63_date" S63)
+          fi
+          workflows="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows"
+          ranked=$(jq -er '.ranking_eligible_count' docs/data/latest.json)
+          {
+            echo '### Representative markets'
+            echo
+            echo '| Ticker | Latest exact-date share evidence | Disclosure date |'
+            echo '| --- | --- | --- |'
+            jq -er '.results[] |
+              "| \(.id) | \(if .shareSource then "[\(.date)](\(.shareSource))" else .status end) | \(.shareDisclosureDate // "—") |"' <<< "$evidence"
+            echo
+            echo 'Live test and publication status'
+            echo
+            echo "- Toyota: [Personal J-Quants preflight]($workflows/toyota-jquants-preflight.yml). Public quote source pending."
+            echo "- IBM: [Demo preflight]($workflows/ibm-demo-preflight.yml). Public quote source pending."
+            echo "- S63: [Licensed feed preflight]($workflows/sgx-s63-close-comparison.yml). Live licensed close verification pending."
+            jq -r '.blockers[] | "  - `\(.)`"' <<< "$s63"
+            echo "- SGX public ranking: $ranked eligible."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
   japan-originals:
     runs-on: ubuntu-latest
     timeout-minutes: 10
