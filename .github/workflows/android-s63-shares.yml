@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       notice_url:
-        description: Full official SGXNet S63 buyback URLs, separated by spaces (max 12)
+        description: Official SGXNet S63 buyback URLs (short or full), separated by spaces (max 12)
         required: true
         type: string
 
@@ -57,6 +57,22 @@ jobs:
           update_ledger(path, [row["source"] for row in records])
           PY
           cmp docs/data/android-s63-shares.json "$ledger"
+      - name: Verify short SGXNet URLs against an official S63 notice
+        run: |
+          ledger="$RUNNER_TEMP/s63-short-url.json"
+          printf '%s\n' '{"schema":1,"symbol":"S63","records":[]}' > "$ledger"
+          python3 SGX_PDF_connection_probe/update_android_s63_shares.py --ledger "$ledger" \
+            'https://links.sgx.com/1.0.0/corporate-announcements/2DG5L57IBUDTUX8V/'
+          python3 - "$ledger" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          record, = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["records"]
+          assert (record["date"], record["shares"], record["disclosed_at"]) == (
+              "2026-06-26", 3_119_304_988, "2026-06-26T18:37:41+08:00"
+          )
+          PY
 
   register:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'

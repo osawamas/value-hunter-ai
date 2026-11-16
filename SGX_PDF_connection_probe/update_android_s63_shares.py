@@ -9,7 +9,10 @@ from tempfile import NamedTemporaryFile
 from sgx_s63_buyback_v109 import SYMBOL, fetch, parse_notice
 
 SGT = timezone(timedelta(hours=8))
-SOURCE = re.compile(r"https://links[.]sgx[.]com/1[.]0[.]0/corporate-announcements/[A-Z0-9]+/[a-f0-9]{64}")
+SOURCE = re.compile(
+    r"https://links[.]sgx[.]com/1[.]0[.]0/corporate-announcements/"
+    r"(?P<announcement>[A-Z0-9]+)/(?P<document>[a-f0-9]{64})?"
+)
 
 
 def validate_record(row):
@@ -36,8 +39,9 @@ def update_ledger(path, urls, downloader=fetch):
 
     added = []
     for url in dict.fromkeys(urls):
-        if not SOURCE.fullmatch(url):
-            raise ValueError("Expected the full official SGXNet document URL")
+        source = SOURCE.fullmatch(url)
+        if not source:
+            raise ValueError("Expected an official SGXNet announcement URL")
         notice = parse_notice(downloader(url), url)
         broadcast = datetime.strptime(notice["broadcast_sgt_text"], "%d-%b-%Y %H:%M:%S")
         row = {
@@ -49,7 +53,12 @@ def update_ledger(path, urls, downloader=fetch):
         validate_record(row)
         existing = by_date.get(row["date"])
         if existing is not None:
-            if any(existing[field] != value for field, value in row.items()):
+            previous_source = SOURCE.fullmatch(existing["source"])
+            same_announcement = source["announcement"] == previous_source["announcement"]
+            documents = source["document"], previous_source["document"]
+            if (not same_announcement or (None not in documents and documents[0] != documents[1])
+                    or existing["shares"] != row["shares"]
+                    or existing["disclosed_at"] != row["disclosed_at"]):
                 raise ValueError(f"Conflicting S63 disclosure for {row['date']}")
             continue
         by_date[row["date"]] = row

@@ -25,6 +25,16 @@ class AndroidS63LedgerTests(unittest.TestCase):
         self.assertEqual(update_ledger(self.path, [URL], lambda _: sample()), [])
         self.assertEqual(self.path.read_bytes(), unchanged)
 
+    def test_short_url_is_idempotent_with_the_long_url(self):
+        short_url = URL.rsplit("/", 1)[0] + "/"
+        self.assertEqual(update_ledger(self.path, [short_url], lambda _: sample()), ["2026-11-13"])
+        baseline = self.path.read_bytes()
+        self.assertEqual(update_ledger(self.path, [URL], lambda _: sample()), [])
+        self.assertEqual(self.path.read_bytes(), baseline)
+        other = short_url.replace("4NRLOX68RVAQLTX7", "DIFFERENT")
+        with self.assertRaisesRegex(ValueError, "Conflicting S63"):
+            update_ledger(self.path, [other], lambda _: sample())
+
     def test_delayed_notice_keeps_purchase_date_and_broadcast_separate(self):
         delayed = (sample().replace(b"13-Nov-2026", b"14-Nov-2026")
                    .replace(b"SG261113OTHR", b"SG261114OTHR"))

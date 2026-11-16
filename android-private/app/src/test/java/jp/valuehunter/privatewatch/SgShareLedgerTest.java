@@ -28,6 +28,9 @@ public class SgShareLedgerTest {
         assertEquals(row.getString("source"), disclosure.source());
         assertEquals("2026-11-16T18:21:27+08:00", disclosure.disclosedAt().toString());
         assertNull(SgShareLedger.read(payload, DATE.plusDays(1), checkedAt));
+        String shortUrl = disclosure.source().substring(0, disclosure.source().lastIndexOf('/') + 1);
+        row.put("source", shortUrl);
+        assertEquals(shortUrl, SgShareLedger.read(payload, DATE, checkedAt).source());
         rows.put(row);
         assertThrows(JSONException.class, () -> SgShareLedger.read(payload, DATE, checkedAt));
         rows.remove(1);
