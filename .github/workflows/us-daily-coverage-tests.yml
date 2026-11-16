@@ -1,0 +1,21 @@
+name: US daily market coverage probe tests
+on:
+  push:
+    paths:
+      - 'android-private/tools/*us_massive_probe.py'
+      - '.github/workflows/us-daily-coverage-tests.yml'
+  pull_request:
+    paths:
+      - 'android-private/tools/*us_massive_probe.py'
+      - '.github/workflows/us-daily-coverage-tests.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the coverage probe using representative mock responses
+        working-directory: android-private/tools
+        run: python3 -m unittest -v test_us_massive_probe
