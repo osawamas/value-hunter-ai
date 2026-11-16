@@ -185,6 +185,12 @@ class ToyotaRefreshPairTest(unittest.TestCase):
             final = json.loads((out / "later/report.json").read_text(encoding="utf-8"))
             self.assertTrue(final["latestTrialCheck"]["passed"])
             self.assertEqual(final["latestTrialCheck"]["results"][0]["previousDate"], days[0])
+            toyota = next(row for row in final["results"] if row["id"] == "JP:7203")
+            for label, day, disclosure in zip(("previous", "current"), days, ("2026-08-04", "2026-11-05")):
+                interim = toyota["latestObservedTrials"][label]["interimValuation"]
+                self.assertEqual((interim["periodEnd"], interim["disclosedOn"]), (day, disclosure))
+                self.assertGreater(interim["per"], 0)
+                self.assertGreater(interim["pbr"], 0)
             self.assertTrue((out / "earlier/receipt.json").is_file())
 
             incomplete = root / "incomplete"

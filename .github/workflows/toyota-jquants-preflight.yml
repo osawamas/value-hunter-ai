@@ -63,10 +63,16 @@ jobs:
           fi
           {
             echo
-            echo '| Trading date | Valuation |'
-            echo '| --- | --- |'
-            jq -er '.latestTrialCheck.results[] | select(.id == "JP:7203") |
-              "| \(.previousDate) | \(.previousStatus) |", "| \(.date) | \(.status) |"' \
+            echo '| Trading date | Close | Annual valuation | Trailing PER / period-end PBR | Interim filing |'
+            echo '| --- | --- | --- | --- | --- |'
+            jq -er '
+              (.latestTrialCheck.results[] | select(.id == "JP:7203")) as $annual |
+              (.results[] | select(.id == "JP:7203") | .latestObservedTrials) as $trials |
+              [$annual.previousDate, $annual.previousStatus, $trials.previous],
+              [$annual.date, $annual.status, $trials.current] |
+              .[2].interimValuation as $interim |
+              "| \(.[0]) | \(if .[2] then "retrieved" else "unavailable" end) | \(.[1]) | \(if $interim then "calculated" else "unavailable" end) | \(if $interim then "[\($interim.disclosedOn)](\($interim.source))" else "—" end) |"
+              ' \
               "$work/pair/later/report.json"
           } | tee -a "$GITHUB_STEP_SUMMARY"
           exit "$status"
