@@ -1,0 +1,155 @@
+package jp.valuehunter.privatewatch;
+
+import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+
+import androidx.annotation.NonNull;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+
+import java.text.NumberFormat;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
+public final class ScanWorker extends Worker {
+    private static final String PERIODIC = "japan-watch";
+    private static final String MANUAL = "japan-check-now";
+    static final String CHANNEL = "value-alerts";
+    private static final Object SCAN_LOCK = new Object();
+
+    public ScanWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
+        super(context, parameters);
+    }
+
+    static SharedPreferences prefs(Context context) {
+        return context.getSharedPreferences("private-stock-watch", Context.MODE_PRIVATE);
+    }
+
+    static void schedule(Context context) {
+        var connected = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC,
+                ExistingPeriodicWorkPolicy.KEEP, new PeriodicWorkRequest.Builder(ScanWorker.class, 6, TimeUnit.HOURS)
+                        .setConstraints(connected).build());
+    }
+
+    static void checkNow(Context context) {
+        var connected = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP,
+                new OneTimeWorkRequest.Builder(ScanWorker.class).setConstraints(connected).build());
+    }
+
+    @NonNull @Override public Result doWork() {
+        synchronized (SCAN_LOCK) {
+            return scan();
+        }
+    }
+
+    private Result scan() {
+        Context context = getApplicationContext();
+        SharedPreferences state = prefs(context);
+        String key = state.getString("key", "");
+        if (key.isEmpty()) return Result.success();
+        boolean delayed = state.getBoolean("delayed", true);
+        String lastDate = state.getString("latest_date", "");
+        status(state, "株価と指標を確認中…");
+        try {
+            var snapshot = new JQuants(key).scan(delayed, lastDate);
+            if (isStopped() || !key.equals(state.getString("key", ""))
+                    || delayed != state.getBoolean("delayed", true)) return Result.success();
+            if (snapshot == null) {
+                status(state, "この時点で取得できる新しい取引日はなかった");
+                return Result.success();
+            }
+            var candidates = snapshot.candidates();
+            var previous = state.getStringSet("qualified", new HashSet<>());
+            var added = JapanScreen.newlyQualified(candidates, previous);
+            var codes = new HashSet<String>();
+            var lines = new JSONArray();
+            for (var candidate : candidates) {
+                codes.add(candidate.code());
+                lines.put(format(candidate));
+            }
+            var editor = state.edit().putString("latest_date", snapshot.date().toString())
+                    .putStringSet("qualified", codes).putString("rows", lines.toString())
+                    .putString("status", "取得完了 · 条件に該当 " + codes.size() + "銘柄");
+            // Commit the date and the qualifying set together before posting the notification.
+            if (!editor.commit()) return Result.retry();
+            if (!lastDate.isEmpty() && !added.isEmpty()) {
+                notifyUser(snapshot.date().toString(), added.size(), format(added.get(0)), delayed);
+            }
+            return Result.success();
+        } catch (JQuants.HttpFailure error) {
+            status(state, "J-Quantsから取得できなかった（HTTP " + error.status + "）。キー・プラン・接続を確認");
+            return retryTransient(error.status == 429 || error.status >= 500);
+        } catch (JSONException error) {
+            status(state, "株価・銘柄・指標の応答を照合できなかった");
+            return retryTransient(true);
+        } catch (java.io.IOException error) {
+            status(state, "接続できないか、取得できる終値がまだない");
+            return retryTransient(true);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            return Result.retry();
+        }
+    }
+
+    private Result retryTransient(boolean transientFailure) {
+        return transientFailure && getRunAttemptCount() < 2 ? Result.retry() : Result.failure();
+    }
+
+    private static void status(SharedPreferences state, String value) {
+        state.edit().putString("status", value).apply();
+    }
+
+    private static String format(JapanScreen.Candidate row) {
+        String yen = NumberFormat.getNumberInstance(Locale.JAPAN).format(row.cost());
+        return String.format(Locale.JAPAN, "%s %s\n100株 %s円   PER %.2f倍   PBR %.2f倍",
+                row.code(), row.name(), yen, row.per(), row.pbr());
+    }
+
+    private void notifyUser(String date, int count, String example, boolean delayed) {
+        String detail = date + "の終値" + (delayed ? "（遅延データ）" : "") + "\n" + example;
+        postNotification(getApplicationContext(), 1, "新しい割安候補 " + count + "銘柄", detail);
+    }
+
+    static void testNotification(Context context) {
+        postNotification(context, 2, "VALUE HUNTER AI 無音通知テスト", "新しい候補が見つかると、この通知欄に表示される");
+    }
+
+    private static void postNotification(Context context, int id, String title, String detail) {
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) return;
+        var manager = context.getSystemService(NotificationManager.class);
+        var channel = new NotificationChannel(CHANNEL, "割安候補（無音）", NotificationManager.IMPORTANCE_LOW);
+        channel.setSound(null, null);
+        channel.enableVibration(false);
+        manager.createNotificationChannel(channel);
+        var tap = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        manager.notify(id, new Notification.Builder(context, CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title)
+                .setContentText(detail.replace('\n', ' '))
+                .setStyle(new Notification.BigTextStyle().bigText(detail))
+                .setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+    }
+}
