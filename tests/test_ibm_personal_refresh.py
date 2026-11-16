@@ -16,6 +16,27 @@ spec.loader.exec_module(refresh)
 
 
 class IBMRefreshTests(unittest.TestCase):
+    def test_scheduled_preflight_reuses_one_response_and_retains_latest_dates(self):
+        series = {day: {"4. close": "200"} for day in
+                  ("2026-06-30", "2026-09-30", "2026-11-12", "2026-11-13")}
+        payload = {"Meta Data": {"2. Symbol": "IBM"}, "Time Series (Daily)": series}
+        response = (payload, "2026-11-17T00:00:00+00:00")
+        with patch.object(refresh, "fetch_daily_series", return_value=response) as provider:
+            report = refresh.scheduled_preflight("fixture", demo=True)
+            provider.assert_called_once_with("fixture")
+        self.assertEqual(report["preflightChecks"]["current"]["date"], "2026-11-13")
+        self.assertEqual(report["exactDateCheck"]["status"], "passed")
+        self.assertEqual(report["exactDateCheck"]["checks"]["current"]["date"], "2026-09-30")
+        series["2026-06-30"]["4. close"] = "0"
+        with patch.object(refresh, "fetch_daily_series", return_value=response):
+            report = refresh.scheduled_preflight("fixture", demo=True)
+        self.assertEqual(report["exactDateCheck"]["status"], "invalid_close")
+        del series["2026-06-30"]
+        with patch.object(refresh, "fetch_daily_series", return_value=response):
+            report = refresh.scheduled_preflight("fixture", demo=True)
+        self.assertEqual(report["exactDateCheck"]["status"], "insufficient_matching_sessions")
+        self.assertEqual(report["preflightChecks"]["current"]["date"], "2026-11-13")
+
     def test_automatic_comparison_matches_provider_dates_to_filings(self):
         payload = {
             "Meta Data": {"2. Symbol": "IBM"},

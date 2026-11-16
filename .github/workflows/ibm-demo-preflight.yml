@@ -39,7 +39,7 @@ jobs:
           report=$(mktemp)
           trap 'rm -f "$report"' EXIT
           status=0
-          python3 scripts/check-ibm-personal-refresh.py --demo --latest-two > "$report" || status=$?
+          python3 scripts/check-ibm-personal-refresh.py --demo --scheduled-preflight > "$report" || status=$?
           if (( status != 0 && status != 2 )); then
             echo "IBM preflight failed before producing a valuation report." >> "$GITHUB_STEP_SUMMARY"
             exit "$status"
@@ -82,11 +82,13 @@ jobs:
             echo '| Trading date | Close retrieval | Valuation | Earlier share disclosure |'
             echo '| --- | --- | --- | --- |'
             jq -er '.preflightChecks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) | \(if .referenceShareSource then "[\(.referenceShareDate)](\(.referenceShareSource))" else "—" end) |"' "$report"
-            if (( status == 2 )); then
+            if ! jq -e .passed "$report" > /dev/null; then
               echo
               echo 'Valuation pending. See the per-session status above.'
             fi
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -e '.exactDateCheck | {status, checks: (.checks | map_values({date, closeStatus, valuationStatus}))}' \
+            "$report" > "$RUNNER_TEMP/exact-date-check.json"
           printf '%s\n' "$latest" > "$RUNNER_TEMP/session.txt"
           jq -e --arg comparison "$comparison" --arg observed "$observed" \
             --arg retained "$latest" --arg previousRun "$previous_run" '
@@ -105,25 +107,21 @@ jobs:
           path: |
             ${{ runner.temp }}/session.txt
             ${{ runner.temp }}/session.json
+            ${{ runner.temp }}/exact-date-check.json
           retention-days: 14
           if-no-files-found: error
           overwrite: true
       - name: Verify the two latest IBM closes with exact-date share filings
         shell: bash
         run: |
-          report=$(mktemp)
-          trap 'rm -f "$report"' EXIT
-          status=0
-          python3 scripts/check-ibm-personal-refresh.py --demo --latest-with-filings > "$report" || status=$?
+          report="$RUNNER_TEMP/exact-date-check.json"
           {
             echo '### IBM valuation with exact-date SEC shares'
             echo
-            if (( status == 0 || status == 2 )); then
-              echo '| Trading date | Close retrieval | Valuation |'
-              echo '| --- | --- | --- |'
-              jq -er '.preflightChecks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) |"' "$report"
-            else
-              echo 'Could not complete the two-session check. See the step log for the reason.'
-            fi
+            echo "Status: $(jq -er '.status' "$report")"
+            echo
+            echo '| Trading date | Close retrieval | Valuation |'
+            echo '| --- | --- | --- |'
+            jq -r '.checks[] | "| \(.date) | \(.closeStatus) | \(.valuationStatus) |"' "$report"
           } | tee -a "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+          jq -e '.status == "passed"' "$report" > /dev/null

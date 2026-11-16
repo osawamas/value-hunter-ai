@@ -114,10 +114,43 @@ def compare(closes, previous, current, *, demo, retrieved_at=()):
     }
 
 
-def fetch_closes(query, dates, *, share_dates=None):
+def fetch_daily_series(query):
     with urlopen(ENDPOINT + "?" + query, timeout=20) as response:
-        closes = read_closes(json.load(response), dates, share_dates)
-    return closes, datetime.now(timezone.utc).isoformat()
+        payload = json.load(response)
+    return payload, datetime.now(timezone.utc).isoformat()
+
+
+def fetch_closes(query, dates, *, share_dates=None):
+    payload, stamp = fetch_daily_series(query)
+    return read_closes(payload, dates, share_dates), stamp
+
+
+def ibm_share_dates():
+    result = subprocess.run(["node", CHECKER, "--ibm-share-sessions"],
+                            capture_output=True, text=True, check=True)
+    return {entry["date"] for entry in json.loads(result.stdout)}
+
+
+def scheduled_preflight(query, *, demo):
+    payload, stamp = fetch_daily_series(query)
+    latest = read_closes(payload, None)
+    report = compare(latest, *sorted(latest), demo=demo, retrieved_at=(stamp,))
+    share_dates = ibm_share_dates()
+    overlap = share_dates.intersection(payload["Time Series (Daily)"])
+    if len(overlap) < 2:
+        report["exactDateCheck"] = {"status": "insufficient_matching_sessions", "checks": {}}
+    else:
+        try:
+            matched = read_closes(payload, tuple(sorted(overlap)[-2:]))
+        except ValueError:
+            report["exactDateCheck"] = {"status": "invalid_close", "checks": {}}
+        else:
+            matched_report = compare(matched, *sorted(matched), demo=demo, retrieved_at=(stamp,))
+            report["exactDateCheck"] = {
+                "status": "passed" if matched_report["passed"] else "incomplete_valuation",
+                "checks": matched_report["preflightChecks"],
+            }
+    return report
 
 
 def file_digest(path):
@@ -210,6 +243,8 @@ def main():
                         help="Compare the two latest trading dates returned by the API")
     selection.add_argument("--latest-with-filings", action="store_true",
                            help="Compare the latest two returned closes with exact-date share filings")
+    selection.add_argument("--scheduled-preflight", action="store_true",
+                           help="Check latest sessions and matching filing sessions in one request")
     parser.add_argument("--separate-requests", action="store_true",
                         help="Fetch each date through a separate API request")
     parser.add_argument("--output-dir", type=Path, help="Save one local snapshot")
@@ -218,7 +253,7 @@ def main():
                         help="First date, or the only date with --output-dir")
     parser.add_argument("current", nargs="?", type=trading_date)
     args = parser.parse_args()
-    if args.latest_two or args.latest_with_filings:
+    if args.latest_two or args.latest_with_filings or args.scheduled_preflight:
         if args.previous or args.output_dir or args.previous_dir or args.separate_requests:
             parser.error("automatic date selection uses one request and accepts no dates or snapshot directories")
     elif args.output_dir:
@@ -237,11 +272,11 @@ def main():
             status = save_refresh(args.output_dir, args.previous_dir, query, args.previous, demo=args.demo)
             print(args.output_dir / "report.json")
             return status
-        share_dates = None
-        if args.latest_with_filings:
-            result = subprocess.run(["node", CHECKER, "--ibm-share-sessions"],
-                                    capture_output=True, text=True, check=True)
-            share_dates = {entry["date"] for entry in json.loads(result.stdout)}
+        if args.scheduled_preflight:
+            report = scheduled_preflight(query, demo=args.demo)
+            print(json.dumps(report, indent=2))
+            return 0 if report["passed"] and report["exactDateCheck"]["status"] == "passed" else 2
+        share_dates = ibm_share_dates() if args.latest_with_filings else None
         dates = None if args.latest_two or args.latest_with_filings else (args.previous, args.current)
         request_dates = [(day,) for day in dates] if args.separate_requests else [dates]
         closes, retrieved_at = {}, []
