@@ -13,7 +13,8 @@ function stageQuotes(feed, quotes, grant) {
   for (const quote of quotes) {
     const symbol = quote?.symbol;
     const row = records.get(symbol);
-    if (!row || seen.has(symbol)) throw new Error("Unknown or repeated SGX symbol: " + symbol);
+    if (!row) throw new Error("Unknown SGX symbol in provider response");
+    if (seen.has(symbol)) throw new Error("Repeated SGX symbol: " + symbol);
     seen.add(symbol);
     if (quote.currency !== "SGD" || quote.source_type !== "LICENSED_SGX_EQUITY" ||
         !Number.isFinite(quote.close) || quote.close <= 0 ||

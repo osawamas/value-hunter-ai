@@ -6,31 +6,48 @@ const {sgxQuoteDate, validDate} = require("../docs/sgx-ranking-validation.js");
 
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 
+class QuoteImportError extends Error {
+  constructor(stage, message) {
+    super(message);
+    this.stage = stage;
+  }
+}
+
 async function fetchAndStage(feed, grant, session, fetcher = fetch) {
-  if (!validDate(session)) throw new Error("Expected a Singapore session date (YYYY-MM-DD)");
+  if (!validDate(session)) throw new QuoteImportError("SESSION", "Expected a Singapore session date (YYYY-MM-DD)");
   if (grant?.grant_status !== "EXECUTED" ||
       !Array.isArray(grant.usage_scopes) ||
       !["BROWSER_DISPLAY", "BACKEND_NON_DISPLAY_ANALYTICS", "REDISTRIBUTION"]
         .every(scope => grant.usage_scopes.includes(scope)) ||
       !validDate(grant.valid_from) || !validDate(grant.valid_until) ||
       session < grant.valid_from || session > grant.valid_until) {
-    throw new Error("An executed grant covering the session and all publication scopes is required");
+    throw new QuoteImportError("GRANT", "An executed grant covering the session and all publication scopes is required");
   }
-  const endpoint = new URL(grant.daily_close_feed_url);
+  let endpoint;
+  try {
+    endpoint = new URL(grant.daily_close_feed_url);
+  } catch {
+    throw new QuoteImportError("CONFIG", "Invalid SGX daily close feed URL");
+  }
   if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password ||
       endpoint.search || endpoint.hash) {
-    throw new Error("Expected an HTTPS feed URL without credentials, query or fragment");
+    throw new QuoteImportError("CONFIG", "Expected an HTTPS feed URL without credentials, query or fragment");
   }
   endpoint.searchParams.set("session", session);
-  const response = await fetcher(endpoint, {
-    headers: {accept: "application/json"},
-    redirect: "error",
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!response.ok) throw new Error("SGX daily close feed returned HTTP " + response.status);
+  let response;
+  try {
+    response = await fetcher(endpoint, {
+      headers: {accept: "application/json"},
+      redirect: "error",
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    throw new QuoteImportError("FETCH", "SGX daily close request failed or timed out");
+  }
+  if (!response.ok) throw new QuoteImportError("FETCH", "SGX daily close feed returned HTTP " + response.status);
   if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "") ||
       !response.body) {
-    throw new Error("Expected JSON from the SGX daily close feed");
+    throw new QuoteImportError("RESPONSE", "Expected JSON from the SGX daily close feed");
   }
   const reader = response.body.getReader();
   const chunks = [];
@@ -40,36 +57,53 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch) {
       const {done, value} = await reader.read();
       if (done) break;
       bytes += value.byteLength;
-      if (bytes > MAX_RESPONSE_BYTES) throw new Error("SGX daily close feed exceeds 1 MiB");
+      if (bytes > MAX_RESPONSE_BYTES) throw new QuoteImportError("RESPONSE", "SGX daily close feed exceeds 1 MiB");
       chunks.push(value);
     }
+  } catch (error) {
+    if (error instanceof QuoteImportError) throw error;
+    throw new QuoteImportError("FETCH", "SGX daily close response was interrupted");
   } finally {
-    await reader.cancel();
+    await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
-  const quotes = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  let quotes;
+  try {
+    quotes = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new QuoteImportError("RESPONSE", "Invalid JSON from the SGX daily close feed");
+  }
   if (!Array.isArray(quotes) || quotes.some(quote => sgxQuoteDate(quote?.timestamp) !== session)) {
-    throw new Error("The feed must contain only closes for the requested Singapore session");
+    throw new QuoteImportError("SESSION", "The feed must contain only closes for the requested Singapore session");
   }
   const {grant_status, grant_evidence_url, licensor, licensee, licensed_product,
     usage_scopes, valid_from, valid_until} = grant;
   const publicGrant = {grant_status, grant_evidence_url, licensor, licensee,
     licensed_product, usage_scopes, valid_from, valid_until};
-  return stageQuotes(feed, quotes, publicGrant);
+  try {
+    return stageQuotes(feed, quotes, publicGrant);
+  } catch (error) {
+    throw new QuoteImportError("VALIDATION", error.message);
+  }
 }
 
 async function main() {
   const args = process.argv.slice(2);
   if (args.length !== 3)
     throw new Error("Usage: node scripts/fetch-sgx-public-quotes.js FEED.json GRANT.json YYYY-MM-DD");
-  const [feed, grant] = args.slice(0, 2).map(file => JSON.parse(fs.readFileSync(file, "utf8")));
+  let feed, grant;
+  try {
+    [feed, grant] = args.slice(0, 2).map(file => JSON.parse(fs.readFileSync(file, "utf8")));
+  } catch {
+    throw new QuoteImportError("CONFIG", "Could not read the public feed or grant configuration as JSON");
+  }
   const staged = await fetchAndStage(feed, grant, args[2]);
   process.stdout.write(JSON.stringify(staged, null, 2) + "\n");
 }
 
 if (require.main === module) {
   main().catch(error => {
-    console.error(error.message);
+    console.error("SGX close " + (error.stage || "IMPORT") + ": " + error.message);
     process.exitCode = 1;
   });
 }

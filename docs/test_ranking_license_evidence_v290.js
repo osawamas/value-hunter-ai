@@ -72,7 +72,7 @@ assert.deepEqual(stageQuotes(staged,[incoming],grant),staged);
 assert.throws(()=>stageQuotes(staged,[{...incoming,close:3}],grant),/same-session close conflicts/);
 assert.throws(()=>stageQuotes(baseline,[incoming],{...grant,usage_scopes:
   grant.usage_scopes.filter(scope=>scope!=="REDISTRIBUTION")}),/usage scopes/);
-assert.throws(()=>stageQuotes(baseline,[incoming,{...incoming,currency:"USD"}],grant),/repeated/);
+assert.throws(()=>stageQuotes(baseline,[incoming,{...incoming,currency:"USD"}],grant),/Repeated/);
 assert.throws(()=>stageQuotes(baseline,[{...incoming,timestamp:"2026-11-16T09:00:00Z"}],grant),/same Singapore date/);
 assert.throws(()=>stageQuotes(real,[{...incoming,timestamp:real.records[0].shares_as_of_date+"T09:00:00Z"}],grant),
   /existing financial or publication exclusions remain|predates/);
@@ -105,15 +105,20 @@ async function checkRemoteQuotes() {
   });
   assert.deepEqual(fetched,staged);
   await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-16",
-    async ()=>serve([incoming])),/requested Singapore session/);
+    async ()=>serve([incoming])),{stage:"SESSION",message:/requested Singapore session/});
   await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
-    async ()=>serve([],503)),/HTTP 503/);
+    async ()=>serve([],503)),{stage:"FETCH",message:/HTTP 503/});
   await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
-    async ()=>serve([],200,"text/html")),/Expected JSON/);
+    async ()=>serve([],200,"text/html")),{stage:"RESPONSE",message:/Expected JSON/});
   await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
     async ()=>serve("x".repeat(1024*1024))),/exceeds 1 MiB/);
   await assert.rejects(fetchAndStage(baseline,{...reviewedGrant,grant_status:"PENDING"},"2026-11-13",
     async ()=>{throw new Error("unexpected request");}),/executed grant/);
-  console.log("v433 PASS: reviewed HTTPS feed stages the requested Singapore session");
+  await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
+    async ()=>{throw new Error("private connection detail");}),{stage:"FETCH",message:/request failed/});
+  await assert.rejects(fetchAndStage(baseline,reviewedGrant,"2026-11-13",
+    async ()=>serve([{...incoming,symbol:"private-provider-content"}])),
+    {stage:"VALIDATION",message:"Unknown SGX symbol in provider response"});
+  console.log("v436 PASS: reviewed HTTPS feed stages the requested Singapore session");
 }
 checkRemoteQuotes().catch(error=>{console.error(error);process.exitCode=1;});
