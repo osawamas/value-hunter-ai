@@ -271,7 +271,15 @@
           "value": 11841833660,
           "rounded": false,
           "source": "https://global.toyota/pages/global_toyota/ir/financial-results/2027_1q_summary_en.pdf",
-          "source_sha256": "a28b4e5a37b626a24ad7028e2e9245f90297a6b4089556638862e379cd4446ed"
+          "source_sha256": "a28b4e5a37b626a24ad7028e2e9245f90297a6b4089556638862e379cd4446ed",
+          "valuation_basis": {
+            "period_end": "2026-06-30",
+            "annual_period_end": "2026-03-31",
+            "current_net_income": 1477044000000,
+            "prior_net_income": 841345000000,
+            "parent_equity": 37308828000000,
+            "comparative_parent_equity": 39918854000000
+          }
         }
       ],
       "month_end_treasury_report": {

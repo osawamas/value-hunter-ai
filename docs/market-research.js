@@ -372,12 +372,12 @@ function calculateWithAnnualPeriod(currency, last, {date, price, shares}) {
   };
 }
 
-function calculateIbmInterim(issuer, date, shareSource, annual) {
+function calculateInterimValuation(issuer, date, shareSource, annual) {
   const quarterly = issuer && [issuer.quarterly, ...(issuer.historical_share_filings ?? [])]
     .find(filing => filing?.valuation_basis?.period_end === date);
   const interim = quarterly?.valuation_basis;
   let interimValuation;
-  if (interim && annual.currency === "USD" && quarterly.source === shareSource &&
+  if (interim && annual.currency === issuer.financials?.currency && quarterly.source === shareSource &&
       interim.annual_period_end === annual.periodEnd &&
       interim.comparative_parent_equity === annual.annualParentEquity) {
     const trailingNetIncome = annual.annualNetIncome + interim.current_net_income - interim.prior_net_income;
@@ -497,8 +497,8 @@ function evaluatePersonalQuotes(rows, quotes, shares, shareReview, history) {
     try {
       const inputs = {...quote, shares: match.value};
       const result = calculateWithAnnualPeriod(currency, latest, inputs);
-      const interimValuation = id === "US:IBM" && match.state === "filing" ?
-        calculateIbmInterim(row, quote.date, match.source, result) : undefined;
+      const interimValuation = match.state === "filing" ?
+        calculateInterimValuation(row, quote.date, match.source, result) : undefined;
       return {...entry, ...(interimValuation && {interimValuation}), state: match.state, shares: match.value, shareSource: match.source, shareDisclosureDate: match.disclosedOn,
         shareDisclosedAt: match.disclosedAt, shareDisclosureTiming: match.disclosureTiming, result};
     } catch {
@@ -738,7 +738,8 @@ async function initMarketResearch() {
         const detail = element("div", "直近12か月PER " + multiple(interim.per) +
           "、期末PBR " + multiple(interim.pbr) + "（後日開示による試算）");
         if (interim.source?.startsWith("https://")) detail.append(" ",
-          link(interim.source, "SEC四半期資料（" + interim.disclosedOn + "提出）"));
+          link(interim.source, (row.id === "US:IBM" ? "SEC四半期資料" : "四半期決算資料") +
+            "（" + interim.disclosedOn + (row.id === "US:IBM" ? "提出）" : "公表）")));
         sourceCell.append(detail);
       }
       for (const filing of row.shareConflicts ?? []) {

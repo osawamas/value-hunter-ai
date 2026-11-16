@@ -320,7 +320,7 @@ def toyota_financials(raw, record):
         raise ValueError("Toyota March share capital mismatch")
 
 
-def check_toyota_q1_shares(raw, report):
+def check_toyota_q1_filing(raw, report):
     digest = hashlib.sha256(raw).hexdigest()
     if digest != report["source_sha256"]:
         raise ValueError("Toyota Q1 share disclosure hash mismatch")
@@ -337,7 +337,23 @@ def check_toyota_q1_shares(raw, report):
     counts = tuple(int(match[1].replace(",", "")) for match in (issued, treasury) if match)
     if counts != (report["issued"], report["treasury"]) or report["issued"] - report["treasury"] != report["value"]:
         raise ValueError("Toyota Q1 share counts mismatch")
-    print(f"JP:7203 June quarter shares matched (ESOP shares included in treasury), SHA256 {digest}")
+    basis = report["valuation_basis"]
+    if (basis["period_end"] != report["as_of"] or basis["annual_period_end"] != "2026-03-31"
+            or "April 1, 2026 through June 30, 2026" not in cover
+            or "rounded to the nearest million yen" not in cover):
+        raise ValueError("Toyota Q1 valuation period or unit mismatch")
+    income = cover.split("Comprehensive", 1)[1].split("Earnings per share", 1)[0]
+    for year, key in (("FY2027", "current_net_income"), ("FY2026", "prior_net_income")):
+        row = re.search(rf"^{year} first quarter[ \t]+(.+)$", income, re.M)
+        cells = row[1].split() if row else []
+        if len(cells) != 12 or int(cells[8].replace(",", "")) * 1_000_000 != basis[key]:
+            raise ValueError(f"Toyota Q1 parent net income mismatch: {year}")
+    position = cover.split("(2) Consolidated financial position", 1)[1]
+    for label, key in (("FY2027 first quarter", "parent_equity"), ("FY2026", "comparative_parent_equity")):
+        cells = re.search(rf"^\s*{label}\s+[\d,]+\s+[\d,]+\s+([\d,]+)\s+[\d.]+\s*$", position, re.M)
+        if not cells or int(cells[1].replace(",", "")) * 1_000_000 != basis[key]:
+            raise ValueError(f"Toyota Q1 parent equity mismatch: {label}")
+    print(f"JP:7203 June quarter shares and financials matched, SHA256 {digest}")
 
 
 def check_toyota_month_end_treasury(raw, report):
@@ -682,7 +698,7 @@ def main():
                 print(f"{record['id']} interim matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
             if record["id"] == "JP:7203":
                 q1 = next(item for item in record["historical_share_filings"] if item["as_of"] == "2026-06-30")
-                check_toyota_q1_shares(source_bytes(q1["source"], "7203-q1.pdf"), q1)
+                check_toyota_q1_filing(source_bytes(q1["source"], "7203-q1.pdf"), q1)
                 report = record["month_end_treasury_report"]
                 check_toyota_month_end_treasury(source_bytes(report["source"], "7203-edinet.pdf"), report)
         return

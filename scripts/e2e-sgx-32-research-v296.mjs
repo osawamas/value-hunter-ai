@@ -368,6 +368,16 @@ try{
  await page.locator("#personalBatchDownload").click();
  const unmatchedCsv = fs.readFileSync(await (await unmatchedDownload).path(),"utf8");
  assert.match(unmatchedCsv.trimEnd().split("\r\n")[1], /,{8}$/);
+ await page.locator("#personalQuoteFile").setInputFiles({
+  name:"toyota-trial.csv", mimeType:"text/csv",
+  buffer:Buffer.from("market_id,date,currency,close\nJP:7203,2026-06-30,JPY,3000"),
+ });
+ await page.locator("#personalQuoteStatus").getByText(/終値を 1件/).waitFor();
+ await page.locator("#personalBatchDate").fill("2026-06-30");
+ const toyotaTrial = page.locator("#personalBatchRows tr").filter({hasText:"JP:7203"});
+ assert.match(await toyotaTrial.innerText(), /直近12か月PER 7\.92倍、期末PBR 0\.95倍/);
+ assert.match(await toyotaTrial.getByRole("link",{name:"四半期決算資料（2026-08-04公表）"}).getAttribute("href"),
+  /global\.toyota.*2027_1q_summary_en\.pdf/);
  await page.locator("#personalBatchDate").fill("");
  await page.locator("#marketQuery").fill("US:GOOGL");
  await page.getByRole("button",{name:"財務を見る"}).click();
