@@ -136,13 +136,28 @@ class JQuantsExportTest(unittest.TestCase):
 
 
 class ToyotaRefreshPairTest(unittest.TestCase):
-    def test_pair_commits_two_validated_snapshots_or_keeps_destination_absent(self):
-        from datetime import datetime, timezone
-        from subprocess import CompletedProcess
+    def setUp(self):
         refresh_script = SCRIPT.with_name("refresh-jquants-personal.py")
         module_spec = importlib.util.spec_from_file_location("jquants_refresh", refresh_script)
         refresh = importlib.util.module_from_spec(module_spec)
         module_spec.loader.exec_module(refresh)
+        self.refresh = refresh
+
+    def test_free_selection_uses_exact_share_dates_and_delay(self):
+        from datetime import date
+        self.assertEqual(self.refresh.toyota_free_sessions(date(2026, 11, 16)),
+                         ["2026-03-31", "2026-06-30"])
+        self.assertEqual(self.refresh.toyota_free_sessions(date(2026, 12, 23)),
+                         ["2026-06-30", "2026-09-30"])
+        with self.assertRaisesRegex(ValueError, "Fewer than two"):
+            self.refresh.toyota_free_sessions(date(2026, 4, 1))
+        with self.assertRaisesRegex(ValueError, "Fewer than two"):
+            self.refresh.toyota_free_sessions(date(2028, 7, 1))
+
+    def test_pair_commits_two_validated_snapshots_or_keeps_destination_absent(self):
+        from datetime import datetime, timezone
+        from subprocess import CompletedProcess
+        refresh = self.refresh
         live_capture = refresh.capture
         days = ("2026-06-30", "2026-09-30")
         exported_days = []
