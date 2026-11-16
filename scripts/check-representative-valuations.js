@@ -55,18 +55,21 @@ function reviewShareSession(rows, shareReview, id, date, shares, observation) {
   if (!observation) return {...evidence, status: "missing_exact_close"};
   const [valuation] = evaluatePersonalQuotes(rows, new Map([[id, observation]]), new Map(), shareReview);
   if (valuation.state !== "filing" || !valuation.result) return {...evidence, status: valuation.state};
-  const quarterly = id === "US:IBM" ? rows.find(row => row.id === id)?.quarterly : null;
+  const issuer = id === "US:IBM" ? rows.find(row => row.id === id) : null;
+  const quarterly = issuer && [issuer.quarterly, ...(issuer.historical_share_filings ?? [])]
+    .find(filing => filing?.valuation_basis?.period_end === date);
   const interim = quarterly?.valuation_basis;
   const annual = valuation.result;
   let interimValuation;
-  if (interim?.period_end === date && quarterly.currency === annual.currency &&
+  if (interim && annual.currency === "USD" && quarterly.source === shares.source &&
       interim.annual_period_end === annual.periodEnd &&
       interim.comparative_parent_equity === annual.annualParentEquity) {
     const trailingNetIncome = annual.annualNetIncome + interim.current_net_income - interim.prior_net_income;
     if (Number.isSafeInteger(trailingNetIncome) && trailingNetIncome > 0 &&
         Number.isSafeInteger(interim.parent_equity) && interim.parent_equity > 0) {
       interimValuation = {
-        basis: "retrospective", periodEnd: date, disclosedOn: quarterly.filed, source: quarterly.source,
+        basis: "retrospective", periodEnd: date, disclosedOn: quarterly.filed ?? quarterly.disclosedOn,
+        source: quarterly.source,
         trailingNetIncome, parentEquity: interim.parent_equity,
         per: annual.cap / trailingNetIncome, pbr: annual.cap / interim.parent_equity,
       };

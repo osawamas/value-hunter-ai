@@ -132,7 +132,12 @@ class IBMRefreshTests(unittest.TestCase):
         self.assertEqual(previous["shares"], 942134390)
         self.assertEqual(previous["shareDisclosureDate"], "2026-07-23")
         self.assertEqual(current["shares"], 945120805)
-        self.assertNotIn("interimValuation", previous)
+        june = previous["interimValuation"]
+        self.assertEqual(june["trailingNetIncome"], 10725000000)
+        self.assertEqual(june["parentEquity"], 34452000000)
+        self.assertEqual(june["disclosedOn"], "2026-07-23")
+        self.assertAlmostEqual(june["per"], previous["valuation"]["cap"] / 10725000000)
+        self.assertAlmostEqual(june["pbr"], previous["valuation"]["cap"] / 34452000000)
         interim = current["interimValuation"]
         self.assertEqual(interim["trailingNetIncome"], 11171000000)
         self.assertEqual(interim["parentEquity"], 35537000000)
@@ -154,6 +159,7 @@ class IBMRefreshTests(unittest.TestCase):
             self.assertTrue(report["passed"])
             self.assertEqual(report["latestObservedTrials"]["previous"]["shares"], 942134390)
             self.assertEqual(report["latestObservedTrials"]["current"]["shares"], 945120805)
+            self.assertIn("interimValuation", report["latestObservedTrials"]["previous"])
             self.assertEqual(report["preflightChecks"]["current"]["valuationStatus"], "trial_calculated")
             self.assertEqual(fetch.call_count, 2)
             (old / "quotes.csv").write_text("modified")

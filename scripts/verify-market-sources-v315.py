@@ -543,6 +543,15 @@ def check_ibm_financial_facts(main_filing, exhibit, expected):
             raise ValueError(f"IBM {end} {tag} differs from the filing")
 
 
+def check_ibm_interim_financials(raw, interim):
+    check_ibm_financial_facts(raw, raw, [
+        ("NetIncomeLoss", interim["current_start"], interim["period_end"], interim["current_net_income"]),
+        ("NetIncomeLoss", interim["prior_start"], interim["prior_end"], interim["prior_net_income"]),
+        ("StockholdersEquity", None, interim["period_end"], interim["parent_equity"]),
+        ("StockholdersEquity", None, interim["annual_period_end"], interim["comparative_parent_equity"]),
+    ])
+
+
 def check_s63_share_notice(raw, evidence):
     sys.path.insert(0, str(ROOT / "SGX_PDF_connection_probe"))
     from sgx_s63_buyback_v109 import parse_notice
@@ -646,18 +655,13 @@ def main():
         record = next(record for record in snapshot["records"] if record["id"] == "US:IBM")
         raw = source_bytes(record["quarterly"]["source"], "IBM-10Q.html")
         check_ibm_share_filing(raw, record)
-        interim = record["quarterly"]["valuation_basis"]
-        check_ibm_financial_facts(raw, raw, [
-            ("NetIncomeLoss", interim["current_start"], interim["period_end"], interim["current_net_income"]),
-            ("NetIncomeLoss", interim["prior_start"], interim["prior_end"], interim["prior_net_income"]),
-            ("StockholdersEquity", None, interim["period_end"], interim["parent_equity"]),
-            ("StockholdersEquity", None, interim["annual_period_end"], interim["comparative_parent_equity"]),
-        ])
+        check_ibm_interim_financials(raw, record["quarterly"]["valuation_basis"])
         print(f"US:IBM SEC 10-Q shares and interim financials matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
         historical, = record["historical_share_filings"]
         raw = source_bytes(historical["source"], "IBM-10Q-June.html")
         check_ibm_share_filing(raw, {"quarterly": {"shares": historical}})
-        print(f"US:IBM June SEC 10-Q shares matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
+        check_ibm_interim_financials(raw, historical["valuation_basis"])
+        print(f"US:IBM June SEC 10-Q shares and interim financials matched, SHA256 {hashlib.sha256(raw).hexdigest()}")
         return
 
     if args.sec_ibm_annual_only:
