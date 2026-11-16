@@ -23,6 +23,7 @@ on:
       - 'scripts/fetch-sgx-public-quotes.js'
       - 'scripts/apply-sgx-public-quotes.sh'
       - 'scripts/check-sgx-close-readiness.js'
+      - 'scripts/data/sgx-s63-ft-financial-crosscheck-v486.json'
       - 'scripts/stage-sgx-public-quotes.js'
       - 'tests/test_sgx_close_https.js'
       - 'docs/data/sgx-market-license-review-v290.json'

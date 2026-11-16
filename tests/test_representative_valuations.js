@@ -51,10 +51,20 @@ const crosscheck = s63Readiness.thirdPartyFinancialCrosscheck;
 assert.equal(crosscheck.attributableProfit.status, "matches_display_precision");
 assert.equal(crosscheck.parentEquity.status, "matches_display_precision");
 assert.equal(crosscheck.parentEquity.displayValue - crosscheck.parentEquity.issuerValue, 362);
+const ftCrosscheck = s63Readiness.ftFinancialCrosscheck;
+assert.equal(ftCrosscheck.provider, "LSEG via FT Markets");
+assert.equal(ftCrosscheck.attributableProfit.status, "matches_display_precision");
+assert.equal(ftCrosscheck.parentEquity.status, "matches_display_precision");
+assert.equal(ftCrosscheck.parentEquity.displayIncrement, 1000);
+assert.ok(ftCrosscheck.attributableProfit.definitionSource.endsWith("=IncomeStatement"));
+const s63DifferentPeriod = structuredClone(sgx);
+s63DifferentPeriod.records.find(row => row.symbol === "S63").fiscal_year = 2026;
+assert.equal(reviewS63(s63DifferentPeriod, research, notices, "2026-11-13").ftFinancialCrosscheck, null);
 const changedEquity = structuredClone(sgx);
 changedEquity.records.find(row => row.symbol === "S63").parent_equity_sgd_thousands -= 1000;
-assert.equal(reviewS63(changedEquity, research, notices, "2026-11-13")
-  .thirdPartyFinancialCrosscheck.parentEquity.status, "mismatch");
+const changedEquityReview = reviewS63(changedEquity, research, notices, "2026-11-13");
+assert.equal(changedEquityReview.thirdPartyFinancialCrosscheck.parentEquity.status, "mismatch");
+assert.equal(changedEquityReview.ftFinancialCrosscheck.parentEquity.status, "mismatch");
 
 const readinessTrial = reviewS63(sgx, research, notices, "2026-11-13", 10);
 assert.equal(readinessTrial.trial.status, "filing");

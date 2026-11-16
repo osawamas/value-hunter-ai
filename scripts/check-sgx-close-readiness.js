@@ -3,6 +3,7 @@
 const fs = require("node:fs");
 const {buildMarketRows, conflictingFilingShares, evaluatePersonalQuotes, publishedShareSessions} = require("../docs/market-research.js");
 const {validDate} = require("../docs/sgx-ranking-validation.js");
+const s63FtEvidence = require("./data/sgx-s63-ft-financial-crosscheck-v486.json");
 
 const thirdPartyEvidence = new Map([
   ["S63", require("../docs/data/sgx-s63-third-party-financial-crosscheck-v448.json")],
@@ -20,6 +21,7 @@ function compareThirdPartyFinancials(row, evidence) {
     displayValue: reference.display_value,
     displayIncrement: reference.display_increment,
     source: reference.source,
+    ...(reference.definition_source && {definitionSource: reference.definition_source}),
   });
   return {
     provider: evidence.provider,
@@ -72,6 +74,9 @@ function reviewIssuer(feed, research, notices, symbol, session, close) {
     blockers,
     ...(financialEvidence && {
       thirdPartyFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence, financialEvidence),
+    }),
+    ...(symbol === "S63" && {
+      ftFinancialCrosscheck: compareThirdPartyFinancials(issuer.sgxEvidence, s63FtEvidence),
     }),
     ...(trial && {trial: {
       status: trial.state,

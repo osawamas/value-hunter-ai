@@ -1,0 +1,19 @@
+{
+  "symbol": "S63",
+  "period_end": "2025-12-31",
+  "unit": "SGD_thousands",
+  "provider": "LSEG via FT Markets",
+  "reviewed_on": "2026-11-17",
+  "attributable_profit": {
+    "display_value": 462770,
+    "display_increment": 10,
+    "source": "https://markets.ft.markitdigital.com/data/equities/tearsheet/financials?s=S63%3ASES&subview=Overview",
+    "definition_source": "https://markets.ft.markitdigital.com/data/equities/tearsheet/financials?s=S63%3ASES&subView=IncomeStatement"
+  },
+  "parent_equity": {
+    "display_value": 2574000,
+    "display_increment": 1000,
+    "source": "https://markets.ft.markitdigital.com/data/equities/tearsheet/financials?s=S63%3ASES&subview=BalanceSheet"
+  },
+  "scope": "Comparison at displayed precision. The income statement deducts minority interests before net income, and the balance sheet lists minority interest outside shareholders' equity. Provider derivation and reuse rights are unverified."
+}
