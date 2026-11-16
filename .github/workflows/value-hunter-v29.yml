@@ -329,6 +329,24 @@ jobs:
           else
             echo "Company directory unavailable. Preserve previous candidate snapshot only; do not add new issuer financial records." >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Apply licensed SGX closing prices when configured
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          SGX_CLOSE_GRANT_JSON: ${{ secrets.SGX_CLOSE_GRANT_JSON }}
+        run: |
+          if [ -z "$SGX_CLOSE_GRANT_JSON" ]; then
+            echo "Licensed SGX close feed is not configured." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          work_dir=$(mktemp -d)
+          trap 'rm -rf "$work_dir"' EXIT
+          printf '%s' "$SGX_CLOSE_GRANT_JSON" > "$work_dir/grant.json"
+          unset SGX_CLOSE_GRANT_JSON
+          session=$(TZ=Asia/Singapore date +%F)
+          node scripts/fetch-sgx-public-quotes.js docs/data/latest.json "$work_dir/grant.json" "$session" > "$work_dir/latest.json"
+          mv "$work_dir/latest.json" docs/data/latest.json
+          echo "Licensed SGX closes staged for $session." >> "$GITHUB_STEP_SUMMARY"
       - name: Validate generated ranking feed before recording history
         run: git show HEAD:docs/data/latest.json | node scripts/check-ranking-license-evidence-v290.js --previous-stdin
       - name: Record validated feed history

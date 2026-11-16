@@ -51,7 +51,10 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch) {
   if (!Array.isArray(quotes) || quotes.some(quote => sgxQuoteDate(quote?.timestamp) !== session)) {
     throw new Error("The feed must contain only closes for the requested Singapore session");
   }
-  const {daily_close_feed_url, ...publicGrant} = grant;
+  const {grant_status, grant_evidence_url, licensor, licensee, licensed_product,
+    usage_scopes, valid_from, valid_until} = grant;
+  const publicGrant = {grant_status, grant_evidence_url, licensor, licensee,
+    licensed_product, usage_scopes, valid_from, valid_until};
   return stageQuotes(feed, quotes, publicGrant);
 }
 

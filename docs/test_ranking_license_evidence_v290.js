@@ -94,7 +94,7 @@ console.log("v432 PASS: routine refresh cannot roll back or remove ranked closes
 
 const {fetchAndStage}=require("../scripts/fetch-sgx-public-quotes.js");
 async function checkRemoteQuotes() {
-  const reviewedGrant={...grant,daily_close_feed_url:"https://example.org/sgx/daily"};
+  const reviewedGrant={...grant,daily_close_feed_url:"https://example.org/sgx/daily",private_note:"never publish"};
   const serve=(body,status=200,type="application/json")=>new Response(JSON.stringify(body),{
     status,headers:{"content-type":type},
   });
