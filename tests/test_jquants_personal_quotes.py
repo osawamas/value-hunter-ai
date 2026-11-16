@@ -193,6 +193,22 @@ class ToyotaRefreshPairTest(unittest.TestCase):
                 self.assertGreater(interim["pbr"], 0)
             self.assertTrue((out / "earlier/receipt.json").is_file())
 
+            for missing in days:
+                def fetch_with_gap(command, **options):
+                    if str(command[1]) == str(SCRIPT) and f"--from={missing}" in command:
+                        return CompletedProcess(command, 3, "", "No closes returned")
+                    return capture(command, **options)
+
+                with patch.object(refresh, "capture", side_effect=fetch_with_gap):
+                    checks = refresh.toyota_preflight(days)
+                for check in checks:
+                    if check["date"] == missing:
+                        self.assertEqual(check["close"], "missing")
+                    else:
+                        self.assertEqual(check["annual"], "trial_calculated")
+                        self.assertIn("source", check["interim"])
+                    self.assertNotIn("price", check)
+
             incomplete = root / "incomplete"
             self.assertEqual(refresh.refresh_toyota_pair(incomplete, (days[0], "2026-10-01")), 2)
             self.assertTrue((incomplete / "later/report.json").is_file())

@@ -171,7 +171,7 @@ def main():
     except (URLError, TimeoutError, KeyError, TypeError, ValueError, argparse.ArgumentTypeError):
         parser.exit(1, "J-Quants response could not be retrieved or validated.\n")
     if not rows:
-        parser.exit(1, "No closes returned for the requested interval.\n")
+        parser.exit(3, "No closes returned for the requested interval.\n")
     retrieved_at = datetime.now(timezone.utc)
     returned = {row[0][3:] for row in rows}
     missing = sorted(set(codes) - returned)

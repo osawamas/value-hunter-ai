@@ -15,6 +15,10 @@ from zoneinfo import ZoneInfo
 SCRIPTS = Path(__file__).resolve().parent
 
 
+class MissingClose(ValueError):
+    pass
+
+
 def capture(command, *, allowed_exit_codes=(0,)):
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode not in allowed_exit_codes:
@@ -35,7 +39,9 @@ def refresh(destination, previous, export_args, *, require_toyota_refresh=False)
         exported = capture([
             sys.executable, SCRIPTS / "export-jquants-personal-quotes.py",
             "--require-all", "--provenance", "--output", quotes, *export_args,
-        ])
+        ], allowed_exit_codes=(0, 3))
+        if exported.returncode == 3:
+            raise MissingClose(exported.stderr.strip())
         receipt.write_text(exported.stderr, encoding="utf-8")
         filing_dir = snapshot / "filings"
         filing_dir.mkdir()
@@ -79,10 +85,47 @@ def toyota_free_sessions(as_of):
     return [share["date"] for share in toyota_free_share_evidence(as_of)]
 
 
-def refresh_toyota_pair(destination, sessions):
+def validate_toyota_pair(sessions):
     earlier, later = sessions
     if date.fromisoformat(earlier).isoformat() != earlier or date.fromisoformat(later).isoformat() != later or earlier >= later:
         raise ValueError("Provide two Toyota sessions in increasing YYYY-MM-DD order.")
+
+
+def toyota_preflight(sessions):
+    validate_toyota_pair(sessions)
+    report = []
+    with TemporaryDirectory(prefix="toyota-preflight-") as work:
+        for session in sessions:
+            snapshot = Path(work) / session
+            try:
+                refresh(snapshot, None, [f"--from={session}", f"--to={session}", "--", "7203"])
+            except MissingClose:
+                report.append({"date": session, "close": "missing", "annual": "unavailable"})
+                continue
+            except (OSError, ValueError) as error:
+                print(f"Toyota {session}: {error}", file=sys.stderr)
+                report.append({"date": session, "close": "verification_failed", "annual": "unavailable"})
+                break
+            result = json.loads((snapshot / "report.json").read_text(encoding="utf-8"))
+            row = next(item for item in result["results"] if item["id"] == "JP:7203")
+            trial = row.get("latestAvailableTrial", row)
+            interim = trial.get("interimValuation")
+            ratios = trial.get("valuation", {})
+            annual = "trial_calculated" if trial["status"] == "trial_calculated" and all(
+                ratios.get(key) is not None for key in ("per", "pbr")
+            ) else ("incomplete_ratios" if trial["status"] == "trial_calculated" else "unavailable")
+            entry = {"date": session, "close": "retrieved", "annual": annual}
+            if interim and interim["periodEnd"] == session:
+                entry["interim"] = {key: interim[key] for key in ("source", "disclosedOn")}
+            report.append(entry)
+    report.extend({"date": session, "close": "not_attempted", "annual": "unavailable"}
+                  for session in sessions[len(report):])
+    return report
+
+
+def refresh_toyota_pair(destination, sessions):
+    validate_toyota_pair(sessions)
+    earlier, later = sessions
     if destination.exists() or destination.is_symlink():
         raise ValueError("Snapshot directory already exists. Choose a new destination.")
     with TemporaryDirectory(prefix=".jquants-pair-", dir=destination.parent) as work:
@@ -114,12 +157,23 @@ def main():
                         help="Select the latest Toyota share dates beyond the free-plan delay")
     toyota.add_argument("--toyota-free-evidence", action="store_true",
                         help="List the two eligible Toyota share filings without fetching prices")
+    toyota.add_argument("--toyota-preflight", nargs=2, metavar=("EARLIER", "LATER"),
+                        help="Verify each session and emit statuses without saving prices")
     parser.add_argument("codes", nargs="*")
     args = parser.parse_args()
-    if args.toyota_free_evidence:
+    if args.toyota_free_evidence or args.toyota_preflight:
         if any((args.codes, args.date, args.first, args.last, args.previous_dir,
                 args.require_toyota_refresh, args.output_dir)):
-            parser.error("--toyota-free-evidence accepts no snapshot or quote options")
+            parser.error("Toyota evidence and preflight modes accept no snapshot or quote options")
+        if args.toyota_preflight:
+            try:
+                checks = toyota_preflight(args.toyota_preflight)
+            except (OSError, ValueError) as error:
+                parser.exit(1, f"Preflight failed: {error}\n")
+            print(json.dumps(checks, indent=2))
+            if len(checks) != 2 or any(check["close"] != "retrieved" for check in checks):
+                return 1
+            return 0 if all(check["annual"] == "trial_calculated" for check in checks) else 2
         try:
             evidence = toyota_free_share_evidence(datetime.now(ZoneInfo("Asia/Tokyo")).date())
         except (OSError, ValueError) as error:

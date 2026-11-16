@@ -49,30 +49,16 @@ jobs:
             echo 'Live retrieval skipped because JQUANTS_API_KEY is unavailable.' | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          umask 077
-          work=$(mktemp -d "$RUNNER_TEMP/toyota.XXXXXX")
-          trap 'rm -rf -- "$work"' EXIT
           status=0
           earlier=$(jq -er '.[0].date' <<< "$evidence")
           later=$(jq -er '.[1].date' <<< "$evidence")
-          python3 scripts/refresh-jquants-personal.py --output-dir "$work/pair" \
-            --toyota-sessions "$earlier" "$later" || status=$?
-          if (( status != 0 && status != 2 )); then
-            echo 'J-Quants retrieval or receipt verification failed. See step logs.' >> "$GITHUB_STEP_SUMMARY"
-            exit "$status"
+          checks=$(python3 scripts/refresh-jquants-personal.py --toyota-preflight "$earlier" "$later") || status=$?
+          if [[ -n "$checks" ]]; then
+            {
+              echo '| Trading date | Close | Annual valuation | Trailing PER / period-end PBR | Interim filing |'
+              echo '| --- | --- | --- | --- | --- |'
+              jq -er '.[] |
+                "| \(.date) | \(.close) | \(.annual) | \(if .interim then "calculated" else "unavailable" end) | \(if .interim then "[\(.interim.disclosedOn)](\(.interim.source))" else "—" end) |"' <<< "$checks"
+            } | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-          {
-            echo
-            echo '| Trading date | Close | Annual valuation | Trailing PER / period-end PBR | Interim filing |'
-            echo '| --- | --- | --- | --- | --- |'
-            jq -er '
-              (.latestTrialCheck.results[] | select(.id == "JP:7203")) as $annual |
-              (.results[] | select(.id == "JP:7203") | .latestObservedTrials) as $trials |
-              [$annual.previousDate, $annual.previousStatus, $trials.previous],
-              [$annual.date, $annual.status, $trials.current] |
-              .[2].interimValuation as $interim |
-              "| \(.[0]) | \(if .[2] then "retrieved" else "unavailable" end) | \(.[1]) | \(if $interim then "calculated" else "unavailable" end) | \(if $interim then "[\($interim.disclosedOn)](\($interim.source))" else "—" end) |"
-              ' \
-              "$work/pair/later/report.json"
-          } | tee -a "$GITHUB_STEP_SUMMARY"
           exit "$status"
