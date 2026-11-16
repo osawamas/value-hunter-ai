@@ -460,6 +460,38 @@ async function test() {
     assert.equal(requests.length, beforeExcludedIssuer);
     fs.writeFileSync(grantFile, JSON.stringify(grant));
     sessionBodies.set("/closes?session=2026-11-13", [noticeQuote]);
+    const sessionDates = ["2026-11-13", "2026-11-16"];
+    for (const [dates, coveredIndex] of [
+      [{valid_from: sessionDates[1]}, 1],
+      [{valid_until: sessionDates[0]}, 0],
+    ]) {
+      fs.writeFileSync(grantFile, JSON.stringify({...grant, ...dates}));
+      const beforeCoverageCheck = requests.length;
+      await assert.rejects(run(process.execPath, pairArgs, options), error => {
+        assert.equal(error.code, 1);
+        const report = JSON.parse(error.stdout);
+        assert.equal(report.closeRetrieval, "partial");
+        assert.equal(report.valuationCheck, "blocked");
+        const uncovered = report.sessions[1 - coveredIndex];
+        assert.equal(uncovered.errorStage, "GRANT_COVERAGE");
+        assert.equal(uncovered.shareEvidence.status, "matched_filing");
+        assert.deepEqual(report.sessions[coveredIndex], pair.sessions[coveredIndex]);
+        return true;
+      });
+      assert.deepEqual(requests.slice(beforeCoverageCheck), ["/closes?session=" + sessionDates[coveredIndex]]);
+    }
+    fs.writeFileSync(grantFile, JSON.stringify({...grant, valid_from: sessionDates[1], valid_until: sessionDates[0]}));
+    const beforeInvalidGrant = requests.length;
+    await assert.rejects(run(process.execPath, pairArgs, options), error => {
+      assert.equal(error.code, 1);
+      const report = JSON.parse(error.stdout);
+      assert.equal(report.closeRetrieval, "failed");
+      assert.deepEqual(report.sessions.map(check => check.errorStage), ["GRANT"]);
+      return true;
+    });
+    assert.equal(requests.length, beforeInvalidGrant);
+    fs.writeFileSync(grantFile, JSON.stringify(grant));
+
     await assert.rejects(run(process.execPath, [...pairArgs.slice(0, -2), "2026-11-16", "2026-11-13"], options),
       {code: 1, stderr: /in increasing/});
     sessionBodies.set("/closes?session=2026-11-17", [{...noticeQuote, timestamp: "2026-11-17T09:00:00Z"}]);

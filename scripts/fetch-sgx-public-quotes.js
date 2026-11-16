@@ -36,11 +36,14 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch, reportTrial,
       !["BROWSER_DISPLAY", "BACKEND_NON_DISPLAY_ANALYTICS", "REDISTRIBUTION"]
         .every(scope => grant.usage_scopes.includes(scope)) ||
       !validDate(grant.valid_from) || !validDate(grant.valid_until) ||
-      session < grant.valid_from || session > grant.valid_until) {
-    throw new QuoteImportError("GRANT", "An executed grant covering the session and all publication scopes is required");
+      grant.valid_from > grant.valid_until) {
+    throw new QuoteImportError("GRANT", "An executed grant with valid dates and all publication scopes is required");
   }
   if (!hasGrantProvenance(grant)) {
     throw new QuoteImportError("GRANT", "SGX grant requires a licensor, licensee, licensed product and HTTPS evidence URL");
+  }
+  if (session < grant.valid_from || session > grant.valid_until) {
+    throw new QuoteImportError("GRANT_COVERAGE", "The executed SGX grant does not cover the requested session");
   }
   const configuredSymbols = grant.daily_close_symbols;
   if (configuredSymbols !== undefined) {
@@ -189,7 +192,7 @@ async function compareS63Sessions(feed, grant, earlier, later, fetcher = fetch) 
         });
         // Unavailable or malformed data can be specific to one trading session.
         // Stop on authorization/configuration failures or provider-wide outages.
-        if (["SESSION", "RESPONSE"].includes(error.stage) || error.httpStatus === 404) continue;
+        if (["SESSION", "RESPONSE", "GRANT_COVERAGE"].includes(error.stage) || error.httpStatus === 404) continue;
         break;
       }
       if (error.stage !== "VALIDATION") throw error;
