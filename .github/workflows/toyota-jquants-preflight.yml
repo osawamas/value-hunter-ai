@@ -1,0 +1,61 @@
+name: Toyota J-Quants preflight
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '37 10 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/toyota-jquants-preflight.yml'
+      - 'scripts/refresh-jquants-personal.py'
+      - 'scripts/export-jquants-personal-quotes.py'
+      - 'scripts/verify-jquants-personal-snapshot.py'
+      - 'scripts/check-representative-valuations.js'
+      - 'docs/data/market-research-v315.json'
+
+permissions:
+  contents: read
+
+jobs:
+  toyota-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compare Toyota closes and same-date share filings
+        shell: bash
+        env:
+          JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
+        run: |
+          echo '### Toyota J-Quants preflight' >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$JQUANTS_API_KEY" ]]; then
+            echo 'Live retrieval skipped because JQUANTS_API_KEY is unavailable.' | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          umask 077
+          work=$(mktemp -d "$RUNNER_TEMP/toyota.XXXXXX")
+          trap 'rm -rf -- "$work"' EXIT
+          status=0
+          python3 scripts/refresh-jquants-personal.py --output-dir "$work/pair" --toyota-free-latest || status=$?
+          if (( status != 0 && status != 2 )); then
+            echo 'J-Quants retrieval or receipt verification failed. See step logs.' >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
+          {
+            echo
+            echo '| Trading date | Valuation |'
+            echo '| --- | --- |'
+            jq -er '.latestTrialCheck.results[] | select(.id == "JP:7203") |
+              "| \(.previousDate) | \(.previousStatus) |", "| \(.date) | \(.status) |"' \
+              "$work/pair/later/report.json"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$status"

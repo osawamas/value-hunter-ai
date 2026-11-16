@@ -52,6 +52,7 @@ on:
       - 'tests/fixtures/sec-quarterly-excerpts-v332.json'
       - '.github/workflows/market-sources-v315.yml'
       - '.github/workflows/ibm-demo-preflight.yml'
+      - '.github/workflows/toyota-jquants-preflight.yml'
 permissions:
   contents: read
 jobs:
