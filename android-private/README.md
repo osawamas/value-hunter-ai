@@ -27,3 +27,7 @@ gradle :app:testDebugUnitTest :app:assembleDebug
 ## 米国株の接続試験
 
 「米国株 · IBM接続試験」に各自の [Alpha Vantage APIキー](https://www.alphavantage.co/support/#api-key) を入れる。IBMの日次終値と、その取引日以前のドル円参考レートで、円換算の購入額を表示する。実績PER・PBRは、同梱したSEC開示時点の株数を使う参考値。データ基準日はアプリ内に表示する。初回で比較の基準を作り、後の取引日に条件へ入った場合だけ無音通知する。日本株の設定とは独立している。
+
+## シンガポール株の接続試験
+
+「シンガポール株 · S63接続試験」に各自の [DataCedar APIキー](https://datacedar.com/docs) を入れる。「S63の終値を2取引日分確認」を押すと、ST Engineeringの未調整終値とシンガポールの取引日が表示される。キーの認証や利用枠が原因で取得できないときは画面に状況を表示する。試験対象は手動の終値取得のみ。

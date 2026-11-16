@@ -92,13 +92,19 @@ public final class UsScanWorker extends Worker {
     }
 
     private static String get(String address) throws IOException {
+        return get(address, null);
+    }
+
+    static String get(String address, String bearer) throws IOException {
         var connection = (HttpsURLConnection) new URL(address).openConnection();
         connection.setConnectTimeout(15_000);
         connection.setReadTimeout(20_000);
         connection.setInstanceFollowRedirects(false);
         connection.setRequestProperty("Accept", "application/json");
+        if (bearer != null) connection.setRequestProperty("Authorization", "Bearer " + bearer);
         try {
-            if (connection.getResponseCode() != 200) throw new IOException("Market data request failed");
+            int status = connection.getResponseCode();
+            if (status != 200) throw new HttpFailure(status);
             try (var stream = connection.getInputStream(); var buffer = new ByteArrayOutputStream()) {
                 byte[] bytes = new byte[8192];
                 for (int read; (read = stream.read(bytes)) != -1;) {
@@ -110,5 +116,10 @@ public final class UsScanWorker extends Worker {
         } finally {
             connection.disconnect();
         }
+    }
+
+    static final class HttpFailure extends IOException {
+        final int status;
+        HttpFailure(int status) { this.status = status; }
     }
 }

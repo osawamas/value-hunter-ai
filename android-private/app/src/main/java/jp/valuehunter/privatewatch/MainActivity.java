@@ -25,6 +25,7 @@ public final class MainActivity extends Activity {
     private TextView status;
     private TextView results;
     private TextView usResults;
+    private TextView sgResults;
     private EditText key;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
@@ -149,6 +150,38 @@ public final class MainActivity extends Activity {
         source.setMovementMethod(LinkMovementMethod.getInstance());
         content.addView(source);
 
+        var sgTitle = new TextView(this);
+        sgTitle.setText("シンガポール株 · S63接続試験");
+        sgTitle.setTextSize(18);
+        content.addView(sgTitle);
+
+        var sgKey = new EditText(this);
+        sgKey.setHint("自分のDataCedar APIキー");
+        sgKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        sgKey.setSaveEnabled(false);
+        sgKey.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+        content.addView(sgKey);
+
+        var sgCheck = new Button(this);
+        sgCheck.setText("S63の終値を2取引日分確認");
+        sgCheck.setOnClickListener(view -> {
+            String entered = sgKey.getText().toString().trim();
+            String savedKey = state.getString("sg_key", "");
+            String selected = entered.isEmpty() ? savedKey : entered;
+            if (selected.isEmpty() || !selected.matches("[!-~]+")) {
+                sgKey.setError("各自のAPIキーを確認して");
+                return;
+            }
+            state.edit().putString("sg_key", selected).putString("sg_result", "接続確認を予約した").apply();
+            sgKey.setText("");
+            ScanWorker.checkSingapore(this);
+        });
+        content.addView(sgCheck);
+
+        sgResults = new TextView(this);
+        sgResults.setTextIsSelectable(true);
+        content.addView(sgResults);
+
         var jpTitle = new TextView(this);
         jpTitle.setText("日本株の候補");
         jpTitle.setTextSize(18);
@@ -184,6 +217,7 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
+        sgResults.setText(state.getString("sg_result", "DataCedarのキーでS63の終値を確認"));
         String usResult = state.getString("us_result", "");
         usResults.setText(state.getString("us_status", "Alpha VantageのキーでIBMの取得を開始")
                 + (usResult.isEmpty() ? "" : "\n" + usResult));

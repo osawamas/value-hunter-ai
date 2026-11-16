@@ -61,6 +61,11 @@ public final class ScanWorker extends Worker {
                 new OneTimeWorkRequest.Builder(UsScanWorker.class).setConstraints(connected()).build());
     }
 
+    static void checkSingapore(Context context) {
+        WorkManager.getInstance(context).enqueueUniqueWork("sg-check-now", ExistingWorkPolicy.REPLACE,
+                new OneTimeWorkRequest.Builder(SgCheckWorker.class).setConstraints(connected()).build());
+    }
+
     private static Constraints connected() {
         return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
     }
