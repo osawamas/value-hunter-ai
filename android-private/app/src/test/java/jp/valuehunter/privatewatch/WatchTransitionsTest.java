@@ -27,6 +27,14 @@ public class WatchTransitionsTest {
                 List.of(B), Set.of("1001")).isEmpty());
     }
 
+    @Test public void corruptBaselineNeverCreatesFalseAlerts() {
+        LocalDate day = LocalDate.parse("2026-08-21");
+        assertTrue(WatchTransitions.newEntrants("damaged-local-date", day,
+                List.of(A, B), Set.of()).isEmpty());
+        assertTrue(WatchTransitions.newEntrants("2026-02-30", day,
+                List.of(A, B), Set.of()).isEmpty());
+    }
+
     @Test public void unchangedSetNeverNotifiesButReentryDoes() {
         LocalDate day = LocalDate.parse("2026-08-21");
         assertTrue(WatchTransitions.newEntrants(day.minusDays(1).toString(), day,
