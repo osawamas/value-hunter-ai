@@ -9,6 +9,7 @@ on:
       - 'android-private/tools/jpx_daily_probe.py'
       - 'android-private/tools/jpx_valuation_probe.py'
       - 'android-private/tools/jpx_hachiquant_coverage.py'
+      - 'android-private/tools/jpx_share_basis.py'
       - 'android-private/tools/fixtures/jpx-annual-reference.json'
 
 permissions:
@@ -93,11 +94,42 @@ jobs:
           print("JPX closing prices and source-checked annual earnings/book value matched on two dates.")
           PY
 
+      - name: Check split and consolidation rows against an official JPX monthly report
+        working-directory: android-private/tools
+        run: |
+          curl -fsSL --max-time 30 https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt0000013821-att/17_kenri2603.pdf -o "$RUNNER_TEMP/jpx-rights-202603.pdf"
+          python - "$RUNNER_TEMP/jpx-rights-202603.pdf" <<'PY'
+          from datetime import date
+          import sys
+          from jpx_share_basis import ShareEvent, load_rights_reports, share_basis_status
+
+          march = date(2026, 3, 1)
+          ex_on, record_on = date(2026, 3, 30), date(2026, 3, 31)
+          rights = load_rights_reports([sys.argv[1]])
+          months, events = rights
+          assert months == {march}
+          assert ShareEvent(ex_on, record_on, 1, 3) in events["8336"]
+          assert ShareEvent(ex_on, record_on, 10, 1) in events["6731"]
+          assert "6403" not in events  # Voting record date, no change in shares.
+          assert share_basis_status("8336", march, date(2026, 3, 27), rights) == "no_share_change_in_supplied_reports"
+          assert share_basis_status("8336", march, ex_on, rights) == "hold_share_basis_change"
+          assert share_basis_status("6731", record_on, record_on, rights) == "hold_share_basis_change"
+          assert share_basis_status("6403", march, date(2026, 4, 1), rights) == "hold_rights_report_gap"
+
+          # JPX's 2026-11-05 notice gives the 19th as the trading boundary for Keyence.
+          nov = date(2026, 11, 1)
+          keyence = ({nov}, {"6861": {ShareEvent(date(2026, 11, 19), date(2026, 11, 20), 1, 5)}})
+          assert share_basis_status("6861", nov, date(2026, 11, 18), keyence) == "no_share_change_in_supplied_reports"
+          assert share_basis_status("6861", nov, date(2026, 11, 19), keyence) == "hold_share_basis_change"
+          print(f"Verified split/consolidation report: {sum(map(len, events.values()))} events")
+          PY
+
       - name: Measure JPX and Hachiquant coverage, with a budget-first filing sample
         run: |
           python android-private/tools/jpx_hachiquant_coverage.py \
             "$RUNNER_TEMP/jpx-list.xlsx" "$RUNNER_TEMP/jpx-20261029.pdf" \
-            "$RUNNER_TEMP/jpx-20261111.pdf" --check-filing 1301 --budget-samples-per-market 10
+            "$RUNNER_TEMP/jpx-20261111.pdf" --check-filing 1301 --budget-samples-per-market 10 \
+            --rights-report "$RUNNER_TEMP/jpx-rights-202603.pdf"
 
   hachiquant:
     runs-on: ubuntu-latest
