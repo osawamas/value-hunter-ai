@@ -12,12 +12,27 @@ public class SgWatchTest {
         var previous = new SgCloseCheck.Close(LocalDate.of(2026, 11, 13), 10);
         var current = new SgCloseCheck.Close(LocalDate.of(2026, 11, 16), 8);
         var pair = new SgCloseCheck.Pair(previous, current);
-        assertTrue(SgValuation.shouldAlert(pair, "2026-11-13", false, true));
-        assertFalse(SgValuation.shouldAlert(pair, "", false, true));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-12", false, true));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-16", false, true));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", true, true));
-        assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", false, false));
+        assertTrue(SgValuation.shouldAlert(pair, "2026-11-13", false, true, null));
+        assertFalse(SgValuation.shouldAlert(pair, "", false, true, null));
+        assertFalse(SgValuation.shouldAlert(pair, "2026-11-12", false, true, null));
+        assertFalse(SgValuation.shouldAlert(pair, "2026-11-16", false, true, null));
+        assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", true, true, null));
+        assertFalse(SgValuation.shouldAlert(pair, "2026-11-13", false, false, null));
+    }
+
+    @Test public void usesLatePreviousEvidenceWithoutSendingAFirstRunOrDuplicateAlert() {
+        var previous = new SgCloseCheck.Close(LocalDate.of(2026, 11, 13), 10);
+        var current = new SgCloseCheck.Close(LocalDate.of(2026, 11, 16), 8);
+        var pair = new SgCloseCheck.Pair(previous, current);
+        String older = "2026-11-12";
+        assertTrue(SgValuation.needsPreviousEvaluation(pair, older, true));
+        assertFalse(SgValuation.needsPreviousEvaluation(pair, "", true));
+        assertFalse(SgValuation.needsPreviousEvaluation(pair, older, false));
+        assertTrue(SgValuation.shouldAlert(pair, older, true, true, false));
+        assertFalse(SgValuation.shouldAlert(pair, older, false, true, true));
+        assertFalse(SgValuation.shouldAlert(pair, older, false, true, null));
+        assertFalse(SgValuation.shouldAlert(pair, "", false, true, false));
+        assertFalse(SgValuation.shouldAlert(pair, "2026-11-16", true, true, false));
     }
 
     @Test public void distinguishesTemporaryFailuresAndLimitsRetries() {

@@ -34,9 +34,12 @@ public final class SgCheckWorker extends Worker {
         String key = state.getString("sg_key", "");
         if (key.isEmpty()) return Result.success();
         boolean watch = state.getBoolean("sg_watch", false);
+        String lastEvaluated = state.getString("sg_qualified_date", "");
+        boolean wasQualified = state.getBoolean("sg_qualified", false);
         String result;
         SgCloseCheck.Pair pair = null;
         Evaluation evaluation = null;
+        Evaluation previous = null;
         boolean retryableFailure = false;
         try {
             var now = ZonedDateTime.now(SgCloseCheck.SINGAPORE);
@@ -48,8 +51,13 @@ public final class SgCheckWorker extends Worker {
             pair = SgCloseCheck.read(payload, cutoff);
             result = String.format(Locale.JAPAN, "S63 · 未調整終値を2取引日分取得\n%s  %.3f SGD\n%s  %.3f SGD",
                     pair.previous().session(), pair.previous().sgd(), pair.latest().session(), pair.latest().sgd());
-            evaluation = evaluate(context, pair.latest(), now.toInstant(), getRunAttemptCount());
+            var disclosures = new Disclosures(context, now.toInstant());
+            evaluation = evaluate(disclosures, pair.latest(), getRunAttemptCount());
             result += evaluation.details() + evaluation.disclosureDetails();
+            if (watch && SgValuation.needsPreviousEvaluation(
+                    pair, lastEvaluated, Boolean.TRUE.equals(evaluation.qualified()))) {
+                previous = evaluate(disclosures, pair.previous(), getRunAttemptCount());
+            }
         } catch (UsScanWorker.HttpFailure error) {
             retryableFailure = shouldRetry(error.status, getRunAttemptCount());
             result = switch (error.status) {
@@ -65,11 +73,12 @@ public final class SgCheckWorker extends Worker {
             retryableFailure = shouldRetry(0, getRunAttemptCount());
         }
         if (isStopped() || !key.equals(state.getString("sg_key", ""))
-                || watch != state.getBoolean("sg_watch", false)) return Result.success();
+                || watch != state.getBoolean("sg_watch", false)
+                || !lastEvaluated.equals(state.getString("sg_qualified_date", ""))) return Result.success();
         var editor = state.edit();
         if (pair != null) {
             editor.putString("sg_last_result", result);
-            retryableFailure = evaluation.retryableFailure();
+            retryableFailure = evaluation.retryableFailure() || (previous != null && previous.retryableFailure());
         } else {
             String previousResult = state.getString("sg_last_result", "");
             if (!previousResult.isEmpty()) result += "\n\n前回取得したデータ\n" + previousResult;
@@ -78,11 +87,10 @@ public final class SgCheckWorker extends Worker {
         editor.putString("sg_result", result);
         boolean alert = false;
         if (watch && pair != null && evaluation.qualified() != null) {
-            String last = state.getString("sg_qualified_date", "");
             String next = pair.latest().session().toString();
-            if (next.compareTo(last) > 0) {
-                alert = SgValuation.shouldAlert(pair, last, state.getBoolean("sg_qualified", false),
-                        evaluation.qualified());
+            if (next.compareTo(lastEvaluated) > 0 && (previous == null || !previous.retryableFailure())) {
+                alert = SgValuation.shouldAlert(pair, lastEvaluated, wasQualified, evaluation.qualified(),
+                        previous == null ? null : previous.qualified());
                 editor.putString("sg_qualified_date", next).putBoolean("sg_qualified", evaluation.qualified());
             }
         }
@@ -105,32 +113,48 @@ public final class SgCheckWorker extends Worker {
     private record Evaluation(String details, String disclosureDetails, Boolean qualified,
                               boolean retryableFailure) {}
 
-    private static SgShareLedger.Disclosure readBundledDisclosure(Context context, SgCloseCheck.Close close,
-                                                                 Instant checkedAt) {
-        try {
-            var ledger = SgShareLedger.readAsset(context.getAssets().open("android-s63-shares.json"));
-            return SgShareLedger.read(ledger, close.session(), checkedAt);
-        } catch (IOException | JSONException error) {
-            return null;
+    private static final class Disclosures {
+        private final JSONObject bundled;
+        private final Instant checkedAt;
+        private JSONObject updated;
+
+        Disclosures(Context context, Instant checkedAt) {
+            this.checkedAt = checkedAt;
+            JSONObject asset;
+            try {
+                asset = SgShareLedger.readAsset(context.getAssets().open("android-s63-shares.json"));
+            } catch (IOException | JSONException error) {
+                asset = null;
+            }
+            bundled = asset;
+        }
+
+        SgShareLedger.Disclosure forClose(SgCloseCheck.Close close) throws IOException, JSONException {
+            if (bundled != null) {
+                try {
+                    var disclosure = SgShareLedger.read(bundled, close.session(), checkedAt);
+                    if (disclosure != null) return disclosure;
+                } catch (JSONException ignored) {
+                    // Try the updated ledger if the bundled record cannot be validated.
+                }
+            }
+            if (updated == null) updated = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
+            return SgShareLedger.read(updated, close.session(), checkedAt);
         }
     }
 
-    private static Evaluation evaluate(Context context, SgCloseCheck.Close close, Instant checkedAt, int attempts) {
+    private static Evaluation evaluate(Disclosures disclosures, SgCloseCheck.Close close, int attempts) {
         StringBuilder details = new StringBuilder();
         SgShareLedger.Disclosure disclosure = null;
         boolean retryableFailure = false;
         if (SgValuation.financialsAvailable(close.session())) {
-            disclosure = readBundledDisclosure(context, close, checkedAt);
-            if (disclosure == null) {
-                try {
-                    var ledger = new JSONObject(UsScanWorker.get(SgShareLedger.URL, null));
-                    disclosure = SgShareLedger.read(ledger, close.session(), checkedAt);
-                } catch (IOException | JSONException error) {
-                    details.append("\n開示株数の更新データを確認できなかった");
-                    if (error instanceof IOException) {
-                        retryableFailure = shouldRetry(error instanceof UsScanWorker.HttpFailure failure
-                                ? failure.status : 0, attempts);
-                    }
+            try {
+                disclosure = disclosures.forClose(close);
+            } catch (IOException | JSONException error) {
+                details.append("\n開示株数の更新データを確認できなかった");
+                if (error instanceof IOException) {
+                    retryableFailure = shouldRetry(error instanceof UsScanWorker.HttpFailure failure
+                            ? failure.status : 0, attempts);
                 }
             }
         }

@@ -21,10 +21,17 @@ final class SgValuation {
         }
     }
 
-    static boolean shouldAlert(SgCloseCheck.Pair pair, String lastEvaluated, boolean wasQualified, boolean qualified) {
-        // Consecutive provider sessions only. A gap establishes a new baseline.
-        return qualified && !wasQualified && pair.previous().session().toString().equals(lastEvaluated)
-                && pair.latest().session().isAfter(pair.previous().session());
+    static boolean needsPreviousEvaluation(SgCloseCheck.Pair pair, String lastEvaluated, boolean qualified) {
+        return qualified && !lastEvaluated.isEmpty()
+                && lastEvaluated.compareTo(pair.previous().session().toString()) < 0;
+    }
+
+    static boolean shouldAlert(SgCloseCheck.Pair pair, String lastEvaluated, boolean wasQualified,
+                               boolean qualified, Boolean previousQualified) {
+        String previous = pair.previous().session().toString();
+        if (!qualified || !pair.latest().session().isAfter(pair.previous().session())) return false;
+        if (previous.equals(lastEvaluated)) return !wasQualified;
+        return needsPreviousEvaluation(pair, lastEvaluated, qualified) && Boolean.FALSE.equals(previousQualified);
     }
 
     static Trial forClose(SgCloseCheck.Close close, long shares) {
