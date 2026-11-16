@@ -13,3 +13,12 @@ Candidate JSON goes to stdout. The ingestion endpoint stays out of the
 candidate feed. The transport contract was validated with synthetic
 responses. A licensed live provider is still needed before the scheduled
 pipeline can ingest prices for publication.
+
+## v444 provider responses that cover more issuers
+
+The reviewed grant configuration can specify `daily_close_symbols`, a list
+of unique registered SGX codes. The importer requires every configured
+symbol in the response and stages only those rows. Duplicate rows for a
+configured symbol still fail validation. If the list is omitted, the
+existing strict whole-response validation applies. The selection is
+internal configuration and is excluded from public grant evidence.

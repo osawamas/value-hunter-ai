@@ -27,7 +27,7 @@ async function test() {
       timestamp: "2026-11-13T09:00:00Z",
     };
     const requests = [];
-    let body = [quote];
+    let body = [quote, {...quote, symbol: "OTHER", timestamp: "2026-11-12T09:00:00Z"}];
     let statuses = [];
     server = https.createServer({key: fs.readFileSync(key), cert: fs.readFileSync(cert)}, (req, res) => {
       requests.push(req.url);
@@ -58,6 +58,7 @@ async function test() {
       licensor: "Test vendor", licensee: "Test app", licensed_product: "Test SGX closes",
       usage_scopes: ["BROWSER_DISPLAY", "BACKEND_NON_DISPLAY_ANALYTICS", "REDISTRIBUTION"],
       valid_from: "2026-01-01", valid_until: "2026-12-31",
+      daily_close_symbols: ["S63"],
       daily_close_feed_url: "https://127.0.0.1:" + server.address().port + "/closes",
     };
     const feedFile = path.join(temp, "feed.json");
@@ -83,6 +84,15 @@ async function test() {
     assert.deepEqual(row.exclusion_reasons, []);
     assert.deepEqual(row.quality_flags, []);
     assert.equal(row.market_data_license_evidence.daily_close_feed_url, undefined);
+    assert.equal(row.market_data_license_evidence.daily_close_symbols, undefined);
+    const completeResponse = body;
+    body = [{...quote, symbol: "OTHER"}];
+    await assert.rejects(run(process.execPath, args, options), {
+      code: 1, stderr: /missing a configured symbol/,
+    });
+    body = [quote, quote];
+    await assert.rejects(run(process.execPath, args, options), {code: 1, stderr: /Repeated SGX symbol/});
+    body = completeResponse;
 
     requests.length = 0;
     statuses = [503, 502];

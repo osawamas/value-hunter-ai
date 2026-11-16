@@ -36,6 +36,15 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch) {
       session < grant.valid_from || session > grant.valid_until) {
     throw new QuoteImportError("GRANT", "An executed grant covering the session and all publication scopes is required");
   }
+  const symbols = grant.daily_close_symbols;
+  if (symbols !== undefined) {
+    const registered = new Set(feed.records.map(row => row.symbol));
+    if (!Array.isArray(symbols) || !symbols.length ||
+        new Set(symbols).size !== symbols.length ||
+        symbols.some(symbol => !registered.has(symbol))) {
+      throw new QuoteImportError("CONFIG", "SGX close selection must contain unique registered symbols");
+    }
+  }
   let endpoint;
   try {
     endpoint = new URL(grant.daily_close_feed_url);
@@ -86,7 +95,18 @@ async function fetchAndStage(feed, grant, session, fetcher = fetch) {
   } catch {
     throw new QuoteImportError("RESPONSE", "Invalid JSON from the SGX daily close feed");
   }
-  if (!Array.isArray(quotes) || quotes.some(quote => sgxQuoteDate(quote?.timestamp) !== session)) {
+  if (!Array.isArray(quotes)) {
+    throw new QuoteImportError("RESPONSE", "Expected an array of SGX closing prices");
+  }
+  if (symbols !== undefined) {
+    const selected = new Set(symbols);
+    quotes = quotes.filter(quote => selected.has(quote?.symbol));
+    const received = new Set(quotes.map(quote => quote.symbol));
+    if (symbols.some(symbol => !received.has(symbol))) {
+      throw new QuoteImportError("RESPONSE", "SGX response is missing a configured symbol");
+    }
+  }
+  if (quotes.some(quote => sgxQuoteDate(quote?.timestamp) !== session)) {
     throw new QuoteImportError("SESSION", "The feed must contain only closes for the requested Singapore session");
   }
   const {grant_status, grant_evidence_url, licensor, licensee, licensed_product,
