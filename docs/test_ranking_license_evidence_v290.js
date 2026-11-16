@@ -85,7 +85,14 @@ for (const reason of ["PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
 
 assert.deepEqual(checkFeed(staged),[]);
 const olderQuoteFeed = {...baseline, quality_checked_at_utc:"2026-11-23T09:00:00Z"};
-assert.equal(stageQuotes(olderQuoteFeed,[incoming],grant).records[0].quote_freshness,"STALE");
+assert.throws(()=>stageQuotes(olderQuoteFeed,[incoming],grant),/too old for the public ranking/);
+const boundary = {...baseline, quality_checked_at_utc:"2026-11-20T09:00:00Z"};
+assert.equal(stageQuotes(boundary,[incoming],grant).records[0].quote_freshness,"RECENT");
+assert.throws(()=>stageQuotes({...baseline, quality_checked_at_utc:"invalid"},[incoming],grant),
+  /no valid quality-check timestamp/);
+const staleRankedFeed = structuredClone(staged);
+staleRankedFeed.records[0].quote_freshness = "STALE";
+assert.ok(checkFeed(staleRankedFeed).some(error => error.includes("stale or missing quote")));
 const earlyCheck = {...baseline, quality_checked_at_utc:"2026-11-11T09:00:00Z"};
 assert.throws(()=>stageQuotes(earlyCheck,[incoming],grant),/timestamp is in the future/);
 assert.deepEqual(stageQuotes(staged,[incoming],grant),staged);
@@ -95,7 +102,7 @@ assert.throws(()=>stageQuotes(baseline,[incoming],{...grant,usage_scopes:
 assert.throws(()=>stageQuotes(baseline,[incoming,{...incoming,currency:"USD"}],grant),/Repeated/);
 assert.throws(()=>stageQuotes(baseline,[{...incoming,timestamp:"2026-11-16T09:00:00Z"}],grant),/same Singapore date/);
 assert.throws(()=>stageQuotes(real,[{...incoming,timestamp:real.records[0].shares_as_of_date+"T09:00:00Z"}],grant),
-  /existing financial or publication exclusions remain|predates/);
+  /existing financial or publication exclusions remain|predates|too old for the public ranking/);
 console.log("v431 PASS: stage licensed closes atomically with dated share and financial gates");
 
 const {checkRefresh}=require("../scripts/check-ranking-license-evidence-v290.js");

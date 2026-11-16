@@ -23,6 +23,7 @@ function stageQuotes(feed, quotes, grant) {
   const checkedAt = Date.parse(feed.quality_checked_at_utc ?? feed.updated_at_utc);
   const baselineErrors = checkFeed(feed);
   if (baselineErrors.length) throw new Error(baselineErrors.join("\n"));
+  if (!Number.isFinite(checkedAt)) throw new Error("SGX feed has no valid quality-check timestamp");
   if (!Array.isArray(quotes) || !quotes.length) throw new Error("Expected at least one SGX quote");
   const staged = structuredClone(feed);
   const records = new Map(staged.records.map(row => [row.symbol, row]));
@@ -44,6 +45,7 @@ function stageQuotes(feed, quotes, grant) {
     const existingSession = sgxQuoteDate(row.quote_timestamp_utc);
     if (existingSession && session < existingSession)
       throw new Error(symbol + ": incoming close predates the published close");
+    if (quoteAge > 7) throw new Error(symbol + ": incoming close is too old for the public ranking");
     if (row.ranking_eligible && session === existingSession && quote.close !== row.price_sgd)
       throw new Error(symbol + ": same-session close conflicts with the published close");
     // SGXNet evidence is usable only for the session it explicitly covers.
@@ -56,8 +58,7 @@ function stageQuotes(feed, quotes, grant) {
         throw new Error(symbol + ": conflicting same-session share counts");
       }
       if (matchedShares && row.shares_as_of_date !== session &&
-          (!validDate(row.shares_as_of_date) || row.shares_as_of_date < session) &&
-          Number.isFinite(quoteAge) && quoteAge <= 180) {
+          (!validDate(row.shares_as_of_date) || row.shares_as_of_date < session)) {
         Object.assign(row, {
           shares_outstanding: matchedShares.value,
           shares_as_of_date: session,
@@ -90,7 +91,7 @@ function stageQuotes(feed, quotes, grant) {
     Object.assign(row, {
       price_sgd: quote.close,
       quote_timestamp_utc: quote.timestamp,
-      quote_freshness: Number.isFinite(quoteAge) ? (quoteAge > 7 ? "STALE" : "RECENT") : null,
+      quote_freshness: "RECENT",
       quote_url: quote.source_url,
       quote_source_type: quote.source_type,
       quote_license_display_allowed: grant?.usage_scopes?.includes("BROWSER_DISPLAY") === true,

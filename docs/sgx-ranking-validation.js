@@ -69,6 +69,8 @@
           errors.push(id + ": ranking score does not match the valuation inputs");
         if (UNOFFICIAL.test(String(r.quote_source_type || "")))
           errors.push(id + ": unofficial quote in investable ranking");
+        if (r.quote_freshness === "STALE" || r.quote_freshness === "MISSING")
+          errors.push(id + ": stale or missing quote in investable ranking");
         if (r.quote_license_display_allowed !== true ||
             r.quote_license_non_display_analytics_allowed !== true)
           errors.push(id + ": both quote display/non-display licenses not evidenced");
