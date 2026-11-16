@@ -65,7 +65,8 @@ public final class SgCheckWorker extends Worker {
                 decision = SgValuation.watchDecision(pair, lastEvaluated, wasQualified, evaluation.qualified(),
                         previous == null ? null : previous.qualified());
                 if (decision == SgValuation.WatchDecision.WAIT_FOR_PREVIOUS) {
-                    result += "\n通知は保留。直前取引日 " + pair.previous().session() + " の判定に必要なデータを確認中";
+                    result += "\n通知は保留 · 直前取引日 " + pair.previous().session() + " · "
+                            + previous.blockingReason();
                 }
             }
         } catch (UsScanWorker.HttpFailure error) {
@@ -117,7 +118,7 @@ public final class SgCheckWorker extends Worker {
     }
 
     private record Evaluation(String details, String disclosureDetails, Boolean qualified,
-                              boolean retryableFailure) {}
+                              String blockingReason, boolean retryableFailure) {}
 
     private static final class Disclosures {
         private final JSONObject bundled;
@@ -154,11 +155,13 @@ public final class SgCheckWorker extends Worker {
         StringBuilder details = new StringBuilder();
         SgShareLedger.Disclosure disclosure = null;
         boolean retryableFailure = false;
-        if (SgValuation.financialsAvailable(close.session())) {
+        boolean financialsAvailable = SgValuation.financialsAvailable(close.session());
+        String blockingReason = "";
+        if (financialsAvailable) {
             try {
                 disclosure = disclosures.forClose(close);
             } catch (IOException | JSONException error) {
-                details.append("\n開示株数の更新データを確認できなかった");
+                blockingReason = "開示台帳の更新データを取得・照合できなかった";
                 if (error instanceof IOException) {
                     retryableFailure = shouldRetry(error instanceof UsScanWorker.HttpFailure failure
                             ? failure.status : 0, attempts);
@@ -167,10 +170,13 @@ public final class SgCheckWorker extends Worker {
         }
         var trial = disclosure == null ? null : SgValuation.forClose(close, disclosure.shares());
         Boolean qualified = null;
-        if (!SgValuation.financialsAvailable(close.session())) {
-            details.append("\n取引日時点の財務が未登録。時価総額・PER・PBRは保留");
-        } else if (trial == null) {
-            details.append("\n取引日付の開示株数を確認できず、時価総額・PER・PBRは保留");
+        if (!financialsAvailable) {
+            blockingReason = "取引日時点の財務が未登録";
+        } else if (trial == null && blockingReason.isEmpty()) {
+            blockingReason = "取引日付の開示株数を確認できなかった";
+        }
+        if (trial == null) {
+            details.append("\n").append(blockingReason).append("。時価総額・PER・PBRは保留");
         } else {
             details.append(String.format(Locale.JAPAN,
                     "\n取引日付の開示株数 %,d株（事後照合）"
@@ -179,7 +185,7 @@ public final class SgCheckWorker extends Worker {
                     trial.shares(), trial.cap(), trial.per(), trial.pbr()));
         }
         if (trial == null && !showPurchaseCost) {
-            return new Evaluation(details.toString(), "", null, retryableFailure);
+            return new Evaluation(details.toString(), "", null, blockingReason, retryableFailure);
         }
         try {
             var fx = rates.forSession(close.session());
@@ -192,7 +198,11 @@ public final class SgCheckWorker extends Worker {
                 details.append(qualified ? "\n割安条件に該当（参考）" : "\n割安条件外（参考）");
             }
         } catch (IOException | JSONException error) {
-            details.append("\n為替を取得できなかったため、円換算は保留");
+            String fxReason = error instanceof JSONException
+                    ? "取引日までのSGD/JPYレートを照合できなかった"
+                    : "SGD/JPYレートを取得できなかった";
+            details.append("\n").append(fxReason).append("。円換算は保留");
+            if (blockingReason.isEmpty()) blockingReason = fxReason;
             if (error instanceof IOException) {
                 retryableFailure |= shouldRetry(error instanceof UsScanWorker.HttpFailure failure
                         ? failure.status : 0, attempts);
@@ -202,6 +212,6 @@ public final class SgCheckWorker extends Worker {
                 "\n株数の開示日時 " + disclosure.disclosedAt().format(
                         java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss 'SGT'", Locale.JAPAN))
                         + "\nSGX原本 " + disclosure.source();
-        return new Evaluation(details.toString(), disclosureDetails, qualified, retryableFailure);
+        return new Evaluation(details.toString(), disclosureDetails, qualified, blockingReason, retryableFailure);
     }
 }
