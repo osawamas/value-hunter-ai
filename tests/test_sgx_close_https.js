@@ -40,6 +40,7 @@ async function test() {
     });
 
     const feed = {
+      schema_version: "value_hunter_web_v29", updated_at_utc: "2026-11-13T11:30:00Z",
       ranking_enabled: false, ranking_eligible_count: 0, records: [{
         symbol: "S63", ranking_eligible: false, exclusion_reasons: [],
         shares_as_of_date: "2026-11-13", shares_outstanding: 1000,
@@ -106,7 +107,21 @@ async function test() {
     await run("bash", applyArgs, applyOptions);
     assert.deepEqual(JSON.parse(fs.readFileSync(feedFile)), candidate);
     assert.deepEqual(fs.readdirSync(temp).sort(), ["cert.pem", "feed.json", "grant.json", "key.pem"]);
-    console.log("SGX daily refresh passed: candidate preserved on failure and replaced on success");
+    const historyDir = path.join(temp, "history");
+    const historyArgs = [path.join(__dirname, "../SGX_PDF_connection_probe/value_hunter_history_v34.py"),
+      "--source", feedFile, "--history-dir", historyDir];
+    await run("python3", historyArgs);
+    const indexFile = path.join(historyDir, "index.json");
+    const publishedHistory = fs.readFileSync(indexFile);
+    const [snapshot] = JSON.parse(publishedHistory).entries;
+    assert.equal(snapshot.records[0].ranking_eligible, true);
+    assert.equal(snapshot.records[0].pbr_verified, 1);
+
+    delete candidate.records[0].market_data_license_evidence;
+    fs.writeFileSync(feedFile, JSON.stringify(candidate));
+    await assert.rejects(run("python3", historyArgs), {code: 1, stderr: /dated grant evidence missing/});
+    assert.deepEqual(fs.readFileSync(indexFile), publishedHistory);
+    console.log("SGX daily refresh and history passed: licensed recovery recorded; invalid grants rejected");
   } finally {
     if (server?.listening) await new Promise(resolve => server.close(resolve));
     fs.rmSync(temp, {recursive: true, force: true});

@@ -5,6 +5,7 @@ The latest run for a UTC date replaces only that date's entry.
 """
 import argparse
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,32 +27,54 @@ def iso_datetime(value):
 def snapshot(feed):
     if feed.get("schema_version") != "value_hunter_web_v29":
         raise ValueError("Unsupported live feed schema")
-    if feed.get("ranking_enabled") is not False or feed.get("ranking_eligible_count") != 0:
-        raise ValueError("Unexpected ranking status")
     generated_at = iso_datetime(feed.get("updated_at_utc"))
     records = feed.get("records")
     if not isinstance(records, list) or not records:
         raise ValueError("Missing records")
     names = set()
     points = []
+    ranked = 0
     for row in records:
         symbol = row.get("symbol")
         if (not isinstance(symbol, str) or not symbol.isalnum()
                 or len(symbol) > 8 or symbol in names
-                or row.get("ranking_eligible") is not False):
+                or type(row.get("ranking_eligible")) is not bool):
             raise ValueError("Invalid symbol record")
         names.add(symbol)
         point = {"symbol": symbol}
         for field in FIELDS:
             point[field] = row.get(field)
+        if row["ranking_eligible"]:
+            ranked += 1
+            point["ranking_eligible"] = True
+            point["pbr_verified"] = row.get("pbr_verified")
         points.append(point)
+    if feed.get("ranking_enabled") is not (ranked > 0) or feed.get("ranking_eligible_count") != ranked:
+        raise ValueError("Unexpected ranking status")
+    if ranked:
+        validator = Path(__file__).resolve().parents[1] / "docs/sgx-ranking-validation.js"
+        result = subprocess.run(
+            ["node", "-e", r"""
+const fs = require("node:fs");
+const {checkFeed} = require(process.argv[1]);
+const errors = checkFeed(JSON.parse(fs.readFileSync(0, "utf8")));
+if (errors.length) {
+  console.error(errors.join("\n"));
+  process.exitCode = 1;
+}
+""", str(validator)],
+            input=json.dumps(feed), text=True, capture_output=True, check=False,
+        )
+        if result.returncode:
+            raise ValueError("Ranked feed failed publication checks: " + result.stderr.strip())
     return {
         "date_utc": generated_at.date().isoformat(),
         "source_updated_at_utc": generated_at.isoformat(),
         "records": points,
         "quote_count": sum(isinstance(r.get("price_sgd"), (int, float))
                            and not isinstance(r.get("price_sgd"), bool) for r in points),
-        "source": "VALUE_HUNTER_AI_PUBLIC_FEED_UNVERIFIED_QUOTES",
+        "source": ("VALUE_HUNTER_AI_PUBLIC_FEED_WITH_RANKED_QUOTES" if ranked
+                   else "VALUE_HUNTER_AI_PUBLIC_FEED_UNVERIFIED_QUOTES"),
     }
 
 
@@ -68,7 +91,7 @@ def build_index(existing, today, max_days=MAX_DAYS):
     keys = sorted(entries, reverse=True)[:max_days]
     return {
         "schema_version": "value_hunter_history_v34",
-        "note": "Daily snapshots, no interpolated prices; financial figures are not independently verified.",
+        "note": "Daily snapshots without interpolated prices. Ranked rows are flagged individually.",
         "retained_days": len(keys),
         "latest_date_utc": keys[0],
         "entries": [entries[key] for key in sorted(keys)],
