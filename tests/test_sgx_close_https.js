@@ -41,11 +41,12 @@ async function test() {
 
     const feed = {
       schema_version: "value_hunter_web_v29", updated_at_utc: "2026-11-13T11:30:00Z",
+      quality_counts: {quote_stale: 1, quote_missing: 0, ranking_eligible: 0},
       ranking_enabled: false, ranking_eligible_count: 0, records: [{
         symbol: "S63", ranking_eligible: false,
         exclusion_reasons: ["QUOTE_STALE", "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"],
         quality_flags: ["QUOTE_STALE", "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"],
-        pbr_reference_unverified: 4,
+        quote_freshness: "STALE", pbr_reference_unverified: 4,
         shares_as_of_date: "2026-11-13", shares_outstanding: 1000,
         shares_count_basis: "issued_excluding_treasury",
         independent_cross_source_verification: true,
@@ -75,6 +76,9 @@ async function test() {
     assert.equal(row.market_cap_sgd, 2000);
     assert.equal(row.per_reference, 2);
     assert.equal(row.pbr_verified, 1);
+    assert.equal(row.quote_freshness, "RECENT");
+    assert.equal(candidate.quality_counts.quote_stale, 0);
+    assert.equal(candidate.quality_counts.ranking_eligible, 1);
     assert.equal(row.pbr_reference_unverified, null);
     assert.deepEqual(row.exclusion_reasons, []);
     assert.deepEqual(row.quality_flags, []);
@@ -122,6 +126,7 @@ async function test() {
     const [snapshot] = JSON.parse(publishedHistory).entries;
     assert.equal(snapshot.records[0].ranking_eligible, true);
     assert.equal(snapshot.records[0].pbr_verified, 1);
+    assert.equal(snapshot.records[0].quote_freshness, "RECENT");
 
     delete candidate.records[0].market_data_license_evidence;
     fs.writeFileSync(feedFile, JSON.stringify(candidate));

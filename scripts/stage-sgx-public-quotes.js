@@ -12,6 +12,8 @@ const REPLACED_QUOTE_FLAGS = new Set([
 ]);
 
 function stageQuotes(feed, quotes, grant) {
+  const checkedAt = Date.parse(feed.quality_checked_at_utc ?? feed.updated_at_utc);
+  const dayMs = 86400000;
   const baselineErrors = checkFeed(feed);
   if (baselineErrors.length) throw new Error(baselineErrors.join("\n"));
   if (!Array.isArray(quotes) || !quotes.length) throw new Error("Expected at least one SGX quote");
@@ -32,6 +34,8 @@ function stageQuotes(feed, quotes, grant) {
     const session = sgxQuoteDate(quote.timestamp);
     if (!session || row.shares_as_of_date !== session)
       throw new Error(symbol + ": close and shares need the same Singapore date");
+    const quoteAge = (checkedAt - Date.parse(quote.timestamp)) / dayMs;
+    if (quoteAge < -1) throw new Error(symbol + ": incoming close timestamp is in the future");
     const existingSession = sgxQuoteDate(row.quote_timestamp_utc);
     if (existingSession && session < existingSession)
       throw new Error(symbol + ": incoming close predates the published close");
@@ -50,6 +54,7 @@ function stageQuotes(feed, quotes, grant) {
     Object.assign(row, {
       price_sgd: quote.close,
       quote_timestamp_utc: quote.timestamp,
+      quote_freshness: Number.isFinite(quoteAge) ? (quoteAge > 7 ? "STALE" : "RECENT") : null,
       quote_url: quote.source_url,
       quote_source_type: quote.source_type,
       quote_license_display_allowed: grant?.usage_scopes?.includes("BROWSER_DISPLAY") === true,
@@ -69,6 +74,16 @@ function stageQuotes(feed, quotes, grant) {
   }
   staged.ranking_eligible_count = staged.records.filter(row => row.ranking_eligible === true).length;
   staged.ranking_enabled = staged.ranking_eligible_count > 0;
+  if (staged.quality_counts) {
+    const rows = staged.records;
+    Object.assign(staged.quality_counts, {
+      quote_stale: rows.filter(row => row.quote_freshness === "STALE").length,
+      quote_missing: rows.filter(row => row.quote_freshness === "MISSING").length,
+      arithmetically_inconsistent: rows.filter(row =>
+        (row.quality_flags ?? []).some(flag => flag.includes("MISMATCH"))).length,
+      ranking_eligible: staged.ranking_eligible_count,
+    });
+  }
   const errors = checkFeed(staged);
   if (errors.length) throw new Error(errors.join("\n"));
   return staged;

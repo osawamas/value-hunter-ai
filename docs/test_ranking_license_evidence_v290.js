@@ -75,6 +75,10 @@ for (const reason of ["PARENT_EQUITY_NOT_INDEPENDENTLY_VERIFIED",
 }
 
 assert.deepEqual(checkFeed(staged),[]);
+const olderQuoteFeed = {...baseline, quality_checked_at_utc:"2026-11-23T09:00:00Z"};
+assert.equal(stageQuotes(olderQuoteFeed,[incoming],grant).records[0].quote_freshness,"STALE");
+const earlyCheck = {...baseline, quality_checked_at_utc:"2026-11-11T09:00:00Z"};
+assert.throws(()=>stageQuotes(earlyCheck,[incoming],grant),/timestamp is in the future/);
 assert.deepEqual(stageQuotes(staged,[incoming],grant),staged);
 assert.throws(()=>stageQuotes(staged,[{...incoming,close:3}],grant),/same-session close conflicts/);
 assert.throws(()=>stageQuotes(baseline,[incoming],{...grant,usage_scopes:
