@@ -38,10 +38,19 @@ final class JpxCloseTable {
             throw new IllegalArgumentException("Invalid JPX page width");
         }
         NavigableMap<Double, List<Word>> wordsByY = new TreeMap<>();
+        List<Word> validWords = new ArrayList<>();
         for (Word word : words) {
+            // Broken PDF geometry must not poison the sorted row index or stop other stocks.
+            if (word == null || word.text() == null || !Double.isFinite(word.x0())
+                    || !Double.isFinite(word.x1()) || !Double.isFinite(word.y0())
+                    || !Double.isFinite(word.y1()) || word.x1() < word.x0()
+                    || word.y1() < word.y0()) {
+                continue;
+            }
+            validWords.add(word);
             wordsByY.computeIfAbsent(word.centerY(), ignored -> new ArrayList<>()).add(word);
         }
-        for (Word word : words) {
+        for (Word word : validWords) {
             String code = word.text();
             double x = word.centerX(width);
             if (x <= .057 || x >= .094 || !stocks.contains(code) || ambiguous.contains(code)) {
