@@ -71,8 +71,14 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var file = new File(directory, "jpx-20261116.pdf");
         var day = LocalDate.of(2026, 11, 16);
         var report = JpxDailyCheck.readReport(file, day);
+        String html = report.html();
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
-                || !report.summary().contains("7203  3428 円（後場）")) {
+                || !html.contains("7203  3428 円（後場）")
+                || !html.contains("参考PER 8.17倍 / 参考PBR 0.72倍")
+                || !html.contains("参考PER 11.61倍 / 参考PBR 1.12倍")
+                || !html.contains("自己株式控除後 11888495株")
+                || !html.contains("自己株式控除後 11778247313株")
+                || !html.contains("時価総額は保留（立会日の株式数未照合）")) {
             throw new AssertionError("The Android daily report preview did not match the JPX reference");
         }
         try {
@@ -80,6 +86,13 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             throw new AssertionError("JPX report with a different trading date was accepted");
         } catch (IOException expected) {
             if (!expected.getMessage().contains("立会日が取得先の日付と一致しない")) throw expected;
+        }
+        var beforeDisclosure = new StringBuilder();
+        JpxReferenceFinancials.appendHtml(beforeDisclosure, "1301", LocalDate.of(2026, 5, 15),
+                new BigDecimal("4705"));
+        if (beforeDisclosure.toString().contains("参考PER")
+                || beforeDisclosure.toString().contains("自己株式控除後")) {
+            throw new AssertionError("Financials disclosed on or after the close must not be used");
         }
         return "JPX_ANDROID_PREVIEW_OK\n";
     }

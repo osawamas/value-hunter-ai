@@ -263,9 +263,7 @@ public final class MainActivity extends Activity {
                 CharSequence message;
                 try {
                     var daily = JpxDailyCheck.check(getCacheDir());
-                    String html = daily.summary().replace("\n", "<br>") + "<br><a href='"
-                            + daily.source() + "'>JPX 株式相場表（PDF）</a>";
-                    message = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY);
+                    message = android.text.Html.fromHtml(daily.html(), android.text.Html.FROM_HTML_MODE_LEGACY);
                 } catch (IOException error) {
                     message = "東証日報の確認に失敗\n" + error.getMessage();
                 } catch (RuntimeException error) {

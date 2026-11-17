@@ -11,6 +11,7 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxAndroidPdfReader.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxDailyCheck.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxReferenceFinancials.java'
       - 'android-private/tools/jpx_daily_probe.py'
 
 permissions:

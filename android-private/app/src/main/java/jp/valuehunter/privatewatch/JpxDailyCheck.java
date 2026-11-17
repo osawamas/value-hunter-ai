@@ -27,23 +27,25 @@ final class JpxDailyCheck {
 
     record Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes,
                   Set<String> ambiguous) {
-        String summary() {
+        String html() {
             var message = new StringBuilder("立会日 ").append(date);
             for (String code : SAMPLE_CODES) {
                 var sessions = quotes.get(code);
-                message.append("\n").append(code).append("  ");
+                message.append("<br><br>").append(code).append("  ");
                 if (ambiguous.contains(code)) {
                     message.append("終値を一意に読み取れなかった");
                 } else if (sessions == null) {
                     message.append("銘柄行が見つからなかった");
-                } else if (sessions.close() == null) {
+                } else if (sessions.close() == null || sessions.close().signum() <= 0) {
                     message.append("終値なし");
                 } else {
                     message.append(sessions.close().toPlainString()).append(" 円")
                             .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
+                    JpxReferenceFinancials.appendHtml(message, code, date, sessions.close());
                 }
             }
-            return message.toString();
+            return message.append("<br><br><a href='").append(source)
+                    .append("'>JPX 株式相場表（PDF）</a>").toString();
         }
     }
 
