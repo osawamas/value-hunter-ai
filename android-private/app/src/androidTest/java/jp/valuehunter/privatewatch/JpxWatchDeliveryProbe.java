@@ -14,6 +14,7 @@ import androidx.work.WorkManager;
 import androidx.work.WorkerFactory;
 import androidx.work.WorkerParameters;
 import androidx.work.testing.SynchronousExecutor;
+import androidx.work.testing.TestWorkerBuilder;
 import androidx.work.testing.WorkManagerTestInitHelper;
 
 import java.io.File;
@@ -49,18 +50,19 @@ final class JpxWatchDeliveryProbe {
                 sample(FRIDAY, "900.00"), sample(FRIDAY.minusDays(1), "920.00")), complete));
 
         var starts = new AtomicInteger();
-        var config = new Configuration.Builder().setExecutor(new SynchronousExecutor())
-                .setWorkerFactory(new WorkerFactory() {
-                    @Override public ListenableWorker createWorker(Context appContext, String name,
-                                                                    WorkerParameters parameters) {
-                        if (!name.equals(JpxWatchWorker.class.getName())) return null;
-                        var input = inputs.get();
-                        return new JpxWatchWorker(appContext, parameters, (ignored, key, revision) -> {
-                            starts.incrementAndGet();
-                            return input.comparison();
-                        }, ignored -> new JpxShareRights.Selection(input.rights(), "", ""));
-                    }
-                }).build();
+        var executor = new SynchronousExecutor();
+        var factory = new WorkerFactory() {
+            @Override public ListenableWorker createWorker(Context appContext, String name,
+                                                            WorkerParameters parameters) {
+                if (!name.equals(JpxWatchWorker.class.getName())) return null;
+                var input = inputs.get();
+                return new JpxWatchWorker(appContext, parameters, (ignored, key, revision) -> {
+                    starts.incrementAndGet();
+                    return input.comparison();
+                }, ignored -> new JpxShareRights.Selection(input.rights(), "", ""));
+            }
+        };
+        var config = new Configuration.Builder().setExecutor(executor).setWorkerFactory(factory).build();
         WorkManagerTestInitHelper.initializeTestWorkManager(context, config);
         var work = WorkManager.getInstance(context);
         var driver = WorkManagerTestInitHelper.getTestDriver();
@@ -123,6 +125,25 @@ final class JpxWatchDeliveryProbe {
             }
             expectQuiet(notifications);
 
+            String previousStatus = state.getString(JpxWatchWorker.STATUS, "");
+            inputs.set(new Inputs(new JpxDailyCheck.Comparison(sample(MONDAY.plusDays(1), "900.00"), null),
+                    complete));
+            for (int attempt = 0; attempt <= 2; attempt++) {
+                var worker = TestWorkerBuilder.from(context, JpxWatchWorker.class, executor)
+                        .setWorkerFactory(factory).setRunAttemptCount(attempt).build();
+                boolean retry = attempt < 2;
+                var expectedResult = retry ? ListenableWorker.Result.retry() : ListenableWorker.Result.success();
+                var result = worker.doWork();
+                String status = JpxWatchWorker.displayStatus(state);
+                if (!result.equals(expectedResult)
+                        || !status.contains("比較用の日報を取得できなかった")
+                        || status.contains("再試行を予約した") != retry
+                        || !previousStatus.equals(state.getString(JpxWatchWorker.STATUS, ""))) {
+                    throw new AssertionError("Incomplete comparison changed the last verified status: " + status);
+                }
+                expectQuiet(notifications);
+            }
+
             inputs.set(new Inputs(new JpxDailyCheck.Comparison(
                     sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")), complete));
             var power = context.getSystemService(PowerManager.class);
@@ -133,13 +154,13 @@ final class JpxWatchDeliveryProbe {
             var manualId = pendingManual(work);
             driver.setAllConstraintsMet(manualId);
             awaitManual(work, manualId);
-            if (starts.get() != 5) throw new AssertionError("Repeated immediate checks ran more than once");
+            if (starts.get() != 8) throw new AssertionError("Repeated immediate checks ran more than once");
             verifySilentNotification(notifications);
 
             notifications.cancelAll();
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
-            awaitRun(work, id, starts, 6);
+            awaitRun(work, id, starts, 9);
             expectQuiet(notifications);
 
             JpxWatchWorker.checkNow(context);
@@ -147,7 +168,7 @@ final class JpxWatchDeliveryProbe {
             JpxWatchWorker.setEnabled(context, false);
             awaitCancelled(work, id);
             awaitCancelled(work, cancelledManual);
-            if (JpxWatchWorker.enabled(context) || starts.get() != 6
+            if (JpxWatchWorker.enabled(context) || starts.get() != 9
                     || !JpxWatchWorker.displayStatus(state).isEmpty()) {
                 throw new AssertionError("Disabling JPX monitoring did not stop and clear the previous watch");
             }
@@ -160,7 +181,7 @@ final class JpxWatchDeliveryProbe {
             }
             var restartedId = restarted.get(0).getId();
             driver.setAllConstraintsMet(restartedId);
-            awaitRun(work, restartedId, starts, 7);
+            awaitRun(work, restartedId, starts, 10);
             expectQuiet(notifications);
             verifyTestNotification(context, notifications);
         } finally {

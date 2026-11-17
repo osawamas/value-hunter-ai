@@ -135,6 +135,9 @@ public final class JpxWatchWorker extends Worker {
                     recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略").apply();
                     return Result.success();
                 }
+                if (comparison.previous() == null) {
+                    return retryReport(state, "比較用の日報を取得できなかった");
+                }
                 var screen = comparison.screen(evidence.rights());
                 LocalDate date = comparison.latest().date();
                 var baseline = dateOrNull(state.getString(BASELINE, ""));
@@ -150,9 +153,7 @@ public final class JpxWatchWorker extends Worker {
                         : List.<JpxDailyCheck.Entrant>of();
                 for (var entry : added) alerted.add(entry.code());
                 var summary = new StringBuilder(date + " 東証日報を確認 · 保留 " + screen.held() + "銘柄");
-                if (comparison.previous() != null) {
-                    summary.append("\n比較日 ").append(comparison.previous().date());
-                }
+                summary.append("\n比較日 ").append(comparison.previous().date());
                 appendHolds(summary, screen);
                 if (!notifyEnabled) summary.append("\n通知設定を確認");
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
@@ -174,12 +175,15 @@ public final class JpxWatchWorker extends Worker {
         } catch (IOException error) {
             synchronized (STATE_LOCK) {
                 if (isStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();
-                String outcome = getRunAttemptCount() < 2
-                        ? "日報を取得できなかった · 再試行を予約した" : "日報を取得できなかった";
-                recordCheck(state.edit(), outcome).apply();
+                return retryReport(state, "日報を取得できなかった");
             }
-            return getRunAttemptCount() < 2 ? Result.retry() : Result.success();
         }
+    }
+
+    private Result retryReport(SharedPreferences state, String message) {
+        boolean retry = getRunAttemptCount() < 2;
+        recordCheck(state.edit(), retry ? message + " · 再試行を予約した" : message).apply();
+        return retry ? Result.retry() : Result.success();
     }
 
     private static SharedPreferences.Editor recordCheck(SharedPreferences.Editor edit, String outcome) {
