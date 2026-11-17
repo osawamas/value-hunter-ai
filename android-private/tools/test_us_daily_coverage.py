@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
-from us_daily_coverage import compare_previous_report, run_cycle
+from us_daily_coverage import archive_dia_holdings, compare_previous_report, compare_session, dia_for_session, run_cycle
 
 
 class DailyCoverageTest(unittest.TestCase):
@@ -78,6 +78,35 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
             path.write_text("{")
             self.assertEqual("previous_report_unreadable", compare_previous_report(path, observed)["status"])
+
+
+    @patch("us_daily_coverage.load_dia")
+    @patch("us_daily_coverage.fetch")
+    @patch("us_daily_coverage.dolt_rows")
+    @patch("us_daily_coverage.load_listing_directories")
+    def test_dia_archive_uses_workbook_date_and_keeps_other_days_comparable(self, directories, prices, fetch, dia):
+        day = date(2026, 11, 16)
+        today = date(2026, 11, 17)
+        now = datetime(2026, 11, 17, 12, tzinfo=ZoneInfo("America/New_York"))
+        observed = {name: "2026-11-16T12:00:00" for name in ("nasdaqlisted.txt", "otherlisted.txt")}
+        directories.return_value = (observed, {"AAPL": ("Nasdaq", "common_or_ordinary_label")}, {})
+        prices.return_value = [{"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}]
+        fetch.return_value = b"original workbook"
+        dia.return_value = (day, {"AAPL"} | {f"TEST{i}" for i in range(29)})
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            dia_directory = root / "dia-holdings"
+            self.assertEqual({"status": "saved", "as_of": day.isoformat()}, archive_dia_holdings(dia_directory, today))
+            self.assertEqual("already_saved", archive_dia_holdings(dia_directory, today)["status"])
+            self.assertEqual((None, "no_same_date_holdings"), dia_for_session(dia_directory, today))
+            match = compare_session(day, root, root / "stocks", "updated", now, dia_directory=dia_directory)
+            self.assertEqual(30, match["dia_holdings_comparison"]["symbols"])
+            self.assertEqual(1, match["dia_holdings_comparison"]["with_close"])
+            dia.return_value = (today, {"AAPL"})
+            mismatch = compare_session(day, root, root / "stocks", "updated", now, dia_directory=dia_directory)
+            self.assertEqual("holdings_date_mismatch", mismatch["dia_holdings_status"])
+            self.assertNotIn("dia_holdings_comparison", mismatch)
+            self.assertEqual(1, mismatch["common_or_ordinary_label_by_exchange"]["Nasdaq"]["with_close"])
 
 
 if __name__ == "__main__":

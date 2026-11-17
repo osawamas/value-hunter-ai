@@ -5,13 +5,18 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from xml.etree.ElementTree import ParseError
+from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
 from us_dolt_sync import sync
 from us_public_files_probe import (
+    DIA_HOLDINGS,
     coverage,
     dolt_rows,
+    fetch,
     listing_snapshot_assessment,
+    load_dia,
     load_listing_directories,
     require_listing_date,
     save_listing_snapshot,
@@ -20,9 +25,39 @@ from us_public_files_probe import (
 EASTERN = ZoneInfo("America/New_York")
 FOCUS_MARKETS = ("NYSE", "Nasdaq")
 MARKET_COUNTS = "common_or_ordinary_label_by_exchange"
+DIA_ERRORS = (BadZipFile, ImportError, KeyError, OSError, ParseError, ValueError)
 
 
-def run_cycle(archive, prices, now, calendar):
+def archive_dia_holdings(directory, today):
+    content = fetch(DIA_HOLDINGS)
+    as_of, _ = load_dia(content)
+    if as_of > today:
+        raise ValueError("DIA holdings date is in the future")
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{as_of}.xlsx"
+    if path.is_file() and path.read_bytes() == content:
+        return {"status": "already_saved", "as_of": as_of.isoformat()}
+    with TemporaryDirectory(prefix=".dia-", dir=directory) as temporary:
+        draft = Path(temporary) / path.name
+        draft.write_bytes(content)
+        draft.replace(path)
+    return {"status": "saved", "as_of": as_of.isoformat()}
+
+
+def dia_for_session(directory, day):
+    path = directory / f"{day}.xlsx"
+    if not path.is_file():
+        return None, "no_same_date_holdings"
+    try:
+        holdings = load_dia(path.read_bytes())
+        if holdings[0] != day:
+            return None, "holdings_date_mismatch"
+    except DIA_ERRORS:
+        return None, "holdings_unreadable"
+    return holdings, "same_date_holdings"
+
+
+def run_cycle(archive, prices, now, calendar, *, with_dow=False):
     eastern_now = now.astimezone(EASTERN)
     today = eastern_now.date()
     result = {"checked_at": eastern_now.isoformat()}
@@ -38,6 +73,13 @@ def run_cycle(archive, prices, now, calendar):
         observed, _, originals = load_listing_directories()
         require_listing_date(today, observed)
         result["capture"] = save_listing_snapshot(archive, today, originals)
+
+    dia_directory = archive / "dia-holdings" if with_dow else None
+    if dia_directory is not None:
+        try:
+            result["dia_capture"] = archive_dia_holdings(dia_directory, today)
+        except DIA_ERRORS as error:
+            result["dia_capture"] = {"status": "unavailable", "error": str(error)}
 
     start, end = today - timedelta(days=7), today - timedelta(days=1)
     snapshots = []
@@ -56,7 +98,7 @@ def run_cycle(archive, prices, now, calendar):
     sessions = []
     for day, snapshot in snapshots:
         try:
-            outcome = compare_session(day, snapshot, prices, sync_state, eastern_now)
+            outcome = compare_session(day, snapshot, prices, sync_state, eastern_now, dia_directory=dia_directory)
         except (OSError, ValueError, KeyError) as error:
             outcome = {"status": "comparison_failed", "error": str(error)}
         sessions.append(dict(outcome, trading_date=day.isoformat()))
@@ -102,7 +144,7 @@ def compare_previous_report(path, current):
     }
 
 
-def compare_session(prior, snapshot, prices, sync_state, checked_at):
+def compare_session(prior, snapshot, prices, sync_state, checked_at, *, dia_directory=None):
     report_path = snapshot / "dolt-coverage.json"
     replaces_report = report_path.is_file()
     observed, listings, originals = load_listing_directories(snapshot)
@@ -110,7 +152,11 @@ def compare_session(prior, snapshot, prices, sync_state, checked_at):
     prices_on_day = dolt_rows(prices, prior)
     if not any(row["close"] is not None for row in prices_on_day):
         return {"status": "no_dolt_closes_for_session", "previous_report_retained": replaces_report}
-    report = coverage(prior, listings, prices_on_day, price_basis="Dolt reported close (basis under evaluation)")
+    holdings, dia_status = dia_for_session(dia_directory, prior) if dia_directory is not None else (None, None)
+    report = coverage(prior, listings, prices_on_day, dow=holdings,
+                      price_basis="Dolt reported close (basis under evaluation)")
+    if dia_status is not None:
+        report["dia_holdings_status"] = dia_status
     report["directory_observed_at"] = observed
     report["directory_sha256"] = {name: sha256(content).hexdigest() for name, content in originals.items()}
     report["listing_snapshot_assessment"] = listing_snapshot_assessment(prior, observed)
@@ -131,6 +177,10 @@ def compare_session(prior, snapshot, prices, sync_state, checked_at):
             venue: by_exchange[venue] for venue in FOCUS_MARKETS if venue in by_exchange
         },
     }
+    if dia_status is not None:
+        outcome["dia_holdings_status"] = dia_status
+        if holdings is not None:
+            outcome["dia_holdings_comparison"] = report["dia_holdings_comparison"]
     if replaces_report:
         outcome["previous_observation"] = report["previous_observation"]
     return outcome
@@ -140,6 +190,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--dolt-dir", type=Path, required=True)
+    parser.add_argument("--with-dow", action="store_true", help="Archive dated DIA holdings and check Dow coverage")
     args = parser.parse_args()
     try:
         import exchange_calendars
@@ -147,7 +198,7 @@ def main():
         parser.exit(1, "Install exchange-calendars>=4.7,<5 in the scheduled Python environment.\n")
     try:
         result = run_cycle(args.archive.resolve(), args.dolt_dir.resolve(),
-                           datetime.now(EASTERN), exchange_calendars.get_calendar("XNYS"))
+                           datetime.now(EASTERN), exchange_calendars.get_calendar("XNYS"), with_dow=args.with_dow)
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f"US daily coverage: {error}\n")
     print(json.dumps(result))

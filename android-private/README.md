@@ -295,3 +295,10 @@ python3 tools/us_daily_coverage.py --archive /path/to/us-listing-archive --dolt-
 ```cron
 45 1,2 * * 2-6 /path/to/python3 /path/to/tools/us_daily_coverage.py --archive /path/to/us-listing-archive --dolt-dir /path/to/stocks >> /path/to/us-coverage.log 2>&1
 ```
+
+ダウ構成株の終値件数も確認する場合は、同じコマンドに `--with-dow` を付け、
+Python環境に `openpyxl` を追加する。[State StreetのDIA日次保有明細](https://www.ssga.com/us/en/individual/etfs/state-street-spdr-dow-jones-industrial-average-etf-trust-dia)
+から現金を除く30銘柄を検証し、明細記載の基準日で `dia-holdings/YYYY-MM-DD.xlsx` に
+保存する。価格と明細の日付が一致する場合だけ `dia_holdings_comparison` を出す。
+明細の取得・再生が失敗した場合も、NYSE・Nasdaqの終値照合は続ける。
+DIA保有明細はダウ構成銘柄を確認するための近似資料。
