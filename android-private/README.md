@@ -231,3 +231,12 @@ Doltのみ、MarketParquetのみ、両方で1セント以内、両方で1セン�
 ```sh
 python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks --compare-marketparquet
 ```
+
+過去の取引日を `--history-date` で最大5日指定すると、対象日に両ソースで終値がない銘柄を、
+Doltで最後に確認できた日ごとに集計する。指定した過去日すべてで終値が得られなかった件数も表示する。
+過去の価格を対象日の終値に流用しない。休場日や同期前の日は検査できない。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks --compare-marketparquet \
+  --history-date 2026-11-13 --history-date 2026-11-12
+```

@@ -243,10 +243,32 @@ def validated_closes(day, bars):
     return seen, closes
 
 
-def compare_closes(day, primary, reference_bars, focus):
+def missing_history(missing, history):
+    not_seen = set(missing)
+    last_seen = {}
+    for day, closes in sorted(history.items(), reverse=True):
+        matched = not_seen & closes.keys()
+        last_seen[day.isoformat()] = len(matched)
+        not_seen -= matched
+    return {
+        "missing_on_target_date": len(missing),
+        "last_seen_by_checked_earlier_date": last_seen,
+        "missing_on_all_checked_dates": len(not_seen),
+    }
+
+
+def compare_closes(day, primary, reference_bars, focus, history_bars=None):
     _, reference = validated_closes(day, reference_bars)
     if not reference:
         raise ValueError("No valid closes in the comparison sample")
+    history = {}
+    for earlier, bars in (history_bars or {}).items():
+        if earlier >= day:
+            raise ValueError("Coverage history dates must precede the target date")
+        _, closes = validated_closes(earlier, bars)
+        if not closes:
+            raise ValueError("No valid closes in a historical Dolt session")
+        history[earlier] = closes
     common = primary.keys() & reference.keys()
     one_cent = Decimal("0.01")
     within = {ticker for ticker in common
@@ -268,11 +290,13 @@ def compare_closes(day, primary, reference_bars, focus):
             "both_differ_over_one_cent": len(both) - agrees,
             "with_either": len(union),
         }
+        if history:
+            result[name]["missing_dolt_history"] = missing_history(symbols - union, history)
     return result
 
 
 def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted",
-             comparison_bars=None):
+             comparison_bars=None, history_bars=None):
     seen, prices = validated_closes(day, bars)
     closes = prices.keys()
     if not closes or not (closes & listings.keys()):
@@ -309,7 +333,7 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
     if comparison_bars is not None:
-        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus)
+        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus, history_bars)
     if sec is not None:
         result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files, indexes)
     return result
@@ -381,6 +405,8 @@ def main():
                              help="Compare Dolt closes with the public split-adjusted sample")
     comparisons.add_argument("--comparison-sample-file", type=Path,
                              help="Compare Dolt closes with a saved original MarketParquet sample")
+    parser.add_argument("--history-date", action="append", default=[], type=date.fromisoformat,
+                        help="Check missing symbols on an earlier completed Dolt session (repeatable)")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
     dow = parser.add_mutually_exclusive_group()
@@ -400,6 +426,11 @@ def main():
     args = parser.parse_args()
     if (args.compare_marketparquet or args.comparison_sample_file) and not args.dolt_dir:
         parser.error("Price comparison requires --dolt-dir")
+    if args.history_date and (not (args.compare_marketparquet or args.comparison_sample_file)
+                              or not args.trading_day or len(args.history_date) > 5
+                              or len(set(args.history_date)) != len(args.history_date)
+                              or any(day >= args.trading_day for day in args.history_date)):
+        parser.error("History needs a price comparison and up to five distinct earlier dates")
     index_paths = {}
     for item in args.sec_index_file or args.sec_index_quarter:
         name, separator, filename = item.partition("=")
@@ -455,6 +486,7 @@ def main():
                 content = (args.comparison_sample_file.read_bytes() if args.comparison_sample_file
                            else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
                 comparison_bars = parquet_rows(content)
+            history_bars = {earlier: dolt_rows(args.dolt_dir.resolve(), earlier) for earlier in args.history_date}
             sec = None
             if args.with_sec or args.sec_file or check_statements or check_notes:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
@@ -482,7 +514,7 @@ def main():
                         index_paths[year, part] = destination
                 result.update(coverage(args.trading_day, listings, bars,
                                        sec, statement_files, holdings, notes_files, index_paths, price_basis,
-                                       comparison_bars))
+                                       comparison_bars, history_bars))
             if notes_files:
                 result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:

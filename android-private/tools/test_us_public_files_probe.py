@@ -151,6 +151,34 @@ class PublicFilesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_dolt_csv(b"symbol,trading_date,close\nAAPL,invalid,42\n")
 
+    def test_missing_compared_closes_are_grouped_by_most_recent_dolt_session(self):
+        listings = {symbol: ("NYSE", "common_or_ordinary_label")
+                    for symbol in ("TODAY", "REF", "RECENT", "OLDER", "ABSENT")}
+        friday, thursday = date(2026, 11, 13), date(2026, 11, 12)
+        result = coverage(
+            DAY, listings, [self.bar("TODAY")],
+            comparison_bars=[self.bar("REF")],
+            history_bars={
+                thursday: [dict(self.bar(symbol), date=thursday) for symbol in ("RECENT", "OLDER")],
+                friday: [dict(self.bar(symbol), date=friday) for symbol in ("RECENT", "REF")],
+            },
+        )
+        comparison = result["dolt_marketparquet_comparison"]["NYSE"]
+        self.assertEqual(2, comparison["with_either"])
+        self.assertEqual({
+            "missing_on_target_date": 3,
+            "last_seen_by_checked_earlier_date": {"2026-11-13": 1, "2026-11-12": 1},
+            "missing_on_all_checked_dates": 1,
+        }, comparison["missing_dolt_history"])
+
+    def test_history_rejects_empty_or_mismatched_sessions(self):
+        bars = [self.bar("AAPL")]
+        listings = {"AAPL": ("Nasdaq", "common_or_ordinary_label")}
+        earlier = date(2026, 11, 13)
+        for history in ({DAY: bars}, {earlier: bars}, {earlier: []}):
+            with self.subTest(history=history), self.assertRaises(ValueError):
+                coverage(DAY, listings, bars, comparison_bars=bars, history_bars=history)
+
     def test_compares_two_sources_without_counting_reference_only_as_primary(self):
         kind = "common_or_ordinary_label"
         symbols = ("CENT", "DIFFERENT", "DOLT", "SAMPLE", "NEITHER")
