@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 08:10 JST — NLS Plus開始前の価格レコードを拒否
+
+- 開始時main: [de375f3](https://github.com/osawamas/value-hunter-ai/commit/de375f3434e1d64474eac3f8e6de7b45153b2edf)。直近Actionsの今回変更に対する実行結果は未確認（[一覧](https://github.com/osawamas/value-hunter-ai/actions)）。前回ログと既存コードを読み、並行するJPX/Android更新と重複しないNLS Plusの入力検証を選択。
+- [Nasdaq NLS Plus仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)のセッション境界に沿い、開始通知Oより前に日次サマリーや不明なシステム通知が現れた場合を拒否。[コード変更 e29f3cc](https://github.com/osawamas/value-hunter-ai/commit/e29f3cc31c4fabdaa9f86ba59ddbfcf02ede8b81)、[回帰テスト追加 b9fea8a](https://github.com/osawamas/value-hunter-ai/commit/b9fea8a413194bb470060960d2f84522f1a70523)。開始前のサマリー、未知イベント、開始通知欠落の3ケースを追加。
+- Pythonテストは今回未実行。新コミットのActions結果も未確認のため成功判定はしない。対象実測参照日2021-06-14のNOCP 4,605銘柄は過去ログからの参考値。今回の新規株価取得0件。2026-11-17のNYSE/Nasdaq同日網羅率は未測定。
+- 未解決: Dolt日次同期の実測・429キャッシュ、未調整終値と株式分割、SEC株数、Android端末更新・無音通知。次回はPython回帰テストとActionsを実行・確認し、Dolt同期と同日上場一覧の網羅率検証へ戻る。株価原本・APIキー・APKは追加していない。
+
 ## 2026-11-18 07:18 JST — NLS Plus終了後の余剰レコードを拒否
 
 - 開始時main: [c6046c6](https://github.com/osawamas/value-hunter-ai/commit/c6046c613ccfae6a14a1ff4c33ac5ffa1144f09f)。直近Actions [44188565771](https://github.com/osawamas/value-hunter-ai/actions/runs/44188565771)、[44188565705](https://github.com/osawamas/value-hunter-ai/actions/runs/44188565705)、[44188565596](https://github.com/osawamas/value-hunter-ai/actions/runs/44188565596) は成功。ただし今回の変更のテスト結果ではない。
