@@ -13,6 +13,7 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxDailyCheck.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxReferenceFinancials.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxShareRights.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxWatchWorker.java'
       - 'android-private/app/src/main/assets/jpx-share-rights.json'
       - 'android-private/tools/jpx_daily_probe.py'
 
@@ -109,4 +110,5 @@ jobs:
             grep '^JPX_ANDROID_CLOSES ' "$RUNNER_TEMP/jpx-android-probe.log" | tr -d '\r' > "$RUNNER_TEMP/jpx-actual.txt"
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_PREVIEW_OK'
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_RIGHTS_REFRESH_OK'
+            tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_WATCH_OK'
             diff -u "$RUNNER_TEMP/jpx-expected.txt" "$RUNNER_TEMP/jpx-actual.txt"

@@ -46,7 +46,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
                     + checkSampleReport(directory, JpxShareRights.load(getTargetContext()));
             checkRightsRefresh(getTargetContext());
-            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\n");
+            checkJpxWatch();
+            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\n");
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
@@ -88,6 +89,10 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             throw new AssertionError("Checked an unexpected JPX date: " + date);
         });
         String html = comparison.html(rights);
+        var realScreen = comparison.screen(rights);
+        if (realScreen.held() != 3 || !realScreen.entered().isEmpty()) {
+            throw new AssertionError("Published JPX reports notified during missing rights coverage");
+        }
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
                 || !html.contains("7203  3428 円（後場）")
                 || !html.contains("3861  847.4 円（後場）")
@@ -241,6 +246,35 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             }
         } finally {
             file.delete();
+        }
+    }
+
+    private static void checkJpxWatch() {
+        var before = LocalDate.of(2026, 11, 13);
+        var day = LocalDate.of(2026, 11, 16);
+        var months = new HashSet<YearMonth>();
+        for (int month = 4; month <= 11; month++) months.add(YearMonth.of(2026, month));
+        var complete = new JpxShareRights(Set.of("3861"), months, List.of());
+        var partial = new JpxShareRights(Set.of("3861"), Set.of(YearMonth.of(2026, 9)), List.of());
+        var outdated = sampleReport(before, "3861", "916.51", false);
+        var current = sampleReport(day, "3861", "916.50", false);
+        var comparison = new JpxDailyCheck.Comparison(current, outdated);
+        var screen = comparison.screen(complete);
+        var codes = List.of(new JpxDailyCheck.Entrant("3861", 100));
+        if (!screen.entered().equals(codes) || !comparison.screen(partial).entered().isEmpty()) {
+            throw new AssertionError("JPX watch did not gate entry on verified reference data");
+        }
+        var unavailable = new JpxDailyCheck.Comparison(current, sampleReport(before, "3861", "916.51", true));
+        if (!unavailable.screen(complete).entered().isEmpty()
+                || !new JpxDailyCheck.Comparison(current, null).screen(complete).entered().isEmpty()) {
+            throw new AssertionError("JPX watch notified without a usable comparison");
+        }
+        if (!JpxWatchWorker.pending(before, before, day, codes, Set.of()).equals(codes)
+                || !JpxWatchWorker.pending(before, day, day, codes, Set.of()).equals(codes)
+                || !JpxWatchWorker.pending(before, day, day, codes, Set.of("3861")).isEmpty()
+                || !JpxWatchWorker.pending(null, null, day, codes, Set.of()).isEmpty()
+                || !JpxWatchWorker.pending(before, day, before, codes, Set.of()).isEmpty()) {
+            throw new AssertionError("JPX watch allowed a duplicate, initial or stale notification");
         }
     }
 

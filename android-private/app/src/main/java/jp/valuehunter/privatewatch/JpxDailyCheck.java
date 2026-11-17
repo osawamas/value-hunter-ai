@@ -118,23 +118,48 @@ final class JpxDailyCheck {
                     .append(percent.toPlainString()).append("%）");
         }
 
-        private void appendReferenceTransition(StringBuilder message, String code, JpxShareRights rights) {
-            if (!previous.date().isBefore(latest.date())) return;
-            String reason = rights.holdReason(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
-            if (!reason.isEmpty()) {
-                message.append("<br>参考判定の変化 · 保留（").append(reason).append("）");
-                return;
+        Screening screen(JpxShareRights rights) {
+            var entered = new ArrayList<Entrant>();
+            int held = 0;
+            for (String code : SAMPLE_CODES) {
+                var change = referenceChange(code, rights);
+                if (!change.hold().isEmpty()) {
+                    held++;
+                } else if (change.entered()) {
+                    entered.add(new Entrant(code, budgetQuantity(latest.close(code))));
+                }
             }
+            entered.sort(Comparator.comparingInt(Entrant::quantity).reversed());
+            return new Screening(List.copyOf(entered), held);
+        }
+
+        private ReferenceChange referenceChange(String code, JpxShareRights rights) {
+            if (previous == null || !previous.date().isBefore(latest.date())) {
+                return ReferenceChange.held("比較用の日報なし");
+            }
+            String reason = rights.holdReason(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
+            if (!reason.isEmpty()) return ReferenceChange.held(reason);
             var before = referenceTier(previous, code);
             var now = referenceTier(latest, code);
-            String change;
             if (before == ReferenceTier.UNKNOWN || now == ReferenceTier.UNKNOWN) {
-                change = "保留（比較に必要な終値または通期決算なし）";
+                return ReferenceChange.held("比較に必要な終値または通期決算なし");
+            }
+            return new ReferenceChange(before, now, "");
+        }
+
+        private void appendReferenceTransition(StringBuilder message, String code, JpxShareRights rights) {
+            if (!previous.date().isBefore(latest.date())) return;
+            var comparison = referenceChange(code, rights);
+            var before = comparison.before();
+            var now = comparison.now();
+            String change;
+            if (!comparison.hold().isEmpty()) {
+                change = "保留（" + comparison.hold() + "）";
             } else if (before == now) {
                 change = "条件の変化なし";
             } else if (now == ReferenceTier.OUTSIDE) {
                 change = "条件から外れた";
-            } else if (before == ReferenceTier.OUTSIDE) {
+            } else if (comparison.entered()) {
                 change = now == ReferenceTier.LOT ? "新たに条件内（100株）" : "新たに条件内（1株）";
             } else {
                 change = now == ReferenceTier.LOT ? "1株枠から100株枠へ" : "100株枠から1株枠へ";
@@ -145,6 +170,20 @@ final class JpxDailyCheck {
         private static void appendSource(StringBuilder message, Report report) {
             message.append("<br><a href='").append(report.source()).append("'>JPX 株式相場表 ")
                     .append(report.date()).append("（PDF）</a>");
+        }
+    }
+
+    record Entrant(String code, int quantity) {}
+
+    record Screening(List<Entrant> entered, int held) {}
+
+    private record ReferenceChange(ReferenceTier before, ReferenceTier now, String hold) {
+        static ReferenceChange held(String reason) {
+            return new ReferenceChange(ReferenceTier.UNKNOWN, ReferenceTier.UNKNOWN, reason);
+        }
+
+        boolean entered() {
+            return before == ReferenceTier.OUTSIDE && (now == ReferenceTier.SINGLE || now == ReferenceTier.LOT);
         }
     }
 

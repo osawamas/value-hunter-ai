@@ -33,6 +33,8 @@ public final class MainActivity extends Activity {
     private EditText usKey;
     private EditText sgKey;
     private CheckBox sgWatch;
+    private CheckBox jpxWatch;
+    private TextView jpxWatchStatus;
     private Thread jpxCheckThread;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
@@ -126,6 +128,7 @@ public final class MainActivity extends Activity {
             work.cancelUniqueWork("us-check-now");
             work.cancelUniqueWork("sg-check-now");
             ScanWorker.stopSingaporeWatch(this);
+            if (jpxWatch != null) jpxWatch.setChecked(false);
             state.edit().clear().commit();
             getSystemService(NotificationManager.class).cancelAll();
             key.setText("");
@@ -255,6 +258,17 @@ public final class MainActivity extends Activity {
             return;
         }
 
+        jpxWatch = new CheckBox(this);
+        jpxWatch.setText("東証日報を定期確認し、参考条件入りを無音通知");
+        jpxWatch.setChecked(JpxWatchWorker.enabled(this));
+        jpxWatch.setOnCheckedChangeListener((view, checked) -> {
+            JpxWatchWorker.setEnabled(this, checked);
+            if (checked) requestNotifications();
+        });
+        content.addView(jpxWatch);
+        jpxWatchStatus = new TextView(this);
+        content.addView(jpxWatchStatus);
+
         report.setText("条件照合（参考） · 極洋 / 王子ホールディングス / トヨタ自動車");
         check.setOnClickListener(view -> {
             check.setEnabled(false);
@@ -291,6 +305,7 @@ public final class MainActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         state.registerOnSharedPreferenceChangeListener(onChange);
+        if (jpxWatch != null && jpxWatch.isChecked()) JpxWatchWorker.setEnabled(this, true);
         render();
     }
 
@@ -312,6 +327,9 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
+        if (jpxWatchStatus != null) {
+            jpxWatchStatus.setText(state.getString(JpxWatchWorker.STATUS, ""));
+        }
         sgResults.setText(state.getString("sg_result", "DataCedarのキーでS63の終値を確認"));
         String usResult = state.getString("us_result", "");
         usResults.setText(state.getString("us_status", "Alpha VantageのキーでIBMの取得を開始")
