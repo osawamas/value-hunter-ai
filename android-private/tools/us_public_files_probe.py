@@ -397,7 +397,7 @@ def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_
 
 
 def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted",
-             comparison_bars=None, history_bars=None, halt_notices=None, listing_events=None):
+             comparison_bars=None, history_bars=None, halt_notices=None, listing_events=None, *, include_missing_symbols=False):
     seen, prices = validated_closes(day, bars)
     closes = prices.keys()
     if not closes or not (closes & listings.keys()):
@@ -420,6 +420,10 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
             "groups": {key: counts(value) for key, value in groups.items()},
             "common_or_ordinary_label_by_exchange": {key: counts(value) for key, value in sorted(by_exchange.items())}}
     focus = {name: by_exchange.get(name, set()) for name in ("NYSE", "Nasdaq")}
+    if include_missing_symbols:
+        result["missing_close_symbols_by_exchange"] = {
+            venue: sorted(symbols - closes) for venue, symbols in focus.items()
+        }
     if dow is not None:
         as_of, symbols = dow
         result["dia_holdings_comparison"] = {"as_of": as_of.isoformat(), "symbols": len(symbols)}

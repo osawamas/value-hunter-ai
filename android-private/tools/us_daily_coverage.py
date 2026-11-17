@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from us_dolt_sync import sync
 from us_public_files_probe import (
     DIA_HOLDINGS,
+    SYMBOL,
     coverage,
     dolt_rows,
     fetch,
@@ -25,6 +26,7 @@ from us_public_files_probe import (
 EASTERN = ZoneInfo("America/New_York")
 FOCUS_MARKETS = ("NYSE", "Nasdaq")
 MARKET_COUNTS = "common_or_ordinary_label_by_exchange"
+MISSING_SYMBOLS = "missing_close_symbols_by_exchange"
 DIA_ERRORS = (BadZipFile, ImportError, KeyError, OSError, ParseError, ValueError)
 
 
@@ -105,6 +107,18 @@ def run_cycle(archive, prices, now, calendar, *, with_dow=False):
     return dict(result, status="checked_recent_snapshots", sessions=sessions)
 
 
+def compare_missing_symbols(previous, current, market, previous_count, current_count):
+    previous_lists = previous.get(MISSING_SYMBOLS)
+    current_list = current[MISSING_SYMBOLS][market]
+    old_list = previous_lists.get(market) if isinstance(previous_lists, dict) else None
+    if (not isinstance(old_list, list) or len(old_list) != previous_count
+            or any(not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) for symbol in old_list)
+            or len(set(old_list)) != len(old_list) or len(current_list) != current_count):
+        return {}
+    old, new = set(old_list), set(current_list)
+    return {"recovered_symbols": sorted(old - new), "newly_missing_symbols": sorted(new - old)}
+
+
 def compare_previous_report(path, current):
     """Compare the observed counts only when the archived directory still matches."""
     try:
@@ -135,6 +149,10 @@ def compare_previous_report(path, current):
             "current_with_close": new["with_close"],
             "change_in_with_close": delta,
         }
+        if previous.get("directory_sha256") and MISSING_SYMBOLS in current:
+            changes[market].update(compare_missing_symbols(
+                previous, current, market, new["listed"] - old_count, new["without_close"]
+            ))
     if not changes:
         return {"status": "no_comparable_markets"}
     return {
@@ -154,7 +172,7 @@ def compare_session(prior, snapshot, prices, sync_state, checked_at, *, dia_dire
         return {"status": "no_dolt_closes_for_session", "previous_report_retained": replaces_report}
     holdings, dia_status = dia_for_session(dia_directory, prior) if dia_directory is not None else (None, None)
     report = coverage(prior, listings, prices_on_day, dow=holdings,
-                      price_basis="Dolt reported close (basis under evaluation)")
+                      price_basis="Dolt reported close (basis under evaluation)", include_missing_symbols=True)
     if dia_status is not None:
         report["dia_holdings_status"] = dia_status
     report["directory_observed_at"] = observed

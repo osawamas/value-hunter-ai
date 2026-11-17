@@ -47,16 +47,20 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual("same_day_directory_unverified", report["listing_snapshot_assessment"]["status"])
             self.assertEqual("cached_after_rate_limit", report["dolt_sync"])
             self.assertNotIn("AAPL", json.dumps(report))
+            self.assertEqual({"NYSE": ["BIO.B"], "Nasdaq": []}, report["missing_close_symbols_by_exchange"])
             self.assertEqual("observed_unverified", report["coverage_status"])
             self.assertEqual({"nasdaqlisted.txt", "otherlisted.txt"}, report["directory_sha256"].keys())
             again = run_cycle(root, root / "stocks", now, calendar)
             self.assertEqual("refreshed", again["sessions"][1]["status"])
             counts = again["sessions"][1]["common_or_ordinary_label_by_exchange"]
             self.assertEqual(1, counts["NYSE"]["with_close"])
-            self.assertEqual(1, again["sessions"][1]["previous_observation"]["markets"]["NYSE"]["change_in_with_close"])
+            gained = again["sessions"][1]["previous_observation"]["markets"]["NYSE"]
+            self.assertEqual(1, gained["change_in_with_close"])
+            self.assertEqual(["BIO.B"], gained["recovered_symbols"])
             later = run_cycle(root, root / "stocks", now, calendar)
             drop = later["sessions"][1]["previous_observation"]["markets"]["NYSE"]
-            self.assertEqual({"previous_with_close": 1, "current_with_close": 0, "change_in_with_close": -1}, drop)
+            self.assertEqual(-1, drop["change_in_with_close"])
+            self.assertEqual(["BIO.B"], drop["newly_missing_symbols"])
             last_report = report_path.read_bytes()
             self.assertEqual(drop, json.loads(last_report)["previous_observation"]["markets"]["NYSE"])
             empty = run_cycle(root, root / "stocks", now, calendar)
@@ -66,6 +70,28 @@ class DailyCoverageTest(unittest.TestCase):
                              run_cycle(root, root / "stocks", now.replace(hour=13), calendar)["status"])
             self.assertEqual(4, sync.call_count)
 
+
+    def test_reports_symbol_changes_even_with_unchanged_market_totals(self):
+        report = {"trading_date": "2026-11-16", "sample_price_basis": "Dolt",
+                  "directory_observed_at": {"otherlisted.txt": "2026-11-16T11:00:00"},
+                  "directory_sha256": {"otherlisted.txt": "same"},
+                  "common_or_ordinary_label_by_exchange": {
+                      "NYSE": {"listed": 2, "with_close": 1, "without_close": 1},
+                  },
+                  "missing_close_symbols_by_exchange": {"NYSE": ["AAA"]}}
+        previous = dict(report, missing_close_symbols_by_exchange={"NYSE": ["BBB"]})
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text(json.dumps(previous))
+            change = compare_previous_report(path, report)["markets"]["NYSE"]
+            self.assertEqual(0, change["change_in_with_close"])
+            self.assertEqual(["BBB"], change["recovered_symbols"])
+            self.assertEqual(["AAA"], change["newly_missing_symbols"])
+            previous.pop("missing_close_symbols_by_exchange")
+            path.write_text(json.dumps(previous))
+            legacy = compare_previous_report(path, report)["markets"]["NYSE"]
+            self.assertEqual(0, legacy["change_in_with_close"])
+            self.assertNotIn("recovered_symbols", legacy)
 
     def test_does_not_compare_incompatible_previous_directory(self):
         observed = {"trading_date": "2026-11-16", "sample_price_basis": "Dolt",

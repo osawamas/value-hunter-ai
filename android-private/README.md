@@ -286,6 +286,9 @@ python3 tools/us_daily_coverage.py --archive /path/to/us-listing-archive --dolt-
 前回の集計と照合条件が一致するときは、NYSE・Nasdaqごとの終値取得件数の増減も、集計と
 標準出力の両方に `previous_observation` として記録する。上場一覧2本のSHA-256も記録し、
 作成時刻が同じでも内容が違う一覧での増減を比較しない。旧形式はタイムスタンプと対象件数で照合する。
+日付別レポートの `missing_close_symbols_by_exchange` に未取得のティッカーを保存する。
+前回と今回の一覧のハッシュが一致する場合は、`previous_observation` に取得できるようになった銘柄と
+新たに欠けた銘柄を記録する。総件数が同じでも銘柄の入れ替わりを確認できる。
 取引日の判定にはXNYSカレンダーを使う。
 
 日本時間のMacでcronを使う場合は火〜土曜の01:45と02:45に起動する。米東部時間の範囲内に
