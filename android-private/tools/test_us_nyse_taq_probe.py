@@ -2,8 +2,9 @@ from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
-from us_nyse_taq_probe import benchmark, read_nyse_sample
+from us_nyse_taq_probe import benchmark, follow_missing, read_nyse_sample
 
 
 class NyseTaqProbeTest(unittest.TestCase):
@@ -42,3 +43,16 @@ class NyseTaqProbeTest(unittest.TestCase):
             "dolt_row_without_usable_close": ["DDD"],
             "differ_over_one_cent": ["BBB"],
         }, result["exceptions"])
+
+
+    @patch("us_nyse_taq_probe.dolt_csv")
+    def test_missing_follow_up_keeps_not_found_and_rejects_out_of_window_data(self, query):
+        day, end = date(2026, 7, 2), date(2026, 7, 10)
+        query.return_value = b"symbol,first_close_date\nSECZ,2026-07-06\n"
+        result = follow_missing(Path("stocks"), day, end, ["SECZ", "OTAI"])
+        self.assertEqual({"SECZ": "2026-07-06"}, result["first_later_close_date_by_symbol"])
+        self.assertEqual(["OTAI"], result["no_later_close_in_window"])
+        self.assertIn("date > '2026-07-02'", query.call_args.args[1])
+        query.return_value = b"symbol,first_close_date\nSECZ,2026-07-02\n"
+        with self.assertRaises(ValueError):
+            follow_missing(Path("stocks"), day, end, ["SECZ"])

@@ -2,6 +2,12 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 03:56 JST — NYSEで欠けた銘柄の後日の終値を追跡
+
+- 開始時mainは [b1d484c](https://github.com/osawamas/value-hunter-ai/commit/b1d484cce6c6c358e92c158657b8148dadd3173c)。NYSE TAQ検証に `--follow-through` を追加。対象日にDoltで終値が欠けた銘柄だけをローカルDBで照会し、指定日までに見つかった最も早い終値の日付を出す。追跡エラー時も対象日の集計を出力する。
+- 7月2日に欠けたDMC・GLAS・MBGL・OTAI・SECZは、現在のDoltHub公開DBで7月6日付の有効な終値が5銘柄すべてにあった。[NYSE公式日程](https://www.nyse.com/trade/hours-calendars)で7月3日の休場を確認。7月31日・11月16日にも5/5。公開DBでの長期集約照会はタイムアウトしたが、日付を絞った照会は成功。収録行の価格日付を確認したもので、当時の配信時刻は未検証。
+- ローカルテスト66件成功。終端日以前の回復結果、未取得の保持、範囲外結果の拒否を確認。値の後日流用はしていない。Nasdaq全体・Android端末での日次自動取得は継続課題。
+
 ## 2026-11-18 03:47 JST — NYSEの欠落銘柄を特定し、上場・変更日を確認
 
 - 開始時mainは [9aed6f3](https://github.com/osawamas/value-hunter-ai/commit/9aed6f3925a4597e339f859d44da2e4899f1b368)。NYSE TAQ照合レポートに、Doltに当日行がない銘柄、当日行があっても有効な終値がない銘柄、1セント超の差がある銘柄を追加。

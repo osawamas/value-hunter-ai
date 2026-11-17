@@ -463,20 +463,24 @@ def parquet_rows(content):
 
 
 def dolt_rows(directory, day):
-    if not (directory / ".dolt").is_dir():
-        raise ValueError("--dolt-dir must point to a local Dolt clone")
     query = ("SELECT act_symbol AS symbol, date AS trading_date, close "
              f"FROM ohlcv WHERE date = '{day.isoformat()}' ORDER BY act_symbol")
+    return read_dolt_csv(dolt_csv(directory, query))
+
+
+def dolt_csv(directory, query):
+    if not (directory / ".dolt").is_dir():
+        raise ValueError("--dolt-dir must point to a local Dolt clone")
     try:
         result = subprocess.run(["dolt", "sql", "-r", "csv", "-q", query], cwd=directory,
                                 capture_output=True, timeout=45, check=False)
     except FileNotFoundError:
         raise ValueError("Install Dolt to read the local price database") from None
     except subprocess.TimeoutExpired:
-        raise ValueError("The local Dolt daily query did not finish") from None
+        raise ValueError("The local Dolt query did not finish") from None
     if result.returncode or not 0 < len(result.stdout) <= MAX_BYTES:
         raise ValueError("The local Dolt market query failed")
-    return read_dolt_csv(result.stdout)
+    return result.stdout
 
 
 def read_dolt_csv(content):
