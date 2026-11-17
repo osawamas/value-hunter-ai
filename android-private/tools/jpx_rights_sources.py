@@ -104,11 +104,18 @@ def daily_sources(urls, output):
         for code, entries in notices.items():
             for entry in entries:
                 dates_by_event[code, entry.kind, entry.record_on].add(entry.ex_on)
-        results[published_on.isoformat()] = {
+        release_key = published_on.isoformat()
+        digest = sha256(body).hexdigest()
+        if release_key in results:
+            previous = results[release_key]
+            if previous["sha256"] != digest:
+                raise ValueError(f"Conflicting JPX daily workbook editions for {release_key}")
+            continue
+        results[release_key] = {
             "changes": dict(counts),
             "update_flags": sorted(flags),
             "official_url": url,
-            "sha256": sha256(body).hexdigest(),
+            "sha256": digest,
         }
         notes_by_release[published_on.isoformat()] = workbook_notes(body)
         (output / filename).write_bytes(body)
@@ -163,15 +170,16 @@ def main():
             unpublished.append(key)
             continue
         body = download(selected[month])
+        digest = sha256(body).hexdigest()
         try:
             found, events = read_monthly_rights(body)
             if found != month:
                 raise ValueError("Report header month differs from the index link")
         except (ValueError, pymupdf.FileDataError) as error:
-            rejected[key] = {"reason": str(error), "official_url": selected[month]}
+            rejected[key] = {"reason": str(error), "official_url": selected[month], "sha256": digest}
             continue
         accepted[key] = sum(map(len, events.values()))
-        provenance[key] = {"official_url": selected[month], "sha256": sha256(body).hexdigest()}
+        provenance[key] = {"official_url": selected[month], "sha256": digest}
         (args.output / f"rights-{key}.pdf").write_bytes(body)
     if not accepted:
         raise SystemExit("No JPX monthly rights reports passed validation")
