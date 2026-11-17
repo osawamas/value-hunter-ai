@@ -20,6 +20,7 @@ from us_sec_statement_coverage import measure as measure_statements
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
 SEC_INDEX = "https://www.sec.gov/Archives/edgar/full-index/"
+SEC_ARCHIVES = "https://www.sec.gov/Archives/edgar/"
 SEC_NOTES = "https://www.sec.gov/files/dera/data/financial-statement-notes-data-sets/"
 SEC_STATEMENTS = "https://www.sec.gov/files/dera/data/financial-statement-data-sets/"
 DIA_HOLDINGS = "https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-dia.xlsx"
@@ -35,21 +36,23 @@ EXCHANGES = {"A": "NYSE American", "N": "NYSE", "P": "NYSE Arca", "Z": "Cboe BZX
              "V": "IEX", "M": "NYSE Texas", "F": "Texas Stock Exchange"}
 
 
-def fetch(url, destination=None):
+def fetch(url, destination=None, max_bytes=None):
     name = url.rsplit("/", 1)[-1]
+    limit = max_bytes or ((350_000_000 if url.startswith(SEC_NOTES) else 220_000_000)
+                          if destination else MAX_BYTES)
     command = ["curl", "--fail", "--silent", "--location", "--max-redirs", "4",
                "--proto", "=https", "--proto-redir", "=https",
                "--max-time", "120" if destination else "25",
-               "--max-filesize", str((350_000_000 if url.startswith(SEC_NOTES) else 220_000_000) if destination else MAX_BYTES)]
+               "--max-filesize", str(limit)]
     if destination:
         command.extend(["--output", str(destination)])
-    if url == SEC_DIRECTORY or url.startswith((SEC_STATEMENTS, SEC_NOTES, SEC_INDEX)):
+    if url == SEC_DIRECTORY or url.startswith((SEC_STATEMENTS, SEC_NOTES, SEC_ARCHIVES)):
         command.extend(["--user-agent", "VALUE HUNTER AI research https://github.com/osawamas/value-hunter-ai"])
     try:
         result = subprocess.run([*command, url], capture_output=True, check=False)
     except FileNotFoundError:
         raise ValueError("Install curl to download the public files") from None
-    if result.returncode or (destination is None and not 0 < len(result.stdout) <= MAX_BYTES):
+    if result.returncode or (destination is None and not 0 < len(result.stdout) <= limit):
         raise ValueError(f"{name}: public download unavailable (curl {result.returncode})")
     return result.stdout
 

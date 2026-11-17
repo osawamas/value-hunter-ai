@@ -186,3 +186,17 @@ python3 tools/us_public_files_probe.py 2026-11-16 --dow --sec-notes 2026-10 --se
 
 11月16日分では、株数を確認した3,015銘柄のうち、追跡対象の書類があったのは2,959銘柄。
 56銘柄は対象の書類種類が索引から見つからなかった。
+
+### 月次ZIP未収録の決算書を原本から確認する
+
+`us_sec_original_cover.py` は指定したNYSE・Nasdaq銘柄について、EDGAR四半期索引から取引日の
+前日までに提出された最新の原本10-Kまたは10-Qを探し、添付のSEC抽出XBRLを確認する。
+月次ZIPに含まれない翌月の提出分も、索引に掲載されていれば対象になる。
+
+```sh
+python3 tools/us_sec_original_cover.py 2026-11-16 --sec-index-quarter 2026q3 --sec-index-quarter 2026q4 --ticker AAPL --ticker MSFT --ticker IBM
+```
+
+原本の株数・基準日・提出日・開示精度・出典を出す。同一CIKに複数株式クラスの可能性がある場合や、
+XBRLの文脈が企業全体の普通株式数を一意に示さない場合は保留する。対象は1回30銘柄まで。
+開示された基準日以降の発行、買戻し、分割と、取引日の未調整終値は別途照合が必要。

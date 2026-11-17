@@ -19,7 +19,7 @@ def quarter(day):
     return day.year, (day.month - 1) // 3 + 1
 
 
-def read_index(path, expected, cutoff, share_dates, accessions, events):
+def scan_index(path, expected, visit):
     if not 0 < Path(path).stat().st_size <= 64_000_000:
         raise ValueError("Unexpected EDGAR master index size")
     with open(path, "rb") as source:
@@ -47,21 +47,27 @@ def read_index(path, expected, cutoff, share_dates, accessions, events):
             if quarter(filed_day) != expected or filed_day > received:
                 raise ValueError("EDGAR master index contains a date outside its declared coverage")
             observed = filed_day if observed is None else max(observed, filed_day)
-            issuer = int(cik)
-            if issuer not in share_dates or not share_dates[issuer] <= filed_day <= cutoff:
-                continue
-            base_form = form.removesuffix(b"/A")
-            if base_form not in FORMS and not base_form.startswith(b"424B"):
-                continue
-            match = ACCESSION.fullmatch(filename)
-            if match is None:
-                raise ValueError("Unexpected SEC submission filename")
-            accession = match[1]
-            if accession != accessions[issuer]:
-                events[issuer].add((filed_day, accession, base_form))
+            visit(int(cik), form, filed_day, filename)
     if observed != received:
         raise ValueError("EDGAR master index ends before its declared date")
     return received
+
+
+def read_index(path, expected, cutoff, share_dates, accessions, events):
+    def visit(issuer, form, filed_day, filename):
+        if issuer not in share_dates or not share_dates[issuer] <= filed_day <= cutoff:
+            return
+        base_form = form.removesuffix(b"/A")
+        if base_form not in FORMS and not base_form.startswith(b"424B"):
+            return
+        match = ACCESSION.fullmatch(filename)
+        if match is None:
+            raise ValueError("Unexpected SEC submission filename")
+        accession = match[1]
+        if accession != accessions[issuer]:
+            events[issuer].add((filed_day, accession, base_form))
+
+    return scan_index(path, expected, visit)
 
 
 def check(indexes, cutoff, share_dates, accessions, securities, report_groups):
