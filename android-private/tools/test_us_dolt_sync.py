@@ -76,6 +76,28 @@ class SyncTest(unittest.TestCase):
                 raise FileNotFoundError('dolt')
             self.assertEqual(sync(Path(tmp) / 'stocks', runner=runner), 'dolt_not_installed')
 
+    def test_unrelated_1429_does_not_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='error 1429: invalid data', stdout='')
+            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'failed')
+            self.assertEqual(len(calls), 1)
+
+    def test_initial_rate_limit_not_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                (dest / '.dolt').mkdir(parents=True)
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'rate_limited')
+            self.assertEqual(len(calls), 1)
+
 
 if __name__ == '__main__':
     unittest.main()
