@@ -24,7 +24,7 @@ python3 -m pip install 'PyMuPDF>=1.24,<2' 'openpyxl>=3.1,<4' 'xlrd>=2,<3'
 python3 tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-03
 ```
 
-更新内容は次回のAPKビルドで反映される。
+更新したJSONがリポジトリの `main` に反映されると、アプリの「東証日報で終値を確認」で取得できる。画面に資料の日付と取得元を表示する。取得に失敗したり版が古かったりする場合は、端末で最後に照合できた版か、APK同梱版のうち新しい有効な資料を使う。資料の時点で未確認の月は保留する。
 
 このボタンは手動の接続試験。取得したPDFは一時ファイルとして扱い、試験結果は監視履歴や候補一覧に登録しない。J-Quantsの監視設定は独立して使える。
 

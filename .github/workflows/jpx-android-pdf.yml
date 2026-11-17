@@ -108,4 +108,5 @@ jobs:
             adb shell am instrument -w jp.valuehunter.privatewatch.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe | tee "$RUNNER_TEMP/jpx-android-probe.log"
             grep '^JPX_ANDROID_CLOSES ' "$RUNNER_TEMP/jpx-android-probe.log" | tr -d '\r' > "$RUNNER_TEMP/jpx-actual.txt"
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_PREVIEW_OK'
+            tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_RIGHTS_REFRESH_OK'
             diff -u "$RUNNER_TEMP/jpx-expected.txt" "$RUNNER_TEMP/jpx-actual.txt"

@@ -1,6 +1,6 @@
 """Refresh the bundled Android JPX rights data from the official catalogs."""
 import argparse
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -47,8 +47,14 @@ def refresh(path, first_month, last_month, *, dry_run=False):
         fresh = snapshot({"monthly_report_provenance": provenance, "daily_workbooks": daily},
                          directory, codes)
     merged = combine(previous, fresh)
-    changed = merged != previous
+    revision = previous.get("revision")
+    previous_data = {key: value for key, value in previous.items() if key != "revision"}
+    changed = merged != previous_data or revision is None
     if changed and not dry_run:
+        updated_at = datetime.now(timezone.utc)
+        if revision and updated_at <= datetime.fromisoformat(revision):
+            raise ValueError("The new JPX snapshot revision must be later than the existing revision")
+        merged = {"revision": updated_at.isoformat().replace("+00:00", "Z"), **merged}
         with TemporaryDirectory(dir=path.parent) as staging:
             replacement = Path(staging) / path.name
             replacement.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")

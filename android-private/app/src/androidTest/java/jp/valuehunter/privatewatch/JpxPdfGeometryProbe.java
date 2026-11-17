@@ -20,6 +20,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.json.JSONObject;
+
 public final class JpxPdfGeometryProbe extends Instrumentation {
     @Override
     public void onCreate(Bundle arguments) {
@@ -43,7 +45,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                     + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
                     + checkSampleReport(directory, JpxShareRights.load(getTargetContext()));
-            result.putString("stream", logs);
+            checkRightsRefresh(getTargetContext());
+            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\n");
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
@@ -206,6 +209,38 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || !html.contains("参考判定の変化 · 保留（権利落日 2026-11-19")
                 || html.contains("新たに条件内")) {
             throw new AssertionError("A share change produced a misleading reference transition");
+        }
+    }
+
+    private static void checkRightsRefresh(android.content.Context context) throws Exception {
+        var file = new android.util.AtomicFile(new File(context.getFilesDir(), "jpx-share-rights.json"));
+        try {
+            var bundled = JpxShareRights.refresh(context, () -> { throw new IOException("offline"); });
+            var september = YearMonth.of(2026, 9);
+            if (!bundled.status().contains("アプリ同梱資料") || !bundled.rights().months().contains(september)) {
+                throw new AssertionError("Missing bundled rights fallback");
+            }
+            String original;
+            try (var input = context.getAssets().open("jpx-share-rights.json")) {
+                original = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            }
+            var remote = new JSONObject(original);
+            var revision = java.time.Instant.parse(remote.getString("revision")).plusSeconds(60);
+            remote.put("revision", revision.toString());
+            remote.getJSONObject("monthlySources").remove("2026-09");
+            var updated = JpxShareRights.refresh(context, remote::toString);
+            if (!updated.status().contains("オンライン資料") || updated.rights().months().contains(september)) {
+                throw new AssertionError("The online rights snapshot did not replace superseded coverage");
+            }
+            for (String invalid : new String[]{"{}", original}) {
+                var result = JpxShareRights.refresh(context, () -> invalid);
+                if (!result.status().contains("端末に保存した資料")
+                        || result.rights().months().contains(september)) {
+                    throw new AssertionError("An invalid or older remote snapshot superseded the cache");
+                }
+            }
+        } finally {
+            file.delete();
         }
     }
 

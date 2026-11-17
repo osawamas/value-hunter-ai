@@ -1,16 +1,20 @@
 package jp.valuehunter.privatewatch;
 
 import android.content.Context;
+import android.util.AtomicFile;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -18,6 +22,11 @@ import java.util.List;
 import java.util.Set;
 
 record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices) {
+    private static final String ASSET = "jpx-share-rights.json";
+    private static final String ONLINE =
+            "https://raw.githubusercontent.com/osawamas/value-hunter-ai/main/android-private/app/src/main/assets/"
+                    + ASSET;
+    private static final int MAX_BYTES = 65_536;
     private static final String JPX_MONTHLY =
             "https://www.jpx.co.jp/markets/statistics-equities/monthly/index.html";
 
@@ -27,19 +36,97 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
         }
     }
 
+    record Selection(JpxShareRights rights, String status) {}
+
+    record Snapshot(Instant revision, JpxShareRights rights, String body) {}
+
     static JpxShareRights load(Context context) {
-        try (var asset = context.getAssets().open("jpx-share-rights.json")) {
+        var asset = readBundled(context);
+        return asset == null ? empty() : asset.rights();
+    }
+
+    @FunctionalInterface
+    interface FetchSnapshot {
+        String fetch() throws IOException;
+    }
+
+    static Selection refresh(Context context) {
+        return refresh(context, () -> UsScanWorker.get(ONLINE, null));
+    }
+
+    static synchronized Selection refresh(Context context, FetchSnapshot sourceLoader) {
+        var bundled = readBundled(context);
+        var cache = new AtomicFile(new File(context.getFilesDir(), ASSET));
+        Snapshot saved = null;
+        try (var input = cache.openRead()) {
+            saved = read(input);
+        } catch (IOException | JSONException | DateTimeException ignored) {
+            // A missing or invalid cache can be recovered from the bundled or online copy.
+        }
+        var local = cachedOrBundled(saved, bundled);
+        boolean online = false;
+        try {
+            var remote = parse(sourceLoader.fetch());
+            if (isNewer(remote, local)) {
+                var output = cache.startWrite();
+                try {
+                    output.write(remote.body().getBytes(StandardCharsets.UTF_8));
+                    cache.finishWrite(output);
+                } catch (IOException error) {
+                    cache.failWrite(output);
+                    throw error;
+                }
+                local = remote;
+                online = true;
+            } else if (remote.revision().equals(local.revision()) && remote.body().equals(local.body())) {
+                online = true;
+            }
+        } catch (IOException | JSONException | DateTimeException ignored) {
+            // Keep the newest valid local copy when the online copy cannot be used.
+        }
+        if (local == null) return new Selection(empty(), "権利落ち資料を確認できなかった");
+        String source = online ? "オンライン資料"
+                : (local == saved ? "端末に保存した資料" : "アプリ同梱資料");
+        var checkedOn = local.revision().atZone(ZoneId.of("Asia/Tokyo")).toLocalDate();
+        return new Selection(local.rights(), "権利落ち資料 " + checkedOn + "（" + source + "）");
+    }
+
+    static Snapshot cachedOrBundled(Snapshot saved, Snapshot bundled) {
+        return isNewer(saved, bundled) ? saved : bundled;
+    }
+
+    static boolean isNewer(Snapshot candidate, Snapshot current) {
+        return candidate != null && (current == null || candidate.revision().isAfter(current.revision()));
+    }
+
+    private static JpxShareRights empty() {
+        return new JpxShareRights(Set.of(), Set.of(), List.of());
+    }
+
+    private static Snapshot readBundled(Context context) {
+        try (var asset = context.getAssets().open(ASSET)) {
             return read(asset);
         } catch (IOException | JSONException | DateTimeException error) {
-            return new JpxShareRights(Set.of(), Set.of(), List.of());
+            return null;
         }
     }
 
-    private static JpxShareRights read(InputStream input) throws IOException, JSONException {
+    private static Snapshot read(InputStream input) throws IOException, JSONException {
         var bytes = new ByteArrayOutputStream();
         byte[] buffer = new byte[8_192];
-        for (int length; (length = input.read(buffer)) != -1;) bytes.write(buffer, 0, length);
-        var payload = new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
+        for (int length; (length = input.read(buffer)) != -1;) {
+            if (bytes.size() + length > MAX_BYTES) throw new IOException("JPX rights snapshot is too large");
+            bytes.write(buffer, 0, length);
+        }
+        return parse(bytes.toString(StandardCharsets.UTF_8.name()));
+    }
+
+    static Snapshot parse(String body) throws JSONException {
+        if (body.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
+            throw new JSONException("JPX rights snapshot is too large");
+        }
+        var payload = new JSONObject(body);
+        var revision = Instant.parse(payload.getString("revision"));
         var codes = new HashSet<String>();
         var covered = payload.getJSONArray("coveredCodes");
         for (int index = 0; index < covered.length(); index++) {
@@ -64,7 +151,9 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
             notices.add(new Notice(code, LocalDate.parse(entry.getString("exDay")),
                     officialSource(entry.getString("source"))));
         }
-        return new JpxShareRights(Set.copyOf(codes), Set.copyOf(months), List.copyOf(notices));
+        if (codes.isEmpty()) throw new JSONException("JPX rights snapshot has no covered codes");
+        var rights = new JpxShareRights(Set.copyOf(codes), Set.copyOf(months), List.copyOf(notices));
+        return new Snapshot(revision, rights, body);
     }
 
     private static String officialSource(String url) throws JSONException {
