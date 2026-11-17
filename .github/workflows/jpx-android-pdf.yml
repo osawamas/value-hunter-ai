@@ -10,6 +10,7 @@ on:
       - 'android-private/app/src/androidTest/**'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxAndroidPdfReader.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxDailyCheck.java'
       - 'android-private/tools/jpx_daily_probe.py'
 
 permissions:
@@ -101,4 +102,5 @@ jobs:
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-codes.txt'" < "$RUNNER_TEMP/jpx-codes.txt"
             adb shell am instrument -w jp.valuehunter.privatewatch.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe | tee "$RUNNER_TEMP/jpx-android-probe.log"
             grep '^JPX_ANDROID_CLOSES ' "$RUNNER_TEMP/jpx-android-probe.log" | tr -d '\r' > "$RUNNER_TEMP/jpx-actual.txt"
+            tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_PREVIEW_OK'
             diff -u "$RUNNER_TEMP/jpx-expected.txt" "$RUNNER_TEMP/jpx-actual.txt"

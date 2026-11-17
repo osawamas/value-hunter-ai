@@ -21,6 +21,8 @@ import androidx.work.WorkManager;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import java.io.IOException;
+
 public final class MainActivity extends Activity {
     private SharedPreferences state;
     private TextView status;
@@ -31,6 +33,7 @@ public final class MainActivity extends Activity {
     private EditText usKey;
     private EditText sgKey;
     private CheckBox sgWatch;
+    private Thread jpxCheckThread;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
 
@@ -110,6 +113,7 @@ public final class MainActivity extends Activity {
             ScanWorker.testNotification(this);
         });
         content.addView(test);
+        addJpxDailyCheck(content);
 
         var erase = new Button(this);
         erase.setText("この端末のAPIキー・監視履歴を消去");
@@ -234,6 +238,54 @@ public final class MainActivity extends Activity {
         results = new TextView(this);
         results.setTextIsSelectable(true);
         content.addView(results);
+    }
+
+    private void addJpxDailyCheck(LinearLayout content) {
+        var check = new Button(this);
+        check.setText("東証日報で終値を確認");
+        content.addView(check);
+        var report = new TextView(this);
+        report.setTextIsSelectable(true);
+        report.setMovementMethod(LinkMovementMethod.getInstance());
+        content.addView(report);
+
+        if (Build.VERSION.SDK_INT < 35) {
+            check.setEnabled(false);
+            report.setText("東証日報のPDF読み取りはAndroid 15以降に対応");
+            return;
+        }
+
+        report.setText("接続試験 · 1301 極洋 / 7203 トヨタ自動車");
+        check.setOnClickListener(view -> {
+            check.setEnabled(false);
+            report.setText("JPXの株式相場表を取得中");
+            jpxCheckThread = new Thread(() -> {
+                CharSequence message;
+                try {
+                    var daily = JpxDailyCheck.check(getCacheDir());
+                    String html = daily.summary().replace("\n", "<br>") + "<br><a href='"
+                            + daily.source() + "'>JPX 株式相場表（PDF）</a>";
+                    message = android.text.Html.fromHtml(html, android.text.Html.FROM_HTML_MODE_LEGACY);
+                } catch (IOException error) {
+                    message = "東証日報の確認に失敗\n" + error.getMessage();
+                } catch (RuntimeException error) {
+                    message = "東証日報のPDFを読み取れなかった";
+                }
+                CharSequence result = message;
+                runOnUiThread(() -> {
+                    if (isDestroyed() || isFinishing()) return;
+                    jpxCheckThread = null;
+                    report.setText(result);
+                    check.setEnabled(true);
+                });
+            }, "jpx-daily-check");
+            jpxCheckThread.start();
+        });
+    }
+
+    @Override protected void onDestroy() {
+        if (jpxCheckThread != null) jpxCheckThread.interrupt();
+        super.onDestroy();
     }
 
     @Override protected void onStart() {
