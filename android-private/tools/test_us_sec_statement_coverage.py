@@ -41,7 +41,7 @@ class StatementCoverageTest(unittest.TestCase):
                 submission("later", 3, "20261117"), submission("amended", 4, form="10-Q/A"),
             ], pair("okay") + pair("same") + pair("later") + pair("amended"))
             counts = measure([source], CUTOFF, {"ONE.A": 1, "ONE.B": 1, "SAME": 2, "LATER": 3, "AM": 4},
-                             {"Nasdaq": {"ONE.A": 1}, "NYSE": {"SAME": 2}})
+                             {"Nasdaq": {"ONE.A": 1}, "NYSE": {"SAME": 2}}, {1: date(2026, 10, 23)})
         self.assertEqual(2, counts["securities_with_original_10k_or_10q"])
         self.assertEqual(2, counts["securities_with_equity_and_period_profit"])
         self.assertEqual(1, counts["unique_issuers_with_equity_and_period_profit"])
@@ -64,9 +64,11 @@ class StatementCoverageTest(unittest.TestCase):
                 + [fact("missing", "StockholdersEquity", "999", "0", segment="subsidiary"),
                    fact("missing", "StockholdersEquity", "333", "0", unit="EUR"),
                    fact("missing", "NetIncomeLoss", "30", "1")])
-            counts = measure([newest, early], CUTOFF, {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4})
+            counts = measure([newest, early], CUTOFF, {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4},
+                             share_dates={1: date(2026, 10, 23), 3: date(2026, 10, 25)})
         self.assertEqual(4, counts["securities_with_original_10k_or_10q"])
         self.assertEqual(2, counts["securities_with_equity_and_period_profit"])
+        self.assertEqual(1, counts["with_equity_trailing_profit_and_dated_cover_shares"])
 
     def test_trailing_income_uses_matching_fiscal_windows_and_no_conflicting_amounts(self):
         with TemporaryDirectory() as directory:

@@ -152,3 +152,22 @@ python3 tools/us_public_files_probe.py 2026-11-16 --dow --sec-quarter 2026q3 --s
 DIAの30銘柄の上場先はNYSEが21、Nasdaqが9。取引所の普通株候補は銘柄名による分類だが、
 DIAの内訳では保有明細で確認した株を対象に含める。価格は分割調整済みの評価用サンプルで、
 取引日時点の発行済株式数や正式なPER・PBRの検証は別途必要。
+
+### SEC表紙の発行済み普通株式数
+
+`--sec-notes` は [SEC Financial Statement and Notes Data Sets](https://www.sec.gov/data-research/sec-markets-data/financial-statement-notes-data-sets)
+の月次公開ZIPを取得し、10-K・10-Q表紙の発行済み普通株式数を読む。
+SECの月末丸めと日数差から原資料の株数基準日を復元する。取引日前日までの提出を対象とし、
+数値の丸めや競合がある場合、株式クラスや銘柄の割当が確認できない場合は保留する。
+`--sec-quarter` も指定すれば、同じ銘柄で直近12か月純利益・株主資本・日付付きの株数が揃った件数も出る。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --dow --sec-notes 2026-10 --sec-notes 2026-09 --sec-notes 2026-08 --sec-quarter 2026q3 --sec-quarter 2026q2 --sec-quarter 2026q1 --sec-quarter 2025q4
+```
+
+この株数は開示で確認した基準日の値。以後の発行・買戻し・分割などを反映した取引日当日の値は別途照合が必要。
+
+11月16日の終値サンプルとSEC企業IDが揃った5,208銘柄のうち、上記の3か月分の月次ZIPで
+3,015銘柄に日付付き株数があり、うち441銘柄は11月16日まで30日以内の開示基準日だった。
+四半期ZIPの決算も含めて揃ったのは2,583銘柄。NYSE本市場は789銘柄、Nasdaqは1,679銘柄、
+DIA保有株は18銘柄だった。DIAは取引所と重複する。

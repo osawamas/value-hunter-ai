@@ -28,11 +28,11 @@ class Filing:
     fiscal_focus: bytes
 
 
-def collect_filings(archive, cutoff, issuers, eligible):
-    with archive.open("sub.txt") as table:
+def collect_filings(archive, cutoff, issuers, eligible, member="sub.txt"):
+    with archive.open(member) as table:
         headers = table.readline().rstrip(b"\r\n").split(b"\t")
         if not set(SUB_FIELDS).issubset(headers) or len(headers) != len(set(headers)):
-            raise ValueError("Unexpected SEC sub.txt header")
+            raise ValueError(f"Unexpected SEC {member} header")
         columns = [headers.index(key) for key in SUB_FIELDS]
         allowed = {str(cik).encode(): cik for cik in issuers}
         for row in table:
@@ -153,7 +153,7 @@ def trailing_profit(filing, annual, facts):
     return full_year + this_ytd - prior_ytd
 
 
-def measure(paths, cutoff, securities, report_groups=None):
+def measure(paths, cutoff, securities, report_groups=None, share_dates=None):
     """Count securities with eligible filings and financial inputs, without emitting values."""
     report_groups = report_groups or {}
     issuers = set(securities.values())
@@ -184,7 +184,7 @@ def measure(paths, cutoff, securities, report_groups=None):
             with_trailing.add(cik)
     def counts(tickers):
         ids = set(tickers.values())
-        return {
+        result = {
             "securities_checked": len(tickers),
             "unique_issuers_checked": len(ids),
             "securities_with_original_10k_or_10q": sum(cik in current for cik in tickers.values()),
@@ -193,6 +193,11 @@ def measure(paths, cutoff, securities, report_groups=None):
             "securities_with_equity_and_trailing_profit": sum(cik in with_trailing for cik in tickers.values()),
             "unique_issuers_with_equity_and_trailing_profit": len(ids & with_trailing),
         }
+        if share_dates is not None:
+            result["with_equity_trailing_profit_and_dated_cover_shares"] = sum(
+                cik in with_trailing and cik in share_dates for cik in tickers.values()
+            )
+        return result
 
     result = counts(securities)
     if report_groups:

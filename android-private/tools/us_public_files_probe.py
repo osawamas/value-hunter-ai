@@ -14,10 +14,12 @@ from tempfile import TemporaryDirectory
 from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
+from us_sec_share_coverage import measure as measure_shares
 from us_sec_statement_coverage import measure as measure_statements
 
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
+SEC_NOTES = "https://www.sec.gov/files/dera/data/financial-statement-notes-data-sets/"
 SEC_STATEMENTS = "https://www.sec.gov/files/dera/data/financial-statement-data-sets/"
 DIA_HOLDINGS = "https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-dia.xlsx"
 DOW = "Dow Jones (DIA holdings)"
@@ -37,10 +39,10 @@ def fetch(url, destination=None):
     command = ["curl", "--fail", "--silent", "--location", "--max-redirs", "4",
                "--proto", "=https", "--proto-redir", "=https",
                "--max-time", "120" if destination else "25",
-               "--max-filesize", str(220_000_000 if destination else MAX_BYTES)]
+               "--max-filesize", str((350_000_000 if url.startswith(SEC_NOTES) else 220_000_000) if destination else MAX_BYTES)]
     if destination:
         command.extend(["--output", str(destination)])
-    if url == SEC_DIRECTORY or url.startswith(SEC_STATEMENTS):
+    if url == SEC_DIRECTORY or url.startswith((SEC_STATEMENTS, SEC_NOTES)):
         command.extend(["--user-agent", "VALUE HUNTER AI research https://github.com/osawamas/value-hunter-ai"])
     try:
         result = subprocess.run([*command, url], capture_output=True, check=False)
@@ -144,7 +146,22 @@ def load_dia(content):
         workbook.close()
 
 
-def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None):
+def issuers_requiring_class_review(listings, sec):
+    symbols_by_issuer = defaultdict(set)
+    for ticker, candidates in sec.items():
+        symbol = ticker
+        if symbol not in listings and re.fullmatch(r"[A-Z]+-[A-Z]", symbol):
+            dotted = symbol.replace("-", ".")
+            if dotted in listings:
+                symbol = dotted
+        if symbol in listings and listings[symbol][1] == "other_security":
+            continue
+        for cik, _ in candidates:
+            symbols_by_issuer[cik].add(symbol)
+    return {cik for cik, symbols in symbols_by_issuer.items() if len(symbols) > 1}
+
+
+def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None, notes_files=()):
     # The SEC may label NYSE-group listings simply as NYSE.
     venues = {"Nasdaq": {"Nasdaq"}, "NYSE": {"NYSE"}, "NYSE American": {"NYSE", "NYSE American"},
               "NYSE Arca": {"NYSE", "NYSE Arca"}, "Cboe BZX": {"CBOE"},
@@ -193,14 +210,20 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None)
         result["with_close_and_sec_issuer_by_market_or_index"] = {
             name: len(tickers) for name, tickers in grouped.items()
         }
+    securities = {ticker: matches[ticker] for ticker in with_both}
+    share_dates = None
+    if notes_files:
+        result["cover_share_archive_coverage"], share_dates = measure_shares(
+            notes_files, day, securities, grouped, issuers_requiring_class_review(listings, sec)
+        )
     if statement_files:
         result["statement_archive_coverage"] = measure_statements(
-            statement_files, day, {ticker: matches[ticker] for ticker in with_both}, grouped
+            statement_files, day, securities, grouped, share_dates
         )
     return result
 
 
-def coverage(day, listings, bars, sec=None, statement_files=(), dow=None):
+def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=()):
     seen = set()
     closes = set()
     for row in bars:
@@ -246,7 +269,7 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None):
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
     if sec is not None:
-        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus)
+        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files)
     return result
 
 
@@ -277,14 +300,22 @@ def main():
     statements = parser.add_mutually_exclusive_group()
     statements.add_argument("--sec-quarter", action="append", default=[], help="Download a public SEC statements ZIP, e.g. 2026q3")
     statements.add_argument("--sec-statement-file", type=Path, action="append", default=[], help="Replay the original SEC statements ZIP")
+    notes = parser.add_mutually_exclusive_group()
+    notes.add_argument("--sec-notes", action="append", default=[], help="Download a public SEC notes ZIP, e.g. 2026-10")
+    notes.add_argument("--sec-notes-file", type=Path, action="append", default=[], help="Replay an original SEC notes ZIP")
     args = parser.parse_args()
+    check_notes = args.sec_notes or args.sec_notes_file
+    if any(not re.fullmatch(r"20[0-9]{2}-(0[1-9]|1[0-2])", month) for month in args.sec_notes):
+        parser.error("--sec-notes expects YYYY-MM")
+    if len(check_notes) > 4 or len(check_notes) != len(set(check_notes)):
+        parser.error("Use up to four distinct monthly notes archives")
     check_statements = args.sec_quarter or args.sec_statement_file
     if any(not re.fullmatch(r"20[0-9]{2}q[1-4]", quarter) for quarter in args.sec_quarter):
         parser.error("--sec-quarter expects YYYYqN")
     if len(check_statements) > 8 or len(check_statements) != len(set(check_statements)):
         parser.error("Use up to eight distinct statement archives")
     if (args.sample_file or args.with_sec or args.sec_file or check_statements
-            or args.dow or args.dow_file) and not args.trading_day:
+            or args.dow or args.dow_file or check_notes) and not args.trading_day:
         parser.error("The sample, SEC and Dow options require a trading date")
     if args.trading_day and args.trading_day >= datetime.now(ZoneInfo("America/New_York")).date():
         parser.exit(1, "Use a completed US trading date. The public sample window is limited.\n")
@@ -306,7 +337,7 @@ def main():
             sample = (args.sample_file.read_bytes() if args.sample_file
                       else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
             sec = None
-            if args.with_sec or args.sec_file or check_statements:
+            if args.with_sec or args.sec_file or check_statements or check_notes:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
                 sec = read_sec_directory(content)
             holdings = None
@@ -319,7 +350,16 @@ def main():
                     destination = Path(directory) / filename
                     fetch(SEC_STATEMENTS + filename, destination)
                     statement_files.append(destination)
-                result.update(coverage(args.trading_day, listings, parquet_rows(sample), sec, statement_files, holdings))
+                notes_files = list(args.sec_notes_file)
+                for month in args.sec_notes:
+                    filename = month.replace("-", "_") + "_notes.zip"
+                    destination = Path(directory) / filename
+                    fetch(SEC_NOTES + filename, destination)
+                    notes_files.append(destination)
+                result.update(coverage(args.trading_day, listings, parquet_rows(sample),
+                                       sec, statement_files, holdings, notes_files))
+            if notes_files:
+                result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:
                 result["sec_statement_archives"] = [path.name for path in statement_files]
             result["comparison_basis"] = "observed listings; not a historical listing snapshot"

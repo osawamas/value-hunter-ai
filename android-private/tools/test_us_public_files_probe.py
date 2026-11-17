@@ -2,7 +2,7 @@ from datetime import date, datetime
 import json
 import unittest
 
-from us_public_files_probe import DOW, coverage, read_dia_rows, read_directory, read_sec_directory
+from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -121,6 +121,13 @@ class PublicFilesTest(unittest.TestCase):
         stale = coverage(DAY, listings, bars, sec, dow=(date(2026, 11, 13), symbols))
         self.assertNotIn("with_close", stale["dia_holdings_comparison"])
         self.assertNotIn(DOW, stale["common_or_ordinary_label_sec_join"]["with_close_and_sec_issuer_by_market_or_index"])
+
+    def test_class_review_ignores_confirmed_debt_but_keeps_unknown_second_symbol(self):
+        listings = {"A": ("NYSE", "common_or_ordinary_label"), "A.N": ("NYSE", "other_security"),
+                    "B": ("Nasdaq", "common_or_ordinary_label")}
+        sec = self.sec_rows([[1, "Issuer A", "A", "NYSE"], [1, "Issuer A", "A.N", "NYSE"],
+                             [2, "Issuer B", "B", "Nasdaq"], [2, "Issuer B", "BB", "OTC"]])
+        self.assertEqual({2}, issuers_requiring_class_review(listings, sec))
 
     @staticmethod
     def sec_rows(rows):
