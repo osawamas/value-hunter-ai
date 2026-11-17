@@ -138,7 +138,7 @@ def inspect_tape_c(stream):
             modifier = right + 7
             if message[9:10] == b"Q" and message[18:19] == b"Q" and message[modifier:modifier + 1] == b"M":
                 record_price(official, message[10:18], message[29:right])
-    if not events or events[0] != b"O" or events[-1] != b"C" or events.count(b"O") != 1:
+    if events != [b"O", b"C"]:
         raise ValueError("Expected one NLS Plus session with system start and end")
     return summaries, official
 
