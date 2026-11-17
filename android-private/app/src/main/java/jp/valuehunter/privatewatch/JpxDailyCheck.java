@@ -195,7 +195,17 @@ final class JpxDailyCheck {
                 return new Comparison(latest, null);
             }
             if (report == null) continue;
-            if (latest != null) return new Comparison(latest, report);
+            // A stale cache or a mismatched response must not masquerade as the
+            // requested trading day. Reject it rather than comparing false dates.
+            if (report.date() == null || !report.date().equals(day)) {
+                throw new IOException("東証日報の取引日が要求日と一致しない: " + day);
+            }
+            if (latest != null) {
+                if (!report.date().isBefore(latest.date())) {
+                    throw new IOException("東証日報の比較日が最新日より前ではない");
+                }
+                return new Comparison(latest, report);
+            }
             latest = report;
         }
         if (latest != null) return new Comparison(latest, null);
