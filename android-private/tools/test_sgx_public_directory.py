@@ -1,6 +1,6 @@
 import unittest
 
-from sgx_public_directory import exclude_replaced_codes, parse_directory, valid_isin
+from sgx_public_directory import exclude_replaced_codes, parse_directory, supplement_directory, valid_isin
 
 HTML = """
 <p>record as of 2026-11-13</p>
@@ -45,6 +45,32 @@ class PublicDirectoryTests(unittest.TestCase):
         self.assertTrue(exclusions[0]["replacement_present"])
         self.assertFalse(exclude_replaced_codes(records, "2026-09-16")[1])
         self.assertFalse(exclude_replaced_codes({"42S": {"isin": "other"}}, as_of)[1])
+
+    def test_keeps_two_currency_counters_with_the_same_isin(self):
+        row = {
+            "symbol": "AWX", "isin": "SG1BA1000003", "issuer": "AEM", "board": "Mainboard",
+            "source_url": "https://links.sgx.com/example", "evidence_date": "2021-12-30",
+            "security_type": "ordinary_share",
+        }
+        directory = {"XWA": {**row, "symbol": "XWA"}}
+        merged, audit = supplement_directory(directory, [row])
+        self.assertEqual(set(merged), {"AWX", "XWA"})
+        self.assertEqual(audit["directory_missing_count"], 1)
+        self.assertEqual(audit["unresolved_count"], 0)
+
+    def test_never_overwrites_a_conflicting_code(self):
+        row = {
+            "symbol": "S68", "isin": "SG1J26887955", "issuer": "Singapore Exchange",
+            "board": "Mainboard", "source_url": "https://links.sgx.com/example",
+            "evidence_date": "2026-11-01", "security_type": "ordinary_share",
+        }
+        directory = {"S68": {**row, "isin": "SG1BA1000003"}}
+        merged, audit = supplement_directory(directory, [row])
+        self.assertEqual(merged, directory)
+        self.assertEqual(audit["conflicting_codes"], ["S68"])
+        self.assertEqual(audit["unresolved_count"], 1)
+        with self.assertRaisesRegex(ValueError, "invalid SGX listing"):
+            supplement_directory({}, [row, row])
 
 
 if __name__ == "__main__":

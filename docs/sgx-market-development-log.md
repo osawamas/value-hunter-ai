@@ -1,5 +1,13 @@
 # VALUE HUNTER AI シンガポール株の開発ログ
 
+## 2026-11-18 07:09 JST — 一覧に欠けていた10取引コードを補完
+
+- 第三者の公開HTMLから再取得した623候補を、SGX上場確認・発行体開示に照合。公開HTMLに欠けていた10コードの証拠を [sgx-listing-evidence.json](data/sgx-listing-evidence.json) に記録し、通常実行時に候補へ追加する処理を実装した。10件のSGX原本を直接取得して、取引コード・証券識別子の掲載箇所を確認した。AWXの開示PDFは取引コードと通貨を記載し、ISINは候補に掲載されたXWAとSGinvestorsの両カウンター表示で照合した。
+- 普通株のコード4件は9DC、MIM、MET、AWX。残る6件（A7RU、CJLU、CY6U、HMN、J85、Q5T）は信託・ステープル証券。AEMのAWX（SGD）と既存XWA（USD）は同じISINなので、取引コードは2件、証券識別子は1件と数える。
+- 補完後は633取引コード（Mainboard 435・Catalist 198）、632種類のISIN。今回照合した10件の未取得は補完後0件。候補に同じコードで別のISINや取引区分が載った場合は、既存データを上書きせず不一致として出力する。候補全体の現行上場や証券種別は未確認。
+- SGX市場全体の未取得数は未確定。SGX公式画面の直接HTMLに銘柄表がなく、10月末の月報は市場別件数のみで日付・範囲も異なる。SG Stocks BriefとEODDataのWeb利用条件に自動抽出の制限があるため、両サイトを一括照合には使用しなかった。
+- Pythonテスト88件成功（今回追加2件）。株価取得・Android接続・ランキング反映は今回の作業範囲外。再実行は `python3 android-private/tools/sgx_public_directory.py --include-records`。
+
 ## 2026-11-18 06:59 JST — 公開HTMLから銘柄コードとISINを一括取得
 
 - [GetResearchのSGX一覧](https://getresearch.ai/sg)（表示基準日2026-11-13）を1回のHTML取得で読み取る調査ツールを追加。ログイン・データAPI・CSV入力は不要。銘柄行の欠落やコードの重複を検出するため、取引区分ごとの件数をページ内の集計と照合し、ISINのチェックディジットを検証する。

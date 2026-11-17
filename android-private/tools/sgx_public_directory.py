@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 from hashlib import sha256
 from html.parser import HTMLParser
 import json
+from pathlib import Path
 import re
 import sys
 from urllib.request import Request, urlopen
@@ -15,6 +16,7 @@ BOARDS = {"SGX": "Mainboard", "SGX-CATALIST": "Catalist"}
 SUMMARY_HEADER = ["exchange", "code", "listed companies with a page"]
 ISSUER_HEADER = ["issuer", "exchange", "ticker", "ISIN"]
 MAX_HTML = 1_000_000
+LISTING_EVIDENCE = Path(__file__).resolve().parents[2] / "docs/data/sgx-listing-evidence.json"
 CONFIRMED_REPLACEMENTS = (
     {
         "old_symbol": "42S",
@@ -132,6 +134,37 @@ def exclude_replaced_codes(records, as_of):
     return candidates, replacements
 
 
+def supplement_directory(directory, evidence):
+    """Add reviewed identities and flag conflicting identifiers for review."""
+    candidates = dict(directory)
+    evidence_codes = set()
+    added, conflicts = [], []
+    for row in evidence:
+        symbol = row["symbol"]
+        if (symbol in evidence_codes or not re.fullmatch(r"[A-Z0-9]{1,12}", symbol)
+                or not valid_isin(row["isin"]) or row["board"] not in BOARDS.values()
+                or not row["issuer"].strip() or not row["security_type"].strip()
+                or not row["source_url"].startswith("https://links.sgx.com/")):
+            raise ValueError(f"invalid SGX listing evidence for {symbol}")
+        date.fromisoformat(row["evidence_date"])
+        evidence_codes.add(symbol)
+        current = directory.get(symbol)
+        if current is None:
+            candidates[symbol] = row
+            added.append(symbol)
+        elif current["isin"] != row["isin"] or current["board"] != row["board"]:
+            conflicts.append(symbol)
+        else:
+            candidates[symbol] = {**current, **row}
+    return candidates, {
+        "reviewed_count": len(evidence_codes),
+        "directory_missing_count": len(added),
+        "added_codes": sorted(added),
+        "conflicting_codes": sorted(conflicts),
+        "unresolved_count": len(conflicts),
+    }
+
+
 def download():
     request = Request(URL, headers={
         "Accept": "text/html",
@@ -153,10 +186,12 @@ def main():
     try:
         body = download()
         as_of, records, board_counts = parse_directory(body.decode("utf-8"))
+        directory, exclusions = exclude_replaced_codes(records, as_of)
+        evidence = json.loads(LISTING_EVIDENCE.read_text(encoding="utf-8"))
+        candidates, audit = supplement_directory(directory, evidence)
     except (OSError, ValueError) as error:
         print(f"SGX candidate directory fetch failed: {error}", file=sys.stderr)
         return 1
-    candidates, exclusions = exclude_replaced_codes(records, as_of)
     report = {
         "source_url": URL,
         "source_as_of": as_of,
@@ -164,7 +199,10 @@ def main():
         "html_sha256": sha256(body).hexdigest(),
         "source_row_count": len(records),
         "source_board_counts": board_counts,
+        "directory_candidate_count": len(directory),
         "candidate_count": len(candidates),
+        "listing_evidence": audit,
+        "market_missing_count": None,
         "distinct_isin_count": len({row["isin"] for row in candidates.values()}),
         "board_candidate_counts": {
             board: sum(row["board"] == board for row in candidates.values())

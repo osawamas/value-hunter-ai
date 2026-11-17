@@ -1,0 +1,93 @@
+[
+  {
+    "symbol": "AWX",
+    "isin": "SG1BA1000003",
+    "issuer": "AEM Holdings Ltd.",
+    "board": "Mainboard",
+    "evidence_date": "2021-12-30",
+    "security_type": "ordinary_share",
+    "source_url": "https://links.sgx.com/FileOpen/AEM%20-%20DCT%20Trading%20Counter%20Announcement.ashx?App=Announcement&FileID=696124",
+    "isin_source_url": "https://sginvestors.io/sgx/stock/awx-aem/stock-info"
+  },
+  {
+    "symbol": "HMN",
+    "isin": "SGXC16332337",
+    "issuer": "CapitaLand Ascott Trust",
+    "board": "Mainboard",
+    "evidence_date": "2026-07-28",
+    "security_type": "stapled_security",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/2UR2CADLGWAPIXXQ/c1f4255fac8ca4f0e1be5a1136d475eb9707464b93698c9721deefeba4fa3ff2"
+  },
+  {
+    "symbol": "CJLU",
+    "isin": "SG1DH9000006",
+    "issuer": "NetLink NBN Trust",
+    "board": "Mainboard",
+    "evidence_date": "2026-10-29",
+    "security_type": "business_trust",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/L1IGMJM76ISAASEA/bcb8ec7abee18b91ad09719a2b4c62e0c23f6376fa4f448c7e1e9d8d89c64dbb"
+  },
+  {
+    "symbol": "CY6U",
+    "isin": "SG1V35936920",
+    "issuer": "CapitaLand India Trust",
+    "board": "Mainboard",
+    "evidence_date": "2026-09-14",
+    "security_type": "business_trust",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/QC3RW7KGRSGR3N52/8596d34b6855adcabca5dcc60a303bc4487fec97d60b217679915636fc95657e"
+  },
+  {
+    "symbol": "A7RU",
+    "isin": "SG1U48933923",
+    "issuer": "Keppel Infrastructure Trust",
+    "board": "Mainboard",
+    "evidence_date": "2026-07-28",
+    "security_type": "business_trust",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/ZEFFE6672LAYW8NR/1ebd8f32c5c59c1c972cd602dcaab2db6ed1e456674714c6575ae9e56b801cc2"
+  },
+  {
+    "symbol": "Q5T",
+    "isin": "SG2F08984575",
+    "issuer": "Far East Hospitality Trust",
+    "board": "Mainboard",
+    "evidence_date": "2026-07-30",
+    "security_type": "stapled_security",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/808YP66CDMODWVNF/d9faed20d3df60054049c04acaeea5d2f1544017a50f40e2edb55a88558c8b43"
+  },
+  {
+    "symbol": "J85",
+    "isin": "SG1T66931158",
+    "issuer": "CDL Hospitality Trusts",
+    "board": "Mainboard",
+    "evidence_date": "2026-11-10",
+    "security_type": "stapled_security",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/P1MR376PLBRHQ1DS/9d9946858d0972490e0125dda0cccce0631a1d302aa3f044552a62ca0ad6384b"
+  },
+  {
+    "symbol": "9DC",
+    "isin": "SGXE96931105",
+    "issuer": "Deluge Corporation Limited",
+    "board": "Mainboard",
+    "evidence_date": "2026-10-16",
+    "security_type": "ordinary_share",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/CVLKKOOOXPT8BOG2/bbddb7499b65b97ca34526cab59adee3f7b34f2be274cc0d38cbd7b74e0ee857"
+  },
+  {
+    "symbol": "MIM",
+    "isin": "SGXE49931863",
+    "issuer": "MI Material Holding Limited",
+    "board": "Mainboard",
+    "evidence_date": "2026-10-27",
+    "security_type": "ordinary_share",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/7553QXPI35CQ2A7V/fc20bc2859953005b225dc9ffbaf98694e9305222473599a64b927ab90629c7a"
+  },
+  {
+    "symbol": "MET",
+    "isin": "KYG9R41B1017",
+    "issuer": "Metasurface Technologies Holdings Limited",
+    "board": "Catalist",
+    "evidence_date": "2026-11-03",
+    "security_type": "ordinary_share",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/23V5ER2V4U912R5M/821531b6674ffed56a705888a5fd998b8b14c0ea7d0b42efc5d72611b156f68e"
+  }
+]
