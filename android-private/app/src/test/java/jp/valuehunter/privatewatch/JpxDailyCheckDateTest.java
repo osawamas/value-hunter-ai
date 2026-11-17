@@ -18,14 +18,23 @@ public class JpxDailyCheckDateTest {
         LocalDate today = LocalDate.of(2026, 11, 18);
         var result = JpxDailyCheck.checkRecent(today, requested ->
                 new JpxDailyCheck.Report(requested, "test", Map.of(), Set.of()));
-        assertEquals(LocalDate.of(2026, 11, 17), result.latest().date());
-        assertEquals(LocalDate.of(2026, 11, 16), result.previous().date());
+        assertEquals(LocalDate.of(2026, 11, 18), result.latest().date());
+        assertEquals(LocalDate.of(2026, 11, 17), result.previous().date());
+    }
+
+    @Test public void includesTodayOnlyWhenPublished() throws Exception {
+        LocalDate today = LocalDate.of(2026, 11, 18);
+        assertEquals(today, JpxDailyCheck.candidateDays(today).get(0));
+        var comparison = JpxDailyCheck.checkRecent(today, requested ->
+                requested.equals(today) ? null : new JpxDailyCheck.Report(requested, "test", Map.of(), Set.of()));
+        assertEquals(LocalDate.of(2026, 11, 17), comparison.latest().date());
+        assertEquals(LocalDate.of(2026, 11, 16), comparison.previous().date());
     }
 
     @Test public void ignoresUnpublishedDaysWithoutInventingQuotes() throws Exception {
         LocalDate today = LocalDate.of(2026, 11, 18);
         var result = JpxDailyCheck.checkRecent(today, requested ->
-                requested.equals(LocalDate.of(2026, 11, 17)) ? null
+                (requested.equals(LocalDate.of(2026, 11, 18)) || requested.equals(LocalDate.of(2026, 11, 17))) ? null
                     : new JpxDailyCheck.Report(requested, "test", Map.of(), Set.of()));
         assertEquals(LocalDate.of(2026, 11, 16), result.latest().date());
         assertEquals(LocalDate.of(2026, 11, 13), result.previous().date());
