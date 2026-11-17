@@ -40,10 +40,14 @@ class StatementCoverageTest(unittest.TestCase):
                 submission("okay", 1), submission("same", 2, "20261116"),
                 submission("later", 3, "20261117"), submission("amended", 4, form="10-Q/A"),
             ], pair("okay") + pair("same") + pair("later") + pair("amended"))
-            counts = measure([source], CUTOFF, {"ONE.A": 1, "ONE.B": 1, "SAME": 2, "LATER": 3, "AM": 4})
+            counts = measure([source], CUTOFF, {"ONE.A": 1, "ONE.B": 1, "SAME": 2, "LATER": 3, "AM": 4},
+                             {"Nasdaq": {"ONE.A": 1}, "NYSE": {"SAME": 2}})
         self.assertEqual(2, counts["securities_with_original_10k_or_10q"])
         self.assertEqual(2, counts["securities_with_equity_and_period_profit"])
         self.assertEqual(1, counts["unique_issuers_with_equity_and_period_profit"])
+        groups = counts["by_market_or_index"]
+        self.assertEqual(1, groups["Nasdaq"]["securities_with_equity_and_period_profit"])
+        self.assertEqual(0, groups["NYSE"]["unique_issuers_with_equity_and_period_profit"])
 
     def test_rejects_conflicts_and_uses_latest_filing_across_archives(self):
         with TemporaryDirectory() as directory:

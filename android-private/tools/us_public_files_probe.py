@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 import csv
 from datetime import date, datetime
 import json
+from io import BytesIO
 from math import isfinite
 from pathlib import Path
 import re
@@ -18,6 +19,8 @@ from us_sec_statement_coverage import measure as measure_statements
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
 SEC_STATEMENTS = "https://www.sec.gov/files/dera/data/financial-statement-data-sets/"
+DIA_HOLDINGS = "https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-dia.xlsx"
+DOW = "Dow Jones (DIA holdings)"
 SAMPLE = "https://marketparquet.com/api/data/download/stock_daily/"
 MAX_BYTES = 4 * 1024 * 1024
 CREATED = re.compile(r"File Creation Time: (\d{8}\d{2}:\d{2})\|+")
@@ -101,15 +104,58 @@ def read_sec_directory(content):
     return rows
 
 
-def filing_join(listings, closes, sec, statement_files=(), day=None):
+def read_dia_rows(rows):
+    fund, ticker, as_of, _, headers = [next(rows, ()) for _ in range(5)]
+    if (not fund or fund[0] != "Fund Name:" or ticker[:2] != ("Ticker Symbol:", "DIA")
+            or headers[:2] != ("Name", "Ticker") or headers[6:8] != ("Shares Held", "Local Currency")
+            or len(as_of) < 2 or as_of[0] != "Holdings:" or not isinstance(as_of[1], str)):
+        raise ValueError("Unexpected State Street DIA holdings layout")
+    match = re.fullmatch(r"As of (\d{2})-([A-Z][a-z]{2})-(\d{4})", as_of[1])
+    if not match:
+        raise ValueError("Missing DIA holdings date")
+    day, month, year = match.groups()
+    months = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
+    as_of_day = date(int(year), months.index(month) + 1, int(day))
+    symbols = set()
+    for row in rows:
+        if not row or not row[0]:
+            break
+        name, symbol = row[:2]
+        if (name, symbol) == ("US DOLLAR", "-"):
+            continue
+        if (not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) or symbol in symbols
+                or row[7] != "USD" or type(row[6]) not in (int, float) or not 0 < row[6] < float("inf")):
+            raise ValueError("Invalid equity holding in DIA")
+        symbols.add(symbol)
+    if len(symbols) != 30:
+        raise ValueError("Expected 30 equity holdings in DIA")
+    return as_of_day, symbols
+
+
+def load_dia(content):
+    from openpyxl import load_workbook
+
+    if not 0 < len(content) <= MAX_BYTES:
+        raise ValueError("Unexpected DIA holdings file size")
+    workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
+    try:
+        return read_dia_rows(iter(workbook["holdings"].iter_rows(max_col=8, values_only=True)))
+    finally:
+        workbook.close()
+
+
+def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None):
     # The SEC may label NYSE-group listings simply as NYSE.
     venues = {"Nasdaq": {"Nasdaq"}, "NYSE": {"NYSE"}, "NYSE American": {"NYSE", "NYSE American"},
               "NYSE Arca": {"NYSE", "NYSE Arca"}, "Cboe BZX": {"CBOE"},
               "Texas Stock Exchange": {"TXSE"}}
+    focus = focus or {}
+    common = {ticker for ticker, (_, kind) in listings.items() if kind == "common_or_ordinary_label"}
+    scope = common.union(*(focus.values()))
     matches = {}
     diagnostics = Counter()
     for ticker, (venue, kind) in listings.items():
-        if kind != "common_or_ordinary_label":
+        if ticker not in scope or kind == "other_security":
             continue
         candidates = sec.get(ticker, set())
         # SEC uses BRK-B where Nasdaq Trader uses BRK.B. Restrict this to share-class suffixes.
@@ -120,36 +166,41 @@ def filing_join(listings, closes, sec, statement_files=(), day=None):
         compatible = {cik for cik, exchange in candidates if exchange in venues.get(venue, set())}
         if len(compatible) == 1:
             matches[ticker] = next(iter(compatible))
-        elif len(compatible) > 1:
-            diagnostics["ambiguous_sec_issuer"] += 1
-        elif candidates:
-            diagnostics["sec_exchange_unconfirmed"] += 1
-        else:
-            diagnostics["no_sec_ticker"] += 1
+        elif ticker in common:
+            reason = ("ambiguous_sec_issuer" if len(compatible) > 1 else
+                      "sec_exchange_unconfirmed" if candidates else "no_sec_ticker")
+            diagnostics[reason] += 1
 
-    issuer_counts = Counter(matches.values())
-    with_both = closes & matches.keys()
+    base_matches = common & matches.keys()
+    issuer_counts = Counter(matches[ticker] for ticker in base_matches)
+    with_both = closes & base_matches
     result = {
-        "listed_with_sec_issuer": len(matches),
+        "listed_with_sec_issuer": len(base_matches),
         "listed_with_close_and_sec_issuer": len(with_both),
         "with_close_missing_sec_issuer": sum(
             ticker in closes and ticker not in matches
             for ticker, (_, kind) in listings.items() if kind == "common_or_ordinary_label"
         ),
-        "with_sec_issuer_missing_close": len(matches.keys() - closes),
+        "with_sec_issuer_missing_close": len(base_matches - closes),
         "with_both_sharing_issuer_with_another_listed_class": sum(
             issuer_counts[matches[ticker]] > 1 for ticker in with_both
         ),
         "unlinked": dict(sorted(diagnostics.items())),
     }
+    grouped = {name: {ticker: matches[ticker] for ticker in symbols & closes & matches.keys()}
+               for name, symbols in focus.items()}
+    if focus:
+        result["with_close_and_sec_issuer_by_market_or_index"] = {
+            name: len(tickers) for name, tickers in grouped.items()
+        }
     if statement_files:
         result["statement_archive_coverage"] = measure_statements(
-            statement_files, day, {ticker: matches[ticker] for ticker in with_both}
+            statement_files, day, {ticker: matches[ticker] for ticker in with_both}, grouped
         )
     return result
 
 
-def coverage(day, listings, bars, sec=None, statement_files=()):
+def coverage(day, listings, bars, sec=None, statement_files=(), dow=None):
     seen = set()
     closes = set()
     for row in bars:
@@ -180,8 +231,22 @@ def coverage(day, listings, bars, sec=None, statement_files=()):
             "unmatched_price_tickers": len(closes - listings.keys()),
             "groups": {key: counts(value) for key, value in groups.items()},
             "common_or_ordinary_label_by_exchange": {key: counts(value) for key, value in sorted(by_exchange.items())}}
+    focus = {name: by_exchange.get(name, set()) for name in ("NYSE", "Nasdaq")}
+    if dow is not None:
+        as_of, symbols = dow
+        result["dia_holdings_comparison"] = {"as_of": as_of.isoformat(), "symbols": len(symbols)}
+        if as_of != day:
+            result["dia_holdings_comparison"]["status"] = "Holdings date differs from the trading date"
+        else:
+            listed = symbols & listings.keys()
+            focus[DOW] = listed
+            result["dia_holdings_comparison"].update({
+                "listed": len(listed),
+                "with_close": len(listed & closes),
+                "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
+            })
     if sec is not None:
-        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day)
+        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus)
     return result
 
 
@@ -206,6 +271,9 @@ def main():
     parser.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
+    dow = parser.add_mutually_exclusive_group()
+    dow.add_argument("--dow", action="store_true", help="Check the dated State Street DIA holdings")
+    dow.add_argument("--dow-file", type=Path, help="Replay the original DIA holdings file")
     statements = parser.add_mutually_exclusive_group()
     statements.add_argument("--sec-quarter", action="append", default=[], help="Download a public SEC statements ZIP, e.g. 2026q3")
     statements.add_argument("--sec-statement-file", type=Path, action="append", default=[], help="Replay the original SEC statements ZIP")
@@ -215,8 +283,9 @@ def main():
         parser.error("--sec-quarter expects YYYYqN")
     if len(check_statements) > 8 or len(check_statements) != len(set(check_statements)):
         parser.error("Use up to eight distinct statement archives")
-    if (args.sample_file or args.with_sec or args.sec_file or check_statements) and not args.trading_day:
-        parser.error("The sample and SEC options require a trading date")
+    if (args.sample_file or args.with_sec or args.sec_file or check_statements
+            or args.dow or args.dow_file) and not args.trading_day:
+        parser.error("The sample, SEC and Dow options require a trading date")
     if args.trading_day and args.trading_day >= datetime.now(ZoneInfo("America/New_York")).date():
         parser.exit(1, "Use a completed US trading date. The public sample window is limited.\n")
     try:
@@ -240,6 +309,9 @@ def main():
             if args.with_sec or args.sec_file or check_statements:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
                 sec = read_sec_directory(content)
+            holdings = None
+            if args.dow or args.dow_file:
+                holdings = load_dia(args.dow_file.read_bytes() if args.dow_file else fetch(DIA_HOLDINGS))
             with TemporaryDirectory() as directory:
                 statement_files = list(args.sec_statement_file)
                 for quarter in args.sec_quarter:
@@ -247,13 +319,13 @@ def main():
                     destination = Path(directory) / filename
                     fetch(SEC_STATEMENTS + filename, destination)
                     statement_files.append(destination)
-                result.update(coverage(args.trading_day, listings, parquet_rows(sample), sec, statement_files))
+                result.update(coverage(args.trading_day, listings, parquet_rows(sample), sec, statement_files, holdings))
             if statement_files:
                 result["sec_statement_archives"] = [path.name for path in statement_files]
             result["comparison_basis"] = "observed listings; not a historical listing snapshot"
         print(json.dumps(result, indent=2))
-    except ImportError:
-        parser.exit(1, "Install pyarrow to read the public price file.\n")
+    except ImportError as error:
+        parser.exit(1, f"A file reader dependency is missing: {error.name} (pyarrow for prices, openpyxl for DIA).\n")
     except (OSError, ValueError, KeyError, BadZipFile) as error:
         parser.exit(1, f"Coverage probe failed: {error}\n")
 

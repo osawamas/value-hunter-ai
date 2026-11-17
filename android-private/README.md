@@ -127,3 +127,28 @@ python3 tools/us_public_files_probe.py 2026-11-16 --sec-quarter 2026q3 --sec-qua
 
 この4つのSEC原本で、終値サンプルとCIKのある5,208銘柄中、直近12か月純利益と株主資本が
 揃ったのは3,376銘柄（3,355社）。取引日の発行済株式数はこの集計に含まない。
+
+### NYSE・Nasdaqとダウ平均の内訳
+
+NYSE本市場とNasdaqについて、普通株と読める上場数、終値、SEC企業ID、決算の照合件数を個別に確認できる。
+NYSE Americanなどの別市場は従来どおり取引所別に集計する。
+
+`--dow` は [State Street DIAの日次保有明細](https://www.ssga.com/us/en/individual/etfs/state-street-spdr-dow-jones-industrial-average-etf-trust-dia)
+を取得し、現金を除いた30銘柄をダウ平均の確認に使う。日付の一致を確認してから終値を照合する。
+DIAの読取りには `openpyxl` が必要。ダウ平均の指数値とETF価格は計算しない。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --dow --sec-quarter 2026q3 --sec-quarter 2026q2 --sec-quarter 2026q1 --sec-quarter 2025q4
+```
+
+2026-11-16の終値サンプルを11-17作成の取引所銘柄一覧に照合した結果。
+
+| 対象 | 銘柄数 | 終値 | 終値とSEC企業ID | 直近12か月純利益と株主資本まで |
+| --- | ---: | ---: | ---: | ---: |
+| NYSE本市場の普通株候補 | 1,896 | 1,871 | 1,869 | 1,143 |
+| Nasdaqの普通株候補 | 3,190 | 3,098 | 3,092 | 2,093 |
+| DIAの11-16保有株 | 30 | 30 | 30 | 25 |
+
+DIAの30銘柄の上場先はNYSEが21、Nasdaqが9。取引所の普通株候補は銘柄名による分類だが、
+DIAの内訳では保有明細で確認した株を対象に含める。価格は分割調整済みの評価用サンプルで、
+取引日時点の発行済株式数や正式なPER・PBRの検証は別途必要。

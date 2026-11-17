@@ -2,7 +2,7 @@ from datetime import date, datetime
 import json
 import unittest
 
-from us_public_files_probe import coverage, read_directory, read_sec_directory
+from us_public_files_probe import DOW, coverage, read_dia_rows, read_directory, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -89,6 +89,38 @@ class PublicFilesTest(unittest.TestCase):
             read_sec_directory(b"{}")
         with self.assertRaises(ValueError):
             self.sec_rows([[False, "Issuer", "A", "Nasdaq"]])
+
+    def test_dia_requires_30_distinct_equities_excluding_cash(self):
+        rows = [
+            ("Fund Name:", "Fund"), ("Ticker Symbol:", "DIA"),
+            ("Holdings:", "As of 16-Nov-2026"), (),
+            ("Name", "Ticker", None, None, None, None, "Shares Held", "Local Currency"),
+        ]
+        rows += [("Issuer", f"STOCK{i}", None, None, None, None, 100, "USD") for i in range(30)]
+        rows += [("US DOLLAR", "-", None, None, None, None, 100, "USD"), ()]
+        stamp, symbols = read_dia_rows(iter(rows))
+        self.assertEqual(DAY, stamp)
+        self.assertEqual(30, len(symbols))
+        self.assertNotIn("-", symbols)
+        with self.assertRaises(ValueError):
+            read_dia_rows(iter(rows[:6] + rows[5:]))
+
+    def test_dia_requires_same_session_and_keeps_venues_separate(self):
+        common = "common_or_ordinary_label"
+        listings = {"AAA": ("NYSE", common), "BBB": ("Nasdaq", common),
+                    "CCC": ("NYSE", "unclassified"), "DDD": ("NYSE American", common)}
+        sec = self.sec_rows([[1, "One", "AAA", "NYSE"], [2, "Two", "BBB", "Nasdaq"],
+                             [3, "Three", "CCC", "NYSE"], [4, "Four", "DDD", "NYSE"]])
+        bars = [self.bar(symbol) for symbol in listings]
+        symbols = {"AAA", "BBB", "CCC", "MISSING"}
+        result = coverage(DAY, listings, bars, sec, dow=(DAY, symbols))
+        joined = result["common_or_ordinary_label_sec_join"]
+        self.assertEqual({"NYSE": 1, "Nasdaq": 1, DOW: 3}, joined["with_close_and_sec_issuer_by_market_or_index"])
+        self.assertEqual({"NYSE": 2, "Nasdaq": 1}, result["dia_holdings_comparison"]["listing_venues"])
+        self.assertEqual(3, result["dia_holdings_comparison"]["listed"])
+        stale = coverage(DAY, listings, bars, sec, dow=(date(2026, 11, 13), symbols))
+        self.assertNotIn("with_close", stale["dia_holdings_comparison"])
+        self.assertNotIn(DOW, stale["common_or_ordinary_label_sec_join"]["with_close_and_sec_issuer_by_market_or_index"])
 
     @staticmethod
     def sec_rows(rows):

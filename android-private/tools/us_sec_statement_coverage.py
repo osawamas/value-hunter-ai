@@ -153,15 +153,19 @@ def trailing_profit(filing, annual, facts):
     return full_year + this_ytd - prior_ytd
 
 
-def measure(paths, cutoff, securities):
+def measure(paths, cutoff, securities, report_groups=None):
     """Count securities with eligible filings and financial inputs, without emitting values."""
+    report_groups = report_groups or {}
+    issuers = set(securities.values())
+    for group in report_groups.values():
+        issuers.update(group.values())
     with ExitStack() as stack:
         archives = [stack.enter_context(ZipFile(path)) for path in paths]
         for archive in archives:
             for name, limit in (("sub.txt", 30_000_000), ("num.txt", 2_500_000_000)):
                 if not 0 < archive.getinfo(name).file_size <= limit:
                     raise ValueError("Unexpected SEC statement archive member size")
-        current, previous_annual = filings_for_measurement(archives, cutoff, set(securities.values()))
+        current, previous_annual = filings_for_measurement(archives, cutoff, issuers)
         wanted = requested_facts(current, previous_annual)
         facts = defaultdict(set)
         if wanted:
@@ -178,12 +182,19 @@ def measure(paths, cutoff, securities):
             with_period.add(cik)
         if trailing_profit(filing, previous_annual.get(cik), facts) is not None:
             with_trailing.add(cik)
-    return {
-        "securities_checked": len(securities),
-        "unique_issuers_checked": len(set(securities.values())),
-        "securities_with_original_10k_or_10q": sum(cik in current for cik in securities.values()),
-        "securities_with_equity_and_period_profit": sum(cik in with_period for cik in securities.values()),
-        "unique_issuers_with_equity_and_period_profit": len(with_period),
-        "securities_with_equity_and_trailing_profit": sum(cik in with_trailing for cik in securities.values()),
-        "unique_issuers_with_equity_and_trailing_profit": len(with_trailing),
-    }
+    def counts(tickers):
+        ids = set(tickers.values())
+        return {
+            "securities_checked": len(tickers),
+            "unique_issuers_checked": len(ids),
+            "securities_with_original_10k_or_10q": sum(cik in current for cik in tickers.values()),
+            "securities_with_equity_and_period_profit": sum(cik in with_period for cik in tickers.values()),
+            "unique_issuers_with_equity_and_period_profit": len(ids & with_period),
+            "securities_with_equity_and_trailing_profit": sum(cik in with_trailing for cik in tickers.values()),
+            "unique_issuers_with_equity_and_trailing_profit": len(ids & with_trailing),
+        }
+
+    result = counts(securities)
+    if report_groups:
+        result["by_market_or_index"] = {name: counts(tickers) for name, tickers in report_groups.items()}
+    return result
