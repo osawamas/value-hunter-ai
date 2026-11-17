@@ -104,6 +104,21 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             ):
                 inspect_tape_c(BytesIO(framed))
 
+    def test_tape_c_rejects_data_before_session_start(self):
+        start = bytes(8) + b"SO"
+        end = bytes(8) + b"SC"
+        summary = bytearray(42)
+        summary[8:18] = b"JAAPL    Q"
+        summary[26:30] = (1230000).to_bytes(4, "big")
+        for records in ((bytes(summary), start, end),
+                        (bytes(8) + b"SH", start, end),
+                        (bytes(summary),)):
+            framed = b"".join(pack(">H", len(record)) + record for record in records)
+            with self.subTest(records=len(records)), self.assertRaisesRegex(
+                ValueError, "start and end"
+            ):
+                inspect_tape_c(BytesIO(framed))
+
     def test_full_dolt_comparison_reports_exception_tickers_without_price_values(self):
         reference = {symbol: Decimal("10.00") for symbol in ("EXACT", "CENT", "DIFF", "NULL", "ABSENT")}
         prices = {"EXACT": 10.0, "CENT": 10.01, "DIFF": 10.02}
