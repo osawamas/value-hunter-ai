@@ -13,7 +13,7 @@ from jpx_daily_probe import CODE
 MONTH_HEADER = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月")
 ACTION = re.compile(r"株\s*式\s*(?:分\s*割|併\s*合|無\s*償\s*割\s*当\s*て)")
 RATIO = re.compile(r"(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)株式(分割|併合|無償割当て)")
-TABLE_DATE = re.compile(r"\d{4}\.\d{1,2}\.\d{1,2}")
+TABLE_DATE = re.compile(r"\b\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}(?!\d)")
 
 
 @dataclass(frozen=True)
@@ -48,17 +48,21 @@ def read_monthly_rights(path):
             ]
             parsed_actions = 0
             for x, y, code in words:
-                if not .16 < x < .20 or not CODE.fullmatch(code):
+                if x >= .4 or not CODE.fullmatch(code):
                     continue
-                line = sorted(word for word in words if abs(word[1] - y) < 2.5)
-                description = "".join(word[2] for word in line if word[0] >= .79)
-                if not ACTION.search(description):
+                line = " ".join(word[2] for word in sorted(
+                    word for word in words if word[0] > x and abs(word[1] - y) < 2.5
+                ))
+                if not ACTION.search(line):
                     continue
+                dates = list(TABLE_DATE.finditer(line))
+                if len(dates) != 2:
+                    raise ValueError(f"Could not read both JPX corporate-action dates for {code}")
+                description = "".join(line[dates[-1].end():].split())
                 ratio = RATIO.fullmatch(description)
                 if not ratio:
                     raise ValueError(f"Could not read the JPX corporate-action ratio for {code}")
-                ex_on = table_date("".join(word[2] for word in line if .65 < word[0] < .72))
-                record_on = table_date("".join(word[2] for word in line if .72 <= word[0] < .79))
+                ex_on, record_on = (table_date(item.group()) for item in dates)
                 left, right = Decimal(ratio[1]), Decimal(ratio[2])
                 valid_ratio = left > 0 and right > 0 and (
                     ratio[3] == "無償割当て" or

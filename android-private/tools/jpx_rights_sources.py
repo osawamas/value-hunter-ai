@@ -97,6 +97,22 @@ def daily_sample(urls):
                     )[:260]
                 finally:
                     workbook.close()
+        elif data.startswith(bytes.fromhex("D0CF11E0A1B11AE1")):
+            import xlrd
+
+            workbook = xlrd.open_workbook(file_contents=data)
+            try:
+                result["first_file_type"] = "xls"
+                result["sample_sheets"] = workbook.sheet_names()
+                sheet = workbook.sheet_by_index(0)
+                header = sheet.row_values(0) if sheet.nrows else []
+                result["sample_rows"] = sheet.nrows
+                result["sample_header"] = " ".join(
+                    str(cell) for row in range(min(sheet.nrows, 8))
+                    for cell in sheet.row_values(row) if cell != ""
+                )[:280] if header else ""
+            finally:
+                workbook.release_resources()
         else:
             result["first_file_type"] = Path(urlsplit(url).path).suffix
         result["sample_filename"] = Path(urlsplit(url).path).name
