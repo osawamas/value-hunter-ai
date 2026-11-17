@@ -29,11 +29,14 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
             return 'cached_after_timeout' if existing else 'timed_out'
         except FileNotFoundError:
             return 'dolt_not_installed'
+        except OSError:
+            # OS-level spawn failures must not discard the existing cache.
+            return 'cached_after_os_error' if existing else 'os_error'
         if result.returncode == 0:
             if not (destination / '.dolt').is_dir():
                 raise ValueError('Dolt command succeeded without a valid repository')
             return 'updated' if existing else 'cloned'
-        message = (result.stderr + '\n' + result.stdout).lower()
+        message = ((result.stderr or '') + '\n' + (result.stdout or '')).lower()
         rate_limited = bool(RATE_LIMIT.search(message))
         # A failed initial clone may leave a partial directory; do not retry it blindly.
         if not rate_limited or attempt == attempts - 1 or not existing:
@@ -48,7 +51,7 @@ def main():
     args = parser.parse_args()
     result = sync(args.destination)
     print(result)
-    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed'):
+    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error'):
         raise SystemExit(1)
 
 
