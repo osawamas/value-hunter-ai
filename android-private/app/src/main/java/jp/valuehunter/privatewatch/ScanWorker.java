@@ -15,6 +15,7 @@ import android.provider.Settings;
 import androidx.annotation.NonNull;
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
+import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
@@ -35,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 public final class ScanWorker extends Worker {
     private static final String PERIODIC = "japan-watch";
     private static final String MANUAL = "japan-check-now";
+    static final String LEGACY_API_REQUEST = "explicit_legacy_api_request";
     static final String CHANNEL = "value-alerts";
     private static final int SCREEN_VERSION = 2;
     private static final Object SCAN_LOCK = new Object();
@@ -47,32 +49,47 @@ public final class ScanWorker extends Worker {
         return context.getSharedPreferences("private-stock-watch", Context.MODE_PRIVATE);
     }
 
+    static void cancelLegacyApiWork(Context context) {
+        var work = WorkManager.getInstance(context);
+        for (String name : new String[] {PERIODIC, MANUAL, "us-watch", "us-check-now", "sg-watch", "sg-check-now"}) {
+            work.cancelUniqueWork(name);
+        }
+        var manager = context.getSystemService(NotificationManager.class);
+        manager.cancel(1);
+        manager.cancel(3);
+        manager.cancel(4);
+    }
+
+    private static Data legacyApiRequest() {
+        return new Data.Builder().putBoolean(LEGACY_API_REQUEST, true).build();
+    }
+
     static void schedule(Context context) {
         var connected = connected();
         var work = WorkManager.getInstance(context);
         work.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP,
                 new PeriodicWorkRequest.Builder(ScanWorker.class, 6, TimeUnit.HOURS)
-                        .setConstraints(connected).build());
+                        .setInputData(legacyApiRequest()).setConstraints(connected).build());
     }
 
     static void scheduleUs(Context context) {
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("us-watch", ExistingPeriodicWorkPolicy.KEEP,
                 new PeriodicWorkRequest.Builder(UsScanWorker.class, 6, TimeUnit.HOURS)
-                        .setInitialDelay(6, TimeUnit.HOURS).setConstraints(connected()).build());
+                        .setInitialDelay(6, TimeUnit.HOURS).setInputData(legacyApiRequest()).setConstraints(connected()).build());
         WorkManager.getInstance(context).enqueueUniqueWork("us-check-now", ExistingWorkPolicy.KEEP,
-                new OneTimeWorkRequest.Builder(UsScanWorker.class).setConstraints(connected()).build());
+                new OneTimeWorkRequest.Builder(UsScanWorker.class).setInputData(legacyApiRequest()).setConstraints(connected()).build());
     }
 
     static void checkSingapore(Context context) {
         WorkManager.getInstance(context).enqueueUniqueWork("sg-check-now", ExistingWorkPolicy.REPLACE,
-                new OneTimeWorkRequest.Builder(SgCheckWorker.class).setConstraints(connected())
+                new OneTimeWorkRequest.Builder(SgCheckWorker.class).setInputData(legacyApiRequest()).setConstraints(connected())
                         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES).build());
     }
 
     static void scheduleSingaporeWatch(Context context) {
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("sg-watch", ExistingPeriodicWorkPolicy.KEEP,
                 new PeriodicWorkRequest.Builder(SgCheckWorker.class, 6, TimeUnit.HOURS)
-                        .setInitialDelay(6, TimeUnit.HOURS).setConstraints(connected())
+                        .setInitialDelay(6, TimeUnit.HOURS).setInputData(legacyApiRequest()).setConstraints(connected())
                         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES).build());
     }
 
@@ -87,10 +104,11 @@ public final class ScanWorker extends Worker {
     static void checkNow(Context context) {
         var connected = connected();
         WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP,
-                new OneTimeWorkRequest.Builder(ScanWorker.class).setConstraints(connected).build());
+                new OneTimeWorkRequest.Builder(ScanWorker.class).setInputData(legacyApiRequest()).setConstraints(connected).build());
     }
 
     @NonNull @Override public Result doWork() {
+        if (!getInputData().getBoolean(LEGACY_API_REQUEST, false)) return Result.success();
         synchronized (SCAN_LOCK) {
             return scan();
         }
