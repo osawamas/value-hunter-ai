@@ -206,6 +206,33 @@ jobs:
                       print("\n".join(lines))
           PY
 
+  monthly_layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - run: python3 -m pip install 'PyMuPDF>=1.24,<2'
+      - name: Compare source-page orientation and stock row coordinates
+        run: |
+          curl -fsSL https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000000nwgb-att/17_kenri2601.pdf -o "$RUNNER_TEMP/jan.pdf"
+          curl -fsSL https://www.jpx.co.jp/markets/statistics-equities/monthly/um3qrc0000027wd5-att/17_kenri2509.pdf -o "$RUNNER_TEMP/sep.pdf"
+          python3 - "$RUNNER_TEMP" <<'PY'
+          from pathlib import Path
+          import sys
+          import pymupdf
+          for name, code in (("jan", "2323"), ("sep", "2726")):
+              with pymupdf.open(Path(sys.argv[1]) / (name + ".pdf")) as d:
+                  p = d[0]
+                  print(name, p.rotation, p.rect, p.mediabox)
+                  for block in p.get_text("dict")["blocks"]:
+                      for line in block.get("lines", []):
+                          values = "|".join(span["text"] for span in line["spans"])
+                          if code in values or "株式分割" in values or "Split Ratio" in values:
+                              print(line["dir"], [round(x,1) for x in line["bbox"]], values[:90])
+                  for w in p.get_text("words"):
+                      if code in w[4]:
+                          print("word", w, "mapped", pymupdf.Rect(w[:4]) * p.rotation_matrix)
+          PY
+
   hachiquant:
     runs-on: ubuntu-latest
     timeout-minutes: 3
