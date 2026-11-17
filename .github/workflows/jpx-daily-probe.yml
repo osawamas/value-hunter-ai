@@ -11,6 +11,7 @@ on:
       - 'android-private/tools/jpx_hachiquant_coverage.py'
       - 'android-private/tools/jpx_share_basis.py'
       - 'android-private/tools/jpx_rights_sources.py'
+      - 'android-private/tools/jpx_daily_rights.py'
       - 'android-private/tools/fixtures/jpx-annual-reference.json'
 
 permissions:
@@ -104,6 +105,7 @@ jobs:
           from decimal import Decimal
           import sys
           from jpx_share_basis import ShareEvent, load_rights_reports, share_basis_status
+          from jpx_daily_rights import DailyShareNotice, notice_kind
 
           march = date(2026, 3, 1)
           ex_on, record_on = date(2026, 3, 30), date(2026, 3, 31)
@@ -125,6 +127,12 @@ jobs:
           keyence = ({nov}, {"6861": {ShareEvent(date(2026, 11, 19), date(2026, 11, 20), 1, 5)}})
           assert share_basis_status("6861", nov, date(2026, 11, 18), keyence) == "no_share_change_in_supplied_reports"
           assert share_basis_status("6861", nov, date(2026, 11, 19), keyence) == "hold_share_basis_change"
+          notice = DailyShareNotice(date(2026, 11, 16), date(2026, 11, 19), date(2026, 11, 20), "split_or_ex_new_shares", "")
+          assert notice_kind("配当") is None
+          assert notice_kind("株式併合") == "consolidation"
+          assert share_basis_status("6861", nov, date(2026, 11, 18), (set(), {}), [notice]) == "hold_rights_report_gap"
+          assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice]) == "hold_daily_share_notice"
+          assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), []) == "hold_rights_report_gap"
           print(f"Verified split/consolidation report: {sum(map(len, events.values()))} events")
           PY
 
@@ -138,6 +146,9 @@ jobs:
           reports=()
           for report in "$RUNNER_TEMP"/jpx-rights/rights-*.pdf; do
             reports+=(--rights-report "$report")
+          done
+          for report in "$RUNNER_TEMP"/jpx-rights/*.xls; do
+            if [[ -f "$report" ]]; then reports+=(--daily-rights "$report"); fi
           done
           python android-private/tools/jpx_hachiquant_coverage.py \
             "$RUNNER_TEMP/jpx-list.xlsx" "$RUNNER_TEMP/jpx-20261029.pdf" \

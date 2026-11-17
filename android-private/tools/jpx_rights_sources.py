@@ -1,18 +1,18 @@
 """Look up official JPX rights reports and check which months can be used."""
 import argparse
+from collections import Counter
 from datetime import date
 from html.parser import HTMLParser
-from io import BytesIO
 import json
 from pathlib import Path
 import re
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
-import openpyxl
 import pymupdf
 
 from jpx_share_basis import read_monthly_rights
+from jpx_daily_rights import read_daily_rights
 
 MONTHLY_INDEX = "https://www.jpx.co.jp/markets/statistics-equities/monthly/index.html"
 DAILY_INDEX = "https://www.jpx.co.jp/listing/others/ex-rights/"
@@ -70,53 +70,22 @@ def monthly_links(urls, year):
     return result
 
 
-def daily_sample(urls):
-    files = [
-        url for url in urls
-        if "/listing/others/ex-rights/" in urlsplit(url).path
-        and urlsplit(url).path.lower().endswith((".xlsx", ".pdf", ".xls", ".csv"))
-    ]
-    result = {"download_links_found": len(files)}
-    if files:
-        url = files[0]
-        data = download(url)
-        if data.startswith(b"%PDF-"):
-            with pymupdf.open(stream=data, filetype="pdf") as report:
-                result["first_file_type"] = "pdf"
-                result["sample_pages"] = len(report)
-                result["sample_header"] = " ".join(report[0].get_text().split())[:260]
-        elif data.startswith(b"PK"):
-            with BytesIO(data) as buffer:
-                workbook = openpyxl.load_workbook(buffer, read_only=True, data_only=True)
-                try:
-                    result["first_file_type"] = "xlsx"
-                    result["sample_sheets"] = workbook.sheetnames
-                    rows = workbook.worksheets[0].iter_rows(min_row=1, max_row=8, values_only=True)
-                    result["sample_header"] = " ".join(
-                        str(cell) for row in rows for cell in row if cell is not None
-                    )[:260]
-                finally:
-                    workbook.close()
-        elif data.startswith(bytes.fromhex("D0CF11E0A1B11AE1")):
-            import xlrd
-
-            workbook = xlrd.open_workbook(file_contents=data)
-            try:
-                result["first_file_type"] = "xls"
-                result["sample_sheets"] = workbook.sheet_names()
-                sheet = workbook.sheet_by_index(0)
-                header = sheet.row_values(0) if sheet.nrows else []
-                result["sample_rows"] = sheet.nrows
-                result["sample_header"] = " ".join(
-                    str(cell) for row in range(min(sheet.nrows, 8))
-                    for cell in sheet.row_values(row) if cell != ""
-                )[:280] if header else ""
-            finally:
-                workbook.release_resources()
-        else:
-            result["first_file_type"] = Path(urlsplit(url).path).suffix
-        result["sample_filename"] = Path(urlsplit(url).path).name
-    return result
+def daily_sources(urls, output):
+    results = {}
+    for url in urls:
+        path = urlsplit(url).path
+        if "/listing/others/ex-rights/" not in path or not re.search(r"/\d{8}\.xls$", path):
+            continue
+        filename = Path(path).name
+        body = download(url)
+        published_on, notices, flags = read_daily_rights(body, filename)
+        counts = Counter(entry.kind for entries in notices.values() for entry in entries)
+        results[published_on.isoformat()] = {
+            "changes": dict(counts),
+            "update_flags": sorted(flags),
+        }
+        (output / filename).write_bytes(body)
+    return results
 
 
 def main():
@@ -152,7 +121,7 @@ def main():
         "monthly_reports": accepted,
         "monthly_reports_rejected": rejected,
         "no_monthly_link_found": unpublished,
-        "daily_catalog_sample": daily_sample(page_links(DAILY_INDEX)),
+        "daily_workbooks": daily_sources(page_links(DAILY_INDEX), args.output),
         "daily_catalog_certifies_historical_coverage": False,
     }, ensure_ascii=False, indent=2))
 

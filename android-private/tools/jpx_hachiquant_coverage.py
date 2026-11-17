@@ -12,6 +12,7 @@ from urllib.request import Request, urlopen
 from jpx_daily_probe import CODE, MARKETS, ordinary_stocks, read_quotes
 from jpx_valuation_probe import trading_date
 from jpx_share_basis import load_rights_reports, share_basis_status
+from jpx_daily_rights import load_daily_rights
 
 BASE = "https://hachiquant.com/api/v1"
 PAGE_SIZE = 200
@@ -125,7 +126,7 @@ def verify_filing_sample(code, row):
     return {"code": code, "annual_source_id": doc_id, "actual_filing_date": filed_on.isoformat()}
 
 
-def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, rights):
+def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, rights, daily_rights):
     affordable = Counter()
     preliminary = {market: [] for market in MARKETS.values()}
     for code, market in stocks.items():
@@ -168,7 +169,10 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             filed_on = date.fromisoformat(filing["actual_filing_date"])
             if filed_on < day:
                 counts["filed_before_quote"] += 1
-                counts[share_basis_status(code, date.fromisoformat(row["period_end"]), day, rights)] += 1
+                status = share_basis_status(
+                    code, date.fromisoformat(row["period_end"]), day, rights, daily_rights.get(code, ()),
+                )
+                counts[status] += 1
             else:
                 counts["filed_on_or_after_quote"] += 1
 
@@ -180,6 +184,7 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             "filed_on_or_after_quote": counts["filed_on_or_after_quote"],
             "source_unverified": counts["source_unverified"],
             "hold_share_basis_change": counts["hold_share_basis_change"],
+            "hold_daily_share_notice": counts["hold_daily_share_notice"],
             "hold_rights_report_gap": counts["hold_rights_report_gap"],
             "no_share_change_in_supplied_reports": counts["no_share_change_in_supplied_reports"],
         }
@@ -197,6 +202,7 @@ def main():
     parser.add_argument("--check-filing", action="append", default=[])
     parser.add_argument("--budget-samples-per-market", type=int, choices=range(11), default=0)
     parser.add_argument("--rights-report", action="append", default=[], help="Local JPX monthly rights PDF")
+    parser.add_argument("--daily-rights", action="append", default=[], help="Local JPX daily rights XLS")
     args = parser.parse_args()
     stocks = ordinary_stocks(args.universe)
     rows, as_of, pages = annual_rows()
@@ -225,7 +231,7 @@ def main():
         day, prices, duplicates = latest
         result["budget_filing_audit"] = audit_budget(
             day, stocks, prices, duplicates, rows, args.budget_samples_per_market,
-            load_rights_reports(args.rights_report),
+            load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
         )
     print(json.dumps(result, indent=2))
 

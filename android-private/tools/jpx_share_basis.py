@@ -93,11 +93,14 @@ def load_rights_reports(paths):
     return coverage, events
 
 
-def share_basis_status(code, period_end, quote_day, rights):
+def share_basis_status(code, period_end, quote_day, rights, daily_notices=()):
     coverage, events = rights
     for action in events.get(code, ()):
         if action.ex_on <= quote_day and action.record_on >= period_end:
             return "hold_share_basis_change"
+    for notice in daily_notices:
+        if notice.published_on <= quote_day and notice.ex_on <= quote_day and notice.record_on >= period_end:
+            return "hold_daily_share_notice"
     month = period_end.replace(day=1)
     while month <= quote_day:
         if month not in coverage:
