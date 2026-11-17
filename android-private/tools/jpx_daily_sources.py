@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from jpx_rights_sources import download
 from jpx_valuation_probe import trading_date
 
+REPORT_LIMIT = 32_000_000
 REPORT_ROOT = "https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files"
 
 
@@ -20,7 +21,7 @@ def latest_report(today, output):
             continue
         url = f"{REPORT_ROOT}/{day:%Y%m}/stq_{day:%Y%m%d}.pdf"
         try:
-            body = download(url)
+            body = download(url, limit=REPORT_LIMIT)
         except HTTPError as error:
             if error.code != 404:
                 raise

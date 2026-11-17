@@ -40,15 +40,15 @@ def official_url(url):
     return parts.scheme == "https" and parts.netloc == "www.jpx.co.jp"
 
 
-def download(url):
+def download(url, *, limit=FILE_LIMIT):
     if not official_url(url):
         raise ValueError("Unexpected JPX source URL")
     request = Request(url, headers={"User-Agent": "VALUE-HUNTER-AI source verification"})
     with urlopen(request, timeout=25) as response:
         if not official_url(response.geturl()):
             raise ValueError("JPX response redirected to an unexpected host")
-        body = response.read(FILE_LIMIT + 1)
-        if len(body) > FILE_LIMIT:
+        body = response.read(limit + 1)
+        if len(body) > limit:
             raise ValueError("JPX response exceeded the size limit")
         return body
 
