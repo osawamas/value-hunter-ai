@@ -2,6 +2,13 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 04:25 JST — Nasdaqの公式終値通知を公開ファイルで検証
+
+- 開始時mainは [8dcf59c](https://github.com/osawamas/value-hunter-ai/commit/8dcf59c95b80f2d104d83cfef38e3f102aa33b84)。`us_nasdaq_nls_probe.py` を追加。NLSの公式終値通知の売買条件Mを判別し、NLS Plus Tape CではNOCPと取引所横断の集計終値を別々に読み取る。完全なTape Cサンプルはシステムの開始・終了を検査し、異なる同日値のある銘柄を区別する。
+- [NLS 4.0公開PCAP](https://emi.nasdaq.com/Basic_NLS/NLS%204.0/) は米東部時間2026年3月3日の約定162件、NOCP通知0件。[2021年6月14日Tape C公開サンプル](https://emi.nasdaq.com/Basic_NLS/NLS/)（圧縮約273 MB）は通読でき、Nasdaq上場のNOCP 4,605銘柄、取引所横断の集計終値は一意4,453銘柄・値が複数107銘柄。上場銘柄にはETF等も含まれる。
+- 2021年6月14日のAAPLなど12銘柄を公開DoltHubで個別に調査し、NOCPとも取引所横断の集計終値とも12/12で1セント以内だった。照会は12銘柄に限定し、残りのDolt網羅率は未測定。
+- ローカルテスト72件成功。今回の公開サンプルは指定日の検証経路。日次の公式配信にはアカウントが必要な経路があり、無料の全市場日次経路は未確立。Android端末での取得や訂正・取消反映は未検証。価格原本や個別価格は公開リポジトリに追加していない。
+
 ## 2026-11-18 04:11 JST — Doltの成功終了でも不正なローカルDBを採用しない
 
 - 開始時main: [d0c4bd4](https://github.com/osawamas/value-hunter-ai/commit/d0c4bd4908fd2cb8c8a1a767db4447f8f104d0ea)。直近の[米国株テストActions](https://github.com/osawamas/value-hunter-ai/actions/runs/44154786930)と[Android Actions](https://github.com/osawamas/value-hunter-ai/actions/runs/44154786872)は成功。既存のNYSEクラスA/B照合には触れず、Dolt同期の異常終了判定を対象とした。
