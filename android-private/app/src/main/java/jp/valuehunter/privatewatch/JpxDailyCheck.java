@@ -330,7 +330,9 @@ final class JpxDailyCheck {
 
     static List<LocalDate> candidateDays(LocalDate today) {
         var days = new ArrayList<LocalDate>();
-        for (int offset = 1; offset <= 10; offset++) {
+        // Include today's report when JPX has already published it; 404 means not yet available.
+        // Starting at yesterday silently leaves a published same-day close one session stale.
+        for (int offset = 0; offset <= 10; offset++) {
             var day = today.minusDays(offset);
             if (day.getDayOfWeek() != DayOfWeek.SATURDAY && day.getDayOfWeek() != DayOfWeek.SUNDAY) {
                 days.add(day);
