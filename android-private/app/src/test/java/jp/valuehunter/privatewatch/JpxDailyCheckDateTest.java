@@ -8,6 +8,18 @@ import java.util.Set;
 import org.junit.Test;
 
 public class JpxDailyCheckDateTest {
+    @Test public void unreadableEquityTableCannotAdvanceWatchBaseline() {
+        assertFalse(JpxDailyCheck.hasUsableSample(Map.of(), Set.of()));
+        assertFalse(JpxDailyCheck.hasUsableSample(
+                Map.of("1301", new JpxCloseTable.Sessions(null, null)), Set.of()));
+        assertFalse(JpxDailyCheck.hasUsableSample(
+                Map.of("1301", new JpxCloseTable.Sessions(null, new java.math.BigDecimal("250"))),
+                Set.of("1301")));
+        assertTrue(JpxDailyCheck.hasUsableSample(
+                Map.of("1301", new JpxCloseTable.Sessions(new java.math.BigDecimal("250"), null)),
+                Set.of()));
+    }
+
     @Test public void rejectsStaleReportReturnedForNewerRequestedDate() {
         LocalDate today = LocalDate.of(2026, 11, 18);
         assertThrows(IOException.class, () -> JpxDailyCheck.checkRecent(today, requested ->
