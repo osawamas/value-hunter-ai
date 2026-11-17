@@ -3,6 +3,7 @@
 import argparse
 from collections import defaultdict
 from datetime import date
+from functools import lru_cache
 from html.parser import HTMLParser
 from io import BytesIO
 import json
@@ -22,7 +23,10 @@ SEC = "https://www.sec.gov"
 DATA = "/Archives/edgar/data/"
 XBRLI = "http://www.xbrl.org/2003/instance"
 NS = {"x": XBRLI}
-DEI = re.compile(r"\{https?://xbrl\.sec\.gov/dei/[^}]+\}EntityCommonStockSharesOutstanding")
+DEI = re.compile(r"\{https?://xbrl\.sec\.gov/dei/[^}]+\}(EntityCommonStockSharesOutstanding|TradingSymbol)")
+GAAP_AXIS = re.compile(r"https?://fasb\.org/us-gaap/[^#]+")
+LEGAL_AXIS = re.compile(r"https?://xbrl\.sec\.gov/dei/[^#]+")
+EXPLICIT = "{http://xbrl.org/2006/xbrldi}explicitMember"
 MAX_INSTANCE_BYTES = 32_000_000
 
 
@@ -48,7 +52,49 @@ def instance_path(content, accession):
     return links.pop()
 
 
-def original_share_count(xml, cik, filed):
+def canonical_ticker(ticker):
+    if re.fullmatch(r"[A-Z]+[-.][A-Z]", ticker):
+        return ticker.replace("-", ".")
+    return ticker
+
+
+def qualified(value, namespaces):
+    prefix, colon, name = (value or "").partition(":")
+    if not colon:
+        name, prefix = prefix, ""
+    uris = namespaces.get(prefix, set())
+    return (next(iter(uris)), name) if len(uris) == 1 and name else ("", "")
+
+
+def issuer_context(fact, contexts, cik, namespaces):
+    context = contexts.get(fact.get("contextRef"))
+    if context is None:
+        raise ValueError("Share count or trading symbol has no XBRL context")
+    entity = context.find("x:entity/x:identifier", NS)
+    if entity is None or entity.get("scheme") != "http://www.sec.gov/CIK" or not (entity.text or "").isdigit():
+        raise ValueError("Share count or trading symbol has no SEC issuer ID")
+    if int(entity.text) != cik:
+        return None, "other_entity", None
+    if context.find("x:scenario", NS) is not None:
+        return context, "unconfirmed", None
+    segment = context.find("x:entity/x:segment", NS)
+    if segment is None:
+        return context, "issuer", None
+    if len(segment) != 1 or segment[0].tag != EXPLICIT:
+        return context, "unconfirmed", None
+    member = segment[0]
+    uri, axis = qualified(member.get("dimension"), namespaces)
+    value = qualified(member.text, namespaces)
+    if not value[0]:
+        return context, "unconfirmed", None
+    if axis == "LegalEntityAxis" and LEGAL_AXIS.fullmatch(uri):
+        return context, "other_entity", None
+    if axis == "StatementClassOfStockAxis" and GAAP_AXIS.fullmatch(uri):
+        return context, "share_class", value
+    return context, "unconfirmed", None
+
+
+def original_share_count(xml, cik, filed, symbol=None, require_class=False):
     if not 0 < len(xml) <= MAX_INSTANCE_BYTES or re.search(rb"<!DOCTYPE|<!ENTITY", xml, re.I):
         raise ValueError("Unexpected SEC XBRL instance size or markup")
     root = ET.fromstring(xml)
@@ -59,20 +105,42 @@ def original_share_count(xml, cik, filed):
         namespaces[prefix].add(uri)
     contexts = {el.get("id"): el for el in root.findall("x:context", NS)}
     units = {el.get("id"): el for el in root.findall("x:unit", NS)}
+    symbols_by_class = defaultdict(set)
+    requested_classes = set()
+    requested_symbol_seen = False
+    if symbol is not None:
+        requested_symbol = canonical_ticker(symbol)
+        for fact in root:
+            match = DEI.fullmatch(fact.tag)
+            if not match or match[1] != "TradingSymbol" or not fact.text:
+                continue
+            _, scope, member = issuer_context(fact, contexts, cik, namespaces)
+            tagged = canonical_ticker(fact.text.strip())
+            if scope == "share_class":
+                symbols_by_class[member].add(tagged)
+            if tagged == requested_symbol and scope in {"issuer", "share_class"}:
+                requested_symbol_seen = True
+                if member is not None:
+                    requested_classes.add(member)
+        if not requested_symbol_seen or len(requested_classes) > 1:
+            raise ValueError("No unique cover-page trading symbol for the requested listing")
+
     facts = set()
+    other_classes = False
     for fact in root:
-        if not DEI.fullmatch(fact.tag):
+        match = DEI.fullmatch(fact.tag)
+        if not match or match[1] != "EntityCommonStockSharesOutstanding":
             continue
-        context = contexts.get(fact.get("contextRef"))
-        if context is None:
-            raise ValueError("Share count has no XBRL context")
-        entity = context.find("x:entity/x:identifier", NS)
-        if entity is None or entity.get("scheme") != "http://www.sec.gov/CIK" or entity.text is None:
-            raise ValueError("Share count has no SEC issuer ID")
-        if not entity.text.isdigit() or int(entity.text) != cik:
+        context, scope, member = issuer_context(fact, contexts, cik, namespaces)
+        if scope == "other_entity":
             continue
-        if context.find("x:entity/x:segment", NS) is not None or context.find("x:scenario", NS) is not None:
+        if scope == "unconfirmed":
             raise ValueError("Share-class or segment detail needs separate review")
+        if scope == "share_class" and member not in requested_classes:
+            other_classes = True
+            continue
+        if scope == "share_class" and symbols_by_class[member] != {requested_symbol}:
+            raise ValueError("The stock class maps to multiple trading symbols")
         instant = context.findtext("x:period/x:instant", namespaces=NS)
         unit = units.get(fact.get("unitRef"))
         measures = [] if unit is None else unit.findall("x:measure", NS)
@@ -88,9 +156,12 @@ def original_share_count(xml, cik, filed):
         day, amount = date.fromisoformat(instant), int(fact.text)
         if day > filed or amount <= 0:
             raise ValueError("Share count date or amount is invalid")
-        facts.add((day, amount, min(0, int(precision)) if precision != "INF" else 0))
+        facts.add((day, amount, int(precision) if precision != "INF" else 0, scope))
+    specific = {fact for fact in facts if fact[3] == "share_class"}
+    if specific or require_class or other_classes:
+        facts = specific
     if len(facts) != 1:
-        raise ValueError("No unique company-wide cover-page share count")
+        raise ValueError("No unique cover-page share count with the required scope")
     return facts.pop()
 
 
@@ -126,27 +197,27 @@ def resolve_tickers(symbols, directory, listings):
         if listing is None or listing[0] not in {"Nasdaq", "NYSE"} or listing[1] == "other_security":
             errors[symbol] = "No compatible NYSE or Nasdaq listing"
             continue
-        issuers = {cik for cik, venue in directory.get(symbol, ()) if venue == listing[0]}
+        references = directory.get(symbol, set())
+        if re.fullmatch(r"[A-Z]+\.[A-Z]", symbol) and symbol.replace(".", "-") not in listings:
+            references = references | directory.get(symbol.replace(".", "-"), set())
+        issuers = {cik for cik, venue in references if venue == listing[0]}
         if len(issuers) != 1:
             errors[symbol] = "No unique NYSE or Nasdaq issuer in SEC directory"
             continue
         cik = next(iter(issuers))
-        if cik in class_review:
-            errors[symbol] = "Multiple potential share classes in SEC directory"
-            continue
-        result[symbol] = cik
+        result[symbol] = (cik, cik in class_review)
     return result, errors
 
 
-def verify(cik, filing, download):
+def verify(cik, filing, download, symbol, require_class):
     filed, directory, accession = filing
     folder = f"{DATA}{directory}/{accession.replace('-', '')}/"
     index_url = SEC + folder + f"{accession}-index.htm"
     xml_url = SEC + instance_path(download(index_url), accession)
-    day, count, decimals = original_share_count(download(xml_url), cik, filed)
+    day, count, decimals, scope = original_share_count(download(xml_url), cik, filed, symbol, require_class)
     status = "exact_as_disclosed" if decimals == 0 else "rounded_as_disclosed"
     return {"status": status, "cik": cik, "filed": filed.isoformat(), "share_date": day.isoformat(),
-            "shares": count, "decimals": decimals, "filing_url": index_url}
+            "shares": count, "decimals": decimals, "share_scope": scope, "filing_url": index_url}
 
 
 def main():
@@ -180,8 +251,9 @@ def main():
                 raise ValueError("Listing directories overlap")
             listings.update(rows)
         jobs, errors = resolve_tickers(args.ticker, read_sec_directory(fetch(SEC_DIRECTORY)), listings)
-        filings, through = recent_filings(indexes, set(jobs.values()), args.trading_day)
+        filings, through = recent_filings(indexes, {cik for cik, _ in jobs.values()}, args.trading_day)
 
+        @lru_cache(maxsize=2)
         def download(url):
             # Two requests per issuer, below the SEC's request-rate limit.
             time.sleep(0.2)
@@ -192,11 +264,11 @@ def main():
             return scratch.read_bytes()
 
         results = {ticker: {"status": "held", "reason": reason} for ticker, reason in errors.items()}
-        for ticker, cik in jobs.items():
+        for ticker, (cik, require_class) in jobs.items():
             try:
                 if cik not in filings:
                     raise ValueError("No unique original 10-K or 10-Q in the supplied index interval")
-                results[ticker] = verify(cik, filings[cik], download)
+                results[ticker] = verify(cik, filings[cik], download, ticker, require_class)
             except (OSError, ValueError, ET.ParseError) as error:
                 results[ticker] = {"status": "held", "reason": str(error)}
     print(json.dumps({"trading_day": args.trading_day.isoformat(),
