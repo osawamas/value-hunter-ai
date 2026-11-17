@@ -3,6 +3,7 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import date
 from html.parser import HTMLParser
+from hashlib import sha256
 import json
 from pathlib import Path
 import re
@@ -106,6 +107,8 @@ def daily_sources(urls, output):
         results[published_on.isoformat()] = {
             "changes": dict(counts),
             "update_flags": sorted(flags),
+            "official_url": url,
+            "sha256": sha256(body).hexdigest(),
         }
         notes_by_release[published_on.isoformat()] = workbook_notes(body)
         (output / filename).write_bytes(body)
@@ -147,6 +150,7 @@ def main():
     if first_month.year < args.year:
         selected.update(monthly_links(page_links(PREVIOUS_YEAR_INDEX), first_month.year))
     accepted = {}
+    provenance = {}
     rejected = {}
     unpublished = []
     months = [date(year, number, 1) for year in range(first_month.year, args.year + 1)
@@ -167,11 +171,13 @@ def main():
             rejected[key] = {"reason": str(error), "official_url": selected[month]}
             continue
         accepted[key] = sum(map(len, events.values()))
+        provenance[key] = {"official_url": selected[month], "sha256": sha256(body).hexdigest()}
         (args.output / f"rights-{key}.pdf").write_bytes(body)
     if not accepted:
         raise SystemExit("No JPX monthly rights reports passed validation")
     print(json.dumps({
         "monthly_reports": accepted,
+        "monthly_report_provenance": provenance,
         "monthly_reports_rejected": rejected,
         "no_monthly_link_found": unpublished,
         "daily_workbooks": daily,
