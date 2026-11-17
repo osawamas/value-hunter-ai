@@ -36,6 +36,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             }
             if (codes.size() < 3000) throw new AssertionError("Missing JPX stock universe");
             String logs = digestReport(directory, LocalDate.of(2026, 10, 29), codes)
+                    + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
                     + checkSampleReport(directory);
             result.putString("stream", logs);
@@ -71,13 +72,25 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var file = new File(directory, "jpx-20261116.pdf");
         var day = LocalDate.of(2026, 11, 16);
         var report = JpxDailyCheck.readReport(file, day);
-        String html = report.html();
+        var previousDay = LocalDate.of(2026, 11, 13);
+        var previous = JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), previousDay);
+        var comparison = JpxDailyCheck.checkRecent(day.plusDays(2), date -> {
+            if (date.equals(day.plusDays(1))) return null;
+            if (date.equals(day)) return report;
+            if (date.equals(previousDay)) return previous;
+            throw new AssertionError("Checked an unexpected JPX date: " + date);
+        });
+        String html = comparison.html();
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
                 || !html.contains("7203  3428 円（後場）")
                 || !html.contains("参考PER 8.17倍 / 参考PBR 0.72倍")
                 || !html.contains("参考PER 11.61倍 / 参考PBR 1.12倍")
                 || !html.contains("自己株式控除後 11888495株")
-                || !html.contains("自己株式控除後 11778247313株")
+                || !html.contains("自己株式控除後 11737603369株（2026-10-31時点）")
+                || !html.contains("S100ZH9B.pdf")
+                || !html.contains("比較日 2026-11-13")
+                || !html.contains("比較日の終値 4660円 / +45円（+0.97%）")
+                || !html.contains("比較日の終値 3418円 / +10円（+0.29%）")
                 || !html.contains("時価総額は保留（立会日の株式数未照合）")) {
             throw new AssertionError("The Android daily report preview did not match the JPX reference");
         }
@@ -93,6 +106,21 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         if (beforeDisclosure.toString().contains("参考PER")
                 || beforeDisclosure.toString().contains("自己株式控除後")) {
             throw new AssertionError("Financials disclosed on or after the close must not be used");
+        }
+        var onShareDisclosure = new StringBuilder();
+        JpxReferenceFinancials.appendHtml(onShareDisclosure, "7203", previousDay, new BigDecimal("3418"));
+        if (!onShareDisclosure.toString().contains("自己株式控除後 11779620513株（2026-09-30時点）")
+                || onShareDisclosure.toString().contains("S100ZH9B.pdf")) {
+            throw new AssertionError("Used an EDINET share count before its eligible session");
+        }
+        var oneReport = JpxDailyCheck.checkRecent(day.plusDays(1), date -> {
+            if (date.equals(day)) return report;
+            if (date.equals(previousDay)) throw new IOException("Unavailable report");
+            throw new AssertionError("A failed download must not select an older comparison date");
+        });
+        if (!oneReport.html().contains("7203  3428 円（後場）")
+                || !oneReport.html().contains("比較用の日報を取得できなかった")) {
+            throw new AssertionError("A failed comparison hid the latest report");
         }
         return "JPX_ANDROID_PREVIEW_OK\n";
     }

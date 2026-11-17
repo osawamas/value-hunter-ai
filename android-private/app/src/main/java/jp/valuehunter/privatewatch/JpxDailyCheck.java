@@ -6,6 +6,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.FileInputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -27,46 +29,104 @@ final class JpxDailyCheck {
 
     record Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes,
                   Set<String> ambiguous) {
-        String html() {
-            var message = new StringBuilder("立会日 ").append(date);
-            for (String code : SAMPLE_CODES) {
-                var sessions = quotes.get(code);
-                message.append("<br><br>").append(code).append("  ");
-                if (ambiguous.contains(code)) {
-                    message.append("終値を一意に読み取れなかった");
-                } else if (sessions == null) {
-                    message.append("銘柄行が見つからなかった");
-                } else if (sessions.close() == null || sessions.close().signum() <= 0) {
-                    message.append("終値なし");
-                } else {
-                    message.append(sessions.close().toPlainString()).append(" 円")
-                            .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
-                    JpxReferenceFinancials.appendHtml(message, code, date, sessions.close());
-                }
-            }
-            return message.append("<br><br><a href='").append(source)
-                    .append("'>JPX 株式相場表（PDF）</a>").toString();
+        BigDecimal close(String code) {
+            var sessions = quotes.get(code);
+            if (ambiguous.contains(code) || sessions == null || sessions.close() == null
+                    || sessions.close().signum() <= 0) return null;
+            return sessions.close();
         }
     }
 
-    static Report check(File cache) throws IOException {
+    record Comparison(Report latest, Report previous) {
+        String html() {
+            var message = new StringBuilder("立会日 ").append(latest.date());
+            if (previous == null) {
+                message.append("<br>比較用の日報を取得できなかった");
+            } else {
+                message.append("<br>比較日 ").append(previous.date()).append("（分割等の調整前の終値）");
+            }
+            for (String code : SAMPLE_CODES) {
+                var close = latest.close(code);
+                var sessions = latest.quotes().get(code);
+                message.append("<br><br>").append(code).append("  ");
+                if (latest.ambiguous().contains(code)) {
+                    message.append("終値を一意に読み取れなかった");
+                } else if (sessions == null) {
+                    message.append("銘柄行が見つからなかった");
+                } else if (close == null) {
+                    message.append("終値なし");
+                } else {
+                    message.append(close.toPlainString()).append(" 円")
+                            .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
+                    if (previous != null) appendChange(message, close, previous.close(code));
+                    JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
+                }
+            }
+            appendSource(message.append("<br>"), latest);
+            if (previous != null) appendSource(message, previous);
+            return message.toString();
+        }
+
+        private static void appendChange(StringBuilder message, BigDecimal close, BigDecimal previous) {
+            if (previous == null) {
+                message.append("<br>比較日の終値を確認できなかった");
+                return;
+            }
+            var change = close.subtract(previous);
+            var percent = change.movePointRight(2).divide(previous, 2, RoundingMode.HALF_UP);
+            message.append("<br>比較日の終値 ").append(previous.toPlainString()).append("円 / ")
+                    .append(change.signum() > 0 ? "+" : "").append(change.stripTrailingZeros().toPlainString())
+                    .append("円（").append(percent.signum() > 0 ? "+" : "")
+                    .append(percent.toPlainString()).append("%）");
+        }
+
+        private static void appendSource(StringBuilder message, Report report) {
+            message.append("<br><a href='").append(report.source()).append("'>JPX 株式相場表 ")
+                    .append(report.date()).append("（PDF）</a>");
+        }
+    }
+
+    @FunctionalInterface
+    interface ReportLoader {
+        Report load(LocalDate day) throws IOException;
+    }
+
+    static Comparison check(File cache) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
         var pdf = File.createTempFile("jpx-daily-", ".pdf", cache);
         try {
-            for (LocalDate day : candidateDays(today)) {
-                if (Thread.currentThread().isInterrupted()) throw new IOException("東証日報の確認を中断");
-                String source = reportUrl(day);
-                if (download(source, pdf)) return readReport(pdf, day);
-            }
-            throw new IOException("直近10日間に公表された株式相場表が見つからなかった");
+            return checkRecent(today, day -> download(reportUrl(day), pdf) ? readReport(pdf, day) : null);
         } finally {
             pdf.delete();
         }
     }
 
+    static Comparison checkRecent(LocalDate today, ReportLoader load) throws IOException {
+        Report latest = null;
+        for (LocalDate day : candidateDays(today)) {
+            if (Thread.currentThread().isInterrupted()) throw new IOException("東証日報の確認を中断");
+            Report report;
+            try {
+                report = load.load(day);
+            } catch (IOException error) {
+                if (latest == null || Thread.currentThread().isInterrupted()) throw error;
+                return new Comparison(latest, null);
+            }
+            if (report == null) continue;
+            if (latest != null) return new Comparison(latest, report);
+            latest = report;
+        }
+        if (latest != null) return new Comparison(latest, null);
+        throw new IOException("直近10日間に公表された株式相場表が見つからなかった");
+    }
+
     static Report readReport(File pdf, LocalDate day) throws IOException {
-        var table = JpxAndroidPdfReader.read(pdf, Set.copyOf(SAMPLE_CODES), day);
-        return new Report(day, reportUrl(day), table.prices(), table.ambiguousCodes());
+        try {
+            var table = JpxAndroidPdfReader.read(pdf, Set.copyOf(SAMPLE_CODES), day);
+            return new Report(day, reportUrl(day), table.prices(), table.ambiguousCodes());
+        } catch (IllegalArgumentException | SecurityException error) {
+            throw new IOException("東証日報のPDFを読み取れなかった", error);
+        }
     }
 
     static List<LocalDate> candidateDays(LocalDate today) {
