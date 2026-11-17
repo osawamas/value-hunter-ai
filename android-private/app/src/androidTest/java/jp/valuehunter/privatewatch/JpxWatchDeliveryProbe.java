@@ -66,6 +66,9 @@ final class JpxWatchDeliveryProbe {
         notifications.cancelAll();
         if (!notifications.areNotificationsEnabled()) throw new AssertionError("Test notification permission missing");
         try {
+            if (JpxWatchWorker.checkNow(context)) {
+                throw new AssertionError("Manual JPX monitoring was queued while disabled");
+            }
             JpxWatchWorker.setEnabled(context, true);
             var job = registered(work);
             JpxWatchWorker.setEnabled(context, true);
@@ -108,9 +111,13 @@ final class JpxWatchDeliveryProbe {
                     sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")), complete));
             var power = context.getSystemService(PowerManager.class);
             if (power.isInteractive()) throw new AssertionError("Emulator display was awake before the alert");
-            driver.setAllConstraintsMet(id);
-            driver.setPeriodDelayMet(id);
-            awaitRun(work, id, starts, 4);
+            if (!JpxWatchWorker.checkNow(context) || !JpxWatchWorker.checkNow(context)) {
+                throw new AssertionError("The enabled monitor could not queue an immediate check");
+            }
+            var manualId = pendingManual(work);
+            driver.setAllConstraintsMet(manualId);
+            awaitManual(work, manualId);
+            if (starts.get() != 4) throw new AssertionError("Repeated immediate checks ran more than once");
             verifySilentNotification(notifications);
 
             notifications.cancelAll();
@@ -118,8 +125,12 @@ final class JpxWatchDeliveryProbe {
             driver.setPeriodDelayMet(id);
             awaitRun(work, id, starts, 5);
             expectQuiet(notifications);
+
+            JpxWatchWorker.checkNow(context);
+            var cancelledManual = pendingManual(work);
             JpxWatchWorker.setEnabled(context, false);
             awaitCancelled(work, id);
+            awaitCancelled(work, cancelledManual);
             if (JpxWatchWorker.enabled(context) || starts.get() != 5
                     || !JpxWatchWorker.displayStatus(state).isEmpty()) {
                 throw new AssertionError("Disabling JPX monitoring did not stop and clear the previous watch");
@@ -139,6 +150,28 @@ final class JpxWatchDeliveryProbe {
         } finally {
             JpxWatchWorker.setEnabled(context, false);
         }
+    }
+
+    private static UUID pendingManual(WorkManager work) throws Exception {
+        var jobs = work.getWorkInfosForUniqueWork(JpxWatchWorker.MANUAL).get(15, TimeUnit.SECONDS)
+                .stream().filter(info -> !info.getState().isFinished()).toList();
+        if (jobs.size() != 1 || jobs.get(0).getPeriodicityInfo() != null
+                || jobs.get(0).getConstraints().getRequiredNetworkType() != NetworkType.CONNECTED) {
+            throw new AssertionError("JPX did not queue exactly one connected manual check: " + jobs);
+        }
+        return jobs.get(0).getId();
+    }
+
+    private static void awaitManual(WorkManager work, UUID id) throws Exception {
+        for (int attempt = 0; attempt < 80; attempt++) {
+            var info = work.getWorkInfoById(id).get(5, TimeUnit.SECONDS);
+            if (info != null && info.getState() == WorkInfo.State.SUCCEEDED) return;
+            if (info != null && info.getState().isFinished()) {
+                throw new AssertionError("JPX immediate check ended in " + info.getState());
+            }
+            Thread.sleep(100);
+        }
+        throw new AssertionError("JPX immediate check did not finish");
     }
 
     private static WorkInfo registered(WorkManager work) throws Exception {

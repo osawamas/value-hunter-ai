@@ -20,6 +20,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.work.WorkManager;
 
 import org.json.JSONArray;
@@ -38,6 +39,7 @@ public final class MainActivity extends Activity {
     private EditText sgKey;
     private CheckBox sgWatch;
     private CheckBox jpxWatch;
+    private Button jpxCheckNow;
     private TextView jpxWatchStatus;
     private TextView notificationStatus;
     private Thread jpxCheckThread;
@@ -278,9 +280,19 @@ public final class MainActivity extends Activity {
         jpxWatch.setChecked(JpxWatchWorker.enabled(this));
         jpxWatch.setOnCheckedChangeListener((view, checked) -> {
             JpxWatchWorker.setEnabled(this, checked);
+            jpxCheckNow.setEnabled(checked);
             if (checked) requestNotifications();
         });
         content.addView(jpxWatch);
+        jpxCheckNow = new Button(this);
+        jpxCheckNow.setText("監視を今すぐ確認");
+        jpxCheckNow.setEnabled(jpxWatch.isChecked());
+        jpxCheckNow.setOnClickListener(view -> {
+            if (JpxWatchWorker.checkNow(this)) {
+                Toast.makeText(this, "通信できるときに監視を確認する", Toast.LENGTH_SHORT).show();
+            }
+        });
+        content.addView(jpxCheckNow);
         jpxWatchStatus = new TextView(this);
         content.addView(jpxWatchStatus);
 

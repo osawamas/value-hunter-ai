@@ -9,6 +9,8 @@ import android.text.Html;
 import androidx.annotation.NonNull;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -33,6 +35,7 @@ import java.util.function.Function;
 
 public final class JpxWatchWorker extends Worker {
     static final String WORK = "jpx-daily-watch";
+    static final String MANUAL = "jpx-daily-check-now";
     private static final String TOKEN = "jpx_watch_token";
     private static final String BASELINE = "jpx_watch_baseline";
     private static final String LATEST = "jpx_watch_latest";
@@ -45,6 +48,7 @@ public final class JpxWatchWorker extends Worker {
     static final String STATUS = "jpx_watch_status";
     private static final int NOTIFICATION_ID = 5;
     private static final Object STATE_LOCK = new Object();
+    private static final Object CHECK_LOCK = new Object();
 
     @FunctionalInterface
     interface ComparisonLoader {
@@ -79,20 +83,40 @@ public final class JpxWatchWorker extends Worker {
                     state.edit().putString(TOKEN, UUID.randomUUID().toString())
                             .putString(STATUS, "東証日報の確認を予約した").apply();
                 }
-                var constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
                 var request = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 6, TimeUnit.HOURS)
-                        .setConstraints(constraints).build();
+                        .setConstraints(connected()).build();
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
             } else {
                 state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
                         .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).apply();
                 work.cancelUniqueWork(WORK);
+                work.cancelUniqueWork(MANUAL);
                 context.getSystemService(NotificationManager.class).cancel(NOTIFICATION_ID);
             }
         }
     }
 
+    static boolean checkNow(Context context) {
+        synchronized (STATE_LOCK) {
+            if (Build.VERSION.SDK_INT < 35 || !enabled(context)) return false;
+            var request = new OneTimeWorkRequest.Builder(JpxWatchWorker.class)
+                    .setConstraints(connected()).build();
+            WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP, request);
+            return true;
+        }
+    }
+
+    private static Constraints connected() {
+        return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+    }
+
     @NonNull @Override public Result doWork() {
+        synchronized (CHECK_LOCK) {
+            return check();
+        }
+    }
+
+    private Result check() {
         if (Build.VERSION.SDK_INT < 35 || isStopped()) return Result.success();
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
