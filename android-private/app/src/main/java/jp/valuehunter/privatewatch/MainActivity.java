@@ -3,10 +3,14 @@ package jp.valuehunter.privatewatch;
 import android.Manifest;
 import android.app.Activity;
 import android.app.NotificationManager;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.net.Uri;
+import android.provider.Settings;
 import android.text.method.LinkMovementMethod;
 import android.text.InputType;
 import android.view.View;
@@ -35,6 +39,7 @@ public final class MainActivity extends Activity {
     private CheckBox sgWatch;
     private CheckBox jpxWatch;
     private TextView jpxWatchStatus;
+    private TextView notificationStatus;
     private Thread jpxCheckThread;
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange =
             (prefs, name) -> render();
@@ -108,13 +113,23 @@ public final class MainActivity extends Activity {
         var test = new Button(this);
         test.setText("無音通知を試す");
         test.setOnClickListener(view -> {
-            if (!getSystemService(NotificationManager.class).areNotificationsEnabled()) {
+            if (ScanWorker.alertsEnabled(this)) {
+                ScanWorker.testNotification(this);
+            } else if (Build.VERSION.SDK_INT >= 33
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
                 requestNotifications();
-                return;
+            } else {
+                openAlertSettings();
             }
-            ScanWorker.testNotification(this);
         });
         content.addView(test);
+        var notificationSettings = new Button(this);
+        notificationSettings.setText("無音通知の設定を開く");
+        notificationSettings.setOnClickListener(view -> openAlertSettings());
+        content.addView(notificationSettings);
+        notificationStatus = new TextView(this);
+        content.addView(notificationStatus);
         addJpxDailyCheck(content);
 
         var erase = new Button(this);
@@ -306,12 +321,25 @@ public final class MainActivity extends Activity {
         super.onStart();
         state.registerOnSharedPreferenceChangeListener(onChange);
         if (jpxWatch != null && jpxWatch.isChecked()) JpxWatchWorker.setEnabled(this, true);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
         render();
     }
 
     @Override protected void onStop() {
         state.unregisterOnSharedPreferenceChangeListener(onChange);
         super.onStop();
+    }
+
+    private void openAlertSettings() {
+        try {
+            startActivity(ScanWorker.alertSettings(this));
+        } catch (ActivityNotFoundException error) {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", getPackageName(), null)));
+        }
     }
 
     private void requestNotifications() {
@@ -336,10 +364,13 @@ public final class MainActivity extends Activity {
                 + (usResult.isEmpty() ? "" : "\n" + usResult));
         String date = state.getString("latest_date", "");
         boolean enabled = getSystemService(NotificationManager.class).areNotificationsEnabled();
+        String notificationMessage = !enabled ? "アプリの通知がオフ"
+                : (!ScanWorker.alertsEnabled(this) ? "割安候補の無音通知がオフ" : "");
+        notificationStatus.setText(notificationMessage);
+        notificationStatus.setVisibility(notificationMessage.isEmpty() ? View.GONE : View.VISIBLE);
         String dataLabel = state.getBoolean("delayed", true) ? "（遅延データ）" : "";
         status.setText(state.getString("status", "APIキーを設定して監視を始める")
-                + (date.isEmpty() ? "" : "\n一覧の株価基準日 " + date + dataLabel)
-                + (enabled ? "" : "\n無音通知を受け取るには通知を許可して"));
+                + (date.isEmpty() ? "" : "\n一覧の株価基準日 " + date + dataLabel));
         try {
             var lines = new JSONArray(state.getString("rows", "[]"));
             StringBuilder text = new StringBuilder();

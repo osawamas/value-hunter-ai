@@ -14,6 +14,8 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxReferenceFinancials.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxShareRights.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxWatchWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ScanWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java'
       - 'android-private/app/src/main/assets/jpx-share-rights.json'
       - 'android-private/tools/jpx_daily_probe.py'
 

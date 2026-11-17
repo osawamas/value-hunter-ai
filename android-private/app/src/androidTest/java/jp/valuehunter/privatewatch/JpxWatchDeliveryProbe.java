@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.os.PowerManager;
+import android.provider.Settings;
 
 import androidx.work.Configuration;
 import androidx.work.ListenableWorker;
@@ -119,6 +120,7 @@ final class JpxWatchDeliveryProbe {
             driver.setAllConstraintsMet(restartedId);
             awaitRun(work, restartedId, starts, 5);
             expectQuiet(notifications);
+            verifyTestNotification(context, notifications);
         } finally {
             JpxWatchWorker.setEnabled(context, false);
         }
@@ -185,6 +187,31 @@ final class JpxWatchDeliveryProbe {
             Thread.sleep(100);
         }
         throw new AssertionError("The expected JPX notice did not reach Android's notification manager");
+    }
+
+    private static void verifyTestNotification(Context context, NotificationManager notifications)
+            throws InterruptedException {
+        var intent = ScanWorker.alertSettings(context);
+        if (!Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS.equals(intent.getAction())
+                || !context.getPackageName().equals(intent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+                || !ScanWorker.CHANNEL.equals(intent.getStringExtra(Settings.EXTRA_CHANNEL_ID))
+                || !ScanWorker.alertsEnabled(context)) {
+            throw new AssertionError("The app did not target the same settings used by the JPX worker");
+        }
+        ScanWorker.testNotification(context);
+        try {
+            for (int attempt = 0; attempt < 30; attempt++) {
+                for (var active : notifications.getActiveNotifications()) {
+                    var note = active.getNotification();
+                    String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
+                    if (title.contains("無音通知テスト") && ScanWorker.CHANNEL.equals(note.getChannelId())) return;
+                }
+                Thread.sleep(100);
+            }
+            throw new AssertionError("The test notification did not use the JPX notification channel");
+        } finally {
+            notifications.cancelAll();
+        }
     }
 
     private static JpxDailyCheck.Report sample(LocalDate day, String close) {

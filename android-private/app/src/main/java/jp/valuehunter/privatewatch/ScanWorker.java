@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.work.BackoffPolicy;
@@ -176,14 +177,37 @@ public final class ScanWorker extends Worker {
         postNotification(context, 2, "VALUE HUNTER AI 無音通知テスト", "新しい候補が見つかると、この通知欄に表示される");
     }
 
-    static void postNotification(Context context, int id, String title, String detail) {
-        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) return;
+    static boolean alertsEnabled(Context context) {
         var manager = context.getSystemService(NotificationManager.class);
+        var channel = manager.getNotificationChannel(CHANNEL);
+        return manager.areNotificationsEnabled()
+                && (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE);
+    }
+
+    static Intent alertSettings(Context context) {
+        var manager = context.getSystemService(NotificationManager.class);
+        if (!manager.areNotificationsEnabled()) {
+            return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName());
+        }
+        createAlertChannel(manager);
+        return new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName())
+                .putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL);
+    }
+
+    private static void createAlertChannel(NotificationManager manager) {
         var channel = new NotificationChannel(CHANNEL, "割安候補（無音）", NotificationManager.IMPORTANCE_LOW);
         channel.setSound(null, null);
         channel.enableVibration(false);
         manager.createNotificationChannel(channel);
+    }
+
+    static void postNotification(Context context, int id, String title, String detail) {
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) return;
+        var manager = context.getSystemService(NotificationManager.class);
+        createAlertChannel(manager);
         var tap = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         manager.notify(id, new Notification.Builder(context, CHANNEL)

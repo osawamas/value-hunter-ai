@@ -97,10 +97,7 @@ public final class JpxWatchWorker extends Worker {
                 if (last != null && date.isBefore(last)) return Result.success();
                 var alerted = date.equals(last)
                         ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
-                var notifications = context.getSystemService(NotificationManager.class);
-                var channel = notifications.getNotificationChannel(ScanWorker.CHANNEL);
-                boolean notifyEnabled = notifications.areNotificationsEnabled()
-                        && (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE);
+                boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
                         : List.<JpxDailyCheck.Entrant>of();
                 for (var entry : added) alerted.add(entry.code());
