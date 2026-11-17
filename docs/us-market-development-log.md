@@ -2,6 +2,14 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 02:15 JST — 上場一覧の観測日と終値対象日のずれを明示
+
+- 開始時main: [cfa8d66](https://github.com/osawamas/value-hunter-ai/commit/cfa8d6609099039283b92dea444c078ba3b61723)。直近の[米国株テストActions](https://github.com/osawamas/value-hunter-ai/actions/runs/44134268173)は成功。並行開発で追加されたティッカー変更照合は維持した。
+- [検証ツール変更](https://github.com/osawamas/value-hunter-ai/commit/004c5741dce0f941695d2b51b4043d8dfc3ba518)で、終値対象日とNasdaq Trader上場一覧の作成日の差を日数・状態としてJSONに出力。未来・過去・同日観測を区別し、同日でも「取引日時点の上場母集団を確認済み」とは扱わない。[回帰テスト追加](https://github.com/osawamas/value-hunter-ai/commit/c0e54305f355db471e9ebd9a58051308b16ed377)。
+- 対象取引日は2026-11-16、上場一覧は2026-11-17作成で1日後の観測。前回実測のNYSE 1,875/1,896、Nasdaq 3,103/3,191は再測定していない。VRSA/VBNKなど変更日にまたがる銘柄を誤って歴史的母集団に確定しない。
+- 今回の新規テストはGitHubに保存済みだが、[変更直後のActions](https://github.com/osawamas/value-hunter-ai/actions/runs/44134420024)は確認時点で待機中（コード変更コミットの実行）。テスト追加後のActionsと実機動作は未確認。価格原データ・APK・APIキーの公開なし。
+- 次回: テスト追加後のActionsを確認し、取引日当日の上場一覧を安全に保存・比較する手順を実装。Dolt同期の429、正規セッション未調整終値、SEC株数照合は継続課題。
+
 ## 2026-11-18 02:12 JST — 上場・ティッカー変更の出典を終値欠落に照合
 
 - 開始時mainは [009bf3d](https://github.com/osawamas/value-hunter-ai/commit/009bf3d567e6be1e8c94f80e30d8ffce57f56c03)。`--listing-evidence-file` で取引所・ティッカー・日付を照合し、発行体が示した開始予定と取引所が通知した変更発効日を区別。変更前の対象日については旧ティッカーの終値の有無も表示する。
