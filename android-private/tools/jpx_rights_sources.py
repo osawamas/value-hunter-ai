@@ -10,6 +10,7 @@ from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 import pymupdf
+import xlrd
 
 from jpx_share_basis import read_monthly_rights
 from jpx_daily_rights import read_daily_rights
@@ -70,8 +71,25 @@ def monthly_links(urls, year):
     return result
 
 
+def workbook_notes(body):
+    workbook = xlrd.open_workbook(file_contents=body)
+    try:
+        matching = [sheet for sheet in workbook.sheets() if "留意点" in sheet.name]
+        if len(matching) != 1:
+            raise ValueError("JPX daily rights workbook notes worksheet is missing or ambiguous")
+        sheet = matching[0]
+        return [
+            " ".join(str(cell).strip() for cell in sheet.row_values(index) if str(cell).strip())
+            for index in range(sheet.nrows)
+            if any(str(cell).strip() for cell in sheet.row_values(index))
+        ]
+    finally:
+        workbook.release_resources()
+
+
 def daily_sources(urls, output):
     results = {}
+    notes_by_release = {}
     for url in urls:
         path = urlsplit(url).path
         if "/listing/others/ex-rights/" not in path or not re.search(r"/\d{8}\.xls$", path):
@@ -84,8 +102,9 @@ def daily_sources(urls, output):
             "changes": dict(counts),
             "update_flags": sorted(flags),
         }
+        notes_by_release[published_on.isoformat()] = workbook_notes(body)
         (output / filename).write_bytes(body)
-    return results
+    return results, notes_by_release
 
 
 def main():
@@ -93,8 +112,13 @@ def main():
     parser.add_argument("--year", required=True, type=int)
     parser.add_argument("--cutoff-month", required=True, type=int, choices=range(1, 13))
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--daily-only", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    daily, notes_by_release = daily_sources(page_links(DAILY_INDEX), args.output)
+    if args.daily_only:
+        print(json.dumps({"daily_workbooks": daily, "latest_workbook_notes": notes_by_release[max(notes_by_release)] if notes_by_release else []}, ensure_ascii=False, indent=2))
+        return
     selected = monthly_links(page_links(MONTHLY_INDEX), args.year)
     accepted = {}
     rejected = {}
@@ -121,7 +145,8 @@ def main():
         "monthly_reports": accepted,
         "monthly_reports_rejected": rejected,
         "no_monthly_link_found": unpublished,
-        "daily_workbooks": daily_sources(page_links(DAILY_INDEX), args.output),
+        "daily_workbooks": daily,
+        "daily_workbook_notes_variants": len({tuple(notes) for notes in notes_by_release.values()}),
         "daily_catalog_certifies_historical_coverage": False,
     }, ensure_ascii=False, indent=2))
 
