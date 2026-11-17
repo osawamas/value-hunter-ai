@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
-from us_daily_coverage import run_cycle
+from us_daily_coverage import compare_previous_report, run_cycle
 
 
 class DailyCoverageTest(unittest.TestCase):
@@ -21,7 +21,7 @@ class DailyCoverageTest(unittest.TestCase):
         day = date(2026, 11, 16)
         aapl = {"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}
         bio = dict(aapl, symbol="BIO.B")
-        prices.side_effect = [[], [aapl], [], [aapl, bio], [], []]
+        prices.side_effect = [[], [aapl], [], [aapl, bio], [], [aapl], [], []]
         sync.return_value = "cached_after_rate_limit"
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -48,17 +48,36 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual("cached_after_rate_limit", report["dolt_sync"])
             self.assertNotIn("AAPL", json.dumps(report))
             self.assertEqual("observed_unverified", report["coverage_status"])
+            self.assertEqual({"nasdaqlisted.txt", "otherlisted.txt"}, report["directory_sha256"].keys())
             again = run_cycle(root, root / "stocks", now, calendar)
             self.assertEqual("refreshed", again["sessions"][1]["status"])
             counts = again["sessions"][1]["common_or_ordinary_label_by_exchange"]
             self.assertEqual(1, counts["NYSE"]["with_close"])
+            self.assertEqual(1, again["sessions"][1]["previous_observation"]["markets"]["NYSE"]["change_in_with_close"])
+            later = run_cycle(root, root / "stocks", now, calendar)
+            drop = later["sessions"][1]["previous_observation"]["markets"]["NYSE"]
+            self.assertEqual({"previous_with_close": 1, "current_with_close": 0, "change_in_with_close": -1}, drop)
             last_report = report_path.read_bytes()
+            self.assertEqual(drop, json.loads(last_report)["previous_observation"]["markets"]["NYSE"])
             empty = run_cycle(root, root / "stocks", now, calendar)
             self.assertTrue(empty["sessions"][1]["previous_report_retained"])
             self.assertEqual(last_report, report_path.read_bytes())
             self.assertEqual("outside_capture_window",
                              run_cycle(root, root / "stocks", now.replace(hour=13), calendar)["status"])
-            self.assertEqual(3, sync.call_count)
+            self.assertEqual(4, sync.call_count)
+
+
+    def test_does_not_compare_incompatible_previous_directory(self):
+        observed = {"trading_date": "2026-11-16", "sample_price_basis": "Dolt",
+                    "directory_observed_at": {"otherlisted.txt": "2026-11-16T11:00:00"}}
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text(json.dumps(dict(observed, directory_observed_at={})))
+            self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
+            path.write_text(json.dumps(dict(observed, directory_sha256={"otherlisted.txt": "different"})))
+            self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
+            path.write_text("{")
+            self.assertEqual("previous_report_unreadable", compare_previous_report(path, observed)["status"])
 
 
 if __name__ == "__main__":
