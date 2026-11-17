@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 06:15 JST — NLS Plusセッション境界の異常を拒否
+
+- 開始時main: [e46ce00](https://github.com/osawamas/value-hunter-ai/commit/e46ce00543f3c0552493405cbcc002009f36f6df)。直近の[GitHub Actions実行44167378934](https://github.com/osawamas/value-hunter-ai/actions/runs/44167378934)は成功（ZIP browser workflow）。米国株のPythonテストの成功を意味するものではない。
+- [Nasdaq NLS Plus仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)を参照し、セッション開始O・終了Cを一度ずつ正しい順序で受け取る条件を厳密化。従来はO,C,CやO,C,O,Cを正常終了として許容していた。[修正](https://github.com/osawamas/value-hunter-ai/commit/f2a5f4602649eef0825bcbc949aa0047956ee318)・[回帰テスト](https://github.com/osawamas/value-hunter-ai/commit/f5a408436ad5eebefe6d18f2ebd1f2105dd4b388)を保存。重複・順序逆転・未知のシステムイベントを拒否する5ケースを追加。
+- 今回はPythonテストの実行と新コミットのActions結果は未確認。実データ同期なし。対象実測参照日2021-06-14、前回のNasdaq NOCP 4,605銘柄を維持し、新規終値取得0件。2026-11-17のNYSE/Nasdaq当日網羅率は未測定。株価原本・APIキー・APKの公開なし。
+- 未解決: 新テスト実行、Dolt日次同期と429再試行の実測、正規セッション終値と株式分割・SEC株数の整合、Android実機相当テスト。次回は米国株Pythonテストを実行し、Actionsの結果を確認してからDolt日次同期へ戻る。
+
 ## 2026-11-18 05:15 JST — Nasdaq NLSの破損パケットを安全に拒否
 
 - 開始時main: [fdb3fa1](https://github.com/osawamas/value-hunter-ai/commit/fdb3fa19c32824e182d1aae6df2eea449247c3f5)。前回のNasdaq NOCPとDoltの照合を維持し、NLSキャプチャの破損入力検査を改善。
