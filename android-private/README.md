@@ -102,3 +102,17 @@ python3 tools/us_public_files_probe.py 2026-11-16
 ```sh
 python3 tools/us_public_files_probe.py 2026-11-16 --with-sec
 ```
+
+`--sec-quarter` を付けると、[SEC Financial Statement Data Sets](https://www.sec.gov/data-research/sec-markets-data/financial-statement-data-sets)
+の公開ZIPもダウンロードする。取引日の前日までに提出された10-K・10-Q原本のうち、対象企業の直近の報告期間を選ぶ。
+その報告書にある米ドル建ての株主資本と期間純利益を照合し、同じ値の重複は除き、異なる値が競合する場合は件数に含めない。
+セグメント・共同登録者別の内訳も除く。複数のZIPを指定しても同じ銘柄は重複計上しない。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --sec-quarter 2026q3 --sec-quarter 2026q2
+```
+
+11月16日に終値サンプルとCIKが揃った5,208銘柄のうち、2026年Q3のZIPでは
+3,699銘柄（3,677社）、Q2とQ3の両方では3,732銘柄（3,709社）で株主資本と期間純利益が揃った。
+この件数は指定した提出時期のアーカイブの範囲に限る。純利益は10-Qの1四半期分または10-Kの通期分。
+取引日の発行済株式数、直近12か月利益、未調整の終値は別途照合が必要。

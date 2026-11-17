@@ -9,10 +9,15 @@ from math import isfinite
 from pathlib import Path
 import re
 import subprocess
+from tempfile import TemporaryDirectory
+from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
+
+from us_sec_statement_coverage import measure as measure_statements
 
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
+SEC_STATEMENTS = "https://www.sec.gov/files/dera/data/financial-statement-data-sets/"
 SAMPLE = "https://marketparquet.com/api/data/download/stock_daily/"
 MAX_BYTES = 4 * 1024 * 1024
 CREATED = re.compile(r"File Creation Time: (\d{8}\d{2}:\d{2})\|+")
@@ -24,18 +29,21 @@ EXCHANGES = {"A": "NYSE American", "N": "NYSE", "P": "NYSE Arca", "Z": "Cboe BZX
              "V": "IEX", "M": "NYSE Texas", "F": "Texas Stock Exchange"}
 
 
-def fetch(url):
+def fetch(url, destination=None):
     name = url.rsplit("/", 1)[-1]
     command = ["curl", "--fail", "--silent", "--location", "--max-redirs", "4",
-               "--proto", "=https", "--proto-redir", "=https", "--max-time", "25",
-               "--max-filesize", str(MAX_BYTES)]
-    if url == SEC_DIRECTORY:
+               "--proto", "=https", "--proto-redir", "=https",
+               "--max-time", "120" if destination else "25",
+               "--max-filesize", str(220_000_000 if destination else MAX_BYTES)]
+    if destination:
+        command.extend(["--output", str(destination)])
+    if url == SEC_DIRECTORY or url.startswith(SEC_STATEMENTS):
         command.extend(["--user-agent", "VALUE HUNTER AI research https://github.com/osawamas/value-hunter-ai"])
     try:
         result = subprocess.run([*command, url], capture_output=True, check=False)
     except FileNotFoundError:
         raise ValueError("Install curl to download the public files") from None
-    if result.returncode or not result.stdout or len(result.stdout) > MAX_BYTES:
+    if result.returncode or (destination is None and not 0 < len(result.stdout) <= MAX_BYTES):
         raise ValueError(f"{name}: public download unavailable (curl {result.returncode})")
     return result.stdout
 
@@ -93,7 +101,7 @@ def read_sec_directory(content):
     return rows
 
 
-def filing_join(listings, closes, sec):
+def filing_join(listings, closes, sec, statement_files=(), day=None):
     # The SEC may label NYSE-group listings simply as NYSE.
     venues = {"Nasdaq": {"Nasdaq"}, "NYSE": {"NYSE"}, "NYSE American": {"NYSE", "NYSE American"},
               "NYSE Arca": {"NYSE", "NYSE Arca"}, "Cboe BZX": {"CBOE"},
@@ -121,7 +129,7 @@ def filing_join(listings, closes, sec):
 
     issuer_counts = Counter(matches.values())
     with_both = closes & matches.keys()
-    return {
+    result = {
         "listed_with_sec_issuer": len(matches),
         "listed_with_close_and_sec_issuer": len(with_both),
         "with_close_missing_sec_issuer": sum(
@@ -134,9 +142,14 @@ def filing_join(listings, closes, sec):
         ),
         "unlinked": dict(sorted(diagnostics.items())),
     }
+    if statement_files:
+        result["statement_archive_coverage"] = measure_statements(
+            statement_files, day, {ticker: matches[ticker] for ticker in with_both}
+        )
+    return result
 
 
-def coverage(day, listings, bars, sec=None):
+def coverage(day, listings, bars, sec=None, statement_files=()):
     seen = set()
     closes = set()
     for row in bars:
@@ -168,7 +181,7 @@ def coverage(day, listings, bars, sec=None):
             "groups": {key: counts(value) for key, value in groups.items()},
             "common_or_ordinary_label_by_exchange": {key: counts(value) for key, value in sorted(by_exchange.items())}}
     if sec is not None:
-        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec)
+        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day)
     return result
 
 
@@ -193,8 +206,16 @@ def main():
     parser.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
+    statements = parser.add_mutually_exclusive_group()
+    statements.add_argument("--sec-quarter", action="append", default=[], help="Download a public SEC statements ZIP, e.g. 2026q3")
+    statements.add_argument("--sec-statement-file", type=Path, action="append", default=[], help="Replay the original SEC statements ZIP")
     args = parser.parse_args()
-    if (args.sample_file or args.with_sec or args.sec_file) and not args.trading_day:
+    check_statements = args.sec_quarter or args.sec_statement_file
+    if any(not re.fullmatch(r"20[0-9]{2}q[1-4]", quarter) for quarter in args.sec_quarter):
+        parser.error("--sec-quarter expects YYYYqN")
+    if len(check_statements) > 8 or len(check_statements) != len(set(check_statements)):
+        parser.error("Use up to eight distinct statement archives")
+    if (args.sample_file or args.with_sec or args.sec_file or check_statements) and not args.trading_day:
         parser.error("The sample and SEC options require a trading date")
     if args.trading_day and args.trading_day >= datetime.now(ZoneInfo("America/New_York")).date():
         parser.exit(1, "Use a completed US trading date. The public sample window is limited.\n")
@@ -216,15 +237,24 @@ def main():
             sample = (args.sample_file.read_bytes() if args.sample_file
                       else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
             sec = None
-            if args.with_sec or args.sec_file:
+            if args.with_sec or args.sec_file or check_statements:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
                 sec = read_sec_directory(content)
-            result.update(coverage(args.trading_day, listings, parquet_rows(sample), sec))
+            with TemporaryDirectory() as directory:
+                statement_files = list(args.sec_statement_file)
+                for quarter in args.sec_quarter:
+                    filename = quarter + ".zip"
+                    destination = Path(directory) / filename
+                    fetch(SEC_STATEMENTS + filename, destination)
+                    statement_files.append(destination)
+                result.update(coverage(args.trading_day, listings, parquet_rows(sample), sec, statement_files))
+            if statement_files:
+                result["sec_statement_archives"] = [path.name for path in statement_files]
             result["comparison_basis"] = "observed listings; not a historical listing snapshot"
         print(json.dumps(result, indent=2))
     except ImportError:
         parser.exit(1, "Install pyarrow to read the public price file.\n")
-    except (OSError, ValueError, KeyError) as error:
+    except (OSError, ValueError, KeyError, BadZipFile) as error:
         parser.exit(1, f"Coverage probe failed: {error}\n")
 
 
