@@ -16,6 +16,12 @@ final class JpxReferenceFinancials {
                     List.of(new Shares(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 11, 6),
                             12_078_283L, 189_788L, "中間決算",
                             "https://www.kyokuyo.co.jp/files/20261106.pdf"))),
+            "3861", new Disclosures(
+                    new Annual(LocalDate.of(2026, 5, 15), new BigDecimal("61.10"),
+                            new BigDecimal("1257.44"), "https://www.ojiholdings.co.jp/uploads/docs/ja0515irnews01.pdf"),
+                    List.of(new Shares(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 11, 6),
+                            914_381_817L, 64_360_900L, "中間決算",
+                            "https://www.ojiholdings.co.jp/uploads/news/docs/ja1106irnews02.pdf"))),
             "7203", new Disclosures(
                     new Annual(LocalDate.of(2026, 5, 8), new BigDecimal("295.25"),
                             new BigDecimal("3062.82"),
@@ -45,12 +51,15 @@ final class JpxReferenceFinancials {
         var annual = disclosures.annual();
         if (session.isAfter(annual.released())) {
             html.append("<br>参考PER ").append(ratio(close, annual.eps()))
-                    .append("倍 / 参考PBR ").append(ratio(close, annual.bps())).append("倍")
+                    .append(" / 参考PBR ").append(ratio(close, annual.bps()))
                     .append("<br>").append(ANNUAL_END).append("期 EPS ")
                     .append(annual.eps().toPlainString()).append("円 / BPS ")
                     .append(annual.bps().toPlainString()).append("円")
                     .append(" · <a href='").append(annual.source()).append("'>通期決算</a>")
                     .append("<br>決算公表時の1株値で試算（以降の株式分割等は未反映）");
+            appendFinancialCheck(html, close, annual);
+        } else {
+            html.append("<br>参考財務条件は保留（立会日より前の通期決算なし）");
         }
         for (var shares : disclosures.shares()) {
             if (!session.isAfter(shares.released())) continue;
@@ -63,7 +72,24 @@ final class JpxReferenceFinancials {
         html.append("<br>時価総額は保留（立会日の株式数未照合）");
     }
 
+    private static void appendFinancialCheck(StringBuilder html, BigDecimal close, Annual annual) {
+        if (annual.eps().signum() <= 0 || annual.bps().signum() <= 0) {
+            html.append("<br>参考財務条件は対象外（EPS・BPSがともに正でない）");
+            return;
+        }
+        boolean perPass = close.compareTo(annual.eps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PER))) <= 0;
+        boolean pbrPass = close.compareTo(annual.bps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PBR))) <= 0;
+        if (perPass && pbrPass) {
+            html.append("<br>参考財務条件に一致（PER 15倍以下・PBR 1倍以下）");
+        } else {
+            html.append("<br>参考財務条件は対象外");
+            if (!perPass) html.append(" · PER 15倍超");
+            if (!pbrPass) html.append(" · PBR 1倍超");
+        }
+    }
+
     private static String ratio(BigDecimal close, BigDecimal denominator) {
-        return close.divide(denominator, 2, RoundingMode.HALF_UP).toPlainString();
+        return denominator.signum() <= 0 ? "算出不可"
+                : close.divide(denominator, 2, RoundingMode.HALF_UP).toPlainString() + "倍";
     }
 }

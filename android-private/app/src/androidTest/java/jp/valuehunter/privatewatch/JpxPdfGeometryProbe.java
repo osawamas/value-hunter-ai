@@ -83,6 +83,14 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         String html = comparison.html();
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
                 || !html.contains("7203  3428 円（後場）")
+                || !html.contains("3861  847.4 円（後場）")
+                || !html.contains("100株 84740円 / 1株 847.4円")
+                || !html.contains("参考PER 13.87倍 / 参考PBR 0.67倍")
+                || !html.contains("自己株式控除後 850020917株")
+                || !html.contains("予算10万円以内 · 100株")
+                || !html.contains("予算10万円以内 · 単元未満株の取扱いは証券会社による")
+                || !html.contains("参考財務条件は対象外 · PBR 1倍超")
+                || html.indexOf("3861  847.4") > html.indexOf("1301  4705")
                 || !html.contains("参考PER 8.17倍 / 参考PBR 0.72倍")
                 || !html.contains("参考PER 11.61倍 / 参考PBR 1.12倍")
                 || !html.contains("自己株式控除後 11888495株")
@@ -121,6 +129,18 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         if (!oneReport.html().contains("7203  3428 円（後場）")
                 || !oneReport.html().contains("比較用の日報を取得できなかった")) {
             throw new AssertionError("A failed comparison hid the latest report");
+        }
+        if (JpxDailyCheck.budgetQuantity(new BigDecimal("1000.00")) != 100
+                || JpxDailyCheck.budgetQuantity(new BigDecimal("1000.01")) != 1
+                || JpxDailyCheck.budgetQuantity(new BigDecimal("100000.00")) != 1
+                || JpxDailyCheck.budgetQuantity(new BigDecimal("100000.01")) != 0) {
+            throw new AssertionError("Incorrect JPX purchase budget boundary");
+        }
+        var nearLimit = new StringBuilder();
+        JpxReferenceFinancials.appendHtml(nearLimit, "3861", day, new BigDecimal("916.51"));
+        if (!nearLimit.toString().contains("参考PER 15.00倍")
+                || !nearLimit.toString().contains("参考財務条件は対象外 · PER 15倍超")) {
+            throw new AssertionError("Rounded display value was used to check the PER limit");
         }
         return "JPX_ANDROID_PREVIEW_OK\n";
     }

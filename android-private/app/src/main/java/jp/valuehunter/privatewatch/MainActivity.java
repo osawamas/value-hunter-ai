@@ -255,7 +255,7 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        report.setText("接続試験 · 1301 極洋 / 7203 トヨタ自動車");
+        report.setText("条件照合（参考） · 極洋 / 王子ホールディングス / トヨタ自動車");
         check.setOnClickListener(view -> {
             check.setEnabled(false);
             report.setText("JPXの株式相場表を取得中");

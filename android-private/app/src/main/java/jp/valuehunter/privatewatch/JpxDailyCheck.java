@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +26,10 @@ final class JpxDailyCheck {
     private static final String REPORT_ROOT =
             "https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/";
     private static final int MAX_PDF_BYTES = 32_000_000;
-    private static final List<String> SAMPLE_CODES = List.of("1301", "7203");
+    private static final List<String> SAMPLE_CODES = List.of("1301", "3861", "7203");
+
+    private static final BigDecimal BUDGET = BigDecimal.valueOf(JapanScreen.BUDGET);
+    private static final BigDecimal LOT_PRICE_LIMIT = BUDGET.movePointLeft(2);
 
     record Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes,
                   Set<String> ambiguous) {
@@ -45,7 +49,9 @@ final class JpxDailyCheck {
             } else {
                 message.append("<br>比較日 ").append(previous.date()).append("（分割等の調整前の終値）");
             }
-            for (String code : SAMPLE_CODES) {
+            var ordered = new ArrayList<>(SAMPLE_CODES);
+            ordered.sort(Comparator.comparingInt((String code) -> budgetQuantity(latest.close(code))).reversed());
+            for (String code : ordered) {
                 var close = latest.close(code);
                 var sessions = latest.quotes().get(code);
                 message.append("<br><br>").append(code).append("  ");
@@ -58,6 +64,7 @@ final class JpxDailyCheck {
                 } else {
                     message.append(close.toPlainString()).append(" 円")
                             .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
+                    appendBudget(message, close);
                     if (previous != null) appendChange(message, close, previous.close(code));
                     JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
                 }
@@ -65,6 +72,19 @@ final class JpxDailyCheck {
             appendSource(message.append("<br>"), latest);
             if (previous != null) appendSource(message, previous);
             return message.toString();
+        }
+
+        private static void appendBudget(StringBuilder message, BigDecimal close) {
+            message.append("<br>100株 ").append(close.movePointRight(2).stripTrailingZeros().toPlainString())
+                    .append("円 / 1株 ").append(close.toPlainString()).append("円（終値換算・手数料別）");
+            int quantity = budgetQuantity(close);
+            if (quantity == 100) {
+                message.append("<br>予算10万円以内 · 100株");
+            } else if (quantity == 1) {
+                message.append("<br>予算10万円以内 · 単元未満株の取扱いは証券会社による");
+            } else {
+                message.append("<br>予算10万円超 · 1株でも対象外");
+            }
         }
 
         private static void appendChange(StringBuilder message, BigDecimal close, BigDecimal previous) {
@@ -84,6 +104,11 @@ final class JpxDailyCheck {
             message.append("<br><a href='").append(report.source()).append("'>JPX 株式相場表 ")
                     .append(report.date()).append("（PDF）</a>");
         }
+    }
+
+    static int budgetQuantity(BigDecimal close) {
+        if (close == null || close.signum() <= 0 || close.compareTo(BUDGET) > 0) return 0;
+        return close.compareTo(LOT_PRICE_LIMIT) <= 0 ? 100 : 1;
     }
 
     @FunctionalInterface
