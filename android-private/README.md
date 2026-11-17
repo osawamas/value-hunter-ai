@@ -240,3 +240,9 @@ Doltで最後に確認できた日ごとに集計する。指定した過去日�
 python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks --compare-marketparquet \
   --history-date 2026-11-13 --history-date 2026-11-12
 ```
+
+`--with-halts` を追加すると、終値が両方で欠けている銘柄を
+[Nasdaq Traderの公開売買停止RSS](https://www.nasdaqtrader.com/Trader.aspx?id=TradeHaltRSS)と照合する。
+`--halt-feed-file` で保存済みの公式RSSを再検証できる。配信時刻が対象日の翌日以降のものを使い、
+停止開始日と再開日の間にある日だけを集計する。再開日が未記載の場合は配信時点の記録を使う。
+一致する通知がない場合は停止の有無が未確認。終値の件数や価格を変更しない。

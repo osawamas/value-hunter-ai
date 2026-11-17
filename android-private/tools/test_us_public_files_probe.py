@@ -2,7 +2,7 @@ from datetime import date, datetime
 import json
 import unittest
 
-from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_sec_directory
+from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -150,6 +150,35 @@ class PublicFilesTest(unittest.TestCase):
                 self.assertIsNone(rows[0]["close"])
         with self.assertRaises(ValueError):
             read_dolt_csv(b"symbol,trading_date,close\nAAPL,invalid,42\n")
+
+    def test_halt_feed_only_matches_prior_halts_without_same_day_resumption(self):
+        def item(symbol, market, start, end):
+            fields = {"IssueSymbol": symbol, "Market": market, "HaltDate": start, "ResumptionDate": end}
+            return "<item>" + "".join(f"<n:{key}>{value}</n:{key}>" for key, value in fields.items()) + "</item>"
+
+        feed = ('<rss xmlns:n="http://www.nasdaqtrader.com/"><channel>'
+                '<description>NASDAQ Trade Halts</description>'
+                '<pubDate>Tue, 17 Nov 2026 17:01:04 GMT</pubDate><n:numItems>5</n:numItems>'
+                + item("SUSP", "NASDAQ", "11/13/2026", "")
+                + item("SAME", "NASDAQ", "11/16/2026", "")
+                + item("RESUME", "NASDAQ", "11/13/2026", "11/16/2026")
+                + item("LATER", "NASDAQ", "11/13/2026", "11/17/2026")
+                + item("WRONG", "NYSE", "11/13/2026", "")
+                + '</channel></rss>').encode()
+        notices = read_halt_notices(feed, DAY)
+        listings = {symbol: ("Nasdaq", "common_or_ordinary_label")
+                    for symbol in ("AAPL", "SUSP", "SAME", "RESUME", "LATER", "WRONG")}
+        bars = [self.bar("AAPL")]
+        report = coverage(DAY, listings, bars, comparison_bars=bars, halt_notices=notices)
+        comparison = report["dolt_marketparquet_comparison"]["Nasdaq"]
+        self.assertEqual(5, comparison["neither"])
+        diag = comparison["missing_halt_notices"]
+        self.assertEqual(["LATER", "SUSP"], diag["symbols_with_notice"])
+        self.assertEqual(3, diag["without_matching_notice_in_feed"])
+        with self.assertRaises(ValueError):
+            read_halt_notices(feed, date(2026, 11, 17))
+        with self.assertRaises(ValueError):
+            read_halt_notices(feed.replace(b">5</n:numItems>", b">6</n:numItems>"), DAY)
 
     def test_missing_compared_closes_are_grouped_by_most_recent_dolt_session(self):
         listings = {symbol: ("NYSE", "common_or_ordinary_label")

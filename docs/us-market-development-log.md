@@ -2,6 +2,13 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 02:03 JST — 終値欠落とNasdaq Traderの売買停止記録を照合
+
+- 開始時mainは [3a2f9e9](https://github.com/osawamas/value-hunter-ai/commit/3a2f9e92b53d96dff206e4451d91e0c274e73aa7)。検証ツールに `--with-halts` と `--halt-feed-file` を追加。対象日の翌日以降に配信されたRSSで、停止開始日が対象日より前、再開日が対象日より後か未記載のものを取引所・ティッカーの両方で照合する。終値の採否・カバー率は維持する。
+- [Nasdaq Traderの公開RSS](https://www.nasdaqtrader.com/Trader.aspx?id=TradeHaltRSS) の11月17日12:01米東部時間配信（75件）を、11月16日の終値が両ソースで欠けた109銘柄と照合。NasdaqのEFTY・HCHL・MAGH・OST・PC・SVA・TJGC・UCFIの8銘柄に、対象日をまたぐ停止記録を確認。8銘柄とも3日連続で欠けた39銘柄に含まれる。
+- 3日連続欠落の残り31銘柄（NYSE 6、Nasdaq 25）は、今回のRSSに一致する記録なし。照合できなかった銘柄の停止有無や上場開始日は未確認。Nasdaqの歴史的な全上場異動を収録するDaily Listは月額契約なので、今回の取得経路には採用しない。
+- ローカルのPythonテスト53件が成功。前回変更に対する [Androidビルド](https://github.com/osawamas/value-hunter-ai/actions/runs/44129863138) は成功。今回の照合は開発用ツールで検証した。Android端末での日次自動取得、取引日ごとの全上場銘柄照合は継続課題。
+
 ## 2026-11-18 01:49 JST — 終値欠落109銘柄の直前2取引日を照合
 
 - 開始時mainは [8d41f73](https://github.com/osawamas/value-hunter-ai/commit/8d41f73141d72b484201fac5ecd826617f08733c)。[変更コミット](https://github.com/osawamas/value-hunter-ai/commit/06d679ae7e9c43c2426e59f6e1ad50b39e9fcdf7) で、NYSE・Nasdaqそれぞれの欠落を過去の最終確認日ごとに集計する `--history-date` を追加。以前の終値は対象日に流用しない。

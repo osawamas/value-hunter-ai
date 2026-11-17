@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 import csv
 from datetime import date, datetime
 from decimal import Decimal
+from email.utils import parsedate_to_datetime
 import json
 from io import BytesIO, StringIO
 from math import isfinite
@@ -12,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 from tempfile import TemporaryDirectory
+from xml.etree import ElementTree
 from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
 
@@ -19,6 +21,8 @@ from us_sec_share_coverage import measure as measure_shares
 from us_sec_statement_coverage import measure as measure_statements
 
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
+HALTS = "https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts"
+HALT_NS = {"n": "http://www.nasdaqtrader.com/"}
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
 SEC_INDEX = "https://www.sec.gov/Archives/edgar/full-index/"
 SEC_ARCHIVES = "https://www.sec.gov/Archives/edgar/"
@@ -243,6 +247,35 @@ def validated_closes(day, bars):
     return seen, closes
 
 
+def read_halt_notices(content, day):
+    """Return notices whose reported date interval strictly contains the session."""
+    if len(content) > MAX_BYTES:
+        raise ValueError("Oversized Nasdaq Trader halt feed")
+    channel = ElementTree.fromstring(content).find("channel")
+    if channel is None or channel.findtext("description") != "NASDAQ Trade Halts":
+        raise ValueError("Unexpected Nasdaq Trader halt feed")
+    published = parsedate_to_datetime(channel.findtext("pubDate", ""))
+    if published.tzinfo is None or published.astimezone(ZoneInfo("America/New_York")).date() <= day:
+        raise ValueError("Halt feed must be dated after the target US trading date")
+    items = channel.findall("item")
+    if channel.findtext("n:numItems", namespaces=HALT_NS) != str(len(items)):
+        raise ValueError("Incomplete Nasdaq Trader halt feed")
+    matches = defaultdict(set)
+    for item in items:
+        values = [item.findtext(f"n:{key}", namespaces=HALT_NS)
+                  for key in ("IssueSymbol", "Market", "HaltDate", "ResumptionDate")]
+        if any(value is None for value in values):
+            raise ValueError("Incomplete Nasdaq Trader halt item")
+        symbol, market, halted, resumed = (value.strip() for value in values)
+        start = datetime.strptime(halted, "%m/%d/%Y").date()
+        end = datetime.strptime(resumed, "%m/%d/%Y").date() if resumed else None
+        if not SYMBOL.fullmatch(symbol) or (end is not None and end < start):
+            raise ValueError("Invalid Nasdaq Trader halt item")
+        if start < day and (end is None or day < end):
+            matches[market].add(symbol)
+    return published.isoformat(), matches
+
+
 def missing_history(missing, history):
     not_seen = set(missing)
     last_seen = {}
@@ -257,7 +290,7 @@ def missing_history(missing, history):
     }
 
 
-def compare_closes(day, primary, reference_bars, focus, history_bars=None):
+def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_notices=None):
     _, reference = validated_closes(day, reference_bars)
     if not reference:
         raise ValueError("No valid closes in the comparison sample")
@@ -290,13 +323,23 @@ def compare_closes(day, primary, reference_bars, focus, history_bars=None):
             "both_differ_over_one_cent": len(both) - agrees,
             "with_either": len(union),
         }
+        if halt_notices is not None and name in ("NYSE", "Nasdaq"):
+            published, markets = halt_notices
+            missing = symbols - union
+            reported = missing & markets.get(name.upper(), set())
+            result[name]["missing_halt_notices"] = {
+                "feed_published_at": published,
+                "with_notice_covering_date": len(reported),
+                "symbols_with_notice": sorted(reported),
+                "without_matching_notice_in_feed": len(missing - reported),
+            }
         if history:
             result[name]["missing_dolt_history"] = missing_history(symbols - union, history)
     return result
 
 
 def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted",
-             comparison_bars=None, history_bars=None):
+             comparison_bars=None, history_bars=None, halt_notices=None):
     seen, prices = validated_closes(day, bars)
     closes = prices.keys()
     if not closes or not (closes & listings.keys()):
@@ -333,7 +376,7 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
     if comparison_bars is not None:
-        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus, history_bars)
+        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus, history_bars, halt_notices)
     if sec is not None:
         result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files, indexes)
     return result
@@ -407,6 +450,9 @@ def main():
                              help="Compare Dolt closes with a saved original MarketParquet sample")
     parser.add_argument("--history-date", action="append", default=[], type=date.fromisoformat,
                         help="Check missing symbols on an earlier completed Dolt session (repeatable)")
+    halts = parser.add_mutually_exclusive_group()
+    halts.add_argument("--with-halts", action="store_true", help="Check missing closes against the Nasdaq Trader halt feed")
+    halts.add_argument("--halt-feed-file", type=Path, help="Replay a saved Nasdaq Trader halt RSS file")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
     dow = parser.add_mutually_exclusive_group()
@@ -426,6 +472,8 @@ def main():
     args = parser.parse_args()
     if (args.compare_marketparquet or args.comparison_sample_file) and not args.dolt_dir:
         parser.error("Price comparison requires --dolt-dir")
+    if (args.with_halts or args.halt_feed_file) and not (args.compare_marketparquet or args.comparison_sample_file):
+        parser.error("Halt notice matching requires a price comparison")
     if args.history_date and (not (args.compare_marketparquet or args.comparison_sample_file)
                               or not args.trading_day or len(args.history_date) > 5
                               or len(set(args.history_date)) != len(args.history_date)
@@ -487,6 +535,10 @@ def main():
                            else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
                 comparison_bars = parquet_rows(content)
             history_bars = {earlier: dolt_rows(args.dolt_dir.resolve(), earlier) for earlier in args.history_date}
+            halt_notices = None
+            if args.with_halts or args.halt_feed_file:
+                feed = args.halt_feed_file.read_bytes() if args.halt_feed_file else fetch(HALTS)
+                halt_notices = read_halt_notices(feed, args.trading_day)
             sec = None
             if args.with_sec or args.sec_file or check_statements or check_notes:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
@@ -514,7 +566,7 @@ def main():
                         index_paths[year, part] = destination
                 result.update(coverage(args.trading_day, listings, bars,
                                        sec, statement_files, holdings, notes_files, index_paths, price_basis,
-                                       comparison_bars, history_bars))
+                                       comparison_bars, history_bars, halt_notices))
             if notes_files:
                 result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:
@@ -523,7 +575,7 @@ def main():
         print(json.dumps(result, indent=2))
     except ImportError as error:
         parser.exit(1, f"A file reader dependency is missing: {error.name} (pyarrow for prices, openpyxl for DIA).\n")
-    except (OSError, ValueError, KeyError, BadZipFile) as error:
+    except (OSError, ValueError, KeyError, BadZipFile, ElementTree.ParseError) as error:
         parser.exit(1, f"Coverage probe failed: {error}\n")
 
 
