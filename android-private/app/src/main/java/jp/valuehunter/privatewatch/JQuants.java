@@ -34,7 +34,7 @@ final class JQuants {
         LocalDate newest = delayed ? today.minusWeeks(12).minusDays(1) : today;
         for (int offset = 0; offset < 10; offset++) {
             LocalDate date = newest.minusDays(offset);
-            if (date.toString().compareTo(previousDate) <= 0) return null;
+            if (!WatchTransitions.shouldRequestSession(previousDate, date)) return null;
             if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
             JSONArray prices = pages("/equities/bars/daily", date);
             if (prices.length() == 0) continue;
