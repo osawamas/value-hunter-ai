@@ -2,6 +2,9 @@ name: Android JPX rights refresh
 
 on:
   workflow_dispatch:
+  schedule:
+    # 14:37 JST, after JPX's 13:00 daily publication window.
+    - cron: '37 5 * * 1-5'
   push:
     branches: [main]
     paths:
@@ -16,6 +19,7 @@ permissions:
 
 jobs:
   verify:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -31,3 +35,38 @@ jobs:
       - name: Verify a refresh against official JPX sources
         working-directory: android-private
         run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-03 --dry-run
+
+  refresh:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    concurrency:
+      group: jpx-android-rights-publication
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'PyMuPDF>=1.24,<2' 'openpyxl>=3.1,<4' 'xlrd>=2,<3'
+      - name: Check that refresh preserves notices and handles failed sources
+        run: python -m unittest discover -s android-private/tools -p 'test_jpx_rights_sources.py' -v
+      - name: Refresh the rights snapshot from JPX originals
+        working-directory: android-private
+        run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-03
+      - name: Commit the verified rights snapshot if it changed
+        run: |
+          snapshot=android-private/app/src/main/assets/jpx-share-rights.json
+          if git diff --quiet -- "$snapshot"; then
+            echo 'JPX rights snapshot is unchanged.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$snapshot"
+          git commit -m 'Refresh verified JPX rights data'
+          git push origin HEAD:refs/heads/main
