@@ -126,41 +126,16 @@ def daily_sources(urls, output):
     return results, notes_by_release, comparison
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--year", required=True, type=int)
-    parser.add_argument("--cutoff-month", required=True, type=int, choices=range(1, 13))
-    parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--daily-only", action="store_true")
-    parser.add_argument("--start-month", help="First month to check, as YYYY-MM")
-    args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=True)
-    daily, notes_by_release, comparison = daily_sources(page_links(DAILY_INDEX), args.output)
-    if args.daily_only:
-        latest_notes = notes_by_release[max(notes_by_release)] if notes_by_release else []
-        print(json.dumps({
-            "daily_workbooks": daily,
-            "daily_edition_comparison": comparison,
-            "latest_workbook_notes": latest_notes,
-        }, ensure_ascii=False, indent=2))
-        return
-    selected = monthly_links(page_links(MONTHLY_INDEX), args.year)
-    first_month = date(args.year, 1, 1)
-    if args.start_month:
-        try:
-            first_month = date.fromisoformat(args.start_month + "-01")
-        except ValueError:
-            parser.error("--start-month must use YYYY-MM")
-    last_month = date(args.year, args.cutoff_month, 1)
-    if first_month > last_month or first_month.year not in (args.year - 1, args.year):
-        parser.error("--start-month must be in the current catalog year or its previous year")
-    if first_month.year < args.year:
+def monthly_sources(first_month, last_month, output):
+    year = last_month.year
+    selected = monthly_links(page_links(MONTHLY_INDEX), year)
+    if first_month.year < year:
         selected.update(monthly_links(page_links(PREVIOUS_YEAR_INDEX), first_month.year))
     accepted = {}
     provenance = {}
     rejected = {}
     unpublished = []
-    months = [date(year, number, 1) for year in range(first_month.year, args.year + 1)
+    months = [date(year, number, 1) for year in range(first_month.year, last_month.year + 1)
               for number in range(1, 13)]
     for month in months:
         if not first_month <= month <= last_month:
@@ -180,7 +155,38 @@ def main():
             continue
         accepted[key] = sum(map(len, events.values()))
         provenance[key] = {"official_url": selected[month], "sha256": digest}
-        (args.output / f"rights-{key}.pdf").write_bytes(body)
+        (output / f"rights-{key}.pdf").write_bytes(body)
+    return accepted, provenance, rejected, unpublished
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--year", required=True, type=int)
+    parser.add_argument("--cutoff-month", required=True, type=int, choices=range(1, 13))
+    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--daily-only", action="store_true")
+    parser.add_argument("--start-month", help="First month to check, as YYYY-MM")
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    daily, notes_by_release, comparison = daily_sources(page_links(DAILY_INDEX), args.output)
+    if args.daily_only:
+        latest_notes = notes_by_release[max(notes_by_release)] if notes_by_release else []
+        print(json.dumps({
+            "daily_workbooks": daily,
+            "daily_edition_comparison": comparison,
+            "latest_workbook_notes": latest_notes,
+        }, ensure_ascii=False, indent=2))
+        return
+    first_month = date(args.year, 1, 1)
+    if args.start_month:
+        try:
+            first_month = date.fromisoformat(args.start_month + "-01")
+        except ValueError:
+            parser.error("--start-month must use YYYY-MM")
+    last_month = date(args.year, args.cutoff_month, 1)
+    if first_month > last_month or first_month.year not in (args.year - 1, args.year):
+        parser.error("--start-month must be in the current catalog year or its previous year")
+    accepted, provenance, rejected, unpublished = monthly_sources(first_month, last_month, args.output)
     if not accepted:
         raise SystemExit("No JPX monthly rights reports passed validation")
     print(json.dumps({

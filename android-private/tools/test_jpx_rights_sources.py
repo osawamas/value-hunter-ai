@@ -1,5 +1,6 @@
 """Regression tests for JPX source provenance and conflicting daily editions."""
 import hashlib
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
@@ -8,6 +9,7 @@ from datetime import date
 
 from urllib.error import HTTPError
 
+import jpx_android_rights_refresh as refresh
 import jpx_daily_sources as daily
 import jpx_rights_sources as sources
 
@@ -65,6 +67,49 @@ class LatestDailyReportTests(TestCase):
                     daily.latest_report(date(2026, 11, 17), path)
             self.assertEqual(path.read_bytes(), b"existing")
             self.assertEqual(list(path.parent.iterdir()), [path])
+
+
+class AndroidRightsRefreshTests(TestCase):
+    first = date(2026, 3, 1)
+    last = date(2026, 11, 1)
+    month = "https://www.jpx.co.jp/month.pdf"
+    old_notice = {"code": "6861", "exDay": "2026-11-19",
+                  "source": "https://www.jpx.co.jp/20261111.xls"}
+    existing = {"coveredCodes": ["6861"], "monthlySources": {"2026-09": month, "2026-10": month},
+                "notices": [old_notice]}
+
+    def test_dry_run_and_update_preserve_rolled_off_notices_but_reaudit_months(self):
+        with TemporaryDirectory() as temp:
+            path = Path(temp) / "rights.json"
+            old = json.dumps(self.existing)
+            path.write_text(old, encoding="utf-8")
+            fresh = {"coveredCodes": ["6861"], "monthlySources": {"2026-09": self.month},
+                     "notices": []}
+            with patch.object(refresh, "page_links", return_value=[]), \
+                 patch.object(refresh, "daily_sources", return_value=(
+                     {"2026-11-17": {}}, {}, {"event_keys_with_conflicting_ex_dates": 0})), \
+                 patch.object(refresh, "monthly_sources", return_value=(
+                     {"2026-09": 0}, {}, {"2026-10": {}}, ["2026-11"])), \
+                 patch.object(refresh, "snapshot", return_value=fresh):
+                result = refresh.refresh(path, self.first, self.last, dry_run=True)
+                self.assertTrue(result["changed"])
+                self.assertEqual(result["rejectedMonths"], ["2026-10"])
+                self.assertEqual(path.read_text(encoding="utf-8"), old)
+                refresh.refresh(path, self.first, self.last)
+            updated = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(updated["monthlySources"], {"2026-09": self.month})
+            self.assertEqual(updated["notices"], [self.old_notice])
+
+    def test_failure_does_not_replace_original_snapshot(self):
+        with TemporaryDirectory() as temp:
+            path = Path(temp) / "rights.json"
+            old = json.dumps(self.existing)
+            path.write_text(old, encoding="utf-8")
+            with patch.object(refresh, "page_links", return_value=[]), \
+                 patch.object(refresh, "daily_sources", side_effect=ValueError("Conflicting editions")):
+                with self.assertRaisesRegex(ValueError, "Conflicting editions"):
+                    refresh.refresh(path, self.first, self.last)
+            self.assertEqual(path.read_text(encoding="utf-8"), old)
 
 
 if __name__ == "__main__":
