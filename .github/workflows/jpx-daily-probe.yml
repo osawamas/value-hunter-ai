@@ -190,9 +190,9 @@ jobs:
           with pymupdf.open(pdf) as document:
               print(f"Rendered workbook pages: {len(document)}")
               for page in document:
-                  for line in page.get_text().splitlines():
-                      if any(word in line for word in ("フラグ", "取消", "訂正", "分割", "ご利用", "留意")):
-                          print(line.strip())
+                  lines = page.get_text().splitlines()
+                  if any("掲載ファイル利用時の留意点" in line for line in lines):
+                      print("\n".join(lines))
           PY
 
   hachiquant:

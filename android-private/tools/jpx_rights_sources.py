@@ -1,6 +1,6 @@
 """Look up official JPX rights reports and check which months can be used."""
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import date
 from html.parser import HTMLParser
 import json
@@ -90,6 +90,7 @@ def workbook_notes(body):
 def daily_sources(urls, output):
     results = {}
     notes_by_release = {}
+    dates_by_event = defaultdict(set)
     for url in urls:
         path = urlsplit(url).path
         if "/listing/others/ex-rights/" not in path or not re.search(r"/\d{8}\.xls$", path):
@@ -98,13 +99,20 @@ def daily_sources(urls, output):
         body = download(url)
         published_on, notices, flags = read_daily_rights(body, filename)
         counts = Counter(entry.kind for entries in notices.values() for entry in entries)
+        for code, entries in notices.items():
+            for entry in entries:
+                dates_by_event[code, entry.kind, entry.record_on].add(entry.ex_on)
         results[published_on.isoformat()] = {
             "changes": dict(counts),
             "update_flags": sorted(flags),
         }
         notes_by_release[published_on.isoformat()] = workbook_notes(body)
         (output / filename).write_bytes(body)
-    return results, notes_by_release
+    comparison = {
+        "distinct_event_keys": len(dates_by_event),
+        "event_keys_with_conflicting_ex_dates": sum(len(days) > 1 for days in dates_by_event.values()),
+    }
+    return results, notes_by_release, comparison
 
 
 def main():
@@ -115,9 +123,14 @@ def main():
     parser.add_argument("--daily-only", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    daily, notes_by_release = daily_sources(page_links(DAILY_INDEX), args.output)
+    daily, notes_by_release, comparison = daily_sources(page_links(DAILY_INDEX), args.output)
     if args.daily_only:
-        print(json.dumps({"daily_workbooks": daily, "latest_workbook_notes": notes_by_release[max(notes_by_release)] if notes_by_release else []}, ensure_ascii=False, indent=2))
+        latest_notes = notes_by_release[max(notes_by_release)] if notes_by_release else []
+        print(json.dumps({
+            "daily_workbooks": daily,
+            "daily_edition_comparison": comparison,
+            "latest_workbook_notes": latest_notes,
+        }, ensure_ascii=False, indent=2))
         return
     selected = monthly_links(page_links(MONTHLY_INDEX), args.year)
     accepted = {}
@@ -146,6 +159,7 @@ def main():
         "monthly_reports_rejected": rejected,
         "no_monthly_link_found": unpublished,
         "daily_workbooks": daily,
+        "daily_edition_comparison": comparison,
         "daily_workbook_notes_variants": len({tuple(notes) for notes in notes_by_release.values()}),
         "daily_catalog_certifies_historical_coverage": False,
     }, ensure_ascii=False, indent=2))
