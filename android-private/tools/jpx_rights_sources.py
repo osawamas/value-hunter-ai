@@ -19,7 +19,7 @@ from jpx_daily_rights import read_daily_rights
 MONTHLY_INDEX = "https://www.jpx.co.jp/markets/statistics-equities/monthly/index.html"
 PREVIOUS_YEAR_INDEX = urljoin(MONTHLY_INDEX, "00-archives-01.html")
 DAILY_INDEX = "https://www.jpx.co.jp/listing/others/ex-rights/"
-MONTHLY_FILE = re.compile(r"/17_kenri(\d{2})(0[1-9]|1[0-2])\.pdf$", re.IGNORECASE)
+MONTHLY_FILE = re.compile(r"/(?:17|18)_kenri(\d{2})(0[1-9]|1[0-2])\.pdf$", re.IGNORECASE)
 FILE_LIMIT = 4_000_000
 
 
@@ -27,12 +27,28 @@ class Links(HTMLParser):
     def __init__(self):
         super().__init__()
         self.urls = []
+        self.archives = {}
+        self.option = None
 
     def handle_starttag(self, tag, attrs):
         if tag == "a":
             href = dict(attrs).get("href")
             if href:
                 self.urls.append(href)
+
+        if tag == "option":
+            self.option = urljoin(MONTHLY_INDEX, dict(attrs).get("value", ""))
+
+    def handle_data(self, data):
+        year = re.fullmatch(r"(20[0-9]{2})年", data.strip())
+        if (year and self.option and official_url(self.option)
+                and re.fullmatch(r"/markets/statistics-equities/monthly/(?:index|00-archives-[0-9]{2})\.html",
+                                 urlsplit(self.option).path)):
+            self.archives[int(year[1])] = self.option
+
+    def handle_endtag(self, tag):
+        if tag == "option":
+            self.option = None
 
 
 def official_url(url):
@@ -71,6 +87,19 @@ def monthly_links(urls, year):
                 raise ValueError(f"Multiple official JPX links for {month:%Y-%m}")
             result[month] = url
     return result
+
+
+def monthly_archive_links(years):
+    """Use the official year selector rather than assuming archive numbers stay fixed."""
+    index = Links()
+    index.feed(download(MONTHLY_INDEX).decode("utf-8"))
+    return {
+        month: link
+        for year in sorted(years & index.archives.keys())
+        for month, link in monthly_links(
+            index.urls if index.archives[year] == MONTHLY_INDEX else page_links(index.archives[year]), year
+        ).items()
+    }
 
 
 def workbook_notes(body):

@@ -11,8 +11,8 @@ import pymupdf
 from jpx_daily_probe import CODE
 
 MONTH_HEADER = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月")
-ACTION = re.compile(r"株\s*式\s*(?:分\s*割|併\s*合|無\s*償\s*割\s*当\s*て)")
-RATIO = re.compile(r"(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)株式(分割|併合|無償割当て)")
+ACTION = re.compile(r"(?<!\S)(?:株\s*式\s*)?(?:分\s*割|併\s*合|無\s*償\s*割\s*当\s*て)\s*$")
+RATIO = re.compile(r"(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)(?:株式)?(分割|併合|無償割当て)")
 TABLE_DATE = re.compile(r"\b\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}(?!\d)")
 
 
@@ -22,6 +22,7 @@ class ShareEvent:
     record_on: date
     ratio_left: Decimal
     ratio_right: Decimal
+    kind: str
 
 
 def table_date(value):
@@ -40,7 +41,7 @@ def read_monthly_rights(path):
         month = date(int(match[1]), int(match[2]), 1)
         for page in document:
             page_text = unicodedata.normalize("NFKC", page.get_text())
-            expected_actions = len(ACTION.findall(page_text))
+            expected_actions = sum(bool(ACTION.search(line)) for line in page_text.splitlines())
             # PyMuPDF returns word coordinates before the page's display rotation.
             rotation = page.rotation_matrix
             width = page.rect.width
@@ -76,7 +77,7 @@ def read_monthly_rights(path):
                 )
                 if ex_on.replace(day=1) != month or ex_on > record_on or not valid_ratio:
                     raise ValueError(f"Inconsistent JPX corporate action for {code}")
-                events[code].add(ShareEvent(ex_on, record_on, left, right))
+                events[code].add(ShareEvent(ex_on, record_on, left, right, ratio[3]))
                 parsed_actions += 1
             if expected_actions != parsed_actions:
                 raise ValueError(

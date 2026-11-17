@@ -13,6 +13,8 @@ on:
       - 'android-private/tools/jpx*rights*.py'
       - 'android-private/tools/jpx_share_basis.py'
       - 'android-private/tools/test_jpx_rights_sources.py'
+      - 'android-private/tools/jpx_adjust_monthly_history.py'
+      - 'android-private/tools/test_jpx_adjust_monthly_history.py'
 
 permissions:
   contents: read
@@ -31,7 +33,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install 'PyMuPDF>=1.24,<2' 'openpyxl>=3.1,<4' 'xlrd>=2,<3'
       - name: Check that refresh preserves notices and handles failed sources
-        run: python -m unittest discover -s android-private/tools -p 'test_jpx_rights_sources.py' -v
+        run: python -m unittest discover -s android-private/tools -p 'test_jpx*.py' -v
       - name: Verify a refresh against official JPX sources
         working-directory: android-private
         run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-03 --dry-run
