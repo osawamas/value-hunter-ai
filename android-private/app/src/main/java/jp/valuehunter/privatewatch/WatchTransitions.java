@@ -10,6 +10,17 @@ import java.util.Set;
 final class WatchTransitions {
     private WatchTransitions() {}
 
+    /** Reject stale/same-session responses before they can overwrite a newer baseline. */
+    static boolean shouldStoreSnapshot(String lastDate, LocalDate sessionDate) {
+        if (lastDate == null || lastDate.isEmpty()) return true;
+        try {
+            return sessionDate.isAfter(LocalDate.parse(lastDate));
+        } catch (DateTimeParseException error) {
+            // A damaged baseline can be rebuilt, but must not cause an alert.
+            return true;
+        }
+    }
+
     static List<JapanScreen.Candidate> newEntrants(
             String lastDate, LocalDate sessionDate, List<JapanScreen.Candidate> current,
             Set<String> previous) {
