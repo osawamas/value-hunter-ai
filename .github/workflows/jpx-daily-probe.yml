@@ -12,6 +12,7 @@ on:
       - 'android-private/tools/jpx_share_basis.py'
       - 'android-private/tools/jpx_rights_sources.py'
       - 'android-private/tools/jpx_daily_rights.py'
+      - 'android-private/tools/test_jpx_rights_sources.py'
       - 'android-private/tools/fixtures/jpx-annual-reference.json'
 
 permissions:
@@ -29,6 +30,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install 'PyMuPDF>=1.24,<2' 'openpyxl>=3.1,<4' 'xlrd>=2,<3'
+      - name: Check JPX source edition conflict handling
+        run: python -m unittest discover -s android-private/tools -p 'test_jpx_rights_sources.py' -v
       - name: Compare two published JPX reports with the exchange symbol list
         run: |
           master_page=https://www.jpx.co.jp/markets/statistics-equities/misc/01.html
