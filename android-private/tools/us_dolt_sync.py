@@ -19,8 +19,14 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
         existing = (destination / '.dolt').is_dir()
         command = (['dolt', 'pull', '--ff-only'] if existing else
                    ['dolt', 'clone', '--depth', '1', REMOTE, destination.name])
-        result = runner(command, cwd=str(destination if existing else destination.parent),
-                        capture_output=True, text=True, timeout=180)
+        try:
+            result = runner(command, cwd=str(destination if existing else destination.parent),
+                            capture_output=True, text=True, timeout=180)
+        except subprocess.TimeoutExpired:
+            # A timeout may leave a partial clone. Never delete it or retry blindly.
+            return 'cached_after_timeout' if existing else 'timed_out'
+        except FileNotFoundError:
+            return 'dolt_not_installed'
         if result.returncode == 0:
             if not (destination / '.dolt').is_dir():
                 raise ValueError('Dolt command succeeded without a valid repository')
@@ -40,7 +46,7 @@ def main():
     args = parser.parse_args()
     result = sync(args.destination)
     print(result)
-    if result in ('failed', 'rate_limited'):
+    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed'):
         raise SystemExit(1)
 
 

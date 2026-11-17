@@ -1,3 +1,4 @@
+import subprocess
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -44,6 +45,36 @@ class SyncTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):
                 sync(Path(tmp))
+
+    def test_timeout_keeps_existing_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('safe')
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                raise subprocess.TimeoutExpired(cmd, 180)
+            self.assertEqual(sync(dest, runner=runner), 'cached_after_timeout')
+            self.assertEqual(len(calls), 1)
+            self.assertEqual((dest / 'marker').read_text(), 'safe')
+
+    def test_timeout_initial_clone_not_retried(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                (dest / '.dolt').mkdir(parents=True)
+                raise subprocess.TimeoutExpired(cmd, 180)
+            self.assertEqual(sync(dest, runner=runner), 'timed_out')
+            self.assertEqual(len(calls), 1)
+
+    def test_missing_dolt_explained(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def runner(cmd, **kwargs):
+                raise FileNotFoundError('dolt')
+            self.assertEqual(sync(Path(tmp) / 'stocks', runner=runner), 'dolt_not_installed')
 
 
 if __name__ == '__main__':
