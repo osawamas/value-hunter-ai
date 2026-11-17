@@ -323,3 +323,7 @@ MarketParquetは分割調整済みのため、Doltの終値や取得件数には
 ```sh
 python3 tools/us_nyse_taq_probe.py 2026-07-01 --nyse-sample-file EQY_US_NYSE_SUM_CLOSE_20260701.txt --dolt-dir stocks
 ```
+
+レポートの `exceptions` に、Doltに当日行がない銘柄、当日行はあるが有効な終値がない銘柄、
+NYSEのLastとの差が1セントを超えた銘柄を記録する。原因調査にはこのティッカーを使い、
+他クラスの値や別日の値は流用しない。

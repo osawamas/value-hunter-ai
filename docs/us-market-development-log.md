@@ -2,6 +2,13 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 03:47 JST — NYSEの欠落銘柄を特定し、上場・変更日を確認
+
+- 開始時mainは [9aed6f3](https://github.com/osawamas/value-hunter-ai/commit/9aed6f3925a4597e339f859d44da2e4899f1b368)。NYSE TAQ照合レポートに、Doltに当日行がない銘柄、当日行があっても有効な終値がない銘柄、1セント超の差がある銘柄を追加。
+- NYSE公式サンプルとDoltHub公開DBを日付ごとに照会。7月1日は2,385銘柄中2,381件照合、DMC・GLAS・MBGL・OTAIの4銘柄にDoltの行なし。7月2日は2,386銘柄中2,381件照合、同じ4銘柄とSECZの計5銘柄に行なし。両日とも照合値は2,308件が完全一致、73件が非完全一致で1セント以内、1セント超なし。
+- [DMCへの変更は6月29日](https://investorrelations.freshdelmonte.com/news/news-details/2026/Fresh-Del-Monte-Produce-Inc--Announces-Name-Change-to-Del-Monte-Corporation-and-NYSE-Ticker-Symbol-Change-to-DMC/default.aspx)、[GLASのNYSE取引開始は6月30日](https://www.sec.gov/Archives/edgar/data/1848731/000110465926083587/tm2619713d1_ex4-13.htm)、[MBGLは7月1日](https://www.sec.gov/Archives/edgar/data/2090312/000110465926080006/tm2619098d1_ex99-1.htm)、[SECZは7月2日](https://www.sec.gov/Archives/edgar/data/2094496/000162828026056788/secz-20260630.htm)と確認。OTAIは[発行体資料](https://www.sec.gov/Archives/edgar/data/2094076/000149315226022571/ex99-2.htm)でユニットと普通株が別銘柄。普通株の単独取引の正確な開始日は未確認。Doltでの欠落原因と後日の初回収録日は未確認。
+- ローカルテスト65件成功。公開サンプルの7月1日・2日のNYSE対象条件内での観測で、現在のNYSE・Nasdaq全銘柄やAndroid端末での日次取得は未検証。株価原本や観測価格は公開リポジトリに追加していない。
+
 ## 2026-11-18 03:36 JST — NYSE公開TAQの当日LastでDoltを検証
 
 - 開始時mainは [e83c378](https://github.com/osawamas/value-hunter-ai/commit/e83c378105e62622cc0fa40e6397737f4dfd8cd5)。`us_nyse_taq_probe.py` で[NYSEの公開サンプル](https://ftp.nyse.com/Historical%20Data%20Samples/TAQ%20CLOSING%20PRICES/)とローカルDoltを照合できるようにした。NYSE上場コード、英字だけの銘柄コード、取引日一致、正のLastと出来高を確認。株式クラスの接尾辞を自動変換しない。

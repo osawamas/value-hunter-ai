@@ -55,11 +55,12 @@ def read_nyse_sample(path, day):
 
 
 def benchmark(day, reference, bars):
-    _, prices = validated_closes(day, bars)
+    seen, prices = validated_closes(day, bars)
     matched = reference.keys() & prices.keys()
-    differences = [abs(reference[symbol] - Decimal(str(prices[symbol]))) for symbol in matched]
-    exact = differences.count(Decimal(0))
-    within = sum(delta <= CENT for delta in differences)
+    differences = {symbol: abs(reference[symbol] - Decimal(str(prices[symbol]))) for symbol in matched}
+    exact = sum(delta == 0 for delta in differences.values())
+    within = sum(delta <= CENT for delta in differences.values())
+    above_cent = sorted(symbol for symbol, delta in differences.items() if delta > CENT)
     return {
         "reference_basis": "NYSE TAQ Last, row trade date matches session; NYSE-listed plain symbols",
         "reference_symbols": len(reference),
@@ -67,7 +68,12 @@ def benchmark(day, reference, bars):
         "missing_dolt": len(reference) - len(matched),
         "exact_matches": exact,
         "within_one_cent_nonexact": within - exact,
-        "differ_over_one_cent": len(matched) - within,
+        "differ_over_one_cent": len(above_cent),
+        "exceptions": {
+            "no_dolt_row": sorted(reference.keys() - seen),
+            "dolt_row_without_usable_close": sorted((reference.keys() & seen) - matched),
+            "differ_over_one_cent": above_cent,
+        },
     }
 
 
