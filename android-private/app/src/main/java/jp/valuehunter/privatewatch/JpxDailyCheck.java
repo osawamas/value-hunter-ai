@@ -67,7 +67,11 @@ final class JpxDailyCheck {
                     appendBudget(message, close);
                     if (previous != null) appendChange(message, close, previous.close(code));
                     JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
+                    if (previous != null) appendReferenceTransition(message, code);
                 }
+            }
+            if (previous != null) {
+                message.append("<br><br>参考判定は分割・併合を未照合");
             }
             appendSource(message.append("<br>"), latest);
             if (previous != null) appendSource(message, previous);
@@ -100,10 +104,44 @@ final class JpxDailyCheck {
                     .append(percent.toPlainString()).append("%）");
         }
 
+        private void appendReferenceTransition(StringBuilder message, String code) {
+            if (!previous.date().isBefore(latest.date())) return;
+            var before = referenceTier(previous, code);
+            var now = referenceTier(latest, code);
+            String change;
+            if (before == ReferenceTier.UNKNOWN || now == ReferenceTier.UNKNOWN) {
+                change = "保留（比較に必要な終値または通期決算なし）";
+            } else if (before == now) {
+                change = "条件の変化なし";
+            } else if (now == ReferenceTier.OUTSIDE) {
+                change = "条件から外れた";
+            } else if (before == ReferenceTier.OUTSIDE) {
+                change = now == ReferenceTier.LOT ? "新たに条件内（100株）" : "新たに条件内（1株）";
+            } else {
+                change = now == ReferenceTier.LOT ? "1株枠から100株枠へ" : "100株枠から1株枠へ";
+            }
+            message.append("<br>参考判定の変化 · ").append(change);
+        }
+
         private static void appendSource(StringBuilder message, Report report) {
             message.append("<br><a href='").append(report.source()).append("'>JPX 株式相場表 ")
                     .append(report.date()).append("（PDF）</a>");
         }
+    }
+
+    private enum ReferenceTier { UNKNOWN, OUTSIDE, SINGLE, LOT }
+
+    private static ReferenceTier referenceTier(Report report, String code) {
+        var close = report.close(code);
+        if (close == null) return ReferenceTier.UNKNOWN;
+        var financial = JpxReferenceFinancials.condition(code, report.date(), close);
+        if (financial == JpxReferenceFinancials.Condition.UNAVAILABLE) return ReferenceTier.UNKNOWN;
+        if (financial != JpxReferenceFinancials.Condition.MATCH) return ReferenceTier.OUTSIDE;
+        return switch (budgetQuantity(close)) {
+            case 100 -> ReferenceTier.LOT;
+            case 1 -> ReferenceTier.SINGLE;
+            default -> ReferenceTier.OUTSIDE;
+        };
     }
 
     static int budgetQuantity(BigDecimal close) {

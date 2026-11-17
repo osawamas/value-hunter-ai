@@ -45,6 +45,35 @@ final class JpxReferenceFinancials {
 
     private record Disclosures(Annual annual, List<Shares> shares) {}
 
+    enum Condition {
+        UNAVAILABLE("参考財務条件は保留（立会日より前の通期決算なし）"),
+        UNUSABLE("参考財務条件は対象外（EPS・BPSがともに正でない）"),
+        MATCH("参考財務条件に一致（PER 15倍以下・PBR 1倍以下）"),
+        PER_OVER("参考財務条件は対象外 · PER 15倍超"),
+        PBR_OVER("参考財務条件は対象外 · PBR 1倍超"),
+        BOTH_OVER("参考財務条件は対象外 · PER 15倍超 · PBR 1倍超");
+
+        final String label;
+
+        Condition(String label) {
+            this.label = label;
+        }
+    }
+
+    static Condition condition(String code, LocalDate session, BigDecimal close) {
+        var disclosures = BY_CODE.get(code);
+        if (disclosures == null || !session.isAfter(disclosures.annual().released())) {
+            return Condition.UNAVAILABLE;
+        }
+        var annual = disclosures.annual();
+        if (annual.eps().signum() <= 0 || annual.bps().signum() <= 0) return Condition.UNUSABLE;
+
+        boolean perOver = close.compareTo(annual.eps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PER))) > 0;
+        boolean pbrOver = close.compareTo(annual.bps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PBR))) > 0;
+        if (perOver) return pbrOver ? Condition.BOTH_OVER : Condition.PER_OVER;
+        return pbrOver ? Condition.PBR_OVER : Condition.MATCH;
+    }
+
     static void appendHtml(StringBuilder html, String code, LocalDate session, BigDecimal close) {
         var disclosures = BY_CODE.get(code);
         if (disclosures == null) return;
@@ -57,10 +86,8 @@ final class JpxReferenceFinancials {
                     .append(annual.bps().toPlainString()).append("円")
                     .append(" · <a href='").append(annual.source()).append("'>通期決算</a>")
                     .append("<br>決算公表時の1株値で試算（以降の株式分割等は未反映）");
-            appendFinancialCheck(html, close, annual);
-        } else {
-            html.append("<br>参考財務条件は保留（立会日より前の通期決算なし）");
         }
+        html.append("<br>").append(condition(code, session, close).label);
         for (var shares : disclosures.shares()) {
             if (!session.isAfter(shares.released())) continue;
             html.append("<br>自己株式控除後 ").append(shares.outstanding()).append("株")
@@ -70,22 +97,6 @@ final class JpxReferenceFinancials {
             break;
         }
         html.append("<br>時価総額は保留（立会日の株式数未照合）");
-    }
-
-    private static void appendFinancialCheck(StringBuilder html, BigDecimal close, Annual annual) {
-        if (annual.eps().signum() <= 0 || annual.bps().signum() <= 0) {
-            html.append("<br>参考財務条件は対象外（EPS・BPSがともに正でない）");
-            return;
-        }
-        boolean perPass = close.compareTo(annual.eps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PER))) <= 0;
-        boolean pbrPass = close.compareTo(annual.bps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PBR))) <= 0;
-        if (perPass && pbrPass) {
-            html.append("<br>参考財務条件に一致（PER 15倍以下・PBR 1倍以下）");
-        } else {
-            html.append("<br>参考財務条件は対象外");
-            if (!perPass) html.append(" · PER 15倍超");
-            if (!pbrPass) html.append(" · PBR 1倍超");
-        }
     }
 
     private static String ratio(BigDecimal close, BigDecimal denominator) {

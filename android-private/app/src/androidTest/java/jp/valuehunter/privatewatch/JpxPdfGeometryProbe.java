@@ -14,6 +14,8 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 
 public final class JpxPdfGeometryProbe extends Instrumentation {
@@ -97,6 +99,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || !html.contains("自己株式控除後 11737603369株（2026-10-31時点）")
                 || !html.contains("S100ZH9B.pdf")
                 || !html.contains("比較日 2026-11-13")
+                || html.split("参考判定の変化 · 条件の変化なし", -1).length != 4
+                || !html.contains("参考判定は分割・併合を未照合")
                 || !html.contains("比較日の終値 4660円 / +45円（+0.97%）")
                 || !html.contains("比較日の終値 3418円 / +10円（+0.29%）")
                 || !html.contains("時価総額は保留（立会日の株式数未照合）")) {
@@ -142,7 +146,37 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || !nearLimit.toString().contains("参考財務条件は対象外 · PER 15倍超")) {
             throw new AssertionError("Rounded display value was used to check the PER limit");
         }
+        checkReferenceTransitions(day);
         return "JPX_ANDROID_PREVIEW_OK\n";
+    }
+
+    private static void checkReferenceTransitions(LocalDate day) {
+        var before = day.minusDays(3);
+        var abovePer = sampleReport(before, "3861", "916.51", false);
+        var atPer = sampleReport(day, "3861", "916.50", false);
+        assertTransition(atPer, abovePer, "新たに条件内（100株）");
+        assertTransition(sampleReport(day, "3861", "916.51", false),
+                sampleReport(before, "3861", "916.50", false), "条件から外れた");
+        assertTransition(sampleReport(day, "1301", "1000.00", false),
+                sampleReport(before, "1301", "1000.01", false), "1株枠から100株枠へ");
+        assertTransition(atPer, sampleReport(before, "3861", "916.51", true),
+                "保留（比較に必要な終値または通期決算なし）");
+        assertTransition(atPer, sampleReport(LocalDate.of(2026, 5, 15), "3861", "916.51", false),
+                "保留（比較に必要な終値または通期決算なし）");
+    }
+
+    private static JpxDailyCheck.Report sampleReport(LocalDate day, String code, String close,
+                                                    boolean ambiguous) {
+        return new JpxDailyCheck.Report(day, "", Map.of(code,
+                new JpxCloseTable.Sessions(null, new BigDecimal(close))), ambiguous ? Set.of(code) : Set.of());
+    }
+
+    private static void assertTransition(JpxDailyCheck.Report latest, JpxDailyCheck.Report previous,
+                                         String expected) {
+        String html = new JpxDailyCheck.Comparison(latest, previous).html();
+        if (!html.contains("参考判定の変化 · " + expected)) {
+            throw new AssertionError("Missing JPX reference transition: " + expected);
+        }
     }
 
     private static String display(BigDecimal value) {
