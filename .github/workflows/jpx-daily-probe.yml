@@ -133,6 +133,10 @@ jobs:
           assert share_basis_status("6861", nov, date(2026, 11, 18), (set(), {}), [notice]) == "hold_rights_report_gap"
           assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice]) == "hold_daily_share_notice"
           assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), []) == "hold_rights_report_gap"
+          revised = DailyShareNotice(date(2026, 11, 18), date(2026, 11, 20), date(2026, 11, 20), notice.kind, "●")
+          later_edition = DailyShareNotice(date(2026, 11, 20), revised.ex_on, revised.record_on, notice.kind, "●")
+          assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice, revised]) == "hold_daily_notice_conflict"
+          assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice, later_edition]) == "hold_daily_share_notice"
           print(f"Verified split/consolidation report: {sum(map(len, events.values()))} events")
           PY
 
@@ -167,6 +171,29 @@ jobs:
         run: |
           python3 android-private/tools/jpx_rights_sources.py \
             --year 2026 --cutoff-month 11 --daily-only --output "$RUNNER_TEMP/jpx-daily-notes"
+      - name: Inspect workbook objects rendered as text
+        run: |
+          if ! command -v libreoffice >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends libreoffice-calc fonts-noto-cjk
+          fi
+          latest=$(find "$RUNNER_TEMP/jpx-daily-notes" -name '*.xls' | sort | tail -n1)
+          test -n "$latest"
+          libreoffice --headless --convert-to 'pdf:calc_pdf_Export:{"SinglePageSheets":{"type":"boolean","value":"true"}}' \
+            --outdir "$RUNNER_TEMP/jpx-daily-notes" "$latest"
+          python3 - "$RUNNER_TEMP/jpx-daily-notes" <<'PY'
+          from pathlib import Path
+          import sys
+          import pymupdf
+
+          pdf, = Path(sys.argv[1]).glob("*.pdf")
+          with pymupdf.open(pdf) as document:
+              print(f"Rendered workbook pages: {len(document)}")
+              for page in document:
+                  for line in page.get_text().splitlines():
+                      if any(word in line for word in ("フラグ", "取消", "訂正", "分割", "ご利用", "留意")):
+                          print(line.strip())
+          PY
 
   hachiquant:
     runs-on: ubuntu-latest

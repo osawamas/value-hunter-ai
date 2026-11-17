@@ -98,9 +98,15 @@ def share_basis_status(code, period_end, quote_day, rights, daily_notices=()):
     for action in events.get(code, ()):
         if action.ex_on <= quote_day and action.record_on >= period_end:
             return "hold_share_basis_change"
+    reported_dates = defaultdict(set)
     for notice in daily_notices:
-        if notice.published_on <= quote_day and notice.ex_on <= quote_day and notice.record_on >= period_end:
-            return "hold_daily_share_notice"
+        if notice.published_on <= quote_day and notice.record_on >= period_end:
+            reported_dates[notice.kind, notice.record_on].add(notice.ex_on)
+    due_dates = [dates for dates in reported_dates.values() if min(dates) <= quote_day]
+    if any(len(dates) > 1 for dates in due_dates):
+        return "hold_daily_notice_conflict"
+    if due_dates:
+        return "hold_daily_share_notice"
     month = period_end.replace(day=1)
     while month <= quote_day:
         if month not in coverage:
