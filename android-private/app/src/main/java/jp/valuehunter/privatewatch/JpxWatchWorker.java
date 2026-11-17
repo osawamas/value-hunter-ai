@@ -21,9 +21,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public final class JpxWatchWorker extends Worker {
-    private static final String WORK = "jpx-daily-watch";
+    static final String WORK = "jpx-daily-watch";
     private static final String TOKEN = "jpx_watch_token";
     private static final String BASELINE = "jpx_watch_baseline";
     private static final String LATEST = "jpx_watch_latest";
@@ -32,8 +33,24 @@ public final class JpxWatchWorker extends Worker {
     private static final int NOTIFICATION_ID = 5;
     private static final Object STATE_LOCK = new Object();
 
+    @FunctionalInterface
+    interface ComparisonLoader {
+        JpxDailyCheck.Comparison load(Context context) throws IOException;
+    }
+
+    private final ComparisonLoader comparisons;
+    private final Function<Context, JpxShareRights> rights;
+
     public JpxWatchWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
+        this(context, parameters, app -> JpxDailyCheck.check(app.getCacheDir()),
+                app -> JpxShareRights.refresh(app).rights());
+    }
+
+    JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
+                   Function<Context, JpxShareRights> rights) {
         super(context, parameters);
+        this.comparisons = comparisons;
+        this.rights = rights;
     }
 
     static boolean enabled(Context context) {
@@ -69,10 +86,9 @@ public final class JpxWatchWorker extends Worker {
         if (token.isEmpty()) return Result.success();
 
         try {
-            var comparison = JpxDailyCheck.check(context.getCacheDir());
+            var comparison = comparisons.load(context);
             if (isStopped()) return Result.success();
-            var rights = JpxShareRights.refresh(context);
-            var screen = comparison.screen(rights.rights());
+            var screen = comparison.screen(rights.apply(context));
             LocalDate date = comparison.latest().date();
             synchronized (STATE_LOCK) {
                 if (isStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();

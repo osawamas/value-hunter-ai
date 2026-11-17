@@ -32,6 +32,7 @@ tasks.named('preBuild').configure {
 
 dependencies {
     implementation 'androidx.work:work-runtime:2.10.1'
+    androidTestImplementation 'androidx.work:work-testing:2.10.1'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }

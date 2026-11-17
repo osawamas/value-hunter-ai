@@ -47,7 +47,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                     + checkSampleReport(directory, JpxShareRights.load(getTargetContext()));
             checkRightsRefresh(getTargetContext());
             checkJpxWatch();
-            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\n");
+            JpxWatchDeliveryProbe.run(getTargetContext(), directory);
+            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\nJPX_ANDROID_WATCH_DELIVERY_OK\n");
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");

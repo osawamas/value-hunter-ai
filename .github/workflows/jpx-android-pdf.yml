@@ -102,6 +102,7 @@ jobs:
           script: |
             adb install android-private/app/build/outputs/apk/debug/app-debug.apk
             adb install android-private/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell pm grant jp.valuehunter.privatewatch android.permission.POST_NOTIFICATIONS
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261029.pdf'" < "$RUNNER_TEMP/jpx-20261029.pdf"
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261113.pdf'" < "$RUNNER_TEMP/jpx-20261113.pdf"
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261116.pdf'" < "$RUNNER_TEMP/jpx-20261116.pdf"
@@ -111,4 +112,5 @@ jobs:
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_PREVIEW_OK'
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_RIGHTS_REFRESH_OK'
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_WATCH_OK'
+            tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_WATCH_DELIVERY_OK'
             diff -u "$RUNNER_TEMP/jpx-expected.txt" "$RUNNER_TEMP/jpx-actual.txt"
