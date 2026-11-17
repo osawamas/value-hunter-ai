@@ -10,6 +10,7 @@ on:
       - 'android-private/tools/jpx_valuation_probe.py'
       - 'android-private/tools/jpx_hachiquant_coverage.py'
       - 'android-private/tools/jpx_share_basis.py'
+      - 'android-private/tools/jpx_rights_sources.py'
       - 'android-private/tools/fixtures/jpx-annual-reference.json'
 
 permissions:
@@ -127,12 +128,21 @@ jobs:
           print(f"Verified split/consolidation report: {sum(map(len, events.values()))} events")
           PY
 
+      - name: Validate monthly JPX reports and inspect the daily rights catalog
+        run: |
+          python android-private/tools/jpx_rights_sources.py \
+            --year 2026 --cutoff-month 11 --output "$RUNNER_TEMP/jpx-rights"
+
       - name: Measure JPX and Hachiquant coverage, with a budget-first filing sample
         run: |
+          reports=()
+          for report in "$RUNNER_TEMP"/jpx-rights/rights-*.pdf; do
+            reports+=(--rights-report "$report")
+          done
           python android-private/tools/jpx_hachiquant_coverage.py \
             "$RUNNER_TEMP/jpx-list.xlsx" "$RUNNER_TEMP/jpx-20261029.pdf" \
             "$RUNNER_TEMP/jpx-20261111.pdf" --check-filing 1301 --budget-samples-per-market 10 \
-            --rights-report "$RUNNER_TEMP/jpx-rights-202603.pdf"
+            "${reports[@]}"
 
   hachiquant:
     runs-on: ubuntu-latest

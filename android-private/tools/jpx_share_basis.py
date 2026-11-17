@@ -32,7 +32,8 @@ def table_date(value):
 
 def read_monthly_rights(path):
     events = defaultdict(set)
-    with pymupdf.open(path) as document:
+    source = pymupdf.open(stream=path, filetype="pdf") if isinstance(path, bytes) else pymupdf.open(path)
+    with source as document:
         match = MONTH_HEADER.search(unicodedata.normalize("NFKC", document[0].get_text()))
         if not match:
             raise ValueError("JPX corporate-action report month could not be read")
