@@ -7,6 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from email.utils import parsedate_to_datetime
 import json
+import os
 from io import BytesIO, StringIO
 from math import isfinite
 from pathlib import Path
@@ -24,6 +25,7 @@ from us_sec_statement_coverage import measure as measure_statements
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
 HALTS = "https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts"
 HALT_NS = {"n": "http://www.nasdaqtrader.com/"}
+DIRECTORY_FILES = ("nasdaqlisted.txt", "otherlisted.txt")
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
 SEC_INDEX = "https://www.sec.gov/Archives/edgar/full-index/"
 SEC_ARCHIVES = "https://www.sec.gov/Archives/edgar/"
@@ -491,6 +493,48 @@ def read_dolt_csv(content):
 
 
 
+def load_listing_directories(directory=None):
+    observed = {}
+    listings = {}
+    originals = {}
+    for name in DIRECTORY_FILES:
+        content = (directory / name).read_bytes() if directory is not None else fetch(DIRECTORY + name)
+        timestamp, entries = read_directory(content, name == "nasdaqlisted.txt")
+        if listings.keys() & entries.keys():
+            raise ValueError("Directory files overlap; wait for a consistent refresh")
+        listings.update(entries)
+        observed[name] = timestamp.isoformat()
+        originals[name] = content
+    if len({stamp[:10] for stamp in observed.values()}) != 1:
+        raise ValueError("Directory files are from different calendar dates")
+    return observed, listings, originals
+
+
+def save_listing_snapshot(root, day, originals):
+    root.mkdir(parents=True, exist_ok=True)
+    target = root / day.isoformat()
+    with TemporaryDirectory(prefix=".listing-", dir=root) as staging:
+        snapshot = Path(staging) / "snapshot"
+        snapshot.mkdir()
+        for name in DIRECTORY_FILES:
+            (snapshot / name).write_bytes(originals[name])
+        # A complete, nonempty destination directory wins if another capture finished first.
+        try:
+            os.rename(snapshot, target)
+        except OSError:
+            if not target.is_dir():
+                raise
+            observed, _, _ = load_listing_directories(target)
+            require_listing_date(day, observed)
+            return "already_saved"
+    return "saved"
+
+
+def require_listing_date(day, observed):
+    if any(stamp[:10] != day.isoformat() for stamp in observed.values()):
+        raise ValueError(f"Nasdaq directory pair does not match requested date {day}")
+
+
 def listing_snapshot_assessment(trading_day, observed):
     """Flag a later directory snapshot; never treat it as a historical universe."""
     dates = [date.fromisoformat(value[:10]) for value in observed.values()]
@@ -513,8 +557,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trading_day", nargs="?", type=date.fromisoformat,
                         help="Date of an evaluation sample; omit to check only the listing files")
-    parser.add_argument("--directory-cache", type=Path,
-                        help="Replay both original Nasdaq files from this directory")
+    directories = parser.add_mutually_exclusive_group()
+    directories.add_argument("--directory-cache", type=Path,
+                             help="Replay both original Nasdaq files from this directory")
+    directories.add_argument("--save-directory-to", type=Path,
+                             help="Save today's live Nasdaq directory pair under ROOT/YYYY-MM-DD")
+    directories.add_argument("--directory-archive", type=Path,
+                             help="Read the exact trading day's saved pair from ROOT/YYYY-MM-DD")
     prices = parser.add_mutually_exclusive_group()
     prices.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
     prices.add_argument("--dolt-dir", type=Path, help="Read closes from a local post-no-preference/stocks clone")
@@ -580,25 +629,39 @@ def main():
         parser.error("--sec-quarter expects YYYYqN")
     if len(check_statements) > 8 or len(check_statements) != len(set(check_statements)):
         parser.error("Use up to eight distinct statement archives")
+    if args.directory_archive and not args.trading_day:
+        parser.error("--directory-archive requires a trading date")
+    if args.save_directory_to and args.trading_day:
+        parser.error("--save-directory-to is a directory-only operation; omit the trading date")
     if (args.sample_file or args.dolt_dir or args.with_sec or args.sec_file or check_statements
             or args.dow or args.dow_file or check_notes) and not args.trading_day:
         parser.error("The sample, SEC and Dow options require a trading date")
-    if args.trading_day and args.trading_day >= datetime.now(ZoneInfo("America/New_York")).date():
+    ny_day = datetime.now(ZoneInfo("America/New_York")).date()
+    if args.trading_day and args.trading_day >= ny_day:
         parser.exit(1, "Use a completed US trading date. The public sample window is limited.\n")
     try:
-        observed = {}
-        listings = {}
-        for name in ("nasdaqlisted.txt", "otherlisted.txt"):
-            content = ((args.directory_cache / name).read_bytes() if args.directory_cache
-                       else fetch(DIRECTORY + name))
-            timestamp, entries = read_directory(content, name == "nasdaqlisted.txt")
-            if listings.keys() & entries.keys():
-                raise ValueError("Directory files overlap; wait for a consistent refresh")
-            listings.update(entries)
-            observed[name] = timestamp.isoformat()
-        if len({stamp[:10] for stamp in observed.values()}) != 1:
-            raise ValueError("Directory files are from different calendar dates")
+        directory = args.directory_cache
+        archive_status = None
+        if args.directory_archive:
+            directory = args.directory_archive / args.trading_day.isoformat()
+        elif args.save_directory_to:
+            target = args.save_directory_to / ny_day.isoformat()
+            if target.is_dir():
+                directory = target
+                archive_status = "already_saved"
+        observed, listings, originals = load_listing_directories(directory)
+        if args.directory_archive:
+            require_listing_date(args.trading_day, observed)
+        if args.save_directory_to:
+            require_listing_date(ny_day, observed)
+            if archive_status is None:
+                archive_status = save_listing_snapshot(args.save_directory_to, ny_day, originals)
+                if archive_status == "already_saved":
+                    observed, listings, _ = load_listing_directories(target)
+                    require_listing_date(ny_day, observed)
         result = {"directory_observed_at": observed, "non_etf_non_test_listings": len(listings)}
+        if archive_status is not None:
+            result["directory_archive_status"] = archive_status
         if args.trading_day:
             if args.dolt_dir:
                 bars = dolt_rows(args.dolt_dir.resolve(), args.trading_day)

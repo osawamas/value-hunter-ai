@@ -253,3 +253,18 @@ python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks --compare-ma
 指定されている場合は、二つの価格データに旧コードの当日値があるかを確認する。
 旧コードの値を新コードに割り当てたり、取得率を変更したりしない。出典ファイルは調査用で、
 掲載されている事例を再現できる。取引所の全履歴を取得する機能ではない。
+
+### 取引日ごとの上場一覧を保存する
+
+Nasdaq Traderが日中に更新する公開一覧2本を、米東部時間の日付で保存する。取引時間中など
+毎日同じ時間帯に保存すると、日をまたいだ銘柄の変更を追いやすい。同じ日の再実行では、
+最初に検証して保存したペアを使う。2本の作成日が異なる場合や、当日の作成分でない場合は保存しない。
+
+```sh
+python3 tools/us_public_files_probe.py --save-directory-to /path/to/us-listing-archive
+python3 tools/us_public_files_probe.py 2026-11-17 \
+  --directory-archive /path/to/us-listing-archive --dolt-dir stocks
+```
+
+日付指定での再生は、指定日に保存したペアが必要。別日のファイルや現在の一覧に切り替えない。
+取引日と一致しても取引開始時点や引け時点の全銘柄を保証するものではない。

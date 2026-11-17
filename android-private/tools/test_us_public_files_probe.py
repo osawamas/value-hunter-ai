@@ -1,8 +1,10 @@
 from datetime import date, datetime
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
-from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, listing_snapshot_assessment, read_sec_directory
+from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, listing_snapshot_assessment, load_listing_directories, read_sec_directory, require_listing_date, save_listing_snapshot
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -16,6 +18,28 @@ NASDAQ = (
 
 
 class PublicFilesTest(unittest.TestCase):
+    def test_listing_archive_keeps_first_complete_pair_and_rejects_wrong_target(self):
+        day = date(2026, 11, 17)
+        other = (b"ACT Symbol|Security Name|Exchange|ETF|Test Issue\n"
+                 b"BIO.B|Class B Common Stock|N|N|N\n"
+                 b"File Creation Time: 1117202606:01||||\n")
+        originals = {"nasdaqlisted.txt": NASDAQ, "otherlisted.txt": other}
+        with TemporaryDirectory() as path:
+            root = Path(path)
+            target = root / day.isoformat()
+            self.assertEqual("saved", save_listing_snapshot(root, day, originals))
+            replaced = dict(originals, **{"otherlisted.txt": other.replace(b"BIO.B", b"ABC")})
+            self.assertEqual("already_saved", save_listing_snapshot(root, day, replaced))
+            observed, listings, replay = load_listing_directories(target)
+            self.assertEqual({"BIO.B", "AAPL"}, listings.keys())
+            self.assertEqual(originals, replay)
+            require_listing_date(day, observed)
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                require_listing_date(DAY, observed)
+            (target / "otherlisted.txt").unlink()
+            with self.assertRaises(FileNotFoundError):
+                load_listing_directories(target)
+
     def test_listing_snapshot_date_is_not_historical_proof(self):
         observed = {"nasdaqlisted.txt": "2026-11-17T06:00:00",
                     "otherlisted.txt": "2026-11-17T06:00:00"}
