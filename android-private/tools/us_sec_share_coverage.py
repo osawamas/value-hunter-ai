@@ -28,7 +28,7 @@ def share_date(rounded, proximity):
     return month_end - timedelta(days=int(offset))
 
 
-def cover_facts(archives, filings):
+def cover_facts(archives, filings, cutoff):
     relevant = {filing.accession: filing for filing in filings.values()}
     reported = defaultdict(set)
     blocked = defaultdict(set)
@@ -51,7 +51,7 @@ def cover_facts(archives, filings):
                 try:
                     effective = share_date(rounded, offset)
                     amount = Decimal(value.decode("ascii"))
-                    if (effective > relevant[accession].filed or precision not in (b"0", b"32767")
+                    if (effective > relevant[accession].filed or effective > cutoff or precision not in (b"0", b"32767")
                             or not amount.is_finite() or amount <= 0 or amount != amount.to_integral_value()):
                         raise ValueError("Unsupported share count or effective date")
                 except (InvalidOperation, ValueError, OverflowError):
@@ -78,7 +78,7 @@ def measure(paths, cutoff, securities, report_groups, multiple_classes):
             filing = latest_unique(choices.values())
             if filing is not None:
                 latest[cik] = filing
-        reported, blocked = cover_facts(archives, latest)
+        reported, blocked = cover_facts(archives, latest, cutoff)
 
     status = {}
     effective_dates = {}
