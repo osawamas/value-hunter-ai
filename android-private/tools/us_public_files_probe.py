@@ -490,6 +490,25 @@ def read_dolt_csv(content):
     return rows
 
 
+
+def listing_snapshot_assessment(trading_day, observed):
+    """Flag a later directory snapshot; never treat it as a historical universe."""
+    dates = [date.fromisoformat(value[:10]) for value in observed.values()]
+    if len(dates) != 2 or dates[0] != dates[1]:
+        raise ValueError("Inconsistent directory snapshot dates")
+    lag = (dates[0] - trading_day).days
+    return {
+        "trading_date": trading_day.isoformat(),
+        "directory_date": dates[0].isoformat(),
+        "calendar_day_offset": lag,
+        "historical_universe_verified": False,
+        "status": ("future_directory_snapshot" if lag > 0 else
+                   "prior_directory_snapshot" if lag < 0 else
+                   "same_day_directory_unverified"),
+        "note": "Coverage uses an observed directory, not verified point-in-time listings",
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trading_day", nargs="?", type=date.fromisoformat,
@@ -635,6 +654,7 @@ def main():
             if statement_files:
                 result["sec_statement_archives"] = [path.name for path in statement_files]
             result["comparison_basis"] = "observed listings; not a historical listing snapshot"
+            result["listing_snapshot_assessment"] = listing_snapshot_assessment(args.trading_day, observed)
         print(json.dumps(result, indent=2))
     except ImportError as error:
         parser.exit(1, f"A file reader dependency is missing: {error.name} (pyarrow for prices, openpyxl for DIA).\n")
