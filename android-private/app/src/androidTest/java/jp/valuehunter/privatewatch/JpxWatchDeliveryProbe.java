@@ -3,6 +3,7 @@ package jp.valuehunter.privatewatch;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.os.PowerManager;
 
 import androidx.work.Configuration;
 import androidx.work.ListenableWorker;
@@ -89,6 +90,8 @@ final class JpxWatchDeliveryProbe {
 
             inputs.set(new Inputs(new JpxDailyCheck.Comparison(
                     sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")), complete));
+            var power = context.getSystemService(PowerManager.class);
+            if (power.isInteractive()) throw new AssertionError("Emulator display was awake before the alert");
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
             awaitRun(work, id, starts, 3);

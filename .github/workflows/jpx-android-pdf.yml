@@ -107,6 +107,7 @@ jobs:
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261113.pdf'" < "$RUNNER_TEMP/jpx-20261113.pdf"
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261116.pdf'" < "$RUNNER_TEMP/jpx-20261116.pdf"
             adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-codes.txt'" < "$RUNNER_TEMP/jpx-codes.txt"
+            adb shell input keyevent KEYCODE_SLEEP
             adb shell am instrument -w jp.valuehunter.privatewatch.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe | tee "$RUNNER_TEMP/jpx-android-probe.log"
             grep '^JPX_ANDROID_CLOSES ' "$RUNNER_TEMP/jpx-android-probe.log" | tr -d '\r' > "$RUNNER_TEMP/jpx-actual.txt"
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_PREVIEW_OK'
