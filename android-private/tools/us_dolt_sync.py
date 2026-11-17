@@ -1,10 +1,12 @@
 """Conservative Dolt mirror synchronization. Never delete a working local clone."""
 import argparse
+import re
 from pathlib import Path
 import subprocess
 import time
 
 REMOTE = 'post-no-preference/stocks'
+RATE_LIMIT = re.compile(r'(?<!\d)429(?!\d)|too many requests', re.I)
 
 
 def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
@@ -32,7 +34,7 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
                 raise ValueError('Dolt command succeeded without a valid repository')
             return 'updated' if existing else 'cloned'
         message = (result.stderr + '\n' + result.stdout).lower()
-        rate_limited = ('429' in message or 'too many requests' in message)
+        rate_limited = bool(RATE_LIMIT.search(message))
         # A failed initial clone may leave a partial directory; do not retry it blindly.
         if not rate_limited or attempt == attempts - 1 or not existing:
             return 'cached_after_rate_limit' if rate_limited and existing else ('rate_limited' if rate_limited else 'failed')
