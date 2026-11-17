@@ -1,5 +1,18 @@
 # VALUE HUNTER AI シンガポール株の開発ログ
 
+## 2026-11-18 07:16 JST — 上場廃止・市場異動を反映し、公式Next 50を照合
+
+- [Avargaの上場廃止](https://links.sgx.com/1.0.0/corporate-announcements/BBD9D0SIWRBWP9BX/7f1e66a8da899eaf1040290545c377bee25105b44b3979b7593cfb7da11d7307)（X5N、10月27日発効）と[Koh Brothers Eco Engineeringの市場異動](https://links.sgx.com/1.0.0/corporate-announcements/LJWBIHTNDQ91EHN5/e94d438950511be24f092d6c8351b401b4293836e877342da534a49710187b4c)（5HV、10月29日発効）を、既存のSGXNet原本照合データから通常更新時に適用。両原本を再取得し、ハッシュ、告知番号、ISINが保存済み証拠と一致した。候補の基準日までに効力が生じたイベントを、コードとISINの両方が一致した候補に適用する。
+- 再取得した11月13日付HTMLから生成した結果は632取引コード（Mainboard 435、Catalist 197）、631種類のISIN。X5Nの削除で1コード減り、5HVはCatalistからMainboardへ移動した。
+- `--check-next50` で[SGX公式10月月報](https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Oct%202026.ashx?App=Announcement&FileID=911153)のiEdge Singapore Next 50の構成銘柄ページ2枚を直接取得・解析する処理を追加。取引名の略称表と同一ISINの複数カウンターを扱う。元の公開一覧では44/50一致、現在の候補では50/50一致、未取得0、曖昧一致0。この検証は構成銘柄名の照合で、PDFに取引コードはない。価格は収集対象にしていない。
+- SGX全体の同日公式銘柄一覧は未取得のため、市場全体の不足数は未確定。91件のPythonテストが成功（今回追加3件）。Android連携と日次終値取得は今回未実施。
+
+```sh
+python3 android-private/tools/sgx_public_directory.py --check-next50
+```
+
+月報の照合には `pdftotext` を使用。 `--include-records` を併用すると、照合した銘柄名と取引コードも表示する。
+
 ## 2026-11-18 07:09 JST — 一覧に欠けていた10取引コードを補完
 
 - 第三者の公開HTMLから再取得した623候補を、SGX上場確認・発行体開示に照合。公開HTMLに欠けていた10コードの証拠を [sgx-listing-evidence.json](data/sgx-listing-evidence.json) に記録し、通常実行時に候補へ追加する処理を実装した。10件のSGX原本を直接取得して、取引コード・証券識別子の掲載箇所を確認した。AWXの開示PDFは取引コードと通貨を記載し、ISINは候補に掲載されたXWAとSGinvestorsの両カウンター表示で照合した。

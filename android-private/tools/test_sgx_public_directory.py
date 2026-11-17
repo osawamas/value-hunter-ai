@@ -1,6 +1,8 @@
 import unittest
 
-from sgx_public_directory import exclude_replaced_codes, parse_directory, supplement_directory, valid_isin
+from sgx_public_directory import (
+    apply_board_events, exclude_replaced_codes, parse_directory, supplement_directory, valid_isin,
+)
 
 HTML = """
 <p>record as of 2026-11-13</p>
@@ -71,6 +73,33 @@ class PublicDirectoryTests(unittest.TestCase):
         self.assertEqual(audit["unresolved_count"], 1)
         with self.assertRaisesRegex(ValueError, "invalid SGX listing"):
             supplement_directory({}, [row, row])
+
+    def test_applies_effective_delisting_and_transfer_only_to_exact_identity(self):
+        x5n = {"symbol": "X5N", "isin": "SGXE98222768", "board": "Mainboard"}
+        koh = {"symbol": "5HV", "isin": "SG1S95928879", "board": "Catalist"}
+        source = {"url": "https://links.sgx.com/example"}
+        avarga_event = {
+            **x5n, "kind": "DELISTING", "date": "2026-10-27", "source": source,
+            "from_board": "MAINBOARD", "to_board": None,
+        }
+        koh_event = {
+            **koh, "kind": "TRANSFER", "date": "2026-10-29", "source": source,
+            "from_board": "CATALIST", "to_board": "MAINBOARD",
+        }
+        rows = {"X5N": x5n, "5HV": koh}
+        candidates, audit = apply_board_events(rows, [koh_event, avarga_event], "2026-10-27")
+        self.assertNotIn("X5N", candidates)
+        self.assertEqual(candidates["5HV"]["board"], "Catalist")
+        self.assertEqual(len(audit["applied"]), 1)
+
+        candidates, audit = apply_board_events(rows, [koh_event, avarga_event], "2026-11-13")
+        self.assertEqual(candidates["5HV"]["board"], "Mainboard")
+        self.assertEqual(len(audit["applied"]), 2)
+
+        reused = {"X5N": {**x5n, "isin": "SG1J26887955"}}
+        candidates, audit = apply_board_events(reused, [avarga_event], "2026-11-13")
+        self.assertEqual(candidates, reused)
+        self.assertEqual(audit["conflicting_codes"], ["X5N"])
 
 
 if __name__ == "__main__":

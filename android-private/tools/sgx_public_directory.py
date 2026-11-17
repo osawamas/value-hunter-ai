@@ -8,15 +8,21 @@ from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
+from subprocess import SubprocessError
 import sys
 from urllib.request import Request, urlopen
+
+from sgx_next50_coverage import verify_next50
 
 URL = "https://getresearch.ai/sg"
 BOARDS = {"SGX": "Mainboard", "SGX-CATALIST": "Catalist"}
 SUMMARY_HEADER = ["exchange", "code", "listed companies with a page"]
 ISSUER_HEADER = ["issuer", "exchange", "ticker", "ISIN"]
 MAX_HTML = 1_000_000
-LISTING_EVIDENCE = Path(__file__).resolve().parents[2] / "docs/data/sgx-listing-evidence.json"
+DATA_DIR = Path(__file__).resolve().parents[2] / "docs/data"
+LISTING_EVIDENCE = DATA_DIR / "sgx-listing-evidence.json"
+BOARD_EVENT_EVIDENCE = DATA_DIR / "sgx-october-release-v292.json"
+EVENT_BOARDS = {board.upper(): board for board in BOARDS.values()}
 CONFIRMED_REPLACEMENTS = (
     {
         "old_symbol": "42S",
@@ -165,6 +171,44 @@ def supplement_directory(directory, evidence):
     }
 
 
+def apply_board_events(directory, events, as_of):
+    """Apply dated exchange-listing events to the same code and ISIN."""
+    candidates = dict(directory)
+    changes, conflicts = [], []
+    seen = set()
+    listing_date = date.fromisoformat(as_of)
+    for event in sorted(events, key=lambda row: row["date"]):
+        symbol, isin, kind = event["symbol"], event["isin"], event["kind"]
+        effective_date = date.fromisoformat(event["date"])
+        previous_board = EVENT_BOARDS[event["from_board"]]
+        target_board = EVENT_BOARDS.get(event["to_board"])
+        evidence_url = event["source"]["url"]
+        key = (symbol, isin, effective_date)
+        if (key in seen or not valid_isin(isin) or not evidence_url.startswith("https://links.sgx.com/")
+                or kind not in {"DELISTING", "TRANSFER"}
+                or (kind == "TRANSFER" and (target_board is None or target_board == previous_board))
+                or (kind == "DELISTING" and event["to_board"] is not None)):
+            raise ValueError(f"invalid SGX board event for {symbol}")
+        seen.add(key)
+        if effective_date > listing_date or symbol not in candidates:
+            continue
+        row = candidates[symbol]
+        if row["isin"] != isin or row["board"] not in {previous_board, target_board}:
+            conflicts.append(symbol)
+            continue
+        if kind == "DELISTING":
+            del candidates[symbol]
+        elif row["board"] == target_board:
+            continue
+        else:
+            candidates[symbol] = {**row, "board": target_board, "board_source_url": evidence_url}
+        changes.append({
+            "symbol": symbol, "isin": isin, "event": kind, "effective_on": event["date"],
+            "from_board": previous_board, "to_board": target_board, "source_url": evidence_url,
+        })
+    return candidates, {"applied": changes, "conflicting_codes": sorted(set(conflicts))}
+
+
 def download():
     request = Request(URL, headers={
         "Accept": "text/html",
@@ -182,6 +226,8 @@ def download():
 def main():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("--include-records", action="store_true", help="include candidate rows in local output")
+    cli.add_argument("--check-next50", action="store_true",
+                     help="compare with the October 2026 SGX Next 50 PDF (requires pdftotext)")
     args = cli.parse_args()
     try:
         body = download()
@@ -189,7 +235,10 @@ def main():
         directory, exclusions = exclude_replaced_codes(records, as_of)
         evidence = json.loads(LISTING_EVIDENCE.read_text(encoding="utf-8"))
         candidates, audit = supplement_directory(directory, evidence)
-    except (OSError, ValueError) as error:
+        events = json.loads(BOARD_EVENT_EVIDENCE.read_text(encoding="utf-8"))["board_movement_events"]
+        candidates, board_events = apply_board_events(candidates, events, as_of)
+        next50 = verify_next50(candidates) if args.check_next50 else None
+    except (OSError, SubprocessError, ValueError) as error:
         print(f"SGX candidate directory fetch failed: {error}", file=sys.stderr)
         return 1
     report = {
@@ -202,6 +251,7 @@ def main():
         "directory_candidate_count": len(directory),
         "candidate_count": len(candidates),
         "listing_evidence": audit,
+        "board_events": board_events,
         "market_missing_count": None,
         "distinct_isin_count": len({row["isin"] for row in candidates.values()}),
         "board_candidate_counts": {
@@ -214,6 +264,10 @@ def main():
         "official_market_coverage_verified": False,
         "stock_quotes_fetched": False,
     }
+    if next50 is not None:
+        report["next50"] = next50
+        if not args.include_records:
+            del report["next50"]["matches"]
     if args.include_records:
         report["candidates"] = [candidates[symbol] for symbol in sorted(candidates)]
     print(json.dumps(report, ensure_ascii=False, indent=2))
