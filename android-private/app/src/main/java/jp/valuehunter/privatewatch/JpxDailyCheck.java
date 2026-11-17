@@ -132,17 +132,17 @@ final class JpxDailyCheck {
 
         Screening screen(JpxShareRights rights) {
             var entered = new ArrayList<Entrant>();
-            int held = 0;
+            var held = new ArrayList<Held>();
             for (String code : SAMPLE_CODES) {
                 var change = referenceChange(code, rights);
                 if (!change.hold().isEmpty()) {
-                    held++;
+                    held.add(new Held(code, change.hold()));
                 } else if (change.entered()) {
                     entered.add(new Entrant(code, budgetQuantity(latest.close(code))));
                 }
             }
             entered.sort(Comparator.comparingInt(Entrant::quantity).reversed());
-            return new Screening(List.copyOf(entered), held);
+            return new Screening(List.copyOf(entered), List.copyOf(held));
         }
 
         private ReferenceChange referenceChange(String code, JpxShareRights rights) {
@@ -187,7 +187,11 @@ final class JpxDailyCheck {
 
     record Entrant(String code, int quantity) {}
 
-    record Screening(List<Entrant> entered, int held) {}
+    record Held(String code, String reason) {}
+
+    record Screening(List<Entrant> entered, List<Held> holds) {
+        int held() { return holds.size(); }
+    }
 
     private record ReferenceChange(ReferenceTier before, ReferenceTier now, String hold) {
         static ReferenceChange held(String reason) {

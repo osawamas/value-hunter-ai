@@ -356,7 +356,7 @@ public final class MainActivity extends Activity {
 
     private void render() {
         if (jpxWatchStatus != null) {
-            jpxWatchStatus.setText(state.getString(JpxWatchWorker.STATUS, ""));
+            jpxWatchStatus.setText(JpxWatchWorker.displayStatus(state));
         }
         sgResults.setText(state.getString("sg_result", "DataCedarのキーでS63の終値を確認"));
         String usResult = state.getString("us_result", "");

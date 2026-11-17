@@ -84,8 +84,23 @@ final class JpxWatchDeliveryProbe {
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
             awaitRun(work, id, starts, 2);
-            if (!state.getString(JpxWatchWorker.STATUS, "").contains("保留 3銘柄")) {
-                throw new AssertionError("Official data with missing rights months did not stay on hold");
+            String checked = JpxWatchWorker.displayStatus(state);
+            if (!checked.contains("最終確認") || !checked.contains("（日本時間）")
+                    || !checked.contains("保留 3銘柄") || !checked.contains("比較日 2026-11-13")
+                    || !checked.contains("1301・3861・7203 · 権利落月報の未確認月 2026-10、2026-11")
+                    || checked.contains("<a")) {
+                throw new AssertionError("JPX status did not show the official reports' hold reason: " + checked);
+            }
+            expectQuiet(notifications);
+
+            inputs.set(new Inputs(null, JpxShareRights.load(context)));
+            driver.setAllConstraintsMet(id);
+            driver.setPeriodDelayMet(id);
+            awaitRun(work, id, starts, 3);
+            String unchanged = JpxWatchWorker.displayStatus(state);
+            if (!unchanged.contains("版に変更なし · PDFの再取得を省略")
+                    || !unchanged.contains("保留 3銘柄") || !unchanged.contains("最終確認")) {
+                throw new AssertionError("The no-change check dropped the previous screening status");
             }
             expectQuiet(notifications);
 
@@ -95,18 +110,18 @@ final class JpxWatchDeliveryProbe {
             if (power.isInteractive()) throw new AssertionError("Emulator display was awake before the alert");
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
-            awaitRun(work, id, starts, 3);
+            awaitRun(work, id, starts, 4);
             verifySilentNotification(notifications);
 
             notifications.cancelAll();
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
-            awaitRun(work, id, starts, 4);
+            awaitRun(work, id, starts, 5);
             expectQuiet(notifications);
             JpxWatchWorker.setEnabled(context, false);
             awaitCancelled(work, id);
-            if (JpxWatchWorker.enabled(context) || starts.get() != 4
-                    || !state.getString(JpxWatchWorker.STATUS, "").isEmpty()) {
+            if (JpxWatchWorker.enabled(context) || starts.get() != 5
+                    || !JpxWatchWorker.displayStatus(state).isEmpty()) {
                 throw new AssertionError("Disabling JPX monitoring did not stop and clear the previous watch");
             }
 
@@ -118,7 +133,7 @@ final class JpxWatchDeliveryProbe {
             }
             var restartedId = restarted.get(0).getId();
             driver.setAllConstraintsMet(restartedId);
-            awaitRun(work, restartedId, starts, 5);
+            awaitRun(work, restartedId, starts, 6);
             expectQuiet(notifications);
             verifyTestNotification(context, notifications);
         } finally {
