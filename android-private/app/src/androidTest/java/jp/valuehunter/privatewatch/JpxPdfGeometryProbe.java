@@ -89,7 +89,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var previousDay = LocalDate.of(2026, 11, 13);
         var previous = JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), previousDay);
         var comparison = JpxDailyCheck.checkRecent(day.plusDays(2), date -> {
-            if (date.equals(day.plusDays(1))) return null;
+            if (date.isAfter(day)) return null;
             if (date.equals(day)) return report;
             if (date.equals(previousDay)) return previous;
             throw new AssertionError("Checked an unexpected JPX date: " + date);
@@ -142,6 +142,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             throw new AssertionError("Used an EDINET share count before its eligible session");
         }
         var oneReport = JpxDailyCheck.checkRecent(day.plusDays(1), date -> {
+            if (date.equals(day.plusDays(1))) return null;
             if (date.equals(day)) return report;
             if (date.equals(previousDay)) throw new IOException("Unavailable report");
             throw new AssertionError("A failed download must not select an older comparison date");
