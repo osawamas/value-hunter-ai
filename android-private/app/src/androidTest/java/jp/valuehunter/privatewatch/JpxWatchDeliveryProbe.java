@@ -6,7 +6,7 @@ import android.content.Context;
 
 import androidx.work.Configuration;
 import androidx.work.ListenableWorker;
-import androidx.work.OneTimeWorkRequest;
+import androidx.work.NetworkType;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 import androidx.work.WorkerFactory;
@@ -22,7 +22,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 final class JpxWatchDeliveryProbe {
@@ -41,37 +43,45 @@ final class JpxWatchDeliveryProbe {
         var inputs = new AtomicReference<>(new Inputs(new JpxDailyCheck.Comparison(
                 sample(FRIDAY, "900.00"), sample(FRIDAY.minusDays(1), "920.00")), complete));
 
+        var starts = new AtomicInteger();
         var config = new Configuration.Builder().setExecutor(new SynchronousExecutor())
                 .setWorkerFactory(new WorkerFactory() {
                     @Override public ListenableWorker createWorker(Context appContext, String name,
                                                                     WorkerParameters parameters) {
                         if (!name.equals(JpxWatchWorker.class.getName())) return null;
                         var input = inputs.get();
-                        return new JpxWatchWorker(appContext, parameters, ignored -> input.comparison(),
-                                ignored -> input.rights());
+                        return new JpxWatchWorker(appContext, parameters, ignored -> {
+                            starts.incrementAndGet();
+                            return input.comparison();
+                        }, ignored -> input.rights());
                     }
                 }).build();
         WorkManagerTestInitHelper.initializeTestWorkManager(context, config);
         var work = WorkManager.getInstance(context);
+        var driver = WorkManagerTestInitHelper.getTestDriver();
         var notifications = context.getSystemService(NotificationManager.class);
         var state = ScanWorker.prefs(context);
         notifications.cancelAll();
         if (!notifications.areNotificationsEnabled()) throw new AssertionError("Test notification permission missing");
         try {
             JpxWatchWorker.setEnabled(context, true);
-            var jobs = work.getWorkInfosForUniqueWork(JpxWatchWorker.WORK).get(15, TimeUnit.SECONDS);
-            if (jobs.size() != 1 || jobs.get(0).getState() != WorkInfo.State.ENQUEUED) {
-                throw new AssertionError("JPX monitoring did not schedule one periodic worker");
+            var job = registered(work);
+            JpxWatchWorker.setEnabled(context, true);
+            if (!registered(work).getId().equals(job.getId()) || starts.get() != 0) {
+                throw new AssertionError("JPX scheduled duplicate work or ran before it was connected");
             }
-            // Leave the periodic work's network constraint unmet. Drive the same worker via WorkManager.
-            runScan(work);
+            var id = job.getId();
+            driver.setAllConstraintsMet(id);
+            awaitRun(work, id, starts, 1);
             if (!state.getString(JpxWatchWorker.STATUS, "").startsWith(FRIDAY.toString())) {
                 throw new AssertionError("The first watch scan did not save a baseline");
             }
             expectQuiet(notifications);
 
             inputs.set(new Inputs(published, JpxShareRights.load(context)));
-            runScan(work);
+            driver.setAllConstraintsMet(id);
+            driver.setPeriodDelayMet(id);
+            awaitRun(work, id, starts, 2);
             if (!state.getString(JpxWatchWorker.STATUS, "").contains("保留 3銘柄")) {
                 throw new AssertionError("Official data with missing rights months did not stay on hold");
             }
@@ -79,29 +89,71 @@ final class JpxWatchDeliveryProbe {
 
             inputs.set(new Inputs(new JpxDailyCheck.Comparison(
                     sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")), complete));
-            runScan(work);
+            driver.setAllConstraintsMet(id);
+            driver.setPeriodDelayMet(id);
+            awaitRun(work, id, starts, 3);
             verifySilentNotification(notifications);
 
             notifications.cancelAll();
-            runScan(work);
+            driver.setAllConstraintsMet(id);
+            driver.setPeriodDelayMet(id);
+            awaitRun(work, id, starts, 4);
+            expectQuiet(notifications);
+            JpxWatchWorker.setEnabled(context, false);
+            awaitCancelled(work, id);
+            if (JpxWatchWorker.enabled(context) || starts.get() != 4
+                    || !state.getString(JpxWatchWorker.STATUS, "").isEmpty()) {
+                throw new AssertionError("Disabling JPX monitoring did not stop and clear the previous watch");
+            }
+
+            JpxWatchWorker.setEnabled(context, true);
+            var restarted = work.getWorkInfosForUniqueWork(JpxWatchWorker.WORK).get(15, TimeUnit.SECONDS)
+                    .stream().filter(info -> info.getState() == WorkInfo.State.ENQUEUED).toList();
+            if (restarted.size() != 1 || restarted.get(0).getId().equals(id)) {
+                throw new AssertionError("JPX did not create a new periodic worker on re-enable");
+            }
+            var restartedId = restarted.get(0).getId();
+            driver.setAllConstraintsMet(restartedId);
+            awaitRun(work, restartedId, starts, 5);
             expectQuiet(notifications);
         } finally {
             JpxWatchWorker.setEnabled(context, false);
         }
     }
 
-    private static void runScan(WorkManager work) throws Exception {
-        var request = new OneTimeWorkRequest.Builder(JpxWatchWorker.class).build();
-        work.enqueue(request).getResult().get(15, TimeUnit.SECONDS);
-        for (int attempt = 0; attempt < 50; attempt++) {
-            var info = work.getWorkInfoById(request.getId()).get(5, TimeUnit.SECONDS);
-            if (info != null && info.getState() == WorkInfo.State.SUCCEEDED) return;
-            if (info != null && info.getState().isFinished()) {
-                throw new AssertionError("JPX worker ended in " + info.getState());
+    private static WorkInfo registered(WorkManager work) throws Exception {
+        var jobs = work.getWorkInfosForUniqueWork(JpxWatchWorker.WORK).get(15, TimeUnit.SECONDS);
+        if (jobs.size() != 1) throw new AssertionError("JPX did not enroll one periodic worker");
+        var job = jobs.get(0);
+        var period = job.getPeriodicityInfo();
+        if (job.getState() != WorkInfo.State.ENQUEUED || period == null
+                || period.getRepeatIntervalMillis() != TimeUnit.HOURS.toMillis(6)
+                || job.getConstraints().getRequiredNetworkType() != NetworkType.CONNECTED) {
+            throw new AssertionError("Unexpected JPX periodic work configuration: " + job);
+        }
+        return job;
+    }
+
+    private static void awaitRun(WorkManager work, UUID id, AtomicInteger starts, int expected)
+            throws Exception {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            var info = work.getWorkInfoById(id).get(5, TimeUnit.SECONDS);
+            if (info != null && starts.get() == expected && info.getState() == WorkInfo.State.ENQUEUED) return;
+            if (starts.get() > expected || (info != null && info.getState().isFinished())) {
+                throw new AssertionError("Unexpected JPX run count or state: " + starts.get() + ", " + info);
             }
             Thread.sleep(100);
         }
-        throw new AssertionError("JPX worker did not complete through WorkManager");
+        throw new AssertionError("JPX periodic worker did not finish run " + expected);
+    }
+
+    private static void awaitCancelled(WorkManager work, UUID id) throws Exception {
+        for (int attempt = 0; attempt < 50; attempt++) {
+            var info = work.getWorkInfoById(id).get(5, TimeUnit.SECONDS);
+            if (info == null || info.getState() == WorkInfo.State.CANCELLED) return;
+            Thread.sleep(100);
+        }
+        throw new AssertionError("JPX periodic worker remained active after disabling monitoring");
     }
 
     private static void expectQuiet(NotificationManager notifications) throws InterruptedException {
