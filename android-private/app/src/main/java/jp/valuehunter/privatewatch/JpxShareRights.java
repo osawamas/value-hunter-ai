@@ -36,7 +36,7 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
         }
     }
 
-    record Selection(JpxShareRights rights, String status) {}
+    record Selection(JpxShareRights rights, String status, String revision) {}
 
     record Snapshot(Instant revision, JpxShareRights rights, String body) {}
 
@@ -84,11 +84,11 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
         } catch (IOException | JSONException | DateTimeException ignored) {
             // Keep the newest valid local copy when the online copy cannot be used.
         }
-        if (local == null) return new Selection(empty(), "権利落ち資料を確認できなかった");
+        if (local == null) return new Selection(empty(), "権利落ち資料を確認できなかった", "");
         String source = online ? "オンライン資料"
                 : (local == saved ? "端末に保存した資料" : "アプリ同梱資料");
         var checkedOn = local.revision().atZone(ZoneId.of("Asia/Tokyo")).toLocalDate();
-        return new Selection(local.rights(), "権利落ち資料 " + checkedOn + "（" + source + "）");
+        return new Selection(local.rights(), "権利落ち資料 " + checkedOn + "（" + source + "）", local.revision().toString());
     }
 
     static Snapshot cachedOrBundled(Snapshot saved, Snapshot bundled) {

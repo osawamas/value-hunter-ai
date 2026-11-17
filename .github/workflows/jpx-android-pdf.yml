@@ -116,4 +116,5 @@ jobs:
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_RIGHTS_REFRESH_OK'
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_WATCH_OK'
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_WATCH_DELIVERY_OK'
+            tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_EDITION_OK'
             diff -u "$RUNNER_TEMP/jpx-expected.txt" "$RUNNER_TEMP/jpx-actual.txt"

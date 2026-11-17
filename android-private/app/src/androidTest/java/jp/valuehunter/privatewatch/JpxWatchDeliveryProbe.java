@@ -52,10 +52,10 @@ final class JpxWatchDeliveryProbe {
                                                                     WorkerParameters parameters) {
                         if (!name.equals(JpxWatchWorker.class.getName())) return null;
                         var input = inputs.get();
-                        return new JpxWatchWorker(appContext, parameters, ignored -> {
+                        return new JpxWatchWorker(appContext, parameters, (ignored, key, revision) -> {
                             starts.incrementAndGet();
                             return input.comparison();
-                        }, ignored -> input.rights());
+                        }, ignored -> new JpxShareRights.Selection(input.rights(), "", ""));
                     }
                 }).build();
         WorkManagerTestInitHelper.initializeTestWorkManager(context, config);

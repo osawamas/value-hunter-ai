@@ -28,6 +28,7 @@ public final class JpxWatchWorker extends Worker {
     private static final String TOKEN = "jpx_watch_token";
     private static final String BASELINE = "jpx_watch_baseline";
     private static final String LATEST = "jpx_watch_latest";
+    private static final String PROCESSED = "jpx_watch_processed";
     private static final String ALERTED = "jpx_watch_alerted";
     static final String STATUS = "jpx_watch_status";
     private static final int NOTIFICATION_ID = 5;
@@ -35,19 +36,19 @@ public final class JpxWatchWorker extends Worker {
 
     @FunctionalInterface
     interface ComparisonLoader {
-        JpxDailyCheck.Comparison load(Context context) throws IOException;
+        JpxDailyCheck.Comparison load(Context context, String processedKey, String rightsRevision) throws IOException;
     }
 
     private final ComparisonLoader comparisons;
-    private final Function<Context, JpxShareRights> rights;
+    private final Function<Context, JpxShareRights.Selection> rights;
 
     public JpxWatchWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
-        this(context, parameters, app -> JpxDailyCheck.check(app.getCacheDir()),
-                app -> JpxShareRights.refresh(app).rights());
+        this(context, parameters, (app, key, revision) -> JpxDailyCheck.checkWatch(app.getCacheDir(), key, revision),
+                JpxShareRights::refresh);
     }
 
     JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
-                   Function<Context, JpxShareRights> rights) {
+                   Function<Context, JpxShareRights.Selection> rights) {
         super(context, parameters);
         this.comparisons = comparisons;
         this.rights = rights;
@@ -71,7 +72,7 @@ public final class JpxWatchWorker extends Worker {
                         .setConstraints(constraints).build();
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
             } else {
-                state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(STATUS).apply();
+                state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED).remove(STATUS).apply();
                 work.cancelUniqueWork(WORK);
                 context.getSystemService(NotificationManager.class).cancel(NOTIFICATION_ID);
             }
@@ -86,9 +87,12 @@ public final class JpxWatchWorker extends Worker {
         if (token.isEmpty()) return Result.success();
 
         try {
-            var comparison = comparisons.load(context);
+            var evidence = rights.apply(context);
             if (isStopped()) return Result.success();
-            var screen = comparison.screen(rights.apply(context));
+            String processedKey = ScanWorker.alertsEnabled(context) ? state.getString(PROCESSED, "") : "";
+            var comparison = comparisons.load(context, processedKey, evidence.revision());
+            if (comparison == null || isStopped()) return Result.success();
+            var screen = comparison.screen(evidence.rights());
             LocalDate date = comparison.latest().date();
             synchronized (STATE_LOCK) {
                 if (isStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();
@@ -106,6 +110,7 @@ public final class JpxWatchWorker extends Worker {
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
                 var update = state.edit().putString(BASELINE, savedBaseline.toString())
                         .putString(LATEST, date.toString()).putStringSet(ALERTED, alerted).putString(STATUS, summary);
+                update.putString(PROCESSED, notifyEnabled ? comparison.processedKey(evidence.revision()) : "");
                 if (!update.commit()) return Result.retry();
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");

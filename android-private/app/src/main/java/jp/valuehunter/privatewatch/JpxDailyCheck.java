@@ -9,6 +9,10 @@ import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -32,7 +36,11 @@ final class JpxDailyCheck {
     private static final BigDecimal LOT_PRICE_LIMIT = BUDGET.movePointLeft(2);
 
     record Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes,
-                  Set<String> ambiguous) {
+                  Set<String> ambiguous, String edition) {
+        Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes, Set<String> ambiguous) {
+            this(date, source, quotes, ambiguous, "");
+        }
+
         BigDecimal close(String code) {
             var sessions = quotes.get(code);
             if (ambiguous.contains(code) || sessions == null || sessions.close() == null
@@ -42,6 +50,10 @@ final class JpxDailyCheck {
     }
 
     record Comparison(Report latest, Report previous) {
+        String processedKey(String rightsRevision) {
+            if (previous == null) return "";
+            return editionKey(latest.date(), latest.edition(), previous.date(), previous.edition(), rightsRevision);
+        }
         String html(JpxShareRights rights) {
             var message = new StringBuilder("立会日 ").append(latest.date());
             if (previous == null) {
@@ -216,9 +228,61 @@ final class JpxDailyCheck {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
         var pdf = File.createTempFile("jpx-daily-", ".pdf", cache);
         try {
-            return checkRecent(today, day -> download(reportUrl(day), pdf) ? readReport(pdf, day) : null);
+            return checkRecent(today, day -> {
+                var response = download(reportUrl(day), pdf);
+                if (!response.exists()) return null;
+                var report = readReport(pdf, day);
+                return new Report(report.date(), report.source(), report.quotes(), report.ambiguous(), response.version());
+            });
         } finally {
             pdf.delete();
+        }
+    }
+
+    static Comparison checkWatch(File cache, String processedKey, String rightsRevision) throws IOException {
+        var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
+        if (unchanged(today, processedKey, rightsRevision, JpxDailyCheck::head)) return null;
+        return check(cache);
+    }
+
+    record Edition(boolean exists, String version) {}
+
+    @FunctionalInterface
+    interface EditionLoader {
+        Edition load(LocalDate day) throws IOException;
+    }
+
+    static boolean unchanged(LocalDate today, String processedKey, String rightsRevision, EditionLoader loader) {
+        if (processedKey.isEmpty() || rightsRevision.isEmpty()) return false;
+        LocalDate latest = null;
+        String latestEdition = "";
+        try {
+            for (LocalDate date : candidateDays(today)) {
+                if (Thread.currentThread().isInterrupted()) return false;
+                var edition = loader.load(date);
+                if (!edition.exists()) continue;
+                if (edition.version().isEmpty()) return false;
+                if (latest != null) {
+                    return processedKey.equals(editionKey(latest, latestEdition, date, edition.version(), rightsRevision));
+                }
+                latest = date;
+                latestEdition = edition.version();
+            }
+        } catch (IOException ignored) {
+            // A failed header probe must go through the normal PDF acquisition.
+        }
+        return false;
+    }
+
+    private static String editionKey(LocalDate latest, String latestEdition, LocalDate previous,
+                                     String previousEdition, String rightsRevision) {
+        if (latestEdition.isEmpty() || previousEdition.isEmpty() || rightsRevision.isEmpty()) return "";
+        String identity = latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
+        try {
+            var digest = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException(error);
         }
     }
 
@@ -276,15 +340,42 @@ final class JpxDailyCheck {
         return REPORT_ROOT + digits.substring(0, 6) + "/stq_" + digits + ".pdf";
     }
 
-    private static boolean download(String source, File pdf) throws IOException {
+    private static HttpsURLConnection open(String source) throws IOException {
         var connection = (HttpsURLConnection) new URL(source).openConnection();
         connection.setConnectTimeout(12_000);
         connection.setReadTimeout(20_000);
         connection.setInstanceFollowRedirects(false);
+        connection.setUseCaches(false);
+        return connection;
+    }
+
+    private static Edition head(LocalDate day) throws IOException {
+        var connection = open(reportUrl(day));
         try {
-            int status = connection.getResponseCode();
-            if (status == 404) return false;
-            if (status != 200) throw new IOException("JPXの応答 HTTP " + status);
+            connection.setRequestMethod("HEAD");
+            return edition(connection);
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private static Edition edition(HttpsURLConnection connection) throws IOException {
+        int status = connection.getResponseCode();
+        if (status == 404) return new Edition(false, "");
+        if (status != 200) throw new IOException("JPXの応答 HTTP " + status);
+        String version = connection.getHeaderField("x-amz-version-id");
+        if (version != null && !version.equals("null") && version.matches("[A-Za-z0-9_.-]{1,128}")) {
+            return new Edition(true, "version:" + version);
+        }
+        String tag = connection.getHeaderField("ETag");
+        return new Edition(true, tag != null && tag.matches("\"[A-Za-z0-9_.-]{1,128}\"") ? "etag:" + tag : "");
+    }
+
+    private static Edition download(String source, File pdf) throws IOException {
+        var connection = open(source);
+        try {
+            var result = edition(connection);
+            if (!result.exists()) return result;
             if (connection.getContentLengthLong() > MAX_PDF_BYTES) {
                 throw new IOException("東証日報のPDFが上限サイズを超えている");
             }
@@ -311,7 +402,7 @@ final class JpxDailyCheck {
                     throw new IOException("東証日報の取得内容がPDFではない");
                 }
             }
-            return true;
+            return result;
         } finally {
             connection.disconnect();
         }

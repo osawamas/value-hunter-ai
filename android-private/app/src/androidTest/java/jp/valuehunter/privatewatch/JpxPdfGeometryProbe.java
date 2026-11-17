@@ -47,8 +47,9 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                     + checkSampleReport(directory, JpxShareRights.load(getTargetContext()));
             checkRightsRefresh(getTargetContext());
             checkJpxWatch();
+            checkReportEditions();
             JpxWatchDeliveryProbe.run(getTargetContext(), directory);
-            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\nJPX_ANDROID_WATCH_DELIVERY_OK\n");
+            result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\nJPX_ANDROID_WATCH_DELIVERY_OK\nJPX_ANDROID_EDITION_OK\n");
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
@@ -276,6 +277,34 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || !JpxWatchWorker.pending(null, null, day, codes, Set.of()).isEmpty()
                 || !JpxWatchWorker.pending(before, day, before, codes, Set.of()).isEmpty()) {
             throw new AssertionError("JPX watch allowed a duplicate, initial or stale notification");
+        }
+    }
+
+    private static void checkReportEditions() {
+        var monday = LocalDate.of(2026, 11, 16);
+        var friday = LocalDate.of(2026, 11, 13);
+        var today = monday.plusDays(2);
+        var latest = new JpxDailyCheck.Report(monday, "", Map.of(), Set.of(), "version:monday");
+        var previous = new JpxDailyCheck.Report(friday, "", Map.of(), Set.of(), "version:friday");
+        var comparison = new JpxDailyCheck.Comparison(latest, previous);
+        String revision = "2026-11-17T00:00:00Z";
+        String saved = comparison.processedKey(revision);
+        JpxDailyCheck.EditionLoader same = date -> {
+            if (date.equals(monday.plusDays(1))) return new JpxDailyCheck.Edition(false, "");
+            if (date.equals(monday)) return new JpxDailyCheck.Edition(true, "version:monday");
+            if (date.equals(friday)) return new JpxDailyCheck.Edition(true, "version:friday");
+            throw new AssertionError("Unexpected JPX header date " + date);
+        };
+        if (saved.isEmpty() || !JpxDailyCheck.unchanged(today, saved, revision, same)
+                || JpxDailyCheck.unchanged(today, saved, "2026-11-18T00:00:00Z", same)
+                || JpxDailyCheck.unchanged(today, saved, revision, date -> date.equals(friday)
+                        ? new JpxDailyCheck.Edition(true, "version:corrected") : same.load(date))
+                || JpxDailyCheck.unchanged(today, saved, revision,
+                        date -> new JpxDailyCheck.Edition(true, ""))
+                || JpxDailyCheck.unchanged(today, saved, revision, date -> { throw new IOException("HEAD failed"); })
+                || JpxDailyCheck.unchanged(today, saved, revision, date -> date.equals(monday.plusDays(1))
+                        ? new JpxDailyCheck.Edition(true, "version:new-day") : same.load(date))) {
+            throw new AssertionError("JPX watch skipped a new, corrected, or unverified input");
         }
     }
 
