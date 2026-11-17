@@ -1,0 +1,59 @@
+[
+  {
+    "market": "NYSE",
+    "symbol": "TXR",
+    "date": "2026-11-17",
+    "kind": "announced_start",
+    "source": "https://www.sec.gov/Archives/edgar/data/1561540/000106299326005869/exhibit99-1.htm"
+  },
+  {
+    "market": "Nasdaq",
+    "symbol": "VRSA",
+    "date": "2026-11-17",
+    "kind": "effective_symbol_change",
+    "source": "https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2026-832",
+    "previous_symbol": "VBNK"
+  },
+  {
+    "market": "Nasdaq",
+    "symbol": "BRRK",
+    "date": "2026-11-16",
+    "kind": "announced_start",
+    "source": "https://www.prnewswire.com/news-releases/bluerock-acquisition-corp-ii-announces-the-separate-trading-of-its-class-a-ordinary-shares-and-warrants-commencing-on-or-about-november-16-2026-302935648.html"
+  },
+  {
+    "market": "NYSE",
+    "symbol": "GLED",
+    "date": "2026-04-14",
+    "kind": "announced_start",
+    "source": "https://www.sec.gov/Archives/edgar/data/2091484/000182912626003348/galaxyedge_8k.htm"
+  },
+  {
+    "market": "NYSE",
+    "symbol": "SBXE",
+    "date": "2026-01-23",
+    "kind": "announced_start",
+    "source": "https://www.sec.gov/Archives/edgar/data/2081909/000110465926006010/tm263826d1_ex99-1.htm"
+  },
+  {
+    "market": "Nasdaq",
+    "symbol": "MIAC",
+    "date": "2026-08-24",
+    "kind": "announced_start",
+    "source": "https://www.sec.gov/Archives/edgar/data/2136530/000110465926122671/tmb-20260930x10q.htm"
+  },
+  {
+    "market": "Nasdaq",
+    "symbol": "PALO",
+    "date": "2026-04-13",
+    "kind": "announced_start",
+    "source": "https://www.sec.gov/Archives/edgar/data/2101562/000110465926041089/tm2611363d1_ex99-1.htm"
+  },
+  {
+    "market": "Nasdaq",
+    "symbol": "RNAQ",
+    "date": "2026-09-15",
+    "kind": "announced_start",
+    "source": "https://www.sec.gov/Archives/edgar/data/2147219/000110465926107095/tm2625254d1_8k.htm"
+  }
+]

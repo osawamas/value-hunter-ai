@@ -2,6 +2,13 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 02:12 JST — 上場・ティッカー変更の出典を終値欠落に照合
+
+- 開始時mainは [009bf3d](https://github.com/osawamas/value-hunter-ai/commit/009bf3d567e6be1e8c94f80e30d8ffce57f56c03)。`--listing-evidence-file` で取引所・ティッカー・日付を照合し、発行体が示した開始予定と取引所が通知した変更発効日を区別。変更前の対象日については旧ティッカーの終値の有無も表示する。
+- 3取引日連続欠落で停止記録に一致しなかった31銘柄のうち8銘柄に出典を登録し、11月16日の公開評価サンプル・Doltの欠落データで再現した。NasdaqのVRSAへの変更は11月17日付。11月17日の上場一覧から旧VBNKは消えていたが、MarketParquetには11月16日のVBNKの終値があった。[Nasdaqの公式通知](https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2026-832)
+- TXRは11月17日NYSE取引開始予定で、同日の上場をNYSEも告知。BRRKの単独取引は11月16日ごろの予定で初約定は未確認。GLED・SBXE・MIAC・PALO・RNAQの単独取引開始に関する発表日は以前で、11月16日の約定や欠落理由を確定できない。各出典は[検証用イベント一覧](https://github.com/osawamas/value-hunter-ai/blob/main/android-private/tools/evidence/us-listing-events-2026-11-16.json)に記録。
+- ローカルのPythonテスト54件成功。価格のコピー・公開や既存の終値取得率の変更はしていない。取引日当日の銘柄一覧を保存する仕組み、未解決の銘柄への追加照会、Android端末での日次取得は継続課題。
+
 ## 2026-11-18 02:03 JST — 終値欠落とNasdaq Traderの売買停止記録を照合
 
 - 開始時mainは [3a2f9e9](https://github.com/osawamas/value-hunter-ai/commit/3a2f9e92b53d96dff206e4451d91e0c274e73aa7)。検証ツールに `--with-halts` と `--halt-feed-file` を追加。対象日の翌日以降に配信されたRSSで、停止開始日が対象日より前、再開日が対象日より後か未記載のものを取引所・ティッカーの両方で照合する。終値の採否・カバー率は維持する。

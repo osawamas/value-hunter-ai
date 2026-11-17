@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 from tempfile import TemporaryDirectory
+from urllib.parse import urlsplit
 from xml.etree import ElementTree
 from zipfile import BadZipFile
 from zoneinfo import ZoneInfo
@@ -290,7 +291,58 @@ def missing_history(missing, history):
     }
 
 
-def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_notices=None):
+def read_listing_events(content):
+    """Load sourced listing events for review, without creating ticker aliases."""
+    if len(content) > MAX_BYTES:
+        raise ValueError("Oversized listing evidence file")
+    rows = json.loads(content)
+    if not isinstance(rows, list):
+        raise ValueError("Listing evidence must be an array")
+    events = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Invalid listing evidence row")
+        market, symbol, day, kind, source = (row.get(key) for key in
+                                             ("market", "symbol", "date", "kind", "source"))
+        previous = row.get("previous_symbol")
+        if (market not in ("NYSE", "Nasdaq") or not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol)
+                or kind not in ("announced_start", "effective_symbol_change") or not isinstance(day, str)
+                or not isinstance(source, str)):
+            raise ValueError("Invalid listing evidence fields")
+        address = urlsplit(source)
+        if address.scheme != "https" or not address.hostname or address.username or address.password:
+            raise ValueError("Listing evidence needs a public HTTPS source")
+        if kind == "effective_symbol_change":
+            if not isinstance(previous, str) or not SYMBOL.fullmatch(previous) or previous == symbol:
+                raise ValueError("Symbol change needs a distinct previous symbol")
+        elif previous is not None:
+            raise ValueError("An announced start does not link a previous symbol")
+        key = market, symbol
+        if key in events:
+            raise ValueError("Duplicate listing evidence for a market and ticker")
+        events[key] = (date.fromisoformat(day), kind, source, previous)
+    return events
+
+
+def missing_listing_events(day, market, missing, primary, reference, events):
+    matches = []
+    for symbol in sorted(missing):
+        event = events.get((market, symbol))
+        if event is None:
+            continue
+        effective, kind, source, previous = event
+        relation = ("after_target" if effective > day else "on_target" if effective == day else "before_target")
+        item = {"symbol": symbol, "date": effective.isoformat(), "relation_to_target": relation,
+                "kind": kind, "source": source}
+        if previous is not None:
+            item["previous_symbol"] = previous
+            if effective > day:
+                item["previous_symbol_has_target_close"] = previous in primary or previous in reference
+        matches.append(item)
+    return matches
+
+
+def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_notices=None, listing_events=None):
     _, reference = validated_closes(day, reference_bars)
     if not reference:
         raise ValueError("No valid closes in the comparison sample")
@@ -323,6 +375,10 @@ def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_
             "both_differ_over_one_cent": len(both) - agrees,
             "with_either": len(union),
         }
+        if listing_events is not None and name in ("NYSE", "Nasdaq"):
+            result[name]["missing_listing_events"] = missing_listing_events(
+                day, name, symbols - union, primary, reference, listing_events
+            )
         if halt_notices is not None and name in ("NYSE", "Nasdaq"):
             published, markets = halt_notices
             missing = symbols - union
@@ -339,7 +395,7 @@ def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_
 
 
 def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted",
-             comparison_bars=None, history_bars=None, halt_notices=None):
+             comparison_bars=None, history_bars=None, halt_notices=None, listing_events=None):
     seen, prices = validated_closes(day, bars)
     closes = prices.keys()
     if not closes or not (closes & listings.keys()):
@@ -376,7 +432,7 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
     if comparison_bars is not None:
-        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus, history_bars, halt_notices)
+        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus, history_bars, halt_notices, listing_events)
     if sec is not None:
         result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files, indexes)
     return result
@@ -453,6 +509,8 @@ def main():
     halts = parser.add_mutually_exclusive_group()
     halts.add_argument("--with-halts", action="store_true", help="Check missing closes against the Nasdaq Trader halt feed")
     halts.add_argument("--halt-feed-file", type=Path, help="Replay a saved Nasdaq Trader halt RSS file")
+    parser.add_argument("--listing-evidence-file", type=Path,
+                        help="Attach sourced listing events to the two-source missing-price report")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
     dow = parser.add_mutually_exclusive_group()
@@ -474,6 +532,8 @@ def main():
         parser.error("Price comparison requires --dolt-dir")
     if (args.with_halts or args.halt_feed_file) and not (args.compare_marketparquet or args.comparison_sample_file):
         parser.error("Halt notice matching requires a price comparison")
+    if args.listing_evidence_file and not (args.compare_marketparquet or args.comparison_sample_file):
+        parser.error("Listing evidence requires a price comparison")
     if args.history_date and (not (args.compare_marketparquet or args.comparison_sample_file)
                               or not args.trading_day or len(args.history_date) > 5
                               or len(set(args.history_date)) != len(args.history_date)
@@ -539,6 +599,9 @@ def main():
             if args.with_halts or args.halt_feed_file:
                 feed = args.halt_feed_file.read_bytes() if args.halt_feed_file else fetch(HALTS)
                 halt_notices = read_halt_notices(feed, args.trading_day)
+            listing_events = None
+            if args.listing_evidence_file:
+                listing_events = read_listing_events(args.listing_evidence_file.read_bytes())
             sec = None
             if args.with_sec or args.sec_file or check_statements or check_notes:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
@@ -566,7 +629,7 @@ def main():
                         index_paths[year, part] = destination
                 result.update(coverage(args.trading_day, listings, bars,
                                        sec, statement_files, holdings, notes_files, index_paths, price_basis,
-                                       comparison_bars, history_bars, halt_notices))
+                                       comparison_bars, history_bars, halt_notices, listing_events))
             if notes_files:
                 result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:

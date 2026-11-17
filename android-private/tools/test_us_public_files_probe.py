@@ -2,7 +2,7 @@ from datetime import date, datetime
 import json
 import unittest
 
-from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_sec_directory
+from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -150,6 +150,30 @@ class PublicFilesTest(unittest.TestCase):
                 self.assertIsNone(rows[0]["close"])
         with self.assertRaises(ValueError):
             read_dolt_csv(b"symbol,trading_date,close\nAAPL,invalid,42\n")
+
+    def test_listing_events_keep_old_symbol_and_announced_date_out_of_price_coverage(self):
+        source = "https://www.nasdaqtrader.com/example"
+        change = {"market": "Nasdaq", "symbol": "NEW", "date": "2026-11-17", "source": source,
+                  "kind": "effective_symbol_change", "previous_symbol": "OLD"}
+        start = {"market": "NYSE", "symbol": "OTHER", "date": "2026-11-16", "source": source,
+                 "kind": "announced_start"}
+        events = read_listing_events(json.dumps([change, start]).encode())
+        listings = {symbol: ("Nasdaq", "common_or_ordinary_label")
+                    for symbol in ("AAPL", "NEW", "OTHER")}
+        bars = [self.bar("AAPL"), self.bar("OLD")]
+        result = coverage(DAY, listings, bars, comparison_bars=bars, listing_events=events)
+        comparison = result["dolt_marketparquet_comparison"]["Nasdaq"]
+        self.assertEqual(1, comparison["with_either"])
+        self.assertEqual(2, comparison["neither"])
+        self.assertEqual([{
+            "symbol": "NEW", "date": "2026-11-17", "relation_to_target": "after_target",
+            "kind": "effective_symbol_change", "source": source, "previous_symbol": "OLD",
+            "previous_symbol_has_target_close": True,
+        }], comparison["missing_listing_events"])
+        for rows in ([change, change], [dict(change, previous_symbol="NEW")],
+                     [dict(start, source="http://example.org")]):
+            with self.subTest(rows=rows), self.assertRaises(ValueError):
+                read_listing_events(json.dumps(rows).encode())
 
     def test_halt_feed_only_matches_prior_halts_without_same_day_resumption(self):
         def item(symbol, market, start, end):
