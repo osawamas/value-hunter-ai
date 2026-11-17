@@ -43,13 +43,17 @@ def band_price(row, left, right, width):
     return values[0] if values else None
 
 
+def foreign_or_off_exchange_page(page):
+    text = unicodedata.normalize("NFKC", page.get_text())
+    return re.search(r"(?m)^\s*(外国株式|Foreign Stock|ToSTNeT市場)\s*$", text) is not None
+
+
 def read_quotes(path, stocks):
     prices = {}
     duplicates = set()
     with fitz.open(path) as doc:
         for page in doc:
-            text = unicodedata.normalize("NFKC", page.get_text())
-            if re.search(r"(?m)^\s*(外国株式|Foreign Stock|ToSTNeT市場)\s*$", text):
+            if foreign_or_off_exchange_page(page):
                 break
             width = page.rect.width
             words = page.get_text("words")

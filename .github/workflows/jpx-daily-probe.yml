@@ -7,6 +7,9 @@ on:
     paths:
       - '.github/workflows/jpx-daily-probe.yml'
       - 'android-private/tools/jpx_daily_probe.py'
+      - 'android-private/tools/check_jpx_java_quotes.py'
+      - 'android-private/tools/JpxCloseTableCheck.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java'
       - 'android-private/tools/jpx_daily_sources.py'
       - 'android-private/tools/jpx_valuation_probe.py'
       - 'android-private/tools/jpx_hachiquant_coverage.py'
@@ -177,6 +180,16 @@ jobs:
         run: |
           python android-private/tools/jpx_daily_sources.py "$RUNNER_TEMP/jpx-latest.pdf"
           python android-private/tools/jpx_daily_probe.py "$RUNNER_TEMP/jpx-latest.pdf" "$RUNNER_TEMP/jpx-list.xlsx"
+
+      - name: Cross-check the Android Java quote matcher with the JPX reference
+        run: |
+          javac --release 17 -d "$RUNNER_TEMP/jpx-classes" \
+            android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java \
+            android-private/tools/JpxCloseTableCheck.java
+          for report in "$RUNNER_TEMP/jpx-20261029.pdf" "$RUNNER_TEMP/jpx-latest.pdf"; do
+            python android-private/tools/check_jpx_java_quotes.py "$report" \
+              "$RUNNER_TEMP/jpx-list.xlsx" "$RUNNER_TEMP/jpx-classes"
+          done
 
       - name: Measure JPX and Hachiquant coverage, with a budget-first filing sample
         run: |
