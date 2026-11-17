@@ -42,6 +42,17 @@ public class WatchTransitionsTest {
         assertTrue(WatchTransitions.shouldStoreSnapshot(latest.toString(), latest.plusDays(1)));
     }
 
+    @Test public void damagedStoredDateCannotPermanentlyBlockJQuantsRequests() {
+        LocalDate day = LocalDate.parse("2026-08-21");
+        assertTrue(WatchTransitions.shouldRequestSession("", day));
+        assertTrue(WatchTransitions.shouldRequestSession("invalid", day));
+        assertTrue(WatchTransitions.shouldRequestSession("2026-02-30", day));
+        assertTrue(!WatchTransitions.shouldRequestSession(day.toString(), day));
+        assertTrue(!WatchTransitions.shouldRequestSession(day.plusDays(1).toString(), day));
+        assertTrue(WatchTransitions.shouldRequestSession(day.minusDays(1).toString(), day));
+        assertTrue(WatchTransitions.newEntrants("invalid", day, List.of(A), Set.of()).isEmpty());
+    }
+
     @Test public void missingOrDamagedBaselineCanBeRebuiltWithoutFalseNotification() {
         LocalDate day = LocalDate.parse("2026-08-21");
         assertTrue(WatchTransitions.shouldStoreSnapshot("", day));
