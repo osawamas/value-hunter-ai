@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 07:18 JST — NLS Plus終了後の余剰レコードを拒否
+
+- 開始時main: [c6046c6](https://github.com/osawamas/value-hunter-ai/commit/c6046c613ccfae6a14a1ff4c33ac5ffa1144f09f)。直近Actions [44188565771](https://github.com/osawamas/value-hunter-ai/actions/runs/44188565771)、[44188565705](https://github.com/osawamas/value-hunter-ai/actions/runs/44188565705)、[44188565596](https://github.com/osawamas/value-hunter-ai/actions/runs/44188565596) は成功。ただし今回の変更のテスト結果ではない。
+- [Nasdaq NLS Plus仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)に基づくセッション境界検査を追加。従来はO,Cの後に通常レコードが続いても終了マーカーの列がO,Cなら受理した。終了後の余剰データ（集計・システムレコード）を拒否する変更と回帰テスト3ケースを追加。
+- GitHubへの保存対象: `android-private/tools/us_nasdaq_nls_probe.py`、`android-private/tools/test_us_nasdaq_nls_probe.py`、このログ。今回のPythonテストと新コミットのActionsは未実行・未確認。ローカルgit cloneはDNS解決失敗。成功と判定しない。
+- 対象実測参照日2021-06-14のNOCP 4,605銘柄を維持。今回の新規終値取得0件。2026-11-17のNYSE/Nasdaq同日網羅率は未測定。Dolt日次同期、分割前終値・SEC株数、Android実機相当更新・無音通知は未完了。株価原本・APIキー・APKは追加していない。
+- 次回: 新コミットのActionsでテストを実行・確認。Dolt同期と429キャッシュの実測、当日上場一覧との照合へ戻る。
+
 ## 2026-11-18 06:15 JST — NLS Plusセッション境界の異常を拒否
 
 - 開始時main: [e46ce00](https://github.com/osawamas/value-hunter-ai/commit/e46ce00543f3c0552493405cbcc002009f36f6df)。直近の[GitHub Actions実行44167378934](https://github.com/osawamas/value-hunter-ai/actions/runs/44167378934)は成功（ZIP browser workflow）。米国株のPythonテストの成功を意味するものではない。

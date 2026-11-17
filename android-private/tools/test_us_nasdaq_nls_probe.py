@@ -90,6 +90,20 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             with self.subTest(records=records), self.assertRaisesRegex(ValueError, "start and end"):
                 inspect_tape_c(BytesIO(framed))
 
+    def test_tape_c_rejects_records_after_session_end(self):
+        start = bytes(8) + b"SO"
+        end = bytes(8) + b"SC"
+        summary = bytearray(42)
+        summary[8:18] = b"JAAPL    Q"
+        summary[26:30] = (1230000).to_bytes(4, "big")
+        for trailing in (bytes(summary), bytes(8) + b"SC", bytes(8) + b"SH"):
+            framed = b"".join(pack(">H", len(record)) + record
+                              for record in (start, end, trailing))
+            with self.subTest(trailing=trailing[8:9]), self.assertRaisesRegex(
+                ValueError, "after session end"
+            ):
+                inspect_tape_c(BytesIO(framed))
+
     def test_full_dolt_comparison_reports_exception_tickers_without_price_values(self):
         reference = {symbol: Decimal("10.00") for symbol in ("EXACT", "CENT", "DIFF", "NULL", "ABSENT")}
         prices = {"EXACT": 10.0, "CENT": 10.01, "DIFF": 10.02}

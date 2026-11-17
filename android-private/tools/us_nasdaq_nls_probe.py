@@ -123,6 +123,8 @@ def inspect_tape_c(stream):
         if len(message) != length:
             raise ValueError("Truncated NLS Plus record")
         kind = message[8:9]
+        if events == [b"O", b"C"]:
+            raise ValueError("Unexpected NLS Plus record after session end")
         if kind == b"S" and length == 10:
             events.append(message[9:10])
         if kind in (b"J", b"j"):
