@@ -178,7 +178,9 @@ public final class JpxWatchWorker extends Worker {
                     if (!alerts.post(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
                             detail.toString())) {
                         state.edit().putString(STATUS, summary + "\n無音通知を送信できなかった · 通知設定を確認").apply();
-                        return Result.success();
+                        // Keep PROCESSED empty and retry promptly before the next six-hour scan.
+                        // The retry limit in retryReport prevents an endless notification loop.
+                        return retryReport(state, "無音通知を送信できなかった");
                     }
                     for (var entry : added) alerted.add(entry.code());
                     if (!state.edit().putStringSet(ALERTED, alerted).putString(PROCESSED, processed).commit()) {
