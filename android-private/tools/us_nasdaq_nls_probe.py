@@ -66,6 +66,8 @@ def mold_messages(datagram):
     count = int.from_bytes(datagram[18:20], "big")
     offset = 20
     for _ in range(0 if count == 0xFFFF else count):
+        if len(datagram) - offset < 2:
+            raise ValueError("Truncated MoldUDP64 message length")
         length = int.from_bytes(datagram[offset:offset + 2], "big")
         offset += 2
         if not 0 < length <= len(datagram) - offset:
