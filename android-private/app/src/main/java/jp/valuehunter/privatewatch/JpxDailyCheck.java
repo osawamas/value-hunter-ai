@@ -66,12 +66,15 @@ final class JpxDailyCheck {
                             .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
                     appendBudget(message, close);
                     if (previous != null) appendChange(message, code, close, rights);
-                    var notice = rights.firstChange(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
-                    if (notice == null) {
+                    // Missing monthly evidence is not evidence that no split occurred.
+                    // Keep the displayed valuation on hold, not only its day-to-day transition.
+                    String valuationHold = rights.holdReason(
+                            code, JpxReferenceFinancials.ANNUAL_END, latest.date());
+                    if (valuationHold.isEmpty()) {
                         JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
                     } else {
                         message.append("<br>参考PER・PBRは保留（")
-                                .append(notice.description())
+                                .append(valuationHold)
                                 .append("）");
                         JpxReferenceFinancials.appendShareData(message, code, latest.date());
                     }
