@@ -314,8 +314,17 @@ def read_dolt_csv(content):
     for row in reader:
         if len(rows) >= 50_000 or None in row or None in row.values():
             raise ValueError("Unexpected row count or format in Dolt daily market data")
-        close = float(row["close"]) if row["close"] not in ("", "NULL") else None
-        rows.append({"symbol": row["symbol"], "date": date.fromisoformat(row["trading_date"]),
+        # A corrupt, non-finite or non-positive close is not a usable trading price.
+        # Preserve NULL as missing so coverage reports it rather than fabricating a close.
+        raw = row["close"]
+        try:
+            close = float(raw) if raw not in ("", "NULL") else None
+            trading_day = date.fromisoformat(row["trading_date"])
+        except (ValueError, OverflowError):
+            raise ValueError("Invalid Dolt date or close") from None
+        if close is not None and (not isfinite(close) or close <= 0):
+            raise ValueError("Invalid Dolt close: expected a finite positive price")
+        rows.append({"symbol": row["symbol"], "date": trading_day,
                      "close": close, "asset_type": "Stock"})
     return rows
 
