@@ -76,6 +76,30 @@ class SyncTest(unittest.TestCase):
                 raise FileNotFoundError('dolt')
             self.assertEqual(sync(Path(tmp) / 'stocks', runner=runner), 'dolt_not_installed')
 
+    def test_os_error_keeps_existing_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('safe')
+            def runner(cmd, **kwargs):
+                raise PermissionError('cannot execute')
+            self.assertEqual(sync(dest, runner=runner), 'cached_after_os_error')
+            self.assertEqual((dest / 'marker').read_text(), 'safe')
+
+    def test_os_error_on_first_clone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def runner(cmd, **kwargs):
+                raise OSError('cannot spawn')
+            self.assertEqual(sync(Path(tmp) / 'stocks', runner=runner), 'os_error')
+
+    def test_empty_subprocess_output_does_not_crash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                return SimpleNamespace(returncode=1, stderr=None, stdout=None)
+            self.assertEqual(sync(dest, runner=runner), 'failed')
+
     def test_unrelated_1429_does_not_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
