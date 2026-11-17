@@ -2,6 +2,12 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 05:03 JST — Nasdaq公式終値との差が大きい銘柄を同一条件で再照合
+
+- 開始時mainは [322d9c0](https://github.com/osawamas/value-hunter-ai/commit/322d9c078be7ed34f1bf8e63f2755be63c0bfaed)。Tape C検証レポートに `nocp_differences_vs_consolidated` を追加。同じ日・同じティッカーで、NOCPとの差が1セントを超えた銘柄について、Doltと取引所横断の集計終値の一致、差、欠測、複数値を記録する。
+- 2021年6月14日のNasdaq原本と前回照会済みのDolt公開DB全11バッチを新コードで再照合。対象263銘柄中、262はDoltと取引所横断の集計終値が完全一致。残る1銘柄はNSPRで、Doltと両基準に1セント超の差があった。両方の価格基準を別の意味で扱うことは[Nasdaqの仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)にも明記されている。
+- NSPRは[発行体の提出資料](https://www.sec.gov/Archives/edgar/data/1433607/000149315222006180/R16.htm)から2021年5月21日のNasdaq移管を確認。6月14日の差との因果は不明。ローカルテスト74件成功。今回は過去サンプル1日分で、現行市場・Android端末での日次取得、Doltの現行全銘柄の終値基準は未検証。
+
 ## 2026-11-18 04:51 JST — Nasdaq公開サンプル全件のDolt照合
 
 - 開始時mainは [c956a35](https://github.com/osawamas/value-hunter-ai/commit/c956a359996e2bd3295e996a74682a12deaa9363)。NLS Plus Tape Cの比較出力に、完全一致件数、Doltの行欠落・無効値・1セント超の差のティッカーを追加。価格は出力しない。

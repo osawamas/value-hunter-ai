@@ -3,7 +3,7 @@ from io import BytesIO
 from struct import pack
 import unittest
 
-from us_nasdaq_nls_probe import compare_price_sets, inspect_capture, inspect_tape_c
+from us_nasdaq_nls_probe import compare_price_sets, explain_nocp_differences, inspect_capture, inspect_tape_c
 
 
 def trade(ticker, price, modifier=b"M", *, origin=b"Q", listing=b"Q"):
@@ -76,3 +76,18 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             "dolt_row_without_usable_close": ["NULL"],
             "differ_over_one_cent": ["DIFF"],
         }, result["exceptions"])
+
+
+    def test_checks_consolidated_basis_for_the_same_nocp_difference_tickers(self):
+        symbols = ["EXACT", "NEAR", "FAR", "NONE", "MULTI"]
+        summary = {"EXACT": {100000}, "NEAR": {100075}, "FAR": {100200},
+                   "MULTI": {100000, 100001}, "OTHER": {100000}}
+        actual = explain_nocp_differences(symbols, summary, dict.fromkeys(symbols, 10.0))
+        self.assertEqual(5, actual["symbols_checked"])
+        self.assertEqual({
+            "conflicting_consolidated_closes": ["MULTI"],
+            "dolt_also_differs_from_consolidated": ["FAR"],
+            "dolt_within_one_cent_of_consolidated": ["NEAR"],
+            "dolt_exactly_matches_consolidated": ["EXACT"],
+            "no_consolidated_close": ["NONE"],
+        }, actual["symbols_by_result"])

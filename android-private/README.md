@@ -362,3 +362,7 @@ python3 tools/us_nasdaq_nls_probe.py --tape-c 06142021_nlsplus_tape_c.gz --dolt-
 Tape C照合の `exceptions` には、Doltに当日の行がない銘柄、行はあるが有効な終値がない銘柄、
 照合した価格に1セント超の差がある銘柄を出す。完全一致数は `exact_matches`、
 完全一致を含む1セント以内の件数は `within_one_cent`。公開サンプルの上場銘柄にはETFなども含まれる。
+
+`nocp_differences_vs_consolidated` は、DoltとNOCPに1セント超の差が出た同じ銘柄だけを対象に、
+Doltと取引所横断の集計終値がどれだけ一致するかを出す。集計終値が欠けている場合や値が複数ある場合も、
+銘柄別に記録する。これにより同じ対象群の中で終値の定義による差を調べられる。

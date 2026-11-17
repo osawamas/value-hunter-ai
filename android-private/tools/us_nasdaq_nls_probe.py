@@ -168,6 +168,31 @@ def compare_price_sets(reference, prices, seen):
     }
 
 
+def explain_nocp_differences(symbols, summaries, dolt_prices):
+    by_status = defaultdict(list)
+    for symbol in symbols:
+        observed = summaries.get(symbol, set())
+        if not observed:
+            status = "no_consolidated_close"
+        elif len(observed) > 1:
+            status = "conflicting_consolidated_closes"
+        else:
+            consolidated = Decimal(next(iter(observed))).scaleb(-4)
+            difference = abs(consolidated - Decimal(str(dolt_prices[symbol])))
+            if difference == 0:
+                status = "dolt_exactly_matches_consolidated"
+            elif difference <= Decimal("0.01"):
+                status = "dolt_within_one_cent_of_consolidated"
+            else:
+                status = "dolt_also_differs_from_consolidated"
+        by_status[status].append(symbol)
+    return {
+        "symbols_checked": len(symbols),
+        "counts": {key: len(by_status[key]) for key in sorted(by_status)},
+        "symbols_by_result": dict(sorted(by_status.items())),
+    }
+
+
 def inspect_archive(path, dolt_directory=None):
     named_date = re.fullmatch(r"(\d{8})_nlsplus_tape_c\.gz", path.name)
     if not named_date:
@@ -188,6 +213,11 @@ def inspect_archive(path, dolt_directory=None):
         }
         if prices is not None:
             result[label]["dolt_comparison"] = compare_price_sets(reference, prices, seen)
+    if prices is not None:
+        official_differences = result["nocp_trade_reports"]["dolt_comparison"]["exceptions"]["differ_over_one_cent"]
+        result["nocp_differences_vs_consolidated"] = explain_nocp_differences(
+            official_differences, summaries, prices,
+        )
     return result
 
 
