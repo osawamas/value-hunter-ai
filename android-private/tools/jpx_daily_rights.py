@@ -34,6 +34,8 @@ def notice_kind(remarks):
         return "bonus_allotment"
     if "分割" in remarks or remarks in {"新株落", "新株落ち"}:
         return "split_or_ex_new_shares"
+    if remarks == "その他":
+        return "unclassified_rights"
     return None
 
 

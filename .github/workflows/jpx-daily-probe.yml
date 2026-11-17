@@ -137,6 +137,9 @@ jobs:
           later_edition = DailyShareNotice(date(2026, 11, 20), revised.ex_on, revised.record_on, notice.kind, "●")
           assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice, revised]) == "hold_daily_notice_conflict"
           assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice, later_edition]) == "hold_daily_share_notice"
+          other = DailyShareNotice(date(2026, 11, 16), date(2026, 11, 19), date(2026, 11, 20), notice_kind("その他"), "")
+          assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [other]) == "hold_daily_rights_unclassified"
+          assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice, other]) == "hold_daily_share_notice"
           print(f"Verified split/consolidation report: {sum(map(len, events.values()))} events")
           PY
 
@@ -160,6 +163,7 @@ jobs:
             "${reports[@]}"
 
   daily_notes:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:

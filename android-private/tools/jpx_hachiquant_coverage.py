@@ -186,6 +186,7 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             "hold_share_basis_change": counts["hold_share_basis_change"],
             "hold_daily_share_notice": counts["hold_daily_share_notice"],
             "hold_daily_notice_conflict": counts["hold_daily_notice_conflict"],
+            "hold_daily_rights_unclassified": counts["hold_daily_rights_unclassified"],
             "hold_rights_report_gap": counts["hold_rights_report_gap"],
             "no_share_change_in_supplied_reports": counts["no_share_change_in_supplied_reports"],
         }

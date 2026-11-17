@@ -102,11 +102,13 @@ def share_basis_status(code, period_end, quote_day, rights, daily_notices=()):
     for notice in daily_notices:
         if notice.published_on <= quote_day and notice.record_on >= period_end:
             reported_dates[notice.kind, notice.record_on].add(notice.ex_on)
-    due_dates = [dates for dates in reported_dates.values() if min(dates) <= quote_day]
-    if any(len(dates) > 1 for dates in due_dates):
+    due_dates = [(kind, dates) for (kind, _), dates in reported_dates.items() if min(dates) <= quote_day]
+    if any(len(dates) > 1 for _, dates in due_dates):
         return "hold_daily_notice_conflict"
-    if due_dates:
+    if any(kind != "unclassified_rights" for kind, _ in due_dates):
         return "hold_daily_share_notice"
+    if due_dates:
+        return "hold_daily_rights_unclassified"
     month = period_end.replace(day=1)
     while month <= quote_day:
         if month not in coverage:
