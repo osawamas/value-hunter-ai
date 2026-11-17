@@ -203,18 +203,24 @@ public final class ScanWorker extends Worker {
         manager.createNotificationChannel(channel);
     }
 
-    static void postNotification(Context context, int id, String title, String detail) {
+    static boolean postNotification(Context context, int id, String title, String detail) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) return;
+                != PackageManager.PERMISSION_GRANTED) return false;
         var manager = context.getSystemService(NotificationManager.class);
         createAlertChannel(manager);
         var tap = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        manager.notify(id, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(title)
-                .setContentText(detail.replace('\n', ' '))
-                .setStyle(new Notification.BigTextStyle().bigText(detail))
-                .setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+        if (!alertsEnabled(context)) return false;
+        try {
+            manager.notify(id, new Notification.Builder(context, CHANNEL)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle(title)
+                    .setContentText(detail.replace('\n', ' '))
+                    .setStyle(new Notification.BigTextStyle().bigText(detail))
+                    .setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+            return true;
+        } catch (SecurityException denied) {
+            return false;
+        }
     }
 }

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -50,6 +51,8 @@ final class JpxWatchDeliveryProbe {
                 sample(FRIDAY, "900.00"), sample(FRIDAY.minusDays(1), "920.00")), complete));
 
         var starts = new AtomicInteger();
+        var denyAlert = new AtomicBoolean();
+        var lastProcessedKey = new AtomicReference<String>();
         var executor = new SynchronousExecutor();
         var factory = new WorkerFactory() {
             @Override public ListenableWorker createWorker(Context appContext, String name,
@@ -58,8 +61,11 @@ final class JpxWatchDeliveryProbe {
                 var input = inputs.get();
                 return new JpxWatchWorker(appContext, parameters, (ignored, key, revision) -> {
                     starts.incrementAndGet();
+                    lastProcessedKey.set(key);
                     return input.comparison();
-                }, ignored -> new JpxShareRights.Selection(input.rights(), "", ""));
+                }, ignored -> new JpxShareRights.Selection(input.rights(), "", "probe-revision"),
+                        (app, id, title, detail) -> !denyAlert.get()
+                                && ScanWorker.postNotification(app, id, title, detail));
             }
         };
         var config = new Configuration.Builder().setExecutor(executor).setWorkerFactory(factory).build();
@@ -146,6 +152,16 @@ final class JpxWatchDeliveryProbe {
 
             inputs.set(new Inputs(new JpxDailyCheck.Comparison(
                     sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")), complete));
+            denyAlert.set(true);
+            var blocked = TestWorkerBuilder.from(context, JpxWatchWorker.class, executor)
+                    .setWorkerFactory(factory).build().doWork();
+            denyAlert.set(false);
+            if (!blocked.equals(ListenableWorker.Result.success())
+                    || !JpxWatchWorker.displayStatus(state).contains("無音通知を送信できなかった")) {
+                throw new AssertionError("JPX reported a blocked alert as sent");
+            }
+            expectQuiet(notifications);
+
             var power = context.getSystemService(PowerManager.class);
             if (power.isInteractive()) throw new AssertionError("Emulator display was awake before the alert");
             if (!JpxWatchWorker.checkNow(context) || !JpxWatchWorker.checkNow(context)) {
@@ -154,13 +170,18 @@ final class JpxWatchDeliveryProbe {
             var manualId = pendingManual(work);
             driver.setAllConstraintsMet(manualId);
             awaitManual(work, manualId);
-            if (starts.get() != 8) throw new AssertionError("Repeated immediate checks ran more than once");
+            if (starts.get() != 9 || !lastProcessedKey.get().isEmpty()) {
+                throw new AssertionError("JPX skipped rechecking a blocked alert or ran duplicate work");
+            }
             verifySilentNotification(notifications);
 
             notifications.cancelAll();
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
-            awaitRun(work, id, starts, 9);
+            awaitRun(work, id, starts, 10);
+            if (lastProcessedKey.get().isEmpty()) {
+                throw new AssertionError("JPX did not save the edition after submitting the alert");
+            }
             expectQuiet(notifications);
 
             JpxWatchWorker.checkNow(context);
@@ -168,7 +189,7 @@ final class JpxWatchDeliveryProbe {
             JpxWatchWorker.setEnabled(context, false);
             awaitCancelled(work, id);
             awaitCancelled(work, cancelledManual);
-            if (JpxWatchWorker.enabled(context) || starts.get() != 9
+            if (JpxWatchWorker.enabled(context) || starts.get() != 10
                     || !JpxWatchWorker.displayStatus(state).isEmpty()) {
                 throw new AssertionError("Disabling JPX monitoring did not stop and clear the previous watch");
             }
@@ -181,7 +202,7 @@ final class JpxWatchDeliveryProbe {
             }
             var restartedId = restarted.get(0).getId();
             driver.setAllConstraintsMet(restartedId);
-            awaitRun(work, restartedId, starts, 10);
+            awaitRun(work, restartedId, starts, 11);
             expectQuiet(notifications);
             verifyTestNotification(context, notifications);
         } finally {
@@ -301,6 +322,6 @@ final class JpxWatchDeliveryProbe {
 
     private static JpxDailyCheck.Report sample(LocalDate day, String close) {
         return new JpxDailyCheck.Report(day, "", Map.of("3861",
-                new JpxCloseTable.Sessions(null, new BigDecimal(close))), Set.of());
+                new JpxCloseTable.Sessions(null, new BigDecimal(close))), Set.of(), "probe-" + day);
     }
 }

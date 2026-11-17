@@ -55,19 +55,26 @@ public final class JpxWatchWorker extends Worker {
         JpxDailyCheck.Comparison load(Context context, String processedKey, String rightsRevision) throws IOException;
     }
 
+    @FunctionalInterface
+    interface AlertSender {
+        boolean post(Context context, int id, String title, String detail);
+    }
+
     private final ComparisonLoader comparisons;
     private final Function<Context, JpxShareRights.Selection> rights;
+    private final AlertSender alerts;
 
     public JpxWatchWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         this(context, parameters, (app, key, revision) -> JpxDailyCheck.checkWatch(app.getCacheDir(), key, revision),
-                JpxShareRights::refresh);
+                JpxShareRights::refresh, ScanWorker::postNotification);
     }
 
     JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
-                   Function<Context, JpxShareRights.Selection> rights) {
+                   Function<Context, JpxShareRights.Selection> rights, AlertSender alerts) {
         super(context, parameters);
         this.comparisons = comparisons;
         this.rights = rights;
+        this.alerts = alerts;
     }
 
     static boolean enabled(Context context) {
@@ -151,7 +158,6 @@ public final class JpxWatchWorker extends Worker {
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
                         : List.<JpxDailyCheck.Entrant>of();
-                for (var entry : added) alerted.add(entry.code());
                 var summary = new StringBuilder(date + " 東証日報を確認 · 保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 appendHolds(summary, screen);
@@ -161,14 +167,23 @@ public final class JpxWatchWorker extends Worker {
                         .putString(BASELINE, savedBaseline.toString())
                         .putString(LATEST, date.toString()).putStringSet(ALERTED, alerted)
                         .putString(STATUS, summary.toString());
-                update.putString(PROCESSED, notifyEnabled ? comparison.processedKey(evidence.revision()) : "");
+                String processed = notifyEnabled ? comparison.processedKey(evidence.revision()) : "";
+                // Leave the inputs eligible for another check until the notification is submitted.
+                update.putString(PROCESSED, added.isEmpty() ? processed : "");
                 if (!update.commit()) return Result.retry();
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
                     for (var entry : added) detail.append("\n").append(entry.code())
                             .append(" · ").append(entry.quantity()).append("株枠");
-                    ScanWorker.postNotification(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
-                            detail.toString());
+                    if (!alerts.post(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
+                            detail.toString())) {
+                        state.edit().putString(STATUS, summary + "\n無音通知を送信できなかった · 通知設定を確認").apply();
+                        return Result.success();
+                    }
+                    for (var entry : added) alerted.add(entry.code());
+                    if (!state.edit().putStringSet(ALERTED, alerted).putString(PROCESSED, processed).commit()) {
+                        return Result.retry();
+                    }
                 }
             }
             return Result.success();
