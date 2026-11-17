@@ -1,0 +1,33 @@
+package jp.valuehunter.privatewatch;
+
+import static org.junit.Assert.*;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.Set;
+import org.junit.Test;
+
+public class JpxDailyCheckDateTest {
+    @Test public void rejectsStaleReportReturnedForNewerRequestedDate() {
+        LocalDate today = LocalDate.of(2026, 11, 18);
+        assertThrows(IOException.class, () -> JpxDailyCheck.checkRecent(today, requested ->
+                new JpxDailyCheck.Report(requested.minusDays(1), "test", Map.of(), Set.of())));
+    }
+
+    @Test public void acceptsTwoDistinctOrderedTradingDates() throws Exception {
+        LocalDate today = LocalDate.of(2026, 11, 18);
+        var result = JpxDailyCheck.checkRecent(today, requested ->
+                new JpxDailyCheck.Report(requested, "test", Map.of(), Set.of()));
+        assertEquals(LocalDate.of(2026, 11, 17), result.latest().date());
+        assertEquals(LocalDate.of(2026, 11, 16), result.previous().date());
+    }
+
+    @Test public void ignoresUnpublishedDaysWithoutInventingQuotes() throws Exception {
+        LocalDate today = LocalDate.of(2026, 11, 18);
+        var result = JpxDailyCheck.checkRecent(today, requested ->
+                requested.equals(LocalDate.of(2026, 11, 17)) ? null
+                    : new JpxDailyCheck.Report(requested, "test", Map.of(), Set.of()));
+        assertEquals(LocalDate.of(2026, 11, 16), result.latest().date());
+        assertEquals(LocalDate.of(2026, 11, 13), result.previous().date());
+    }
+}
