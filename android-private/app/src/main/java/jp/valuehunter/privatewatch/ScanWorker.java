@@ -113,6 +113,10 @@ public final class ScanWorker extends Worker {
                 status(state, "この時点で取得できる新しい取引日はなかった");
                 return Result.success();
             }
+            if (!WatchTransitions.shouldStoreSnapshot(lastDate, snapshot.date())) {
+                status(state, "取得した取引日が保存済みの基準日以前のため、監視履歴を維持した");
+                return Result.success();
+            }
             var candidates = snapshot.candidates();
             var previous = state.getStringSet("qualified", new HashSet<>());
             var added = WatchTransitions.newEntrants(lastDate, snapshot.date(), candidates, previous);
