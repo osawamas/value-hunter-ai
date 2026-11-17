@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'android-private/tools/*us_massive_probe.py'
+      - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_public_files_probe.py'
       - 'android-private/tools/*us_sec_statement_coverage.py'
       - 'android-private/tools/*us_sec_share_coverage.py'
@@ -12,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'android-private/tools/*us_massive_probe.py'
+      - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_public_files_probe.py'
       - 'android-private/tools/*us_sec_statement_coverage.py'
       - 'android-private/tools/*us_sec_share_coverage.py'
@@ -28,4 +30,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test price, issuer and statement coverage
         working-directory: android-private/tools
-        run: python3 -m unittest -v test_us_massive_probe test_us_public_files_probe test_us_sec_statement_coverage test_us_sec_share_coverage test_us_sec_filing_followup test_us_sec_original_cover
+        run: python3 -m unittest -v test_us_massive_probe test_us_daily_coverage test_us_public_files_probe test_us_sec_statement_coverage test_us_sec_share_coverage test_us_sec_filing_followup test_us_sec_original_cover

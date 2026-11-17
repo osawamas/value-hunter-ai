@@ -1,0 +1,53 @@
+from datetime import date, datetime
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+from unittest.mock import Mock, patch
+from zoneinfo import ZoneInfo
+
+from us_daily_coverage import run_cycle
+
+
+class DailyCoverageTest(unittest.TestCase):
+    @patch("us_daily_coverage.sync")
+    @patch("us_daily_coverage.dolt_rows")
+    def test_checks_pending_days_independently_and_keeps_missing_prices_pending(self, prices, sync):
+        eastern = ZoneInfo("America/New_York")
+        now = datetime(2026, 11, 17, 12, 45, tzinfo=eastern)
+        calendar = Mock()
+        calendar.is_session.return_value = True
+        calendar.sessions_in_range.return_value = [datetime(2026, 11, 13), datetime(2026, 11, 16)]
+        day = date(2026, 11, 16)
+        prices.side_effect = [[], [{"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}]]
+        sync.return_value = "cached_after_rate_limit"
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for stamp in ("2026-11-13", "2026-11-16", "2026-11-17"):
+                current = root / stamp
+                current.mkdir()
+                us_date = date.fromisoformat(stamp).strftime("%m%d%Y")
+                (current / "nasdaqlisted.txt").write_text(
+                    "Symbol|Security Name|Test Issue|ETF|NextShares\n"
+                    f"AAPL|Common Stock|N|N|N\nFile Creation Time: {us_date}12:00||||\n"
+                )
+                (current / "otherlisted.txt").write_text(
+                    "ACT Symbol|Security Name|Exchange|Test Issue|ETF\n"
+                    f"BIO.B|Common Stock|N|N|N\nFile Creation Time: {us_date}12:00||||\n"
+                )
+            result = run_cycle(root, root / "stocks", now, calendar)
+            self.assertEqual("already_saved", result["capture"])
+            self.assertEqual(["no_dolt_closes_for_session", "compared"],
+                             [row["status"] for row in result["sessions"]])
+            self.assertFalse((root / "2026-11-13/dolt-coverage.json").exists())
+            report = json.loads((root / "2026-11-16/dolt-coverage.json").read_text())
+            self.assertEqual("same_day_directory_unverified", report["listing_snapshot_assessment"]["status"])
+            self.assertEqual("cached_after_rate_limit", report["dolt_sync"])
+            self.assertNotIn("AAPL", json.dumps(report))
+            self.assertEqual("outside_capture_window",
+                             run_cycle(root, root / "stocks", now.replace(hour=13), calendar)["status"])
+            sync.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()

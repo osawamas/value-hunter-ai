@@ -268,3 +268,25 @@ python3 tools/us_public_files_probe.py 2026-11-17 \
 
 日付指定での再生は、指定日に保存したペアが必要。別日のファイルや現在の一覧に切り替えない。
 取引日と一致しても取引開始時点や引け時点の全銘柄を保証するものではない。
+
+### 上場一覧の保存と終値照合を定時に実行する
+
+Macなどのローカル環境で、Doltと同じ実行環境から次を使う。Python環境に
+`exchange-calendars>=4.7,<5` を導入し、Doltの保存先の親ディレクトリを用意する。
+
+```sh
+python3 tools/us_daily_coverage.py --archive /path/to/us-listing-archive --dolt-dir /path/to/stocks
+```
+
+米東部時間の取引日12:00〜12:59に当日の一覧を保存する。先に保存した一覧は再利用する。
+過去7暦日の保存済み取引日のうち、集計がまだない日についてDoltを同期し、同じ日の終値と照合する。
+集計は一覧と同じ日付フォルダの `dolt-coverage.json` に保存する。対象日に有効な終値がない場合は
+次の実行に持ち越す。それぞれの実行状況は標準出力に出る。取引日の判定にはXNYSカレンダーを使う。
+
+日本時間のMacでcronを使う場合は火〜土曜の01:45と02:45に起動する。米東部時間の範囲内に
+入るほうだけ処理するので、夏時間のたびに設定を変更する必要はない。
+実行ファイルや保存先は絶対パスに置き換え、cronからもDoltが見えるようPATHを設定する。
+
+```cron
+45 1,2 * * 2-6 /path/to/python3 /path/to/tools/us_daily_coverage.py --archive /path/to/us-listing-archive --dolt-dir /path/to/stocks >> /path/to/us-coverage.log 2>&1
+```
