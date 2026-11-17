@@ -1,62 +1,116 @@
-"""Measure financial fact availability from one SEC Financial Statement Data Sets ZIP."""
+"""Measure financial fact availability from SEC Financial Statement Data Sets ZIPs."""
 
+from calendar import monthrange
 from collections import defaultdict
 from contextlib import ExitStack
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from zipfile import ZipFile
 
-SUB_HEADER = {b"adsh", b"cik", b"form", b"period", b"filed"}
+SUB_FIELDS = (b"adsh", b"cik", b"form", b"period", b"filed", b"fy", b"fp")
 NUM_HEADER = [b"adsh", b"tag", b"version", b"ddate", b"qtrs", b"uom",
               b"segments", b"coreg", b"value", b"footnote"]
 EQUITY = b"StockholdersEquity"
 INCOME = b"NetIncomeLoss"
-ORIGINAL_FORMS = {b"10-K", b"10-Q"}
+ANNUAL = b"10-K"
+QUARTERLY = b"10-Q"
+FISCAL_QUARTERS = {b"Q1": 1, b"Q2": 2, b"Q3": 3}
+
+
+@dataclass(frozen=True)
+class Filing:
+    accession: bytes
+    form: bytes
+    period: date
+    filed: date
+    fiscal_year: int | None
+    fiscal_focus: bytes
 
 
 def collect_filings(archive, cutoff, issuers, eligible):
     with archive.open("sub.txt") as table:
         headers = table.readline().rstrip(b"\r\n").split(b"\t")
-        if not SUB_HEADER.issubset(headers) or len(headers) != len(set(headers)):
+        if not set(SUB_FIELDS).issubset(headers) or len(headers) != len(set(headers)):
             raise ValueError("Unexpected SEC sub.txt header")
-        id_col, cik_col, form_col, period_col, filed_col = [
-            headers.index(key) for key in (b"adsh", b"cik", b"form", b"period", b"filed")
-        ]
+        columns = [headers.index(key) for key in SUB_FIELDS]
         allowed = {str(cik).encode(): cik for cik in issuers}
         for row in table:
             fields = row.rstrip(b"\r\n").split(b"\t")
             if len(fields) != len(headers):
                 raise ValueError("Malformed SEC submission row")
-            form, cik = fields[form_col], allowed.get(fields[cik_col])
-            if cik is None or form not in ORIGINAL_FORMS:
+            accession, raw_cik, form, period, filed, fiscal_year, focus = (fields[i] for i in columns)
+            cik = allowed.get(raw_cik)
+            if cik is None or form not in (ANNUAL, QUARTERLY):
                 continue
-            period, filed = fields[period_col], fields[filed_col]
             period_date = date.fromisoformat(period.decode("ascii"))
             filed_date = date.fromisoformat(filed.decode("ascii"))
             # The filing date alone cannot establish availability at that session's close.
             if period_date > filed_date or filed_date >= cutoff:
                 continue
-            accession = fields[id_col]
-            terms = (period, filed, form)
-            if eligible[cik].setdefault(accession, terms) != terms:
+            year = int(fiscal_year) if fiscal_year.isdigit() else None
+            filing = Filing(accession, form, period_date, filed_date, year, focus)
+            if eligible[cik].setdefault(accession, filing) != filing:
                 raise ValueError("Conflicting SEC submission metadata")
 
 
-def latest_filings(archives, cutoff, issuers):
+def latest_unique(rows):
+    key = max(((row.period, row.filed) for row in rows), default=None)
+    winners = [row for row in rows if (row.period, row.filed) == key]
+    return winners[0] if len(winners) == 1 else None
+
+
+def months_between(start, end):
+    return (end.year - start.year) * 12 + end.month - start.month
+
+
+def same_month_prior_year(day):
+    year = day.year - 1
+    return date(year, day.month, monthrange(year, day.month)[1])
+
+
+def filings_for_measurement(archives, cutoff, issuers):
     eligible = defaultdict(dict)
     for archive in archives:
         collect_filings(archive, cutoff, issuers, eligible)
-    selected = {}
+    current = {}
+    previous_annual = {}
     for cik, rows in eligible.items():
-        newest = max((period, filed) for period, filed, _ in rows.values())
-        contenders = [(accession, data) for accession, data in rows.items() if data[:2] == newest]
-        if len(contenders) == 1:
-            accession, (period, _, form) = contenders[0]
-            selected[accession] = (cik, period, form)
-    return selected
+        latest = latest_unique(rows.values())
+        if latest is None:
+            continue
+        current[cik] = latest
+        qtrs = FISCAL_QUARTERS.get(latest.fiscal_focus)
+        if latest.form != QUARTERLY or qtrs is None or latest.fiscal_year is None:
+            continue
+        earlier = [row for row in rows.values() if row.form == ANNUAL and row.fiscal_focus == b"FY"
+                   and row.fiscal_year == latest.fiscal_year - 1 and row.filed <= latest.filed
+                   and months_between(row.period, latest.period) == 3 * qtrs]
+        annual = latest_unique(earlier)
+        if annual is not None:
+            previous_annual[cik] = annual
+    return current, previous_annual
 
 
-def collect_facts(archive, filings, facts):
+def fact_key(filing, tag, end, quarters):
+    return filing.accession, tag, end.strftime("%Y%m%d").encode(), str(quarters).encode()
+
+
+def requested_facts(current, previous_annual):
+    wanted = set()
+    for cik, filing in current.items():
+        wanted.add(fact_key(filing, EQUITY, filing.period, 0))
+        wanted.add(fact_key(filing, INCOME, filing.period, 4 if filing.form == ANNUAL else 1))
+        if cik in previous_annual:
+            annual = previous_annual[cik]
+            qtrs = FISCAL_QUARTERS[filing.fiscal_focus]
+            wanted.add(fact_key(annual, INCOME, annual.period, 4))
+            wanted.add(fact_key(filing, INCOME, filing.period, qtrs))
+            wanted.add(fact_key(filing, INCOME, same_month_prior_year(filing.period), qtrs))
+    return wanted
+
+
+def collect_facts(archive, wanted, accessions, facts):
     with archive.open("num.txt") as table:
         if table.readline().rstrip(b"\r\n").split(b"\t") != NUM_HEADER:
             raise ValueError("Unexpected SEC num.txt header")
@@ -65,12 +119,11 @@ def collect_facts(archive, filings, facts):
             if len(prefix) != 3:
                 raise ValueError("Malformed SEC numeric row")
             accession, tag, tail = prefix
-            if tag not in {EQUITY, INCOME} or accession not in filings:
+            if tag not in (EQUITY, INCOME) or accession not in accessions:
                 continue
-            cik, period, form = filings[accession]
             version, end, quarters, unit, segment, coreg, value, _ = tail.split(b"\t", 7)
-            expected_quarters = b"0" if tag == EQUITY else (b"4" if form == b"10-K" else b"1")
-            if (not version.startswith(b"us-gaap/") or end != period or quarters != expected_quarters
+            key = (accession, tag, end, quarters)
+            if (key not in wanted or not version.startswith(b"us-gaap/")
                     or unit != b"USD" or segment or coreg):
                 continue
             try:
@@ -78,28 +131,59 @@ def collect_facts(archive, filings, facts):
             except InvalidOperation:
                 continue
             if amount.is_finite():
-                facts[cik][tag].add(amount)
+                facts[key].add(amount)
+
+
+def fact_value(facts, key):
+    amounts = facts.get(key, ())
+    return next(iter(amounts)) if len(amounts) == 1 else None
+
+
+def trailing_profit(filing, annual, facts):
+    if filing.form == ANNUAL:
+        return fact_value(facts, fact_key(filing, INCOME, filing.period, 4))
+    if annual is None:
+        return None
+    qtrs = FISCAL_QUARTERS[filing.fiscal_focus]
+    full_year = fact_value(facts, fact_key(annual, INCOME, annual.period, 4))
+    this_ytd = fact_value(facts, fact_key(filing, INCOME, filing.period, qtrs))
+    prior_ytd = fact_value(facts, fact_key(filing, INCOME, same_month_prior_year(filing.period), qtrs))
+    if any(value is None for value in (full_year, this_ytd, prior_ytd)):
+        return None
+    return full_year + this_ytd - prior_ytd
 
 
 def measure(paths, cutoff, securities):
-    """Count securities with eligible filings and paired facts, without emitting values."""
+    """Count securities with eligible filings and financial inputs, without emitting values."""
     with ExitStack() as stack:
         archives = [stack.enter_context(ZipFile(path)) for path in paths]
         for archive in archives:
             for name, limit in (("sub.txt", 30_000_000), ("num.txt", 2_500_000_000)):
                 if not 0 < archive.getinfo(name).file_size <= limit:
                     raise ValueError("Unexpected SEC statement archive member size")
-        filings = latest_filings(archives, cutoff, set(securities.values()))
-        facts = defaultdict(lambda: defaultdict(set))
-        if filings:
+        current, previous_annual = filings_for_measurement(archives, cutoff, set(securities.values()))
+        wanted = requested_facts(current, previous_annual)
+        facts = defaultdict(set)
+        if wanted:
+            accessions = {key[0] for key in wanted}
             for archive in archives:
-                collect_facts(archive, filings, facts)
-    covered = {cik for cik, tags in facts.items() if len(tags[EQUITY]) == 1 and len(tags[INCOME]) == 1}
-    with_filing = {cik for cik, _, _ in filings.values()}
+                collect_facts(archive, wanted, accessions, facts)
+    with_period = set()
+    with_trailing = set()
+    for cik, filing in current.items():
+        if fact_value(facts, fact_key(filing, EQUITY, filing.period, 0)) is None:
+            continue
+        quarters = 4 if filing.form == ANNUAL else 1
+        if fact_value(facts, fact_key(filing, INCOME, filing.period, quarters)) is not None:
+            with_period.add(cik)
+        if trailing_profit(filing, previous_annual.get(cik), facts) is not None:
+            with_trailing.add(cik)
     return {
         "securities_checked": len(securities),
         "unique_issuers_checked": len(set(securities.values())),
-        "securities_with_original_10k_or_10q": sum(cik in with_filing for cik in securities.values()),
-        "securities_with_equity_and_period_profit": sum(cik in covered for cik in securities.values()),
-        "unique_issuers_with_equity_and_period_profit": len(covered),
+        "securities_with_original_10k_or_10q": sum(cik in current for cik in securities.values()),
+        "securities_with_equity_and_period_profit": sum(cik in with_period for cik in securities.values()),
+        "unique_issuers_with_equity_and_period_profit": len(with_period),
+        "securities_with_equity_and_trailing_profit": sum(cik in with_trailing for cik in securities.values()),
+        "unique_issuers_with_equity_and_trailing_profit": len(with_trailing),
     }

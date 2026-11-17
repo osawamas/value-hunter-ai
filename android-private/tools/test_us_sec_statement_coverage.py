@@ -1,17 +1,18 @@
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 from zipfile import ZipFile
 
-from us_sec_statement_coverage import measure
+from us_sec_statement_coverage import Filing, INCOME, fact_key, measure, trailing_profit
 
 CUTOFF = date(2026, 11, 16)
 PERIOD = "20260930"
 
 
-def submission(accession, cik, filed="20261112", form="10-Q", period=PERIOD):
-    return (accession, str(cik), form, period, filed)
+def submission(accession, cik, filed="20261112", form="10-Q", period=PERIOD, year="2026", focus=None):
+    return (accession, str(cik), form, period, filed, year, focus or ("FY" if form == "10-K" else "Q3"))
 
 
 def fact(accession, tag, value, quarters, period=PERIOD, segment="", unit="USD"):
@@ -25,7 +26,7 @@ def pair(accession, period=PERIOD, quarters="1"):
 
 def archive(path, submissions, facts):
     with ZipFile(path, "w") as output:
-        output.writestr("sub.txt", "adsh\tcik\tform\tperiod\tfiled\n"
+        output.writestr("sub.txt", "adsh\tcik\tform\tperiod\tfiled\tfy\tfp\n"
                         + "\n".join("\t".join(row) for row in submissions) + "\n")
         output.writestr("num.txt", "adsh\ttag\tversion\tddate\tqtrs\tuom\tsegments\tcoreg\tvalue\tfootnote\n"
                         + "\n".join("\t".join(row) for row in facts) + "\n")
@@ -62,6 +63,43 @@ class StatementCoverageTest(unittest.TestCase):
             counts = measure([newest, early], CUTOFF, {"ONE": 1, "TWO": 2, "THREE": 3, "FOUR": 4})
         self.assertEqual(4, counts["securities_with_original_10k_or_10q"])
         self.assertEqual(2, counts["securities_with_equity_and_period_profit"])
+
+    def test_trailing_income_uses_matching_fiscal_windows_and_no_conflicting_amounts(self):
+        with TemporaryDirectory() as directory:
+            annuals = []
+            quarterlies = []
+            for cik in range(1, 5):
+                annual = f"annual-{cik}"
+                annual_period = "20251130" if cik == 3 else "20251231"
+                filed = "20261116" if cik == 4 else "20260220"
+                annuals.append(submission(annual, cik, filed, "10-K", annual_period, "2025"))
+                quarterlies.append(submission(f"latest-{cik}", cik, "20260813", period="20260630", focus="Q2"))
+            annual_facts = [fact(f"annual-{cik}", "NetIncomeLoss", "100", "4",
+                                 "20251130" if cik == 3 else "20251231") for cik in range(1, 5)]
+            quarterly_facts = []
+            for cik in range(1, 5):
+                accession = f"latest-{cik}"
+                quarterly_facts.extend(pair(accession, "20260630"))
+                quarterly_facts.extend([
+                    fact(accession, "NetIncomeLoss", "55", "2", "20260630"),
+                    fact(accession, "NetIncomeLoss", "38", "2", "20250630"),
+                ])
+            quarterly_facts.append(fact("latest-2", "NetIncomeLoss", "39", "2", "20250630"))
+            first = archive(Path(directory) / "early.zip", annuals, annual_facts)
+            second = archive(Path(directory) / "late.zip", quarterlies, quarterly_facts)
+            counts = measure([first, second], CUTOFF, {f"STOCK{cik}": cik for cik in range(1, 5)})
+        self.assertEqual(4, counts["securities_with_equity_and_period_profit"])
+        self.assertEqual(1, counts["securities_with_equity_and_trailing_profit"])
+
+    def test_trailing_profit_is_annual_plus_same_length_ytd_change(self):
+        annual = Filing(b"annual", b"10-K", date(2025, 12, 31), date(2026, 2, 20), 2025, b"FY")
+        latest = Filing(b"latest", b"10-Q", date(2026, 6, 30), date(2026, 8, 13), 2026, b"Q2")
+        facts = {
+            fact_key(annual, INCOME, annual.period, 4): {Decimal("100")},
+            fact_key(latest, INCOME, latest.period, 2): {Decimal("55")},
+            fact_key(latest, INCOME, date(2025, 6, 30), 2): {Decimal("38")},
+        }
+        self.assertEqual(Decimal("117"), trailing_profit(latest, annual, facts))
 
     def test_refuses_zip_without_required_tables(self):
         with TemporaryDirectory() as directory:
