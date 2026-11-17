@@ -1,0 +1,58 @@
+name: JPX Android 15 PDF geometry probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jpx-android-pdf.yml'
+      - 'android-private/app/build.gradle'
+      - 'android-private/app/src/androidTest/**'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java'
+
+permissions:
+  contents: read
+
+jobs:
+  pdf-geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+          cache-read-only: true
+      - name: Build APKs for the private emulator run
+        working-directory: android-private
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Fetch reference PDFs from JPX
+        run: |
+          curl -fsSL --retry 2 --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202610/stq_20261029.pdf -o "$RUNNER_TEMP/jpx-20261029.pdf"
+          curl -fsSL --retry 2 --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202611/stq_20261116.pdf -o "$RUNNER_TEMP/jpx-20261116.pdf"
+      - name: Enable hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise Android's PDF engine on official JPX reports
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: |
+            adb install android-private/app/build/outputs/apk/debug/app-debug.apk
+            adb install android-private/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261029.pdf'" < "$RUNNER_TEMP/jpx-20261029.pdf"
+            adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261116.pdf'" < "$RUNNER_TEMP/jpx-20261116.pdf"
+            adb shell am instrument -w jp.valuehunter.privatewatch.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe | tee "$RUNNER_TEMP/jpx-android-probe.log"
+            grep -F 'JPX_PDF_GEOMETRY_OK:' "$RUNNER_TEMP/jpx-android-probe.log"

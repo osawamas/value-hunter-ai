@@ -16,6 +16,7 @@ android {
         applicationId 'jp.valuehunter.privatewatch'
         minSdk 26
         targetSdk 34
+        testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
         versionCode 4
         versionName '0.4'
     }
