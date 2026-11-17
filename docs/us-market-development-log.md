@@ -2,6 +2,13 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 03:36 JST — NYSE公開TAQの当日LastでDoltを検証
+
+- 開始時mainは [e83c378](https://github.com/osawamas/value-hunter-ai/commit/e83c378105e62622cc0fa40e6397737f4dfd8cd5)。`us_nyse_taq_probe.py` で[NYSEの公開サンプル](https://ftp.nyse.com/Historical%20Data%20Samples/TAQ%20CLOSING%20PRICES/)とローカルDoltを照合できるようにした。NYSE上場コード、英字だけの銘柄コード、取引日一致、正のLastと出来高を確認。株式クラスの接尾辞を自動変換しない。
+- 7月1日のNYSE原本9,187行を実取得し、条件を満たした2,385銘柄を公開DoltHubに調査用照会。2,381銘柄に有効値があり、うち2,308が完全一致、73が非完全一致で1セント以内、1セント超は0。Dolt側で4銘柄に正の終値がなかった。
+- 原本でTAP A・WSO Bに対象日より前の日付のLastが入っていた。[NYSE仕様](https://www.nyse.com/publicdocs/nyse/data/TAQ_Closing_Prices_Client_Spec_v1.2.pdf) の持ち越し値を誤採用しないよう行の日付を照合。価格付き原本は公開リポジトリに追加していない。
+- ローカルテスト65件成功。NYSEのベンチマークは公開サンプル1日分の条件付き比較。11月17日の同日網羅率、Nasdaq公式終値、Android端末での日次取得は未検証。
+
 ## 2026-11-18 03:17 JST — 定時実行で別ソースの追加取得候補を照合
 
 - 開始時mainは [f9daf6b](https://github.com/osawamas/value-hunter-ai/commit/f9daf6bb324ddff925fd17eab4f557c56cf6371e)。並行更新 [5af711e](https://github.com/osawamas/value-hunter-ai/commit/5af711eedd31076bb59758ef028fe325aa25618b) を取り込み済み。`--compare-marketparquet` で登録不要の同日公開サンプルを照合。サンプルだけで確認できた銘柄と両方で欠けた銘柄を記録し、サンプルの異日・未配信・破損でDolt単独集計を止めない。

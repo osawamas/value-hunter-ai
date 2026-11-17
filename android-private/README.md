@@ -311,3 +311,15 @@ Python環境に `pyarrow` を追加する。MarketParquetの登録不要の公�
 MarketParquetだけで確認できた銘柄、両ソースで欠けた銘柄、価格差の件数を日付別レポートに記録する。
 公開サンプルは期間が限られ、入手できない日や日付不一致は照合できなかった理由を残す。
 MarketParquetは分割調整済みのため、Doltの終値や取得件数には合算しない。
+
+### NYSE公開サンプルのLastとDoltを照合する
+
+[NYSE TAQの公式公開サンプル](https://ftp.nyse.com/Historical%20Data%20Samples/TAQ%20CLOSING%20PRICES/)
+のNYSEファイルを元の名前で保存する。照合ではNYSE上場コード `N`、英字のみのティッカー、
+対象日と一致する行の日付、正のLastと出来高を確認する。株式クラスや証券の接尾辞の変換は行わない。
+一致件数と価格差を集計し、NYSEのLastを正規セッションの公式終値と断定したり、
+割安判定用の価格に採用したりはしない。公開サンプルの提供日以外の日次取得には使えない。
+
+```sh
+python3 tools/us_nyse_taq_probe.py 2026-07-01 --nyse-sample-file EQY_US_NYSE_SUM_CLOSE_20260701.txt --dolt-dir stocks
+```
