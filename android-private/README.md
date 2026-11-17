@@ -305,3 +305,9 @@ Python環境に `openpyxl` を追加する。[State StreetのDIA日次保有明�
 保存する。価格と明細の日付が一致する場合だけ `dia_holdings_comparison` を出す。
 明細の取得・再生が失敗した場合も、NYSE・Nasdaqの終値照合は続ける。
 DIA保有明細はダウ構成銘柄を確認するための近似資料。
+
+別ソースも照合するときは、同じコマンドに `--compare-marketparquet` を付け、
+Python環境に `pyarrow` を追加する。MarketParquetの登録不要の公開サンプルで対象日が取得できる場合、
+MarketParquetだけで確認できた銘柄、両ソースで欠けた銘柄、価格差の件数を日付別レポートに記録する。
+公開サンプルは期間が限られ、入手できない日や日付不一致は照合できなかった理由を残す。
+MarketParquetは分割調整済みのため、Doltの終値や取得件数には合算しない。

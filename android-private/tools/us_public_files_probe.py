@@ -344,7 +344,7 @@ def missing_listing_events(day, market, missing, primary, reference, events):
     return matches
 
 
-def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_notices=None, listing_events=None):
+def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_notices=None, listing_events=None, *, include_missing_symbols=False):
     _, reference = validated_closes(day, reference_bars)
     if not reference:
         raise ValueError("No valid closes in the comparison sample")
@@ -377,6 +377,9 @@ def compare_closes(day, primary, reference_bars, focus, history_bars=None, halt_
             "both_differ_over_one_cent": len(both) - agrees,
             "with_either": len(union),
         }
+        if include_missing_symbols:
+            result[name]["only_marketparquet_symbols"] = sorted(reference_symbols - primary_symbols)
+            result[name]["missing_from_both_symbols"] = sorted(symbols - union)
         if listing_events is not None and name in ("NYSE", "Nasdaq"):
             result[name]["missing_listing_events"] = missing_listing_events(
                 day, name, symbols - union, primary, reference, listing_events
@@ -438,7 +441,10 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
     if comparison_bars is not None:
-        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus, history_bars, halt_notices, listing_events)
+        result["dolt_marketparquet_comparison"] = compare_closes(
+            day, prices, comparison_bars, focus, history_bars, halt_notices, listing_events,
+            include_missing_symbols=include_missing_symbols,
+        )
     if sec is not None:
         result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files, indexes)
     return result

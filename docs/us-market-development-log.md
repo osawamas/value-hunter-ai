@@ -2,6 +2,12 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 03:17 JST — 定時実行で別ソースの追加取得候補を照合
+
+- 開始時mainは [f9daf6b](https://github.com/osawamas/value-hunter-ai/commit/f9daf6bb324ddff925fd17eab4f557c56cf6371e)。並行更新 [5af711e](https://github.com/osawamas/value-hunter-ai/commit/5af711eedd31076bb59758ef028fe325aa25618b) を取り込み済み。`--compare-marketparquet` で登録不要の同日公開サンプルを照合。サンプルだけで確認できた銘柄と両方で欠けた銘柄を記録し、サンプルの異日・未配信・破損でDolt単独集計を止めない。
+- 11月13日取引分のMarketParquet原本と11月17日作成の上場一覧で、終値が欠けた普通株候補はNYSE 21、Nasdaq 131。該当銘柄を同日のDoltHub公開DBで照会するとNYSE 1・Nasdaq 2に有効値があり、照会範囲で両方にないのはNYSE 20・Nasdaq 129。翌週の上場一覧を使った観測のため、11月13日当日の母集団の網羅率ではない。
+- ローカルテスト64件成功。分割調整済みの参考値はDolt集計と分け、実際の値の補完や価格の公開はしていない。MarketParquetだけが持つ値の全銘柄再測定とAndroid端末での取得は未検証。
+
 ## 2026-11-18 03:15 JST — Dolt実行時のOS例外と空出力を安全に処理
 
 - 開始時main: [f9daf6b](https://github.com/osawamas/value-hunter-ai/commit/f9daf6bb324ddff925fd17eab4f557c56cf6371e)。直近の[米国株Actions](https://github.com/osawamas/value-hunter-ai/actions/runs/44145243001)は成功。既存の終値欠落追跡機能は変更せず、Dolt同期のプロセス起動失敗に限定して修正。

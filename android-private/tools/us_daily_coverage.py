@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from us_dolt_sync import sync
 from us_public_files_probe import (
     DIA_HOLDINGS,
+    SAMPLE,
     SYMBOL,
     coverage,
     dolt_rows,
@@ -19,8 +20,10 @@ from us_public_files_probe import (
     listing_snapshot_assessment,
     load_dia,
     load_listing_directories,
+    parquet_rows,
     require_listing_date,
     save_listing_snapshot,
+    validated_closes,
 )
 
 EASTERN = ZoneInfo("America/New_York")
@@ -59,7 +62,7 @@ def dia_for_session(directory, day):
     return holdings, "same_date_holdings"
 
 
-def run_cycle(archive, prices, now, calendar, *, with_dow=False):
+def run_cycle(archive, prices, now, calendar, *, with_dow=False, compare_marketparquet=False):
     eastern_now = now.astimezone(EASTERN)
     today = eastern_now.date()
     result = {"checked_at": eastern_now.isoformat()}
@@ -100,7 +103,10 @@ def run_cycle(archive, prices, now, calendar, *, with_dow=False):
     sessions = []
     for day, snapshot in snapshots:
         try:
-            outcome = compare_session(day, snapshot, prices, sync_state, eastern_now, dia_directory=dia_directory)
+            outcome = compare_session(
+                day, snapshot, prices, sync_state, eastern_now,
+                dia_directory=dia_directory, compare_marketparquet=compare_marketparquet,
+            )
         except (OSError, ValueError, KeyError) as error:
             outcome = {"status": "comparison_failed", "error": str(error)}
         sessions.append(dict(outcome, trading_date=day.isoformat()))
@@ -162,7 +168,7 @@ def compare_previous_report(path, current):
     }
 
 
-def compare_session(prior, snapshot, prices, sync_state, checked_at, *, dia_directory=None):
+def compare_session(prior, snapshot, prices, sync_state, checked_at, *, dia_directory=None, compare_marketparquet=False):
     report_path = snapshot / "dolt-coverage.json"
     replaces_report = report_path.is_file()
     observed, listings, originals = load_listing_directories(snapshot)
@@ -171,8 +177,22 @@ def compare_session(prior, snapshot, prices, sync_state, checked_at, *, dia_dire
     if not any(row["close"] is not None for row in prices_on_day):
         return {"status": "no_dolt_closes_for_session", "previous_report_retained": replaces_report}
     holdings, dia_status = dia_for_session(dia_directory, prior) if dia_directory is not None else (None, None)
-    report = coverage(prior, listings, prices_on_day, dow=holdings,
+    reference_bars = None
+    reference_status = None
+    if compare_marketparquet:
+        try:
+            candidate = parquet_rows(fetch(SAMPLE + prior.isoformat() + ".parquet"))
+            _, reference_closes = validated_closes(prior, candidate)
+            if not reference_closes:
+                raise ValueError("No valid closes in the comparison sample")
+            reference_bars = candidate
+            reference_status = {"status": "compared", "price_basis": "split-adjusted"}
+        except (ImportError, KeyError, OSError, ValueError, TypeError, NotImplementedError) as error:
+            reference_status = {"status": "unavailable", "error": str(error)}
+    report = coverage(prior, listings, prices_on_day, dow=holdings, comparison_bars=reference_bars,
                       price_basis="Dolt reported close (basis under evaluation)", include_missing_symbols=True)
+    if reference_status is not None:
+        report["marketparquet_reference"] = reference_status
     if dia_status is not None:
         report["dia_holdings_status"] = dia_status
     report["directory_observed_at"] = observed
@@ -195,6 +215,14 @@ def compare_session(prior, snapshot, prices, sync_state, checked_at, *, dia_dire
             venue: by_exchange[venue] for venue in FOCUS_MARKETS if venue in by_exchange
         },
     }
+    if reference_status is not None:
+        outcome["marketparquet_reference"] = reference_status
+        if reference_bars is not None:
+            outcome["marketparquet_only_by_exchange"] = {
+                market: details["only_marketparquet"]
+                for market, details in report["dolt_marketparquet_comparison"].items()
+                if market in FOCUS_MARKETS
+            }
     if dia_status is not None:
         outcome["dia_holdings_status"] = dia_status
         if holdings is not None:
@@ -209,14 +237,18 @@ def main():
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--dolt-dir", type=Path, required=True)
     parser.add_argument("--with-dow", action="store_true", help="Archive dated DIA holdings and check Dow coverage")
+    parser.add_argument("--compare-marketparquet", action="store_true", help="Compare with the same-date public sample")
     args = parser.parse_args()
     try:
         import exchange_calendars
     except ImportError:
         parser.exit(1, "Install exchange-calendars>=4.7,<5 in the scheduled Python environment.\n")
     try:
-        result = run_cycle(args.archive.resolve(), args.dolt_dir.resolve(),
-                           datetime.now(EASTERN), exchange_calendars.get_calendar("XNYS"), with_dow=args.with_dow)
+        result = run_cycle(
+            args.archive.resolve(), args.dolt_dir.resolve(), datetime.now(EASTERN),
+            exchange_calendars.get_calendar("XNYS"), with_dow=args.with_dow,
+            compare_marketparquet=args.compare_marketparquet,
+        )
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f"US daily coverage: {error}\n")
     print(json.dumps(result))

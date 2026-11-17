@@ -135,5 +135,35 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual(1, mismatch["common_or_ordinary_label_by_exchange"]["Nasdaq"]["with_close"])
 
 
+    @patch("us_daily_coverage.parquet_rows")
+    @patch("us_daily_coverage.fetch")
+    @patch("us_daily_coverage.dolt_rows")
+    @patch("us_daily_coverage.load_listing_directories")
+    def test_optional_second_source_reports_extra_tickers_without_changing_primary(self, directories, prices, fetch, read):
+        day = date(2026, 11, 16)
+        now = datetime(2026, 11, 17, 12, tzinfo=ZoneInfo("America/New_York"))
+        observed = {name: "2026-11-16T12:00:00" for name in ("nasdaqlisted.txt", "otherlisted.txt")}
+        listings = {symbol: ("Nasdaq", "common_or_ordinary_label") for symbol in ("AAPL", "AAA", "BBB")}
+        directories.return_value = (observed, listings, {})
+        aapl = {"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}
+        prices.return_value = [aapl]
+        fetch.return_value = b"sample"
+        read.return_value = [aapl, dict(aapl, symbol="AAA")]
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = compare_session(day, root, root / "stocks", "updated", now, compare_marketparquet=True)
+            self.assertEqual({"NYSE": 0, "Nasdaq": 1}, result["marketparquet_only_by_exchange"])
+            report = json.loads(Path(result["report"]).read_text())
+            comparison = report["dolt_marketparquet_comparison"]["Nasdaq"]
+            self.assertEqual(["AAA"], comparison["only_marketparquet_symbols"])
+            self.assertEqual(["BBB"], comparison["missing_from_both_symbols"])
+            self.assertEqual(["AAA", "BBB"], report["missing_close_symbols_by_exchange"]["Nasdaq"])
+            read.return_value = [dict(aapl, date=date(2026, 11, 15))]
+            wrong_date = compare_session(day, root, root / "stocks", "updated", now, compare_marketparquet=True)
+            self.assertEqual("unavailable", wrong_date["marketparquet_reference"]["status"])
+            self.assertEqual(1, wrong_date["common_or_ordinary_label_by_exchange"]["Nasdaq"]["with_close"])
+            self.assertNotIn("dolt_marketparquet_comparison", json.loads(Path(wrong_date["report"]).read_text()))
+
+
 if __name__ == "__main__":
     unittest.main()
