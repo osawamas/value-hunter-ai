@@ -7,6 +7,23 @@ from us_dolt_sync import sync
 
 
 class SyncTest(unittest.TestCase):
+    def test_zero_exit_without_clone_is_not_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            def runner(cmd, **kwargs):
+                return SimpleNamespace(returncode=0, stderr='', stdout='')
+            self.assertEqual(sync(dest, runner=runner), 'invalid_repository_after_command')
+            self.assertFalse(dest.exists())
+
+    def test_zero_exit_after_existing_repository_disappears(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                return SimpleNamespace(returncode=0, stderr='', stdout='')
+            self.assertEqual(sync(dest, runner=runner), 'invalid_repository_after_command')
+
     def test_clone_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
