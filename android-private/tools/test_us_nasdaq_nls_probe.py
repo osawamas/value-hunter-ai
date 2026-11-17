@@ -1,8 +1,9 @@
+from decimal import Decimal
 from io import BytesIO
 from struct import pack
 import unittest
 
-from us_nasdaq_nls_probe import inspect_capture, inspect_tape_c
+from us_nasdaq_nls_probe import compare_price_sets, inspect_capture, inspect_tape_c
 
 
 def trade(ticker, price, modifier=b"M", *, origin=b"Q", listing=b"Q"):
@@ -61,3 +62,17 @@ class NasdaqNlsProbeTest(unittest.TestCase):
         self.assertEqual({"AAPL": {1230123}}, official)
         with self.assertRaisesRegex(ValueError, "start and end"):
             inspect_tape_c(BytesIO(framed[:-12]))
+
+
+    def test_full_dolt_comparison_reports_exception_tickers_without_price_values(self):
+        reference = {symbol: Decimal("10.00") for symbol in ("EXACT", "CENT", "DIFF", "NULL", "ABSENT")}
+        prices = {"EXACT": 10.0, "CENT": 10.01, "DIFF": 10.02}
+        result = compare_price_sets(reference, prices, prices.keys() | {"NULL"})
+        self.assertEqual(1, result["exact_matches"])
+        self.assertEqual(2, result["within_one_cent"])
+        self.assertEqual(2, result["missing_dolt"])
+        self.assertEqual({
+            "no_dolt_row": ["ABSENT"],
+            "dolt_row_without_usable_close": ["NULL"],
+            "differ_over_one_cent": ["DIFF"],
+        }, result["exceptions"])

@@ -358,3 +358,7 @@ Nasdaq上場銘柄に対するNOCP通知と取引所横断の集計終値を個�
 ```sh
 python3 tools/us_nasdaq_nls_probe.py --tape-c 06142021_nlsplus_tape_c.gz --dolt-dir stocks
 ```
+
+Tape C照合の `exceptions` には、Doltに当日の行がない銘柄、行はあるが有効な終値がない銘柄、
+照合した価格に1セント超の差がある銘柄を出す。完全一致数は `exact_matches`、
+完全一致を含む1セント以内の件数は `within_one_cent`。公開サンプルの上場銘柄にはETFなども含まれる。

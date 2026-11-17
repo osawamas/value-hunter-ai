@@ -150,13 +150,21 @@ def record_price(target, raw_symbol, raw_value):
         target[symbol].add(value)
 
 
-def compare_price_sets(reference, prices):
+def compare_price_sets(reference, prices, seen):
     matched = reference.keys() & prices.keys()
-    within = sum(abs(reference[symbol] - Decimal(str(prices[symbol]))) <= Decimal("0.01")
-                 for symbol in matched)
+    differences = {symbol: abs(reference[symbol] - Decimal(str(prices[symbol]))) for symbol in matched}
+    over_cent = sorted(symbol for symbol, difference in differences.items() if difference > Decimal("0.01"))
     return {
-        "matched": len(matched), "within_one_cent": within,
-        "differ_over_one_cent": len(matched) - within, "missing_dolt": len(reference) - len(matched),
+        "matched": len(matched),
+        "exact_matches": sum(difference == 0 for difference in differences.values()),
+        "within_one_cent": len(matched) - len(over_cent),
+        "differ_over_one_cent": len(over_cent),
+        "missing_dolt": len(reference) - len(matched),
+        "exceptions": {
+            "no_dolt_row": sorted(reference.keys() - seen),
+            "dolt_row_without_usable_close": sorted((reference.keys() & seen) - matched),
+            "differ_over_one_cent": over_cent,
+        },
     }
 
 
@@ -170,7 +178,7 @@ def inspect_archive(path, dolt_directory=None):
     result = {"trade_date_from_filename": day.isoformat()}
     prices = None
     if dolt_directory is not None and (summaries or official):
-        _, prices = validated_closes(day, dolt_rows(dolt_directory, day))
+        seen, prices = validated_closes(day, dolt_rows(dolt_directory, day))
     for label, records in (("consolidated_close", summaries), ("nocp_trade_reports", official)):
         reference = {symbol: Decimal(next(iter(values))).scaleb(-4)
                      for symbol, values in records.items() if len(values) == 1}
@@ -179,7 +187,7 @@ def inspect_archive(path, dolt_directory=None):
             "conflicting_symbols": sorted(symbol for symbol, values in records.items() if len(values) > 1),
         }
         if prices is not None:
-            result[label]["dolt_comparison"] = compare_price_sets(reference, prices)
+            result[label]["dolt_comparison"] = compare_price_sets(reference, prices, seen)
     return result
 
 
