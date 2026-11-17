@@ -2,6 +2,14 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 01:49 JST — 終値欠落109銘柄の直前2取引日を照合
+
+- 開始時mainは [8d41f73](https://github.com/osawamas/value-hunter-ai/commit/8d41f73141d72b484201fac5ecd826617f08733c)。[変更コミット](https://github.com/osawamas/value-hunter-ai/commit/06d679ae7e9c43c2426e59f6e1ad50b39e9fcdf7) で、NYSE・Nasdaqそれぞれの欠落を過去の最終確認日ごとに集計する `--history-date` を追加。以前の終値は対象日に流用しない。
+- 11月17日11:01作成のNasdaq Trader上場一覧を基準とし、11月16日にMarketParquetで拾えなかった普通株候補117銘柄をDolt公開DBで11月16日・13日・12日について照会。通常の検証ツールは同期済みローカルDoltから読む。
+- NYSEは1,896銘柄中、両ソースに終値なし21。そのうち直前に確認できた日が11月13日の銘柄11、11月12日のみ4、両日ともなし6。Nasdaqは3,191銘柄中88で、同じ順に40、15、33。70銘柄に過去値あり、39銘柄は確認した3日すべてで欠落。売買停止や新規上場などの個別理由は未確認。
+- ローカルテスト52件と [米国株テストActions](https://github.com/osawamas/value-hunter-ai/actions/runs/44129863243) 成功。[Androidビルド](https://github.com/osawamas/value-hunter-ai/actions/runs/44129863138) は記録時点で実行中。コードと集計結果を記録し、価格原データの公開はしていない。
+- 次回は39銘柄から上場開始日や公式の売買停止記録を確認し、終値が欠けた理由を追う。当日の終値取得率はNYSE 1,875/1,896、Nasdaq 3,103/3,191。全銘柄の正規終値や取引日時点の株数、Android端末での日次取得は未検証。
+
 ## 2026-11-18 01:30 JST — DoltとMarketParquetの終値を比較
 
 - 開始時main: [de8c4a7](https://github.com/osawamas/value-hunter-ai/commit/de8c4a775ad11622b0924797e8a9c6c0478f8643)。比較機能のコードは [24c16cf](https://github.com/osawamas/value-hunter-ai/commit/24c16cfc98910ca940c9e746259a24678456086f)。
