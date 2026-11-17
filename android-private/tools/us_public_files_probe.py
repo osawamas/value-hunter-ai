@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 import csv
 from datetime import date, datetime
 import json
-from io import BytesIO
+from io import BytesIO, StringIO
 from math import isfinite
 from pathlib import Path
 import re
@@ -227,7 +227,7 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None,
     return result
 
 
-def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None):
+def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted"):
     seen = set()
     closes = set()
     for row in bars:
@@ -253,7 +253,7 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
         return {"listed": len(symbols), "with_close": matched, "without_close": len(symbols) - matched,
                 "percent": round(100 * matched / len(symbols), 2)}
 
-    result = {"trading_date": day.isoformat(), "sample_price_basis": "split-adjusted",
+    result = {"trading_date": day.isoformat(), "sample_price_basis": price_basis,
             "price_rows": len(seen), "valid_close_rows": len(closes),
             "unmatched_price_tickers": len(closes - listings.keys()),
             "groups": {key: counts(value) for key, value in groups.items()},
@@ -289,13 +289,46 @@ def parquet_rows(content):
     return file.read(columns=["date", "symbol", "asset_type", "close"]).to_pylist()
 
 
+def dolt_rows(directory, day):
+    if not (directory / ".dolt").is_dir():
+        raise ValueError("--dolt-dir must point to a local Dolt clone")
+    query = ("SELECT act_symbol AS symbol, date AS trading_date, close "
+             f"FROM ohlcv WHERE date = '{day.isoformat()}' ORDER BY act_symbol")
+    try:
+        result = subprocess.run(["dolt", "sql", "-r", "csv", "-q", query], cwd=directory,
+                                capture_output=True, timeout=45, check=False)
+    except FileNotFoundError:
+        raise ValueError("Install Dolt to read the local price database") from None
+    except subprocess.TimeoutExpired:
+        raise ValueError("The local Dolt daily query did not finish") from None
+    if result.returncode or not 0 < len(result.stdout) <= MAX_BYTES:
+        raise ValueError("The local Dolt market query failed")
+    return read_dolt_csv(result.stdout)
+
+
+def read_dolt_csv(content):
+    reader = csv.DictReader(StringIO(content.decode("utf-8")))
+    if reader.fieldnames != ["symbol", "trading_date", "close"]:
+        raise ValueError("Unexpected Dolt daily market columns")
+    rows = []
+    for row in reader:
+        if len(rows) >= 50_000 or None in row or None in row.values():
+            raise ValueError("Unexpected row count or format in Dolt daily market data")
+        close = float(row["close"]) if row["close"] not in ("", "NULL") else None
+        rows.append({"symbol": row["symbol"], "date": date.fromisoformat(row["trading_date"]),
+                     "close": close, "asset_type": "Stock"})
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trading_day", nargs="?", type=date.fromisoformat,
                         help="Date of an evaluation sample; omit to check only the listing files")
     parser.add_argument("--directory-cache", type=Path,
                         help="Replay both original Nasdaq files from this directory")
-    parser.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
+    prices = parser.add_mutually_exclusive_group()
+    prices.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
+    prices.add_argument("--dolt-dir", type=Path, help="Read closes from a local post-no-preference/stocks clone")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
     dow = parser.add_mutually_exclusive_group()
@@ -335,7 +368,7 @@ def main():
         parser.error("--sec-quarter expects YYYYqN")
     if len(check_statements) > 8 or len(check_statements) != len(set(check_statements)):
         parser.error("Use up to eight distinct statement archives")
-    if (args.sample_file or args.with_sec or args.sec_file or check_statements
+    if (args.sample_file or args.dolt_dir or args.with_sec or args.sec_file or check_statements
             or args.dow or args.dow_file or check_notes) and not args.trading_day:
         parser.error("The sample, SEC and Dow options require a trading date")
     if args.trading_day and args.trading_day >= datetime.now(ZoneInfo("America/New_York")).date():
@@ -355,8 +388,14 @@ def main():
             raise ValueError("Directory files are from different calendar dates")
         result = {"directory_observed_at": observed, "non_etf_non_test_listings": len(listings)}
         if args.trading_day:
-            sample = (args.sample_file.read_bytes() if args.sample_file
-                      else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
+            if args.dolt_dir:
+                bars = dolt_rows(args.dolt_dir.resolve(), args.trading_day)
+                price_basis = "Dolt reported close (basis under evaluation)"
+            else:
+                sample = (args.sample_file.read_bytes() if args.sample_file
+                          else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
+                bars = parquet_rows(sample)
+                price_basis = "split-adjusted"
             sec = None
             if args.with_sec or args.sec_file or check_statements or check_notes:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
@@ -382,8 +421,8 @@ def main():
                         destination = Path(directory) / f"{year}q{part}-master.idx"
                         fetch(f"{SEC_INDEX}{year}/QTR{part}/master.idx", destination)
                         index_paths[year, part] = destination
-                result.update(coverage(args.trading_day, listings, parquet_rows(sample),
-                                       sec, statement_files, holdings, notes_files, index_paths))
+                result.update(coverage(args.trading_day, listings, bars,
+                                       sec, statement_files, holdings, notes_files, index_paths, price_basis))
             if notes_files:
                 result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:

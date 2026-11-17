@@ -205,3 +205,19 @@ Berkshire Hathawayは2026-10-28時点のA株480,476株とB株1,403,805,594株、
 Southern Companyは2026-09-30時点の親会社1,164,261,029株を原本で確認した。
 株式クラス単独の株数を企業全体の時価総額には使用しない。
 開示された基準日以降の発行、買戻し、分割と、取引日の未調整終値は別途照合が必要。
+
+### 公開Doltデータベースの日次終値を検証する
+
+公開の [post-no-preference/stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)
+をDoltで同期したローカルDBから、指定取引日の終値を読める。アプリ用のAPI登録やCSV手入力は不要。
+料金や銘柄数の条件を判断するための検証機能で、取得した価格は正式な割安判定に渡さない。
+
+```sh
+dolt clone --depth 1 post-no-preference/stocks stocks
+python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks
+```
+
+公開DBの照会では11月16日分が12,639行。Nasdaq Traderの同じ観測日の普通株候補と比較すると、
+正の終値があったのはNYSE本市場で1,875 / 1,896（98.89%）、Nasdaqで3,102 / 3,190（97.24%）。
+AppleとNVIDIAの過去の分割前後の終値には分割調整前の価格水準が残っていた。
+この2例の確認で全銘柄の価格基準や正規取引時間の終値との一致を保証するものではない。

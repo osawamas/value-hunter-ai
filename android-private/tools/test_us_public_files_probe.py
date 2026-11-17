@@ -2,7 +2,7 @@ from datetime import date, datetime
 import json
 import unittest
 
-from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_sec_directory
+from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -128,6 +128,17 @@ class PublicFilesTest(unittest.TestCase):
         sec = self.sec_rows([[1, "Issuer A", "A", "NYSE"], [1, "Issuer A", "A.N", "NYSE"],
                              [2, "Issuer B", "B", "Nasdaq"], [2, "Issuer B", "BB", "OTC"]])
         self.assertEqual({2}, issuers_requiring_class_review(listings, sec))
+
+    def test_dolt_csv_reuses_the_existing_date_and_coverage_checks(self):
+        rows = read_dolt_csv(b"symbol,trading_date,close\nAAPL,2026-11-16,352.78\n")
+        result = coverage(DAY, {"AAPL": ("Nasdaq", "common_or_ordinary_label")}, rows,
+                          price_basis="Dolt reported close (basis under evaluation)")
+        self.assertEqual(1, result["common_or_ordinary_label_by_exchange"]["Nasdaq"]["with_close"])
+        self.assertIn("under evaluation", result["sample_price_basis"])
+        with self.assertRaises(ValueError):
+            read_dolt_csv(b"symbol,wrong,close\nAAPL,2026-11-16,352.78\n")
+        with self.assertRaises(ValueError):
+            coverage(date(2026, 11, 13), {"AAPL": ("Nasdaq", "common_or_ordinary_label")}, rows)
 
     @staticmethod
     def sec_rows(rows):
