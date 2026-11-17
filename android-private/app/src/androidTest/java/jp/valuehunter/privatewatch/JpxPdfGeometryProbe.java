@@ -299,7 +299,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         String revision = "2026-11-17T00:00:00Z";
         String saved = comparison.processedKey(revision);
         JpxDailyCheck.EditionLoader same = date -> {
-            if (date.equals(monday.plusDays(1))) return new JpxDailyCheck.Edition(false, "");
+            if (date.isAfter(monday)) return new JpxDailyCheck.Edition(false, "");
             if (date.equals(monday)) return new JpxDailyCheck.Edition(true, "version:monday");
             if (date.equals(friday)) return new JpxDailyCheck.Edition(true, "version:friday");
             throw new AssertionError("Unexpected JPX header date " + date);
