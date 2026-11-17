@@ -1,5 +1,18 @@
 # VALUE HUNTER AI シンガポール株の開発ログ
 
+## 2026-11-18 06:59 JST — 公開HTMLから銘柄コードとISINを一括取得
+
+- [GetResearchのSGX一覧](https://getresearch.ai/sg)（表示基準日2026-11-13）を1回のHTML取得で読み取る調査ツールを追加。ログイン・データAPI・CSV入力は不要。銘柄行の欠落やコードの重複を検出するため、取引区分ごとの件数をページ内の集計と照合し、ISINのチェックディジットを検証する。
+- 実データは624行、Mainboard 426、Catalist 198。すべて別の銘柄コード・ISINだった。[AstakaのSGXNet掲載開示](https://links.sgx.com/FileOpen/Astaka%20-%20Announcement%20on%20Share%20Consolidation%20Completion.ashx?App=Announcement&FileID=904486)に従い、2026-09-17付で廃止された旧コード42Sと旧ISINの組み合わせを除外。新コード9SYは残した。除外後の候補は623件（Mainboard 426・Catalist 197）。
+- 既存のSGX公式売買単位資料の11コードはすべて候補にあった。旧API候補182コードとの一致は155、新HTML側だけ468、旧候補側だけ27。コード集合の比較で、旧候補側だけの27件は上場状態やコード変更を未検証。S63・S68は一覧に含まれていた。
+- [SGX公式月報PDF](https://links.sgx.com/FileOpen/SGX%20Monthly%20Statistics%20Report%20Update_Oct%202026.ashx?App=Announcement&FileID=911153)を直接取得して確認。10月末はMainboard 408、Catalist 197、計605上場証券。候補一覧とは対象日と範囲が異なり、全銘柄取得率や不足数は算出できない。公式企業情報ページも直接取得したが、企業表がHTMLに含まれていなかった。
+- Pythonテスト86件成功（今回追加4件）。生HTML・銘柄一覧全件・株価原本はコミットに含めていない。Androidへの投入前に、公式開示で旧コード・上場廃止・銘柄種別を照合する。今回は株価取得とランキング候補の追加なし。
+
+```sh
+python3 android-private/tools/sgx_public_directory.py
+python3 android-private/tools/sgx_public_directory.py --include-records
+```
+
 ## 2026-11-18 06:54 JST — 発行会社ページからの日付付き終値を検証
 
 - 目的はMainboardとCatalist上場銘柄の個人用Android監視。無料・データAPIなし・手動CSV登録なしの経路を調べた。
