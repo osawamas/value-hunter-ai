@@ -12,14 +12,16 @@ from us_daily_coverage import run_cycle
 class DailyCoverageTest(unittest.TestCase):
     @patch("us_daily_coverage.sync")
     @patch("us_daily_coverage.dolt_rows")
-    def test_checks_pending_days_independently_and_keeps_missing_prices_pending(self, prices, sync):
+    def test_rechecks_saved_reports_and_retains_them_when_dolt_has_no_data(self, prices, sync):
         eastern = ZoneInfo("America/New_York")
         now = datetime(2026, 11, 17, 12, 45, tzinfo=eastern)
         calendar = Mock()
         calendar.is_session.return_value = True
         calendar.sessions_in_range.return_value = [datetime(2026, 11, 13), datetime(2026, 11, 16)]
         day = date(2026, 11, 16)
-        prices.side_effect = [[], [{"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}]]
+        aapl = {"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}
+        bio = dict(aapl, symbol="BIO.B")
+        prices.side_effect = [[], [aapl], [], [aapl, bio], [], []]
         sync.return_value = "cached_after_rate_limit"
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -40,13 +42,23 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual(["no_dolt_closes_for_session", "compared"],
                              [row["status"] for row in result["sessions"]])
             self.assertFalse((root / "2026-11-13/dolt-coverage.json").exists())
-            report = json.loads((root / "2026-11-16/dolt-coverage.json").read_text())
+            report_path = root / "2026-11-16/dolt-coverage.json"
+            report = json.loads(report_path.read_text())
             self.assertEqual("same_day_directory_unverified", report["listing_snapshot_assessment"]["status"])
             self.assertEqual("cached_after_rate_limit", report["dolt_sync"])
             self.assertNotIn("AAPL", json.dumps(report))
+            self.assertEqual("observed_unverified", report["coverage_status"])
+            again = run_cycle(root, root / "stocks", now, calendar)
+            self.assertEqual("refreshed", again["sessions"][1]["status"])
+            counts = again["sessions"][1]["common_or_ordinary_label_by_exchange"]
+            self.assertEqual(1, counts["NYSE"]["with_close"])
+            last_report = report_path.read_bytes()
+            empty = run_cycle(root, root / "stocks", now, calendar)
+            self.assertTrue(empty["sessions"][1]["previous_report_retained"])
+            self.assertEqual(last_report, report_path.read_bytes())
             self.assertEqual("outside_capture_window",
                              run_cycle(root, root / "stocks", now.replace(hour=13), calendar)["status"])
-            sync.assert_called_once()
+            self.assertEqual(3, sync.call_count)
 
 
 if __name__ == "__main__":

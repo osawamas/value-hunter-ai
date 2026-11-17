@@ -1,4 +1,4 @@
-"""Capture the midday US listing pair and check the prior session's saved pair."""
+"""Capture the midday US listing pair and recheck recent saved US listing pairs."""
 import argparse
 from datetime import datetime, time, timedelta
 import json
@@ -37,45 +37,55 @@ def run_cycle(archive, prices, now, calendar):
         result["capture"] = save_listing_snapshot(archive, today, originals)
 
     start, end = today - timedelta(days=7), today - timedelta(days=1)
-    pending = []
+    snapshots = []
     for session in calendar.sessions_in_range(start.isoformat(), end.isoformat()):
         day = session.date()
         snapshot = archive / day.isoformat()
-        if snapshot.is_dir() and not (snapshot / "dolt-coverage.json").is_file():
-            pending.append((day, snapshot))
-    if not pending:
-        return dict(result, status="no_pending_snapshots")
+        if snapshot.is_dir():
+            snapshots.append((day, snapshot))
+    if not snapshots:
+        return dict(result, status="no_recent_snapshots")
 
     sync_state = sync(prices)
     result["dolt_sync"] = sync_state
     if sync_state not in ("updated", "cloned", "cached_after_timeout", "cached_after_rate_limit"):
         return dict(result, status="dolt_unavailable")
     sessions = []
-    for day, snapshot in pending:
+    for day, snapshot in snapshots:
         try:
-            outcome = compare_session(day, snapshot, prices, sync_state)
+            outcome = compare_session(day, snapshot, prices, sync_state, eastern_now)
         except (OSError, ValueError, KeyError) as error:
             outcome = {"status": "comparison_failed", "error": str(error)}
         sessions.append(dict(outcome, trading_date=day.isoformat()))
-    return dict(result, status="checked_pending_snapshots", sessions=sessions)
+    return dict(result, status="checked_recent_snapshots", sessions=sessions)
 
 
-def compare_session(prior, snapshot, prices, sync_state):
+def compare_session(prior, snapshot, prices, sync_state, checked_at):
     report_path = snapshot / "dolt-coverage.json"
+    replaces_report = report_path.is_file()
     observed, listings, _ = load_listing_directories(snapshot)
     require_listing_date(prior, observed)
     prices_on_day = dolt_rows(prices, prior)
     if not any(row["close"] is not None for row in prices_on_day):
-        return {"status": "no_dolt_closes_for_session"}
+        return {"status": "no_dolt_closes_for_session", "previous_report_retained": replaces_report}
     report = coverage(prior, listings, prices_on_day, price_basis="Dolt reported close (basis under evaluation)")
     report["directory_observed_at"] = observed
     report["listing_snapshot_assessment"] = listing_snapshot_assessment(prior, observed)
     report["dolt_sync"] = sync_state
+    report["coverage_status"] = "observed_unverified"
+    report["checked_at"] = checked_at.isoformat()
     with TemporaryDirectory(prefix=".coverage-", dir=snapshot) as directory:
         draft = Path(directory) / report_path.name
         draft.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         draft.replace(report_path)
-    return {"status": "compared", "report": str(report_path)}
+    by_exchange = report["common_or_ordinary_label_by_exchange"]
+    return {
+        "status": "refreshed" if replaces_report else "compared",
+        "report": str(report_path),
+        "common_or_ordinary_label_by_exchange": {
+            venue: by_exchange[venue] for venue in ("NYSE", "Nasdaq") if venue in by_exchange
+        },
+    }
 
 
 def main():
@@ -94,7 +104,7 @@ def main():
         parser.exit(1, f"US daily coverage: {error}\n")
     print(json.dumps(result))
     if result["status"] == "dolt_unavailable" or any(
-        day["status"] != "compared" for day in result.get("sessions", ())
+        day["status"] not in ("compared", "refreshed") for day in result.get("sessions", ())
     ):
         raise SystemExit(1)
 
