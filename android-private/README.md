@@ -69,3 +69,25 @@ python3 tools/us_massive_probe.py 2026-11-13
 ```
 
 株式分割未調整の終値を、同日付の米国普通株リストと照合する。取得した行数、普通株の母数、終値を照合できた数、終値のない数を集計する。ETFなども入り得る日次データの行数と、普通株の件数は別に扱う。価格・銘柄別データ・キーは出力しない。認証済みの実データでの網羅率は未検証。アプリ本体の米国株接続としては上記のIBM接続試験が引き続き使える。
+
+### 無料・APIキーなしの公開ファイル検証
+
+`python3 tools/us_public_files_probe.py` は、Nasdaq Traderの公式ディレクトリ
+[nasdaqlisted.txt](https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt) と
+[otherlisted.txt](https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt)
+を `curl` で取得し、作成時刻を確認してETF・テスト銘柄などを除いた件数を集計する。
+
+対象日を追加すると、登録不要の [MarketParquetの評価用ファイル](https://marketparquet.com/guides/free-historical-stock-data)
+1件と完全一致のティッカーで照合する。`pyarrow` が必要。価格や銘柄一覧を出力せず、件数と照合率だけを表示する。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16
+```
+
+2026-11-13と11-16の日次サンプルを、11-17 06:00作成の銘柄一覧と照合した。
+名称に普通株または普通持分の表記があり、他種類の表記のない5,341銘柄のうち、
+11-13は5,181銘柄（97.00%）、11-16は5,217銘柄（97.68%）で価格が一致した。名称未分類と価格なしは別に集計する。
+銘柄一覧は現在の掲載内容のため、日次サンプルと同日基準の網羅率ではない。
+
+無料サンプルは評価用途で、価格は株式分割調整済み。端末で継続取得する運用、未調整終値、
+同じ基準の株数との照合、正式なPER・PBR・通知への接続は引き続き検証が必要。

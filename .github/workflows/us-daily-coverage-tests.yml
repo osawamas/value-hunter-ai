@@ -3,10 +3,12 @@ on:
   push:
     paths:
       - 'android-private/tools/*us_massive_probe.py'
+      - 'android-private/tools/*us_public_files_probe.py'
       - '.github/workflows/us-daily-coverage-tests.yml'
   pull_request:
     paths:
       - 'android-private/tools/*us_massive_probe.py'
+      - 'android-private/tools/*us_public_files_probe.py'
       - '.github/workflows/us-daily-coverage-tests.yml'
 permissions:
   contents: read
@@ -16,6 +18,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Test the coverage probe using representative mock responses
+      - name: Test both coverage probes using representative fixtures
         working-directory: android-private/tools
-        run: python3 -m unittest -v test_us_massive_probe
+        run: python3 -m unittest -v test_us_massive_probe test_us_public_files_probe
