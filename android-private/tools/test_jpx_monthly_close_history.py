@@ -16,6 +16,15 @@ class MonthlyHistoryTest(unittest.TestCase):
         self.assertEqual(read_month(HEADER + ROW + ROW.replace("4,560.00", "2,280.00"), month, ["1301"]),
                          ({}, ["1301"]))
 
+    def test_disjoint_segments_use_only_the_last_session(self):
+        month = date(2026, 10, 1)
+        first = ROW.replace("4,560.00 30", "4,560.00 26")
+        second = ROW.replace("4,620.00 1", "462.00 27").replace("4,560.00 30", "456.00 30")
+        expected = ({"1301": {"session": "2026-10-30", "close": "456.00"}}, [])
+        self.assertEqual(read_month(HEADER + second + first, month, ["1301"]), expected)
+        self.assertEqual(read_month(HEADER + first + second.replace("462.00 27", "462.00 26"),
+                                    month, ["1301"]), ({}, ["1301"]))
+
     def test_five_year_window_and_archive_option(self):
         months = list(months_ending(date(2026, 10, 1), 60))
         self.assertEqual((len(months), months[-1]), (60, date(2021, 11, 1)))

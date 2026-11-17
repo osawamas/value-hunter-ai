@@ -20,7 +20,7 @@ NUMBER = r"(?:[0-9][0-9,]*(?:\.[0-9]+)?|-)"
 DAY = r"(?:[0-9]{1,2}|-)"
 PRICE_ROW = re.compile(
     rf"^\s*(?P<month>\d{{4}}/\d{{2}})\s+(?P<code>[0-9][0-9A-Z]{{3}})"
-    rf"\s+.+?\s+普通株式\s+{NUMBER}\s+{DAY}\s+{NUMBER}\s+{DAY}\s+{NUMBER}\s+{DAY}"
+    rf"\s+.+?\s+普通株式\s+{NUMBER}\s+(?P<first_day>{DAY})\s+{NUMBER}\s+{DAY}\s+{NUMBER}\s+{DAY}"
     rf"\s+(?P<close>{NUMBER})\s+(?P<day>{DAY})\s+{NUMBER}\s*$"
 )
 
@@ -79,7 +79,7 @@ def months_ending(end_month, count):
 def read_month(layout, month, codes):
     prefix = month.strftime("%Y/%m")
     requested = set(codes)
-    points = {}
+    segments = {}
     ambiguous = set()
     if not re.search(rf"(?m)^\s*{prefix}\s+[0-9][0-9A-Z]{{3}}\s", layout):
         raise ValueError("JPX PDF has no rows for the requested month")
@@ -92,16 +92,29 @@ def read_month(layout, month, codes):
             if not match or match["month"] != prefix or match["code"] not in requested:
                 continue
             code = match["code"]
-            if match["close"] == "-" or match["day"] == "-":
+            if "-" in (match["close"], match["first_day"], match["day"]):
                 continue
             close = Decimal(match["close"].replace(",", ""))
             if close <= 0:
                 continue
-            point = {"session": month.replace(day=int(match["day"])).isoformat(), "close": str(close)}
-            if code in points and points[code] != point:
+            start = month.replace(day=int(match["first_day"]))
+            end = month.replace(day=int(match["day"]))
+            if start > end:
                 ambiguous.add(code)
-            points[code] = point
-    return {code: point for code, point in points.items() if code not in ambiguous}, sorted(ambiguous)
+                continue
+            segments.setdefault(code, set()).add((start, end, close))
+
+    points = {}
+    for code, rows in segments.items():
+        ordered = sorted(rows)
+        # A split month can have separate pre- and post-split rows.
+        # Use the last segment's close only when their sessions do not overlap.
+        if any(left[1] >= right[0] for left, right in zip(ordered, ordered[1:])):
+            ambiguous.add(code)
+        if code not in ambiguous:
+            _, session, close = ordered[-1]
+            points[code] = {"session": session.isoformat(), "close": str(close)}
+    return points, sorted(ambiguous)
 
 
 def report_sources(wanted):
