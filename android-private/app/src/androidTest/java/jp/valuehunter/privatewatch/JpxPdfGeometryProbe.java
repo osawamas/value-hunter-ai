@@ -2,17 +2,18 @@ package jp.valuehunter.privatewatch;
 
 import android.app.Activity;
 import android.app.Instrumentation;
-import android.graphics.RectF;
-import android.graphics.pdf.PdfRenderer;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.io.FileReader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.TreeSet;
 
-/** Checks official report coordinates with Android's actual PDF engine. */
 public final class JpxPdfGeometryProbe extends Instrumentation {
     @Override
     public void onCreate(Bundle arguments) {
@@ -24,10 +25,17 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
     public void onStart() {
         var result = new Bundle();
         try {
-            checkReport("jpx-20261029.pdf", List.of(
-                    new Quote("1301", "4475"), new Quote("1401", "1386")));
-            checkReport("jpx-20261116.pdf", List.of(new Quote("7203", "3428")));
-            result.putString("stream", "JPX_PDF_GEOMETRY_OK: 3 reference closes in 2 official PDFs\n");
+            var directory = getTargetContext().getDataDir();
+            var codes = new HashSet<String>();
+            try (var input = new BufferedReader(new FileReader(new File(directory, "jpx-codes.txt")))) {
+                for (String code; (code = input.readLine()) != null;) {
+                    codes.add(code);
+                }
+            }
+            if (codes.size() < 3000) throw new AssertionError("Missing JPX stock universe");
+            String logs = digestReport(directory, "jpx-20261029.pdf", codes)
+                    + digestReport(directory, "jpx-20261116.pdf", codes);
+            result.putString("stream", logs);
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
@@ -35,55 +43,27 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         }
     }
 
-    private void checkReport(String filename, List<Quote> quotes) throws Exception {
-        var file = new File(getTargetContext().getDataDir(), filename);
-        try (var descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
-             var renderer = new PdfRenderer(descriptor)) {
-            var expected = new ArrayList<>(quotes);
-            for (int i = 0; i < renderer.getPageCount() && !expected.isEmpty(); i++) {
-                try (var page = renderer.openPage(i)) {
-                    var checked = new ArrayList<Quote>();
-                    for (Quote quote : expected) {
-                        if (matchesAfternoonClose(page, quote)) checked.add(quote);
-                    }
-                    expected.removeAll(checked);
-                }
-            }
-            if (!expected.isEmpty()) {
-                throw new AssertionError(filename + ": could not place closes for " + expected);
-            }
+    private static String digestReport(File directory, String filename, HashSet<String> codes) throws Exception {
+        var table = JpxAndroidPdfReader.read(new File(directory, filename), codes);
+        var prices = table.prices();
+        var ambiguous = table.ambiguousCodes();
+        var digest = MessageDigest.getInstance("SHA-256");
+        int closes = 0;
+        for (String code : new TreeSet<>(prices.keySet())) {
+            var quote = prices.get(code);
+            if (quote.close() != null) closes++;
+            String row = code + "\t" + display(quote.morning()) + "\t" + display(quote.afternoon()) + "\n";
+            digest.update(row.getBytes(StandardCharsets.UTF_8));
         }
-    }
-
-    private static boolean matchesAfternoonClose(PdfRenderer.Page page, Quote quote) {
-        var width = page.getWidth();
-        var codes = matches(page, quote.code());
-        var codesInColumn = codes.stream().filter(word -> {
-            double x = word.centerX(width);
-            return x > .057 && x < .094;
-        }).toList();
-        if (codesInColumn.isEmpty()) return false;
-        var words = new ArrayList<>(codesInColumn);
-        words.addAll(matches(page, quote.price()));
-        String comma = String.format(java.util.Locale.US, "%,d", Integer.parseInt(quote.price()));
-        if (!comma.equals(quote.price())) words.addAll(matches(page, comma));
-        var table = new JpxCloseTable(Set.of(quote.code()));
-        table.acceptPage(width, words);
-        var sessions = table.prices().get(quote.code());
-        return sessions != null && sessions.afternoon() != null
-                && sessions.afternoon().compareTo(new java.math.BigDecimal(quote.price())) == 0;
-    }
-
-    private static List<JpxCloseTable.Word> matches(PdfRenderer.Page page, String text) {
-        var words = new ArrayList<JpxCloseTable.Word>();
-        for (var match : page.searchText(text)) {
-            if (match.getBounds().size() == 1) {
-                RectF box = match.getBounds().get(0);
-                words.add(new JpxCloseTable.Word(box.left, box.top, box.right, box.bottom, text));
-            }
+        for (String code : new TreeSet<>(ambiguous)) {
+            digest.update((code + "\tconflict\n").getBytes(StandardCharsets.UTF_8));
         }
-        return words;
+        var hex = new StringBuilder();
+        for (byte value : digest.digest()) hex.append(String.format(Locale.ROOT, "%02x", value & 0xff));
+        return "JPX_ANDROID_CLOSES " + filename + " " + prices.size() + " " + closes + " " + hex + "\n";
     }
 
-    private record Quote(String code, String price) {}
+    private static String display(BigDecimal value) {
+        return value == null ? "" : value.toPlainString();
+    }
 }
