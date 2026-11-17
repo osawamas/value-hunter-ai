@@ -34,7 +34,9 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
             return 'cached_after_os_error' if existing else 'os_error'
         if result.returncode == 0:
             if not (destination / '.dolt').is_dir():
-                raise ValueError('Dolt command succeeded without a valid repository')
+                # A zero exit status alone does not establish a usable cache.
+                # Do not report a successful refresh or attempt another clone.
+                return 'invalid_repository_after_command'
             return 'updated' if existing else 'cloned'
         message = ((result.stderr or '') + '\n' + (result.stdout or '')).lower()
         rate_limited = bool(RATE_LIMIT.search(message))
@@ -51,7 +53,7 @@ def main():
     args = parser.parse_args()
     result = sync(args.destination)
     print(result)
-    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error'):
+    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error', 'invalid_repository_after_command'):
         raise SystemExit(1)
 
 
