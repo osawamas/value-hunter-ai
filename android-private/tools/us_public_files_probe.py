@@ -4,6 +4,7 @@ import argparse
 from collections import Counter, defaultdict
 import csv
 from datetime import date, datetime
+from decimal import Decimal
 import json
 from io import BytesIO, StringIO
 from math import isfinite
@@ -227,9 +228,9 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None,
     return result
 
 
-def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted"):
+def validated_closes(day, bars):
     seen = set()
-    closes = set()
+    closes = {}
     for row in bars:
         ticker, close = row["symbol"], row["close"]
         if row["date"] != day or row["asset_type"] != "Stock":
@@ -238,7 +239,42 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
             raise ValueError("Invalid or duplicate ticker in price file")
         seen.add(ticker)
         if type(close) in (int, float) and isfinite(close) and close > 0:
-            closes.add(ticker)
+            closes[ticker] = close
+    return seen, closes
+
+
+def compare_closes(day, primary, reference_bars, focus):
+    _, reference = validated_closes(day, reference_bars)
+    if not reference:
+        raise ValueError("No valid closes in the comparison sample")
+    common = primary.keys() & reference.keys()
+    one_cent = Decimal("0.01")
+    within = {ticker for ticker in common
+              if abs(Decimal(str(primary[ticker])) - Decimal(str(reference[ticker]))) <= one_cent}
+
+    result = {}
+    for name, symbols in focus.items():
+        primary_symbols = symbols & primary.keys()
+        reference_symbols = symbols & reference.keys()
+        union = primary_symbols | reference_symbols
+        both = primary_symbols & reference_symbols
+        agrees = len(within & symbols)
+        result[name] = {
+            "listed": len(symbols),
+            "only_dolt": len(primary_symbols - reference_symbols),
+            "only_marketparquet": len(reference_symbols - primary_symbols),
+            "neither": len(symbols - union),
+            "both_within_one_cent": agrees,
+            "both_differ_over_one_cent": len(both) - agrees,
+            "with_either": len(union),
+        }
+    return result
+
+
+def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None, price_basis="split-adjusted",
+             comparison_bars=None):
+    seen, prices = validated_closes(day, bars)
+    closes = prices.keys()
     if not closes or not (closes & listings.keys()):
         raise ValueError("No matching valid prices in the sample")
     groups = {"all_listed_excluding_etfs_and_tests": set(listings)}
@@ -272,6 +308,8 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
                 "with_close": len(listed & closes),
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
+    if comparison_bars is not None:
+        result["dolt_marketparquet_comparison"] = compare_closes(day, prices, comparison_bars, focus)
     if sec is not None:
         result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files, indexes)
     return result
@@ -338,6 +376,11 @@ def main():
     prices = parser.add_mutually_exclusive_group()
     prices.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
     prices.add_argument("--dolt-dir", type=Path, help="Read closes from a local post-no-preference/stocks clone")
+    comparisons = parser.add_mutually_exclusive_group()
+    comparisons.add_argument("--compare-marketparquet", action="store_true",
+                             help="Compare Dolt closes with the public split-adjusted sample")
+    comparisons.add_argument("--comparison-sample-file", type=Path,
+                             help="Compare Dolt closes with a saved original MarketParquet sample")
     parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
     parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
     dow = parser.add_mutually_exclusive_group()
@@ -355,6 +398,8 @@ def main():
     indexes.add_argument("--sec-index-file", action="append", default=[],
                          help="Replay an original EDGAR index as YYYYqN=FILE")
     args = parser.parse_args()
+    if (args.compare_marketparquet or args.comparison_sample_file) and not args.dolt_dir:
+        parser.error("Price comparison requires --dolt-dir")
     index_paths = {}
     for item in args.sec_index_file or args.sec_index_quarter:
         name, separator, filename = item.partition("=")
@@ -405,6 +450,11 @@ def main():
                           else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
                 bars = parquet_rows(sample)
                 price_basis = "split-adjusted"
+            comparison_bars = None
+            if args.compare_marketparquet or args.comparison_sample_file:
+                content = (args.comparison_sample_file.read_bytes() if args.comparison_sample_file
+                           else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
+                comparison_bars = parquet_rows(content)
             sec = None
             if args.with_sec or args.sec_file or check_statements or check_notes:
                 content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
@@ -431,7 +481,8 @@ def main():
                         fetch(f"{SEC_INDEX}{year}/QTR{part}/master.idx", destination)
                         index_paths[year, part] = destination
                 result.update(coverage(args.trading_day, listings, bars,
-                                       sec, statement_files, holdings, notes_files, index_paths, price_basis))
+                                       sec, statement_files, holdings, notes_files, index_paths, price_basis,
+                                       comparison_bars))
             if notes_files:
                 result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:

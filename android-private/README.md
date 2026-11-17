@@ -221,3 +221,13 @@ python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks
 正の終値があったのはNYSE本市場で1,875 / 1,896（98.89%）、Nasdaqで3,102 / 3,190（97.24%）。
 AppleとNVIDIAの過去の分割前後の終値には分割調整前の価格水準が残っていた。
 この2例の確認で全銘柄の価格基準や正規取引時間の終値との一致を保証するものではない。
+
+`--dolt-dir` に `--compare-marketparquet` を追加すると、同じ取引日に限り、取引所ごとに
+Doltのみ、MarketParquetのみ、両方で1セント以内、両方で1セント超、どちらにもない件数を出す。
+手元の原本を照合する場合は `--comparison-sample-file` も使える。
+差の原因には株式分割の調整法や終値の採用基準があり得る。比較結果から価格を補完したり、
+判定用の終値を自動で選んだりはしない。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --dolt-dir stocks --compare-marketparquet
+```

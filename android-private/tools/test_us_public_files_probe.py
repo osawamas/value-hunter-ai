@@ -151,6 +151,26 @@ class PublicFilesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_dolt_csv(b"symbol,trading_date,close\nAAPL,invalid,42\n")
 
+    def test_compares_two_sources_without_counting_reference_only_as_primary(self):
+        kind = "common_or_ordinary_label"
+        symbols = ("CENT", "DIFFERENT", "DOLT", "SAMPLE", "NEITHER")
+        listings = {symbol: ("NYSE", kind) for symbol in symbols}
+        dolt = [self.bar("CENT", 12.01), self.bar("DIFFERENT", 13.02), self.bar("DOLT", 14)]
+        reference = [self.bar("CENT", 12.0), self.bar("DIFFERENT", 13.0), self.bar("SAMPLE", 15)]
+        result = coverage(DAY, listings, dolt, comparison_bars=reference)
+        self.assertEqual({
+            "listed": 5, "only_dolt": 1, "only_marketparquet": 1, "neither": 1,
+            "both_within_one_cent": 1, "both_differ_over_one_cent": 1, "with_either": 4,
+        }, result["dolt_marketparquet_comparison"]["NYSE"])
+        self.assertEqual(3, result["common_or_ordinary_label_by_exchange"]["NYSE"]["with_close"])
+
+    def test_comparison_rejects_wrong_date_and_duplicate_symbol(self):
+        listings = {"AAA": ("Nasdaq", "common_or_ordinary_label")}
+        bar = self.bar("AAA", 12.0)
+        for reference in ([bar, bar], [dict(bar, date=date(2026, 11, 13))]):
+            with self.subTest(reference=reference), self.assertRaises(ValueError):
+                coverage(DAY, listings, [bar], comparison_bars=reference)
+
     @staticmethod
     def sec_rows(rows):
         return read_sec_directory(json.dumps({"fields": ["cik", "name", "ticker", "exchange"],
