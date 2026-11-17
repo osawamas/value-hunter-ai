@@ -322,10 +322,24 @@ final class JpxDailyCheck {
     static Report readReport(File pdf, LocalDate day) throws IOException {
         try {
             var table = JpxAndroidPdfReader.read(pdf, Set.copyOf(SAMPLE_CODES), day);
+            // A valid PDF header does not guarantee a usable equity table. A layout
+            // change or a partial CDN response must not advance the watch baseline.
+            if (!hasUsableSample(table.prices(), table.ambiguousCodes())) {
+                throw new IOException("東証日報から監視銘柄の有効な終値を取得できなかった");
+            }
             return new Report(day, reportUrl(day), table.prices(), table.ambiguousCodes());
         } catch (IllegalArgumentException | SecurityException error) {
             throw new IOException("東証日報のPDFを読み取れなかった", error);
         }
+    }
+
+    static boolean hasUsableSample(Map<String, JpxCloseTable.Sessions> quotes, Set<String> ambiguous) {
+        for (String code : SAMPLE_CODES) {
+            var sessions = quotes.get(code);
+            if (!ambiguous.contains(code) && sessions != null && sessions.close() != null
+                    && sessions.close().signum() > 0) return true;
+        }
+        return false;
     }
 
     static List<LocalDate> candidateDays(LocalDate today) {
