@@ -2,6 +2,14 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 03:15 JST — Dolt実行時のOS例外と空出力を安全に処理
+
+- 開始時main: [f9daf6b](https://github.com/osawamas/value-hunter-ai/commit/f9daf6bb324ddff925fd17eab4f557c56cf6371e)。直近の[米国株Actions](https://github.com/osawamas/value-hunter-ai/actions/runs/44145243001)は成功。既存の終値欠落追跡機能は変更せず、Dolt同期のプロセス起動失敗に限定して修正。
+- [同期コード](https://github.com/osawamas/value-hunter-ai/commit/73ca5a27ee17c51d8ce57958a4c5a5a2381ac41e): subprocessのstderr/stdoutがNoneでもエラー分類が停止しないようにし、PermissionErrorなどのOSErrorで既存キャッシュを維持。初回起動失敗はos_errorで明示。429の待機・再試行規則は維持。
+- [回帰テスト](https://github.com/osawamas/value-hunter-ai/commit/408df967b30a94de50b32386202f60efafdfbf80): 既存キャッシュ保持、初回起動失敗、空出力の3件を追加。実行環境からGitHubへのgit cloneがDNS解決できず、ローカルPythonテストは未実行。新コミットのActions結果も未確定（[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。
+- 対象取引日2026-11-17: 今回の終値実取得・NYSE/Nasdaq件数再測定なし。11月16日の過去測定値は同日上場一覧に基づかず正式網羅率ではない。正規セッション未調整終値、SEC株数、Android実機相当テストは未完了。株価原データ・APK・キーは公開していない。
+- 次回: 新コミットのActionsを確認。失敗時は修正。Dolt同期の実測と11月17日付の同日終値照合を優先。
+
 ## 2026-11-18 03:12 JST — 終値欠落をティッカー単位で記録
 
 - 開始時mainは [7f39f99](https://github.com/osawamas/value-hunter-ai/commit/7f39f999c04f6fd5118b9283e0378963f382c122)。定時実行の日付別レポートにNYSE・Nasdaq普通株候補の終値未取得ティッカーを追加。同一の上場一覧ハッシュと照合条件で、取得できるようになったティッカーと新たに欠けたティッカーを記録する。旧形式は従来の件数比較を維持する。
