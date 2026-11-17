@@ -107,7 +107,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || !html.contains("自己株式控除後 850020917株")
                 || !html.contains("予算10万円以内 · 100株")
                 || !html.contains("予算10万円以内 · 単元未満株の取扱いは証券会社による")
-                || html.contains("参考財務条件は対象外 · PBR 1倍超")
+                || html.contains("財務判定 ·")
                 || html.indexOf("3861  847.4") > html.indexOf("1301  4705")
                 || html.contains("参考PER 8.17倍 / 参考PBR 0.72倍")
                 || html.contains("参考PER 11.61倍 / 参考PBR 1.12倍")
@@ -159,7 +159,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var nearLimit = new StringBuilder();
         JpxReferenceFinancials.appendHtml(nearLimit, "3861", day, new BigDecimal("916.51"));
         if (!nearLimit.toString().contains("参考PER 15.00倍")
-                || !nearLimit.toString().contains("参考財務条件は対象外 · PER 15倍超")) {
+                || !nearLimit.toString().contains("財務判定 · 参考候補")) {
             throw new AssertionError("Rounded display value was used to check the PER limit");
         }
         checkReferenceTransitions(day);
@@ -171,9 +171,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var before = day.minusDays(3);
         var abovePer = sampleReport(before, "3861", "916.51", false);
         var atPer = sampleReport(day, "3861", "916.50", false);
-        assertTransition(atPer, abovePer, "新たに条件内（100株）");
+        assertTransition(atPer, abovePer, "新たに優先候補（100株）");
+        assertTransition(sampleReport(day, "3861", "1200.00", false),
+                sampleReport(before, "3861", "1300.00", false), "新たに参考候補（1株）");
         assertTransition(sampleReport(day, "3861", "916.51", false),
-                sampleReport(before, "3861", "916.50", false), "条件から外れた");
+                sampleReport(before, "3861", "916.50", false), "参考候補へ変更（100株）");
         assertTransition(sampleReport(day, "1301", "1000.00", false),
                 sampleReport(before, "1301", "1000.01", false), "1株枠から100株枠へ");
         assertTransition(atPer, sampleReport(before, "3861", "916.51", true),
@@ -218,7 +220,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         if (!html.contains("値動きの比較は保留（期間内に権利落日）")
                 || !html.contains("参考PER・PBRは保留（権利落日 2026-11-19")
                 || !html.contains("参考判定の変化 · 保留（権利落日 2026-11-19")
-                || html.contains("新たに条件内")) {
+                || html.contains("新たに")) {
             throw new AssertionError("A share change produced a misleading reference transition");
         }
     }
@@ -268,7 +270,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var current = sampleReport(day, "3861", "916.50", false);
         var comparison = new JpxDailyCheck.Comparison(current, outdated);
         var screen = comparison.screen(complete);
-        var codes = List.of(new JpxDailyCheck.Entrant("3861", 100));
+        var codes = List.of(new JpxDailyCheck.Candidate("3861", 100, ValueCandidateScreen.Level.PRIORITY));
         if (!screen.entered().equals(codes) || !comparison.screen(partial).entered().isEmpty()) {
             throw new AssertionError("JPX watch did not gate entry on verified reference data");
         }

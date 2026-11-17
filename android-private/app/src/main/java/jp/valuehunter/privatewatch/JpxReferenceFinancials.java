@@ -45,33 +45,13 @@ final class JpxReferenceFinancials {
 
     private record Disclosures(Annual annual, List<Shares> shares) {}
 
-    enum Condition {
-        UNAVAILABLE("参考財務条件は保留（立会日より前の通期決算なし）"),
-        UNUSABLE("参考財務条件は対象外（EPS・BPSがともに正でない）"),
-        MATCH("参考財務条件に一致（PER 15倍以下・PBR 1倍以下）"),
-        PER_OVER("参考財務条件は対象外 · PER 15倍超"),
-        PBR_OVER("参考財務条件は対象外 · PBR 1倍超"),
-        BOTH_OVER("参考財務条件は対象外 · PER 15倍超 · PBR 1倍超");
-
-        final String label;
-
-        Condition(String label) {
-            this.label = label;
-        }
-    }
-
-    static Condition condition(String code, LocalDate session, BigDecimal close) {
+    static ValueCandidateScreen.Level level(String code, LocalDate session, BigDecimal close) {
         var disclosures = BY_CODE.get(code);
         if (disclosures == null || !session.isAfter(disclosures.annual().released())) {
-            return Condition.UNAVAILABLE;
+            return ValueCandidateScreen.Level.HELD;
         }
         var annual = disclosures.annual();
-        if (annual.eps().signum() <= 0 || annual.bps().signum() <= 0) return Condition.UNUSABLE;
-
-        boolean perOver = close.compareTo(annual.eps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PER))) > 0;
-        boolean pbrOver = close.compareTo(annual.bps().multiply(BigDecimal.valueOf(JapanScreen.MAX_PBR))) > 0;
-        if (perOver) return pbrOver ? Condition.BOTH_OVER : Condition.PER_OVER;
-        return pbrOver ? Condition.PBR_OVER : Condition.MATCH;
+        return ValueCandidateScreen.assess(close, annual.eps(), annual.bps());
     }
 
     static void appendHtml(StringBuilder html, String code, LocalDate session, BigDecimal close) {
@@ -82,12 +62,16 @@ final class JpxReferenceFinancials {
             html.append("<br>参考PER ").append(ratio(close, annual.eps()))
                     .append(" / 参考PBR ").append(ratio(close, annual.bps()))
                     .append("<br>").append(ANNUAL_END).append("期 EPS ")
-                    .append(annual.eps().toPlainString()).append("円 / BPS ")
-                    .append(annual.bps().toPlainString()).append("円")
-                    .append(" · <a href='").append(annual.source()).append("'>通期決算</a>")
+                    .append(basis(annual.eps())).append(" / BPS ")
+                    .append(basis(annual.bps())).append(" · <a href='").append(annual.source()).append("'>通期決算</a>")
                     .append("<br>決算公表時の1株値で試算（以降の株式分割等は未反映）");
         }
-        html.append("<br>").append(condition(code, session, close).label);
+        var assessed = level(code, session, close);
+        html.append("<br>財務判定 · ").append(assessed.label);
+        if (assessed == ValueCandidateScreen.Level.REFERENCE) {
+            if (annual.eps() == null) html.append("（PER未取得）");
+            if (annual.bps() == null) html.append("（PBR未取得）");
+        }
         appendShareData(html, code, session);
     }
 
@@ -105,8 +89,12 @@ final class JpxReferenceFinancials {
         html.append("<br>時価総額は保留（立会日の株式数未照合）");
     }
 
+    private static String basis(BigDecimal value) {
+        return value == null ? "未取得" : value.toPlainString() + "円";
+    }
+
     private static String ratio(BigDecimal close, BigDecimal denominator) {
-        return denominator.signum() <= 0 ? "算出不可"
+        return denominator == null || denominator.signum() <= 0 ? "算出不可"
                 : close.divide(denominator, 2, RoundingMode.HALF_UP).toPlainString() + "倍";
     }
 }

@@ -25,6 +25,8 @@ import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import jp.valuehunter.privatewatch.ValueCandidateScreen.Level;
+
 @TargetApi(35)
 final class JpxDailyCheck {
     private static final String REPORT_ROOT =
@@ -131,30 +133,33 @@ final class JpxDailyCheck {
         }
 
         Screening screen(JpxShareRights rights) {
-            var entered = new ArrayList<Entrant>();
+            var candidates = new ArrayList<Candidate>();
+            var entered = new ArrayList<Candidate>();
             var held = new ArrayList<Held>();
             for (String code : SAMPLE_CODES) {
                 var change = referenceChange(code, rights);
-                if (!change.hold().isEmpty()) {
-                    held.add(new Held(code, change.hold()));
-                } else if (change.entered()) {
-                    entered.add(new Entrant(code, budgetQuantity(latest.close(code))));
-                }
+                if (change.now().qualifies()) candidates.add(change.now());
+                if (!change.hold().isEmpty()) held.add(new Held(code, change.hold()));
+                if (change.entered()) entered.add(change.now());
             }
-            entered.sort(Comparator.comparingInt(Entrant::quantity).reversed());
-            return new Screening(List.copyOf(entered), List.copyOf(held));
+            candidates.sort(CANDIDATE_ORDER);
+            entered.sort(CANDIDATE_ORDER);
+            return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held));
         }
 
         private ReferenceChange referenceChange(String code, JpxShareRights rights) {
-            if (previous == null || !previous.date().isBefore(latest.date())) {
-                return ReferenceChange.held("比較用の日報なし");
-            }
             String reason = rights.holdReason(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
-            if (!reason.isEmpty()) return ReferenceChange.held(reason);
-            var before = referenceTier(previous, code);
-            var now = referenceTier(latest, code);
-            if (before == ReferenceTier.UNKNOWN || now == ReferenceTier.UNKNOWN) {
-                return ReferenceChange.held("比較に必要な終値または通期決算なし");
+            if (!reason.isEmpty()) {
+                var held = new Candidate(code, 0, Level.HELD);
+                return new ReferenceChange(held, held, reason);
+            }
+            var now = assess(latest, code);
+            if (previous == null || !previous.date().isBefore(latest.date())) {
+                return new ReferenceChange(new Candidate(code, 0, Level.HELD), now, "比較用の日報なし");
+            }
+            var before = assess(previous, code);
+            if (before.level() == Level.HELD || now.level() == Level.HELD) {
+                return new ReferenceChange(before, now, "比較に必要な終値または通期決算なし");
             }
             return new ReferenceChange(before, now, "");
         }
@@ -167,14 +172,16 @@ final class JpxDailyCheck {
             String change;
             if (!comparison.hold().isEmpty()) {
                 change = "保留（" + comparison.hold() + "）";
-            } else if (before == now) {
+            } else if (before.equals(now)) {
                 change = "条件の変化なし";
-            } else if (now == ReferenceTier.OUTSIDE) {
+            } else if (!now.qualifies()) {
                 change = "条件から外れた";
             } else if (comparison.entered()) {
-                change = now == ReferenceTier.LOT ? "新たに条件内（100株）" : "新たに条件内（1株）";
+                change = "新たに" + now.level().label + "（" + now.quantity() + "株）";
+            } else if (before.level() != now.level()) {
+                change = now.level().label + "へ変更（" + now.quantity() + "株）";
             } else {
-                change = now == ReferenceTier.LOT ? "1株枠から100株枠へ" : "100株枠から1株枠へ";
+                change = before.quantity() + "株枠から" + now.quantity() + "株枠へ";
             }
             message.append("<br>参考判定の変化 · ").append(change);
         }
@@ -185,37 +192,37 @@ final class JpxDailyCheck {
         }
     }
 
-    record Entrant(String code, int quantity) {}
+    record Candidate(String code, int quantity, Level level) {
+        boolean qualifies() { return level.qualifies(); }
+
+        String summary() {
+            return code + " · " + quantity + "株枠 · " + level.label;
+        }
+    }
+
+    private static final Comparator<Candidate> CANDIDATE_ORDER =
+            Comparator.comparingInt(Candidate::quantity).reversed()
+                    .thenComparing(candidate -> candidate.level() != Level.PRIORITY)
+                    .thenComparing(Candidate::code);
 
     record Held(String code, String reason) {}
 
-    record Screening(List<Entrant> entered, List<Held> holds) {
+    record Screening(List<Candidate> candidates, List<Candidate> entered, List<Held> holds) {
         int held() { return holds.size(); }
     }
 
-    private record ReferenceChange(ReferenceTier before, ReferenceTier now, String hold) {
-        static ReferenceChange held(String reason) {
-            return new ReferenceChange(ReferenceTier.UNKNOWN, ReferenceTier.UNKNOWN, reason);
-        }
-
+    private record ReferenceChange(Candidate before, Candidate now, String hold) {
         boolean entered() {
-            return before == ReferenceTier.OUTSIDE && (now == ReferenceTier.SINGLE || now == ReferenceTier.LOT);
+            return hold.isEmpty() && now.level().entersFrom(before.level());
         }
     }
 
-    private enum ReferenceTier { UNKNOWN, OUTSIDE, SINGLE, LOT }
-
-    private static ReferenceTier referenceTier(Report report, String code) {
+    private static Candidate assess(Report report, String code) {
         var close = report.close(code);
-        if (close == null) return ReferenceTier.UNKNOWN;
-        var financial = JpxReferenceFinancials.condition(code, report.date(), close);
-        if (financial == JpxReferenceFinancials.Condition.UNAVAILABLE) return ReferenceTier.UNKNOWN;
-        if (financial != JpxReferenceFinancials.Condition.MATCH) return ReferenceTier.OUTSIDE;
-        return switch (budgetQuantity(close)) {
-            case 100 -> ReferenceTier.LOT;
-            case 1 -> ReferenceTier.SINGLE;
-            default -> ReferenceTier.OUTSIDE;
-        };
+        var level = JpxReferenceFinancials.level(code, report.date(), close);
+        int quantity = budgetQuantity(close);
+        if (level.qualifies() && quantity == 0) level = Level.OUTSIDE;
+        return new Candidate(code, level.qualifies() ? quantity : 0, level);
     }
 
     static int budgetQuantity(BigDecimal close) {
@@ -281,7 +288,7 @@ final class JpxDailyCheck {
     private static String editionKey(LocalDate latest, String latestEdition, LocalDate previous,
                                      String previousEdition, String rightsRevision) {
         if (latestEdition.isEmpty() || previousEdition.isEmpty() || rightsRevision.isEmpty()) return "";
-        String identity = latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
+        String identity = "valuation-v2|" + latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
         try {
             var digest = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);

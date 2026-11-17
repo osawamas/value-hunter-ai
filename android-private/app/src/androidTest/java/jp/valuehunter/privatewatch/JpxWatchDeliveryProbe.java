@@ -143,6 +143,7 @@ final class JpxWatchDeliveryProbe {
                 String status = JpxWatchWorker.displayStatus(state);
                 if (!result.equals(expectedResult)
                         || !status.contains("比較用の日報を取得できなかった")
+                        || !status.contains("優先候補 1銘柄")
                         || status.contains("再試行を予約した") != retry
                         || !previousStatus.equals(state.getString(JpxWatchWorker.STATUS, ""))) {
                     throw new AssertionError("Incomplete comparison changed the last verified status: " + status);

@@ -75,7 +75,7 @@ public final class MainActivity extends Activity {
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
         label(japan, "極洋・王子HD・トヨタの3銘柄", 13, MUTED, false, 5);
-        label(japan, "PER 15倍以下・PBR 1倍以下を参考に判定\n10万円以内で100株を優先", 13, MUTED, false, 7);
+        label(japan, "PER・PBRから優先候補と参考候補を判定\n10万円以内で100株を優先", 13, MUTED, false, 7);
 
         monitorSwitch = new Switch(this);
         monitorSwitch.setText("自動監視");

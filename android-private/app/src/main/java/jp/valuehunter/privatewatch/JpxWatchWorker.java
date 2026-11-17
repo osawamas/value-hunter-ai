@@ -142,9 +142,6 @@ public final class JpxWatchWorker extends Worker {
                     recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略").apply();
                     return Result.success();
                 }
-                if (comparison.previous() == null) {
-                    return retryReport(state, "比較用の日報を取得できなかった");
-                }
                 var screen = comparison.screen(evidence.rights());
                 LocalDate date = comparison.latest().date();
                 var baseline = dateOrNull(state.getString(BASELINE, ""));
@@ -153,13 +150,20 @@ public final class JpxWatchWorker extends Worker {
                     recordCheck(state.edit(), "取得した日報が保存済みより古いため、前回の判定を保持").apply();
                     return Result.success();
                 }
+                if (comparison.previous() == null) {
+                    var partial = new StringBuilder("比較用の日報を取得できなかった");
+                    partial.append("\n").append(date).append("の当日判定");
+                    appendCandidates(partial, screen);
+                    return retryReport(state, partial.toString());
+                }
                 var alerted = date.equals(last)
                         ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
-                        : List.<JpxDailyCheck.Entrant>of();
-                var summary = new StringBuilder(date + " 東証日報を確認 · 保留 " + screen.held() + "銘柄");
+                        : List.<JpxDailyCheck.Candidate>of();
+                var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
+                appendCandidates(summary, screen);
                 appendHolds(summary, screen);
                 if (!notifyEnabled) summary.append("\n通知設定を確認");
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
@@ -173,8 +177,7 @@ public final class JpxWatchWorker extends Worker {
                 if (!update.commit()) return Result.retry();
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
-                    for (var entry : added) detail.append("\n").append(entry.code())
-                            .append(" · ").append(entry.quantity()).append("株枠");
+                    for (var entry : added) detail.append("\n").append(entry.summary());
                     if (!alerts.post(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
                             detail.toString())) {
                         state.edit().putString(STATUS, summary + "\n無音通知を送信できなかった · 通知設定を確認").apply();
@@ -222,6 +225,14 @@ public final class JpxWatchWorker extends Worker {
         return check.toString();
     }
 
+    private static void appendCandidates(StringBuilder message, JpxDailyCheck.Screening screen) {
+        long priority = screen.candidates().stream()
+                .filter(candidate -> candidate.level() == ValueCandidateScreen.Level.PRIORITY).count();
+        message.append("\n優先候補 ").append(priority).append("銘柄 · 参考候補 ")
+                .append(screen.candidates().size() - priority).append("銘柄");
+        for (var candidate : screen.candidates()) message.append("\n").append(candidate.summary());
+    }
+
     private static void appendHolds(StringBuilder message, JpxDailyCheck.Screening screen) {
         var byReason = new LinkedHashMap<String, List<String>>();
         for (var hold : screen.holds()) {
@@ -232,8 +243,8 @@ public final class JpxWatchWorker extends Worker {
                 message.append("\n").append(String.join("・", codes)).append(" · ").append(reason));
     }
 
-    static List<JpxDailyCheck.Entrant> pending(LocalDate baseline, LocalDate last, LocalDate date,
-                                             List<JpxDailyCheck.Entrant> entered, Set<String> alerted) {
+    static List<JpxDailyCheck.Candidate> pending(LocalDate baseline, LocalDate last, LocalDate date,
+                                             List<JpxDailyCheck.Candidate> entered, Set<String> alerted) {
         if (baseline == null || last == null || !date.isAfter(baseline) || date.isBefore(last)) return List.of();
         if (!date.equals(last)) return entered;
         return entered.stream().filter(entry -> !alerted.contains(entry.code())).toList();
