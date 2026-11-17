@@ -35,6 +35,20 @@ public class WatchTransitionsTest {
                 List.of(A, B), Set.of()).isEmpty());
     }
 
+    @Test public void olderOrSameSessionCannotReplaceNewerBaseline() {
+        LocalDate latest = LocalDate.parse("2026-08-21");
+        assertTrue(!WatchTransitions.shouldStoreSnapshot(latest.toString(), latest));
+        assertTrue(!WatchTransitions.shouldStoreSnapshot(latest.toString(), latest.minusDays(1)));
+        assertTrue(WatchTransitions.shouldStoreSnapshot(latest.toString(), latest.plusDays(1)));
+    }
+
+    @Test public void missingOrDamagedBaselineCanBeRebuiltWithoutFalseNotification() {
+        LocalDate day = LocalDate.parse("2026-08-21");
+        assertTrue(WatchTransitions.shouldStoreSnapshot("", day));
+        assertTrue(WatchTransitions.shouldStoreSnapshot("invalid", day));
+        assertTrue(WatchTransitions.newEntrants("invalid", day, List.of(A), Set.of()).isEmpty());
+    }
+
     @Test public void unchangedSetNeverNotifiesButReentryDoes() {
         LocalDate day = LocalDate.parse("2026-08-21");
         assertTrue(WatchTransitions.newEntrants(day.minusDays(1).toString(), day,
