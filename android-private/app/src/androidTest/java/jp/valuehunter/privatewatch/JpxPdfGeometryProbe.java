@@ -41,14 +41,18 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 }
             }
             if (codes.size() < 3000) throw new AssertionError("Missing JPX stock universe");
+            JpxShareRights rights;
+            try (var input = getContext().getAssets().open("jpx-share-rights-20261117.json")) {
+                rights = JpxShareRights.parse(new String(input.readAllBytes(), StandardCharsets.UTF_8)).rights();
+            }
             String logs = digestReport(directory, LocalDate.of(2026, 10, 29), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
-                    + checkSampleReport(directory, JpxShareRights.load(getTargetContext()));
+                    + checkSampleReport(directory, rights);
             checkRightsRefresh(getTargetContext());
             checkJpxWatch();
             checkReportEditions();
-            JpxWatchDeliveryProbe.run(getTargetContext(), directory);
+            JpxWatchDeliveryProbe.run(getTargetContext(), directory, rights);
             result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\nJPX_ANDROID_WATCH_DELIVERY_OK\nJPX_ANDROID_EDITION_OK\n");
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
@@ -223,9 +227,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var file = new android.util.AtomicFile(new File(context.getFilesDir(), "jpx-share-rights.json"));
         try {
             var bundled = JpxShareRights.refresh(context, () -> { throw new IOException("offline"); });
-            var september = YearMonth.of(2026, 9);
-            if (!bundled.status().contains("アプリ同梱資料") || !bundled.rights().months().contains(september)) {
-                throw new AssertionError("Missing bundled rights fallback");
+            var publishedMonth = bundled.rights().months().stream().max(YearMonth::compareTo)
+                    .orElseThrow(() -> new AssertionError("The bundled rights snapshot has no verified months"));
+            if (!bundled.status().contains("アプリ同梱資料")
+                    || !bundled.rights().coveredCodes().containsAll(Set.of("1301", "3861", "7203"))) {
+                throw new AssertionError("Missing bundled rights coverage for the monitored stocks");
             }
             String original;
             try (var input = context.getAssets().open("jpx-share-rights.json")) {
@@ -234,15 +240,15 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             var remote = new JSONObject(original);
             var revision = java.time.Instant.parse(remote.getString("revision")).plusSeconds(60);
             remote.put("revision", revision.toString());
-            remote.getJSONObject("monthlySources").remove("2026-09");
+            remote.getJSONObject("monthlySources").remove(publishedMonth.toString());
             var updated = JpxShareRights.refresh(context, remote::toString);
-            if (!updated.status().contains("オンライン資料") || updated.rights().months().contains(september)) {
+            if (!updated.status().contains("オンライン資料") || updated.rights().months().contains(publishedMonth)) {
                 throw new AssertionError("The online rights snapshot did not replace superseded coverage");
             }
             for (String invalid : new String[]{"{}", original}) {
                 var result = JpxShareRights.refresh(context, () -> invalid);
                 if (!result.status().contains("端末に保存した資料")
-                        || result.rights().months().contains(september)) {
+                        || result.rights().months().contains(publishedMonth)) {
                     throw new AssertionError("An invalid or older remote snapshot superseded the cache");
                 }
             }

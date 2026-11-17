@@ -35,7 +35,10 @@ final class JpxWatchDeliveryProbe {
 
     private record Inputs(JpxDailyCheck.Comparison comparison, JpxShareRights rights) {}
 
-    static void run(Context context, File directory) throws Exception {
+    static void run(Context context, File directory, JpxShareRights rights) throws Exception {
+        var updatedMonths = new HashSet<>(rights.months());
+        updatedMonths.add(YearMonth.of(2026, 10));
+        var octoberRights = new JpxShareRights(rights.coveredCodes(), updatedMonths, rights.notices());
         var published = new JpxDailyCheck.Comparison(
                 JpxDailyCheck.readReport(new File(directory, "jpx-20261116.pdf"), MONDAY),
                 JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), FRIDAY));
@@ -83,7 +86,7 @@ final class JpxWatchDeliveryProbe {
             }
             expectQuiet(notifications);
 
-            inputs.set(new Inputs(published, JpxShareRights.load(context)));
+            inputs.set(new Inputs(published, rights));
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
             awaitRun(work, id, starts, 2);
@@ -96,13 +99,26 @@ final class JpxWatchDeliveryProbe {
             }
             expectQuiet(notifications);
 
-            inputs.set(new Inputs(null, JpxShareRights.load(context)));
+            inputs.set(new Inputs(published, octoberRights));
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
             awaitRun(work, id, starts, 3);
+            String updated = JpxWatchWorker.displayStatus(state);
+            if (!updated.contains("保留 3銘柄")
+                    || !updated.contains("1301・3861・7203 · 権利落月報の未確認月 2026-11")
+                    || updated.contains("未確認月 2026-10")) {
+                throw new AssertionError("New monthly coverage did not update the watch status: " + updated);
+            }
+            expectQuiet(notifications);
+
+            inputs.set(new Inputs(null, octoberRights));
+            driver.setAllConstraintsMet(id);
+            driver.setPeriodDelayMet(id);
+            awaitRun(work, id, starts, 4);
             String unchanged = JpxWatchWorker.displayStatus(state);
             if (!unchanged.contains("版に変更なし · PDFの再取得を省略")
-                    || !unchanged.contains("保留 3銘柄") || !unchanged.contains("最終確認")) {
+                    || !unchanged.contains("保留 3銘柄") || !unchanged.contains("最終確認")
+                    || !unchanged.contains("未確認月 2026-11")) {
                 throw new AssertionError("The no-change check dropped the previous screening status");
             }
             expectQuiet(notifications);
@@ -117,13 +133,13 @@ final class JpxWatchDeliveryProbe {
             var manualId = pendingManual(work);
             driver.setAllConstraintsMet(manualId);
             awaitManual(work, manualId);
-            if (starts.get() != 4) throw new AssertionError("Repeated immediate checks ran more than once");
+            if (starts.get() != 5) throw new AssertionError("Repeated immediate checks ran more than once");
             verifySilentNotification(notifications);
 
             notifications.cancelAll();
             driver.setAllConstraintsMet(id);
             driver.setPeriodDelayMet(id);
-            awaitRun(work, id, starts, 5);
+            awaitRun(work, id, starts, 6);
             expectQuiet(notifications);
 
             JpxWatchWorker.checkNow(context);
@@ -131,7 +147,7 @@ final class JpxWatchDeliveryProbe {
             JpxWatchWorker.setEnabled(context, false);
             awaitCancelled(work, id);
             awaitCancelled(work, cancelledManual);
-            if (JpxWatchWorker.enabled(context) || starts.get() != 5
+            if (JpxWatchWorker.enabled(context) || starts.get() != 6
                     || !JpxWatchWorker.displayStatus(state).isEmpty()) {
                 throw new AssertionError("Disabling JPX monitoring did not stop and clear the previous watch");
             }
@@ -144,7 +160,7 @@ final class JpxWatchDeliveryProbe {
             }
             var restartedId = restarted.get(0).getId();
             driver.setAllConstraintsMet(restartedId);
-            awaitRun(work, restartedId, starts, 6);
+            awaitRun(work, restartedId, starts, 7);
             expectQuiet(notifications);
             verifyTestNotification(context, notifications);
         } finally {
