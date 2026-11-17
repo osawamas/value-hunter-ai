@@ -1,10 +1,12 @@
 {
-  "revision": "2026-11-17T07:20:00Z",
+  "revision": "2026-11-17T23:30:19.041444Z",
   "coveredCodes": [
     "1301",
     "3861",
     "6861",
-    "7203"
+    "7203",
+    "9432",
+    "9434"
   ],
   "monthlySources": {
     "2026-03": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt0000013821-att/17_kenri2603.pdf",

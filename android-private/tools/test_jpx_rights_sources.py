@@ -83,20 +83,22 @@ class AndroidRightsRefreshTests(TestCase):
             path = Path(temp) / "rights.json"
             old = json.dumps(self.existing)
             path.write_text(old, encoding="utf-8")
-            fresh = {"coveredCodes": ["6861"], "monthlySources": {"2026-09": self.month},
+            fresh = {"coveredCodes": ["6861", "9432"], "monthlySources": {"2026-09": self.month},
                      "notices": []}
             with patch.object(refresh, "page_links", return_value=[]), \
                  patch.object(refresh, "daily_sources", return_value=(
                      {"2026-11-17": {}}, {}, {"event_keys_with_conflicting_ex_dates": 0})), \
                  patch.object(refresh, "monthly_sources", return_value=(
                      {"2026-09": 0}, {}, {"2026-10": {}}, ["2026-11"])), \
-                 patch.object(refresh, "snapshot", return_value=fresh):
-                result = refresh.refresh(path, self.first, self.last, dry_run=True)
+                 patch.object(refresh, "snapshot", return_value=fresh) as snapshot:
+                result = refresh.refresh(path, self.first, self.last, dry_run=True, include_codes=["9432"])
                 self.assertTrue(result["changed"])
                 self.assertEqual(result["rejectedMonths"], ["2026-10"])
                 self.assertEqual(path.read_text(encoding="utf-8"), old)
-                refresh.refresh(path, self.first, self.last)
+                refresh.refresh(path, self.first, self.last, include_codes=["9432"])
+                self.assertEqual(snapshot.call_args.args[2], {"6861", "9432"})
             updated = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(updated["coveredCodes"], ["6861", "9432"])
             self.assertEqual(updated["monthlySources"], {"2026-09": self.month})
             self.assertEqual(updated["notices"], [self.old_notice])
 

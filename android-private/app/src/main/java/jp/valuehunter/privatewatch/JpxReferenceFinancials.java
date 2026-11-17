@@ -9,6 +9,9 @@ import java.util.Map;
 /** Issuer disclosures used by the JPX manual preview. */
 final class JpxReferenceFinancials {
     static final LocalDate ANNUAL_END = LocalDate.of(2026, 3, 31);
+    private static final String NTT_ANNUAL = "https://group.ntt/jp/newsrelease/2026/05/08/pdf/260508ab.pdf";
+    private static final String SOFTBANK_ANNUAL = "https://www.softbank.jp/corp/set/data/ir/documents/"
+            + "financial_reports/fy2025/pdf/sbkk_financial_report_20260511.pdf";
     private static final Map<String, Disclosures> BY_CODE = Map.of(
             "1301", new Disclosures(
                     new Annual(LocalDate.of(2026, 5, 15), new BigDecimal("576.02"),
@@ -32,7 +35,21 @@ final class JpxReferenceFinancials {
                                     "https://disclosure2dl.edinet-fsa.go.jp/searchdocument/pdf/S100ZH9B.pdf"),
                             new Shares(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 13),
                                     14_594_987_460L, 2_815_366_947L, "EDINET買付報告（ESOP信託分は控除外）",
-                                    "https://disclosure2dl.edinet-fsa.go.jp/searchdocument/pdf/S100Z7HA.pdf"))));
+                                    "https://disclosure2dl.edinet-fsa.go.jp/searchdocument/pdf/S100Z7HA.pdf"))),
+            "9432", new Disclosures(
+                    new Annual(LocalDate.of(2026, 5, 8), new BigDecimal("12.61"),
+                            new BigDecimal("119.47"), NTT_ANNUAL),
+                    List.of(new Shares(ANNUAL_END, LocalDate.of(2026, 5, 8),
+                            90_550_316_400L, 9_126_691_363L, "通期決算", NTT_ANNUAL))),
+            "9434", new Disclosures(
+                    new Annual(LocalDate.of(2026, 5, 11), new BigDecimal("11.35"),
+                            new BigDecimal("55.13"), SOFTBANK_ANNUAL),
+                    List.of(new Shares(ANNUAL_END, LocalDate.of(2026, 5, 11),
+                            47_971_989_700L, 170_724_817L, "通期決算", SOFTBANK_ANNUAL))));
+
+    static List<String> watchCodes() {
+        return BY_CODE.keySet().stream().sorted().toList();
+    }
 
     private record Annual(LocalDate released, BigDecimal eps, BigDecimal bps, String source) {}
 

@@ -96,12 +96,16 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         });
         String html = comparison.html(rights);
         var realScreen = comparison.screen(rights);
-        if (realScreen.held() != 3 || !realScreen.entered().isEmpty()) {
+        if (realScreen.held() != 5 || !realScreen.entered().isEmpty()) {
             throw new AssertionError("Published JPX reports notified during missing rights coverage");
         }
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
                 || !html.contains("7203  3428 円（後場）")
                 || !html.contains("3861  847.4 円（後場）")
+                || !html.contains("9432  168.6 円（後場）")
+                || !html.contains("9434  242.8 円（後場）")
+                || !html.contains("自己株式控除後 81423625037株")
+                || !html.contains("自己株式控除後 47801264883株")
                 || !html.contains("100株 84740円 / 1株 847.4円")
                 || html.contains("参考PER 13.87倍 / 参考PBR 0.67倍")
                 || !html.contains("自己株式控除後 850020917株")
@@ -233,7 +237,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             var publishedMonth = bundled.rights().months().stream().max(YearMonth::compareTo)
                     .orElseThrow(() -> new AssertionError("The bundled rights snapshot has no verified months"));
             if (!bundled.status().contains("アプリ同梱資料")
-                    || !bundled.rights().coveredCodes().containsAll(Set.of("1301", "3861", "7203"))) {
+                    || !bundled.rights().coveredCodes().containsAll(JpxDailyCheck.WATCH_CODES)) {
                 throw new AssertionError("Missing bundled rights coverage for the monitored stocks");
             }
             String original;

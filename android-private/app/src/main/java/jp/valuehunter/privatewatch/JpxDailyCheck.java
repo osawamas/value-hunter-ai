@@ -32,7 +32,7 @@ final class JpxDailyCheck {
     private static final String REPORT_ROOT =
             "https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/";
     private static final int MAX_PDF_BYTES = 32_000_000;
-    private static final List<String> SAMPLE_CODES = List.of("1301", "3861", "7203");
+    static final List<String> WATCH_CODES = JpxReferenceFinancials.watchCodes();
 
     private static final BigDecimal BUDGET = BigDecimal.valueOf(JapanScreen.BUDGET);
     private static final BigDecimal LOT_PRICE_LIMIT = BUDGET.movePointLeft(2);
@@ -63,7 +63,7 @@ final class JpxDailyCheck {
             } else {
                 message.append("<br>比較日 ").append(previous.date()).append("（分割等の調整前の終値）");
             }
-            var ordered = new ArrayList<>(SAMPLE_CODES);
+            var ordered = new ArrayList<>(WATCH_CODES);
             ordered.sort(Comparator.comparingInt((String code) -> budgetQuantity(latest.close(code))).reversed());
             for (String code : ordered) {
                 var close = latest.close(code);
@@ -136,7 +136,7 @@ final class JpxDailyCheck {
             var candidates = new ArrayList<Candidate>();
             var entered = new ArrayList<Candidate>();
             var held = new ArrayList<Held>();
-            for (String code : SAMPLE_CODES) {
+            for (String code : WATCH_CODES) {
                 var change = referenceChange(code, rights);
                 if (change.now().qualifies()) candidates.add(change.now());
                 if (!change.hold().isEmpty()) held.add(new Held(code, change.hold()));
@@ -328,7 +328,7 @@ final class JpxDailyCheck {
 
     static Report readReport(File pdf, LocalDate day) throws IOException {
         try {
-            var table = JpxAndroidPdfReader.read(pdf, Set.copyOf(SAMPLE_CODES), day);
+            var table = JpxAndroidPdfReader.read(pdf, Set.copyOf(WATCH_CODES), day);
             // A valid PDF header does not guarantee a usable equity table. A layout
             // change or a partial CDN response must not advance the watch baseline.
             if (!hasUsableSample(table.prices(), table.ambiguousCodes())) {
@@ -341,7 +341,7 @@ final class JpxDailyCheck {
     }
 
     static boolean hasUsableSample(Map<String, JpxCloseTable.Sessions> quotes, Set<String> ambiguous) {
-        for (String code : SAMPLE_CODES) {
+        for (String code : WATCH_CODES) {
             var sessions = quotes.get(code);
             if (!ambiguous.contains(code) && sessions != null && sessions.close() != null
                     && sessions.close().signum() > 0) return true;

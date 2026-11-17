@@ -31,12 +31,12 @@ def combine(previous, fresh):
     }
 
 
-def refresh(path, first_month, last_month, *, dry_run=False):
+def refresh(path, first_month, last_month, *, dry_run=False, include_codes=()):
     original = path.read_text(encoding="utf-8")
     previous = json.loads(original)
-    codes = set(previous["coveredCodes"])
+    codes = set(previous["coveredCodes"]) | set(include_codes)
     if not codes or any(not CODE.fullmatch(code) for code in codes):
-        raise ValueError("Invalid covered codes in the existing Android JPX snapshot")
+        raise ValueError("Invalid JPX codes in the existing snapshot or expansion list")
 
     with TemporaryDirectory() as download_dir:
         directory = Path(download_dir)
@@ -78,6 +78,7 @@ def main():
     parser.add_argument("asset", type=Path)
     parser.add_argument("--start-month", required=True, help="First month needed by the app, as YYYY-MM")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--include-code", action="append", default=[], help="Audit an additional JPX code")
     args = parser.parse_args()
     try:
         first_month = date.fromisoformat(args.start_month + "-01")
@@ -86,7 +87,8 @@ def main():
     last_month = datetime.now(ZoneInfo("Asia/Tokyo")).date().replace(day=1)
     if first_month > last_month or first_month.year not in (last_month.year - 1, last_month.year):
         parser.error("--start-month must be within the current or previous catalog year")
-    print(json.dumps(refresh(args.asset, first_month, last_month, dry_run=args.dry_run), indent=2))
+    print(json.dumps(refresh(args.asset, first_month, last_month, dry_run=args.dry_run,
+                             include_codes=args.include_code), indent=2))
 
 
 if __name__ == "__main__":
