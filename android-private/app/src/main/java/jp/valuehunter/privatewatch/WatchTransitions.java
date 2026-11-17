@@ -10,6 +10,16 @@ import java.util.Set;
 final class WatchTransitions {
     private WatchTransitions() {}
 
+    /** A damaged persisted date must not permanently stop all future API scans. */
+    static boolean shouldRequestSession(String lastDate, LocalDate requestedDate) {
+        if (lastDate == null || lastDate.isEmpty()) return true;
+        try {
+            return requestedDate.isAfter(LocalDate.parse(lastDate));
+        } catch (DateTimeParseException error) {
+            return true; // Rebuild safely; newEntrants suppresses alerts for damaged history.
+        }
+    }
+
     /** Reject stale/same-session responses before they can overwrite a newer baseline. */
     static boolean shouldStoreSnapshot(String lastDate, LocalDate sessionDate) {
         if (lastDate == null || lastDate.isEmpty()) return true;
