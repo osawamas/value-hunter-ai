@@ -16,6 +16,7 @@ from jpx_share_basis import read_monthly_rights
 from jpx_daily_rights import read_daily_rights
 
 MONTHLY_INDEX = "https://www.jpx.co.jp/markets/statistics-equities/monthly/index.html"
+PREVIOUS_YEAR_INDEX = urljoin(MONTHLY_INDEX, "00-archives-01.html")
 DAILY_INDEX = "https://www.jpx.co.jp/listing/others/ex-rights/"
 MONTHLY_FILE = re.compile(r"/17_kenri(\d{2})(0[1-9]|1[0-2])\.pdf$", re.IGNORECASE)
 FILE_LIMIT = 4_000_000
@@ -121,6 +122,7 @@ def main():
     parser.add_argument("--cutoff-month", required=True, type=int, choices=range(1, 13))
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--daily-only", action="store_true")
+    parser.add_argument("--start-month", help="First month to check, as YYYY-MM")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     daily, notes_by_release, comparison = daily_sources(page_links(DAILY_INDEX), args.output)
@@ -133,11 +135,25 @@ def main():
         }, ensure_ascii=False, indent=2))
         return
     selected = monthly_links(page_links(MONTHLY_INDEX), args.year)
+    first_month = date(args.year, 1, 1)
+    if args.start_month:
+        try:
+            first_month = date.fromisoformat(args.start_month + "-01")
+        except ValueError:
+            parser.error("--start-month must use YYYY-MM")
+    last_month = date(args.year, args.cutoff_month, 1)
+    if first_month > last_month or first_month.year not in (args.year - 1, args.year):
+        parser.error("--start-month must be in the current catalog year or its previous year")
+    if first_month.year < args.year:
+        selected.update(monthly_links(page_links(PREVIOUS_YEAR_INDEX), first_month.year))
     accepted = {}
     rejected = {}
     unpublished = []
-    for number in range(1, args.cutoff_month + 1):
-        month = date(args.year, number, 1)
+    months = [date(year, number, 1) for year in range(first_month.year, args.year + 1)
+              for number in range(1, 13)]
+    for month in months:
+        if not first_month <= month <= last_month:
+            continue
         key = month.strftime("%Y-%m")
         if month not in selected:
             unpublished.append(key)
