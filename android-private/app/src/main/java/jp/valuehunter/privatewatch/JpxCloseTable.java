@@ -49,9 +49,18 @@ final class JpxCloseTable {
             }
             double y = word.centerY();
             var row = wordsByY.subMap(y - ROW_TOLERANCE, false, y + ROW_TOLERANCE, false);
-            Sessions sessions = new Sessions(
-                    bandPrice(row.values(), .389, .439, width),
-                    bandPrice(row.values(), .591, .641, width));
+            Sessions sessions;
+            try {
+                sessions = new Sessions(
+                        bandPrice(row.values(), .389, .439, width),
+                        bandPrice(row.values(), .591, .641, width));
+            } catch (IllegalArgumentException malformedRow) {
+                // One corrupt or duplicated quote cell must not abort the entire daily report.
+                // Exclude this symbol, including any previously accepted occurrence.
+                ambiguous.add(code);
+                prices.remove(code);
+                continue;
+            }
             Sessions previous = prices.putIfAbsent(code, sessions);
             if (previous != null && !previous.equals(sessions)) {
                 ambiguous.add(code);
