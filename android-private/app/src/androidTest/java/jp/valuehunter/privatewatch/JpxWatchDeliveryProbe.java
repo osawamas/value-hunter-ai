@@ -37,13 +37,14 @@ final class JpxWatchDeliveryProbe {
 
     private record Inputs(JpxDailyCheck.Comparison comparison, JpxShareRights rights) {}
 
-    static void run(Context context, File directory, JpxShareRights rights) throws Exception {
+    static void run(Context context, File directory, JpxShareRights rights,
+                    JpxStockUniverse universe) throws Exception {
         var updatedMonths = new HashSet<>(rights.months());
         updatedMonths.add(YearMonth.of(2026, 10));
         var octoberRights = new JpxShareRights(rights.coveredCodes(), updatedMonths, rights.notices());
         var published = new JpxDailyCheck.Comparison(
-                JpxDailyCheck.readReport(new File(directory, "jpx-20261116.pdf"), MONDAY),
-                JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), FRIDAY));
+                JpxDailyCheck.readReport(new File(directory, "jpx-20261116.pdf"), MONDAY, universe, ""),
+                JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), FRIDAY, universe, ""));
         var months = new HashSet<YearMonth>();
         for (int month = 4; month <= 11; month++) months.add(YearMonth.of(2026, month));
         var complete = new JpxShareRights(Set.of("3861"), months, List.of());
@@ -101,6 +102,8 @@ final class JpxWatchDeliveryProbe {
             String checked = JpxWatchWorker.displayStatus(state);
             if (!checked.contains("最終確認") || !checked.contains("（日本時間）")
                     || !checked.contains("保留 5銘柄") || !checked.contains("比較日 2026-11-13")
+                    || !checked.contains("終値取得 3676 / 3686銘柄")
+                    || !checked.contains("財務照合済み 0 / 登録 5銘柄")
                     || !checked.contains("1301・3861・7203 · 権利落月報の未確認月 2026-10、2026-11")
                     || checked.contains("<a")) {
                 throw new AssertionError("JPX status did not show the official reports' hold reason: " + checked);

@@ -65,7 +65,7 @@ public final class JpxWatchWorker extends Worker {
     private final AlertSender alerts;
 
     public JpxWatchWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
-        this(context, parameters, (app, key, revision) -> JpxDailyCheck.checkWatch(app.getCacheDir(), key, revision),
+        this(context, parameters, (app, key, revision) -> JpxDailyCheck.checkWatch(app, key, revision),
                 JpxShareRights::refresh, ScanWorker::postNotification);
     }
 
@@ -153,6 +153,7 @@ public final class JpxWatchWorker extends Worker {
                 if (comparison.previous() == null) {
                     var partial = new StringBuilder("比較用の日報を取得できなかった");
                     partial.append("\n").append(date).append("の当日判定");
+                    comparison.appendCoverage(partial, screen.assessed(), "\n");
                     appendCandidates(partial, screen);
                     return retryReport(state, partial.toString());
                 }
@@ -163,6 +164,7 @@ public final class JpxWatchWorker extends Worker {
                         : List.<JpxDailyCheck.Candidate>of();
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
+                comparison.appendCoverage(summary, screen.assessed(), "\n");
                 appendCandidates(summary, screen);
                 appendHolds(summary, screen);
                 if (!notifyEnabled) summary.append("\n通知設定を確認");

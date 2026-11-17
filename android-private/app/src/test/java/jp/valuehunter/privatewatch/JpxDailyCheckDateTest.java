@@ -9,14 +9,14 @@ import org.junit.Test;
 
 public class JpxDailyCheckDateTest {
     @Test public void unreadableEquityTableCannotAdvanceWatchBaseline() {
-        assertFalse(JpxDailyCheck.hasUsableSample(Map.of(), Set.of()));
-        assertFalse(JpxDailyCheck.hasUsableSample(
+        assertFalse(JpxDailyCheck.hasUsableClose(Map.of(), Set.of()));
+        assertFalse(JpxDailyCheck.hasUsableClose(
                 Map.of("1301", new JpxCloseTable.Sessions(null, null)), Set.of()));
-        assertFalse(JpxDailyCheck.hasUsableSample(
+        assertFalse(JpxDailyCheck.hasUsableClose(
                 Map.of("1301", new JpxCloseTable.Sessions(null, new java.math.BigDecimal("250"))),
                 Set.of("1301")));
-        assertTrue(JpxDailyCheck.hasUsableSample(
-                Map.of("1301", new JpxCloseTable.Sessions(new java.math.BigDecimal("250"), null)),
+        assertTrue(JpxDailyCheck.hasUsableClose(
+                Map.of("1332", new JpxCloseTable.Sessions(new java.math.BigDecimal("250"), null)),
                 Set.of()));
     }
 

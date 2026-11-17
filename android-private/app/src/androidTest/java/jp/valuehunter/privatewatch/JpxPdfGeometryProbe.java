@@ -45,14 +45,15 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             try (var input = getContext().getAssets().open("jpx-share-rights-20261117.json")) {
                 rights = JpxShareRights.parse(new String(input.readAllBytes(), StandardCharsets.UTF_8)).rights();
             }
+            var universe = JpxStockUniverse.load(getTargetContext());
             String logs = digestReport(directory, LocalDate.of(2026, 10, 29), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
-                    + checkSampleReport(directory, rights);
+                    + checkSampleReport(directory, rights, universe);
             checkRightsRefresh(getTargetContext());
             checkJpxWatch();
             checkReportEditions();
-            JpxWatchDeliveryProbe.run(getTargetContext(), directory, rights);
+            JpxWatchDeliveryProbe.run(getTargetContext(), directory, rights, universe);
             result.putString("stream", logs + "JPX_ANDROID_RIGHTS_REFRESH_OK\nJPX_ANDROID_WATCH_OK\nJPX_ANDROID_WATCH_DELIVERY_OK\nJPX_ANDROID_EDITION_OK\n");
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
@@ -82,12 +83,13 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         return "JPX_ANDROID_CLOSES " + filename + " " + prices.size() + " " + closes + " " + hex + "\n";
     }
 
-    private static String checkSampleReport(File directory, JpxShareRights rights) throws IOException {
+    private static String checkSampleReport(File directory, JpxShareRights rights,
+                                            JpxStockUniverse universe) throws IOException {
         var file = new File(directory, "jpx-20261116.pdf");
         var day = LocalDate.of(2026, 11, 16);
-        var report = JpxDailyCheck.readReport(file, day);
+        var report = JpxDailyCheck.readReport(file, day, universe, "");
         var previousDay = LocalDate.of(2026, 11, 13);
-        var previous = JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), previousDay);
+        var previous = JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), previousDay, universe, "");
         var comparison = JpxDailyCheck.checkRecent(day.plusDays(2), date -> {
             if (date.isAfter(day)) return null;
             if (date.equals(day)) return report;
@@ -96,6 +98,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         });
         String html = comparison.html(rights);
         var realScreen = comparison.screen(rights);
+        if (!html.contains("終値取得 3676 / 3686銘柄")
+                || !html.contains("100株枠 1347銘柄 · 1株枠 2329銘柄")
+                || !html.contains("財務照合済み 0 / 登録 5銘柄")) {
+            throw new AssertionError("JPX batch coverage did not match the independent stock counts");
+        }
         if (realScreen.held() != 5 || !realScreen.entered().isEmpty()) {
             throw new AssertionError("Published JPX reports notified during missing rights coverage");
         }
@@ -127,7 +134,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             throw new AssertionError("The Android daily report preview did not match the JPX reference");
         }
         try {
-            JpxDailyCheck.readReport(file, day.minusDays(1));
+            JpxDailyCheck.readReport(file, day.minusDays(1), universe, "");
             throw new AssertionError("JPX report with a different trading date was accepted");
         } catch (IOException expected) {
             if (!expected.getMessage().contains("立会日が取得先の日付と一致しない")) throw expected;

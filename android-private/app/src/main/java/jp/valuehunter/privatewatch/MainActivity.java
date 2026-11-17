@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
-        label(japan, "極洋・王子HD・トヨタ・NTT・ソフトバンク", 13, MUTED, false, 5);
+        label(japan, "普通株の終値を一括取得 · 財務登録5銘柄", 13, MUTED, false, 5);
         label(japan, "PER・PBRから優先候補と参考候補を判定\n10万円以内で100株を優先", 13, MUTED, false, 7);
 
         monitorSwitch = new Switch(this);
@@ -174,7 +174,7 @@ public final class MainActivity extends Activity {
 
     private void render() {
         boolean active = supported() && monitorSwitch.isChecked();
-        monitorStatus.setText(!supported() ? "Android 15以降に対応" : active ? "●  日本株" + JpxDailyCheck.WATCH_CODES.size() + "銘柄を自動監視中" : "○  日本株の自動監視を停止中");
+        monitorStatus.setText(!supported() ? "Android 15以降に対応" : active ? "●  東証日報の自動監視中" : "○  日本株の自動監視を停止中");
         checkNow.setEnabled(active);
         boolean alerts = ScanWorker.alertsEnabled(this);
         notificationStatus.setText(alerts ? "通知は有効" : "通知の許可が必要");
@@ -193,7 +193,7 @@ public final class MainActivity extends Activity {
         detailThread = new Thread(() -> {
             CharSequence message;
             try {
-                var daily = JpxDailyCheck.check(getCacheDir());
+                var daily = JpxDailyCheck.check(this);
                 var rights = JpxShareRights.refresh(this);
                 message = Html.fromHtml(daily.html(rights.rights()) + "<br><br>" + rights.status(),
                         Html.FROM_HTML_MODE_LEGACY);

@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import android.annotation.TargetApi;
+import android.content.Context;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -38,9 +39,14 @@ final class JpxDailyCheck {
     private static final BigDecimal LOT_PRICE_LIMIT = BUDGET.movePointLeft(2);
 
     record Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes,
-                  Set<String> ambiguous, String edition) {
+                  Set<String> ambiguous, String edition, JpxStockUniverse universe) {
         Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes, Set<String> ambiguous) {
             this(date, source, quotes, ambiguous, "");
+        }
+
+        Report(LocalDate date, String source, Map<String, JpxCloseTable.Sessions> quotes,
+               Set<String> ambiguous, String edition) {
+            this(date, source, quotes, ambiguous, edition, null);
         }
 
         BigDecimal close(String code) {
@@ -63,6 +69,7 @@ final class JpxDailyCheck {
             } else {
                 message.append("<br>比較日 ").append(previous.date()).append("（分割等の調整前の終値）");
             }
+            appendCoverage(message, screen(rights).assessed(), "<br>");
             var ordered = new ArrayList<>(WATCH_CODES);
             ordered.sort(Comparator.comparingInt((String code) -> budgetQuantity(latest.close(code))).reversed());
             for (String code : ordered) {
@@ -98,6 +105,29 @@ final class JpxDailyCheck {
             appendSource(message.append("<br>"), latest);
             if (previous != null) appendSource(message, previous);
             return message.toString();
+        }
+
+        void appendCoverage(StringBuilder message, int assessed, String newline) {
+            var universe = latest.universe();
+            if (universe == null) return;
+            int closes = 0;
+            int lots = 0;
+            int single = 0;
+            for (String code : latest.quotes().keySet()) {
+                var close = latest.close(code);
+                if (close == null) continue;
+                closes++;
+                int quantity = budgetQuantity(close);
+                if (quantity == 100) lots++;
+                if (quantity == 1) single++;
+            }
+            message.append(newline).append("終値取得 ").append(closes).append(" / ")
+                    .append(universe.codes().size()).append("銘柄")
+                    .append("（銘柄一覧 ").append(universe.asOf()).append("）")
+                    .append(newline).append("購入額10万円以内 · 100株枠 ").append(lots)
+                    .append("銘柄 · 1株枠 ").append(single).append("銘柄")
+                    .append(newline).append("財務照合済み ").append(assessed)
+                    .append(" / 登録 ").append(WATCH_CODES.size()).append("銘柄");
         }
 
         private static void appendBudget(StringBuilder message, BigDecimal close) {
@@ -136,15 +166,17 @@ final class JpxDailyCheck {
             var candidates = new ArrayList<Candidate>();
             var entered = new ArrayList<Candidate>();
             var held = new ArrayList<Held>();
+            int assessed = 0;
             for (String code : WATCH_CODES) {
                 var change = referenceChange(code, rights);
+                if (change.now().level() != Level.HELD) assessed++;
                 if (change.now().qualifies()) candidates.add(change.now());
                 if (!change.hold().isEmpty()) held.add(new Held(code, change.hold()));
                 if (change.entered()) entered.add(change.now());
             }
             candidates.sort(CANDIDATE_ORDER);
             entered.sort(CANDIDATE_ORDER);
-            return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held));
+            return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held), assessed);
         }
 
         private ReferenceChange referenceChange(String code, JpxShareRights rights) {
@@ -207,7 +239,7 @@ final class JpxDailyCheck {
 
     record Held(String code, String reason) {}
 
-    record Screening(List<Candidate> candidates, List<Candidate> entered, List<Held> holds) {
+    record Screening(List<Candidate> candidates, List<Candidate> entered, List<Held> holds, int assessed) {
         int held() { return holds.size(); }
     }
 
@@ -235,25 +267,25 @@ final class JpxDailyCheck {
         Report load(LocalDate day) throws IOException;
     }
 
-    static Comparison check(File cache) throws IOException {
+    static Comparison check(Context context) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
-        var pdf = File.createTempFile("jpx-daily-", ".pdf", cache);
+        var universe = JpxStockUniverse.load(context);
+        var pdf = File.createTempFile("jpx-daily-", ".pdf", context.getCacheDir());
         try {
             return checkRecent(today, day -> {
                 var response = download(reportUrl(day), pdf);
                 if (!response.exists()) return null;
-                var report = readReport(pdf, day);
-                return new Report(report.date(), report.source(), report.quotes(), report.ambiguous(), response.version());
+                return readReport(pdf, day, universe, response.version());
             });
         } finally {
             pdf.delete();
         }
     }
 
-    static Comparison checkWatch(File cache, String processedKey, String rightsRevision) throws IOException {
+    static Comparison checkWatch(Context context, String processedKey, String rightsRevision) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
         if (unchanged(today, processedKey, rightsRevision, JpxDailyCheck::head)) return null;
-        return check(cache);
+        return check(context);
     }
 
     record Edition(boolean exists, String version) {}
@@ -288,7 +320,7 @@ final class JpxDailyCheck {
     private static String editionKey(LocalDate latest, String latestEdition, LocalDate previous,
                                      String previousEdition, String rightsRevision) {
         if (latestEdition.isEmpty() || previousEdition.isEmpty() || rightsRevision.isEmpty()) return "";
-        String identity = "valuation-v2|" + latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
+        String identity = "bulk-quotes-v1|" + latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
         try {
             var digest = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
@@ -326,24 +358,26 @@ final class JpxDailyCheck {
         throw new IOException("直近10日間に公表された株式相場表が見つからなかった");
     }
 
-    static Report readReport(File pdf, LocalDate day) throws IOException {
+    static Report readReport(File pdf, LocalDate day, JpxStockUniverse universe, String edition) throws IOException {
         try {
-            var table = JpxAndroidPdfReader.read(pdf, Set.copyOf(WATCH_CODES), day);
+            var table = JpxAndroidPdfReader.read(pdf, universe.codes(), day);
+            var quotes = table.prices();
+            var ambiguous = table.ambiguousCodes();
             // A valid PDF header does not guarantee a usable equity table. A layout
             // change or a partial CDN response must not advance the watch baseline.
-            if (!hasUsableSample(table.prices(), table.ambiguousCodes())) {
-                throw new IOException("東証日報から監視銘柄の有効な終値を取得できなかった");
+            if (!hasUsableClose(quotes, ambiguous)) {
+                throw new IOException("東証日報から普通株の有効な終値を取得できなかった");
             }
-            return new Report(day, reportUrl(day), table.prices(), table.ambiguousCodes());
+            return new Report(day, reportUrl(day), quotes, ambiguous, edition, universe);
         } catch (IllegalArgumentException | SecurityException error) {
             throw new IOException("東証日報のPDFを読み取れなかった", error);
         }
     }
 
-    static boolean hasUsableSample(Map<String, JpxCloseTable.Sessions> quotes, Set<String> ambiguous) {
-        for (String code : WATCH_CODES) {
-            var sessions = quotes.get(code);
-            if (!ambiguous.contains(code) && sessions != null && sessions.close() != null
+    static boolean hasUsableClose(Map<String, JpxCloseTable.Sessions> quotes, Set<String> ambiguous) {
+        for (var entry : quotes.entrySet()) {
+            var sessions = entry.getValue();
+            if (!ambiguous.contains(entry.getKey()) && sessions != null && sessions.close() != null
                     && sessions.close().signum() > 0) return true;
         }
         return false;
