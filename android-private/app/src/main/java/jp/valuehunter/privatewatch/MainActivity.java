@@ -106,6 +106,14 @@ public final class MainActivity extends Activity {
             }
         });
 
+        var unitedStates = section(content, SURFACE, true);
+        label(unitedStates, "米国株  ·  NYSE / Nasdaq", 17, INK, true, 0);
+        label(unitedStates, "終値の自動監視は準備中", 13, MUTED, false, 4);
+
+        var singapore = section(content, SURFACE, true);
+        label(singapore, "シンガポール株  ·  SGX", 17, INK, true, 0);
+        label(singapore, "終値の自動監視は準備中", 13, MUTED, false, 4);
+
         var notifications = section(content, SURFACE, true);
         label(notifications, "無音通知", 19, INK, true, 0);
         notificationStatus = label(notifications, "", 13, MUTED, false, 5);
@@ -132,9 +140,6 @@ public final class MainActivity extends Activity {
         detail.setVisibility(View.GONE);
         showDetail.setOnClickListener(view -> checkDetails(showDetail));
 
-        var others = section(content, PAGE, true);
-        label(others, "米国株・シンガポール株", 15, INK, true, 0);
-        label(others, "終値の自動監視は準備中", 13, MUTED, false, 4);
         render();
     }
 
@@ -169,7 +174,7 @@ public final class MainActivity extends Activity {
 
     private void render() {
         boolean active = supported() && monitorSwitch.isChecked();
-        monitorStatus.setText(!supported() ? "Android 15以降に対応" : active ? "●  自動監視中" : "○  自動監視を停止中");
+        monitorStatus.setText(!supported() ? "Android 15以降に対応" : active ? "●  日本株3銘柄を自動監視中" : "○  日本株の自動監視を停止中");
         checkNow.setEnabled(active);
         boolean alerts = ScanWorker.alertsEnabled(this);
         notificationStatus.setText(alerts ? "通知は有効" : "通知の許可が必要");
