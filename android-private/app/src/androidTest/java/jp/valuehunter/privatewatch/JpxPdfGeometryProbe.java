@@ -12,8 +12,10 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -40,7 +42,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             String logs = digestReport(directory, LocalDate.of(2026, 10, 29), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
-                    + checkSampleReport(directory);
+                    + checkSampleReport(directory, JpxShareRights.load(getTargetContext()));
             result.putString("stream", logs);
             finish(Activity.RESULT_OK, result);
         } catch (Exception | AssertionError error) {
@@ -70,7 +72,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         return "JPX_ANDROID_CLOSES " + filename + " " + prices.size() + " " + closes + " " + hex + "\n";
     }
 
-    private static String checkSampleReport(File directory) throws IOException {
+    private static String checkSampleReport(File directory, JpxShareRights rights) throws IOException {
         var file = new File(directory, "jpx-20261116.pdf");
         var day = LocalDate.of(2026, 11, 16);
         var report = JpxDailyCheck.readReport(file, day);
@@ -82,7 +84,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             if (date.equals(previousDay)) return previous;
             throw new AssertionError("Checked an unexpected JPX date: " + date);
         });
-        String html = comparison.html();
+        String html = comparison.html(rights);
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
                 || !html.contains("7203  3428 円（後場）")
                 || !html.contains("3861  847.4 円（後場）")
@@ -99,8 +101,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || !html.contains("自己株式控除後 11737603369株（2026-10-31時点）")
                 || !html.contains("S100ZH9B.pdf")
                 || !html.contains("比較日 2026-11-13")
-                || html.split("参考判定の変化 · 条件の変化なし", -1).length != 4
-                || !html.contains("参考判定は分割・併合を未照合")
+                || html.split("参考判定の変化 · 保留（権利落月報の未確認月 2026-10、2026-11", -1).length != 4
                 || !html.contains("比較日の終値 4660円 / +45円（+0.97%）")
                 || !html.contains("比較日の終値 3418円 / +10円（+0.29%）")
                 || !html.contains("時価総額は保留（立会日の株式数未照合）")) {
@@ -130,8 +131,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             if (date.equals(previousDay)) throw new IOException("Unavailable report");
             throw new AssertionError("A failed download must not select an older comparison date");
         });
-        if (!oneReport.html().contains("7203  3428 円（後場）")
-                || !oneReport.html().contains("比較用の日報を取得できなかった")) {
+        if (!oneReport.html(rights).contains("7203  3428 円（後場）")
+                || !oneReport.html(rights).contains("比較用の日報を取得できなかった")) {
             throw new AssertionError("A failed comparison hid the latest report");
         }
         if (JpxDailyCheck.budgetQuantity(new BigDecimal("1000.00")) != 100
@@ -147,6 +148,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             throw new AssertionError("Rounded display value was used to check the PER limit");
         }
         checkReferenceTransitions(day);
+        checkShareRights(rights);
         return "JPX_ANDROID_PREVIEW_OK\n";
     }
 
@@ -173,9 +175,36 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
 
     private static void assertTransition(JpxDailyCheck.Report latest, JpxDailyCheck.Report previous,
                                          String expected) {
-        String html = new JpxDailyCheck.Comparison(latest, previous).html();
+        var months = new HashSet<YearMonth>();
+        for (int month = 4; month <= 11; month++) months.add(YearMonth.of(2026, month));
+        var complete = new JpxShareRights(Set.of("1301", "3861", "7203"), months, List.of());
+        String html = new JpxDailyCheck.Comparison(latest, previous).html(complete);
         if (!html.contains("参考判定の変化 · " + expected)) {
             throw new AssertionError("Missing JPX reference transition: " + expected);
+        }
+    }
+
+    private static void checkShareRights(JpxShareRights rights) {
+        var before = LocalDate.of(2026, 11, 18);
+        var exDay = LocalDate.of(2026, 11, 19);
+        var start = JpxReferenceFinancials.ANNUAL_END;
+        var actual = rights.firstChange("6861", start, exDay);
+        if (rights.firstChange("6861", start, before) != null
+                || actual == null || !actual.exDay().equals(exDay)
+                || !actual.source().endsWith("20261111.xls")
+                || rights.firstChange("6861", exDay, exDay.plusDays(1)) != null) {
+            throw new AssertionError("KEYENCE's official ex-date was applied outside its boundary");
+        }
+        var scenario = new JpxShareRights(Set.of("3861"), Set.of(),
+                List.of(new JpxShareRights.Notice("3861", exDay, actual.source())));
+        var comparison = new JpxDailyCheck.Comparison(
+                sampleReport(exDay, "3861", "847.40", false), sampleReport(before, "3861", "916.51", false));
+        String html = comparison.html(scenario);
+        if (!html.contains("値動きの比較は保留（期間内に権利落日）")
+                || !html.contains("参考PER・PBRは保留（権利落日 2026-11-19")
+                || !html.contains("参考判定の変化 · 保留（権利落日 2026-11-19")
+                || html.contains("新たに条件内")) {
+            throw new AssertionError("A share change produced a misleading reference transition");
         }
     }
 

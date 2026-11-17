@@ -8,7 +8,7 @@ import java.util.Map;
 
 /** Issuer disclosures used by the JPX manual preview. */
 final class JpxReferenceFinancials {
-    private static final LocalDate ANNUAL_END = LocalDate.of(2026, 3, 31);
+    static final LocalDate ANNUAL_END = LocalDate.of(2026, 3, 31);
     private static final Map<String, Disclosures> BY_CODE = Map.of(
             "1301", new Disclosures(
                     new Annual(LocalDate.of(2026, 5, 15), new BigDecimal("576.02"),
@@ -88,6 +88,12 @@ final class JpxReferenceFinancials {
                     .append("<br>決算公表時の1株値で試算（以降の株式分割等は未反映）");
         }
         html.append("<br>").append(condition(code, session, close).label);
+        appendShareData(html, code, session);
+    }
+
+    static void appendShareData(StringBuilder html, String code, LocalDate session) {
+        var disclosures = BY_CODE.get(code);
+        if (disclosures == null) return;
         for (var shares : disclosures.shares()) {
             if (!session.isAfter(shares.released())) continue;
             html.append("<br>自己株式控除後 ").append(shares.outstanding()).append("株")

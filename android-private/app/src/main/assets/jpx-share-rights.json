@@ -1,0 +1,24 @@
+{
+  "coveredCodes": [
+    "1301",
+    "3861",
+    "6861",
+    "7203"
+  ],
+  "monthlySources": {
+    "2026-03": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt0000013821-att/17_kenri2603.pdf",
+    "2026-04": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt00000178b0-att/17_kenri2604.pdf",
+    "2026-05": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000001hyrc-att/17_kenri2605.pdf",
+    "2026-06": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000001jmoi-att/17_kenri2606.pdf",
+    "2026-07": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000001ul01-att/17_kenri2607.pdf",
+    "2026-08": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000001ypy8-att/17_kenri2608.pdf",
+    "2026-09": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000002h6ia-att/17_kenri2609.pdf"
+  },
+  "notices": [
+    {
+      "code": "6861",
+      "exDay": "2026-11-19",
+      "source": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261111.xls"
+    }
+  ]
+}

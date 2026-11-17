@@ -42,7 +42,7 @@ final class JpxDailyCheck {
     }
 
     record Comparison(Report latest, Report previous) {
-        String html() {
+        String html(JpxShareRights rights) {
             var message = new StringBuilder("立会日 ").append(latest.date());
             if (previous == null) {
                 message.append("<br>比較用の日報を取得できなかった");
@@ -65,13 +65,18 @@ final class JpxDailyCheck {
                     message.append(close.toPlainString()).append(" 円")
                             .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
                     appendBudget(message, close);
-                    if (previous != null) appendChange(message, close, previous.close(code));
-                    JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
-                    if (previous != null) appendReferenceTransition(message, code);
+                    if (previous != null) appendChange(message, code, close, rights);
+                    var notice = rights.firstChange(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
+                    if (notice == null) {
+                        JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
+                    } else {
+                        message.append("<br>参考PER・PBRは保留（")
+                                .append(notice.description())
+                                .append("）");
+                        JpxReferenceFinancials.appendShareData(message, code, latest.date());
+                    }
+                    if (previous != null) appendReferenceTransition(message, code, rights);
                 }
-            }
-            if (previous != null) {
-                message.append("<br><br>参考判定は分割・併合を未照合");
             }
             appendSource(message.append("<br>"), latest);
             if (previous != null) appendSource(message, previous);
@@ -91,21 +96,32 @@ final class JpxDailyCheck {
             }
         }
 
-        private static void appendChange(StringBuilder message, BigDecimal close, BigDecimal previous) {
-            if (previous == null) {
+        private void appendChange(StringBuilder message, String code, BigDecimal close, JpxShareRights rights) {
+            BigDecimal previousClose = previous.close(code);
+            if (previousClose == null) {
                 message.append("<br>比較日の終値を確認できなかった");
                 return;
             }
-            var change = close.subtract(previous);
-            var percent = change.movePointRight(2).divide(previous, 2, RoundingMode.HALF_UP);
-            message.append("<br>比較日の終値 ").append(previous.toPlainString()).append("円 / ")
+            message.append("<br>比較日の終値 ").append(previousClose.toPlainString()).append("円");
+            if (rights.firstChange(code, previous.date(), latest.date()) != null) {
+                message.append(" · 値動きの比較は保留（期間内に権利落日）");
+                return;
+            }
+            var change = close.subtract(previousClose);
+            var percent = change.movePointRight(2).divide(previousClose, 2, RoundingMode.HALF_UP);
+            message.append(" / ")
                     .append(change.signum() > 0 ? "+" : "").append(change.stripTrailingZeros().toPlainString())
                     .append("円（").append(percent.signum() > 0 ? "+" : "")
                     .append(percent.toPlainString()).append("%）");
         }
 
-        private void appendReferenceTransition(StringBuilder message, String code) {
+        private void appendReferenceTransition(StringBuilder message, String code, JpxShareRights rights) {
             if (!previous.date().isBefore(latest.date())) return;
+            String reason = rights.holdReason(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
+            if (!reason.isEmpty()) {
+                message.append("<br>参考判定の変化 · 保留（").append(reason).append("）");
+                return;
+            }
             var before = referenceTier(previous, code);
             var now = referenceTier(latest, code);
             String change;
