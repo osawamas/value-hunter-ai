@@ -53,7 +53,7 @@ def normalized_name(name):
     return re.sub(r"[^a-z0-9]", "", without_suffixes)
 
 
-def compare_constituents(names, candidates):
+def compare_constituents(names, candidates, trading_names=TRADING_NAMES):
     by_name = defaultdict(list)
     for row in candidates.values():
         by_name[normalized_name(row["issuer"])].append(row)
@@ -61,8 +61,8 @@ def compare_constituents(names, candidates):
     matches, missing, ambiguous = {}, [], []
     for name in names:
         rows = by_name[normalized_name(name)]
-        if not rows and name in TRADING_NAMES:
-            rows = by_name[normalized_name(TRADING_NAMES[name])]
+        if not rows and name in trading_names:
+            rows = by_name[normalized_name(trading_names[name])]
         if not rows:
             missing.append(name)
         elif len({row["isin"] for row in rows}) != 1:
@@ -76,17 +76,22 @@ def compare_constituents(names, candidates):
     }
 
 
-def verify_next50(candidates):
-    request = Request(REPORT_URL, headers={"Accept": "application/pdf"})
+def fetch_pdf_layout(url, first_page, last_page):
+    request = Request(url, headers={"Accept": "application/pdf"})
     with urlopen(request, timeout=25) as response:
-        if response.geturl() != REPORT_URL:
-            raise ValueError("unexpected monthly report URL")
+        if response.geturl() != url:
+            raise ValueError("unexpected reference PDF URL")
         body = response.read(MAX_REPORT + 1)
     if len(body) > MAX_REPORT or not body.startswith(b"%PDF-"):
-        raise ValueError("invalid SGX monthly report PDF")
+        raise ValueError("invalid reference PDF")
     result = subprocess.run(
-        ["pdftotext", "-layout", "-f", "11", "-l", "12", "-", "-"],
+        ["pdftotext", "-layout", "-f", str(first_page), "-l", str(last_page), "-", "-"],
         input=body, capture_output=True, check=True, timeout=20,
     )
-    report = compare_constituents(parse_constituents(result.stdout.decode("utf-8")), candidates)
-    return {"source_url": REPORT_URL, "pdf_sha256": sha256(body).hexdigest(), **report}
+    return result.stdout.decode("utf-8"), sha256(body).hexdigest()
+
+
+def verify_next50(candidates):
+    layout, digest = fetch_pdf_layout(REPORT_URL, 11, 12)
+    report = compare_constituents(parse_constituents(layout), candidates)
+    return {"source_url": REPORT_URL, "pdf_sha256": digest, **report}

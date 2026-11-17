@@ -13,6 +13,8 @@ import sys
 from urllib.request import Request, urlopen
 
 from sgx_next50_coverage import verify_next50
+from sgx_property_coverage import verify_property_trusts
+from sgx_sti_coverage import verify_sti
 
 URL = "https://getresearch.ai/sg"
 BOARDS = {"SGX": "Mainboard", "SGX-CATALIST": "Catalist"}
@@ -228,6 +230,10 @@ def main():
     cli.add_argument("--include-records", action="store_true", help="include candidate rows in local output")
     cli.add_argument("--check-next50", action="store_true",
                      help="compare with the October 2026 SGX Next 50 PDF (requires pdftotext)")
+    cli.add_argument("--check-sti", action="store_true",
+                     help="compare with the latest published FTSE Russell STI PDF (requires pdftotext)")
+    cli.add_argument("--check-property-trusts", action="store_true",
+                     help="compare with the SGX Q3 2026 property report (requires pdftotext)")
     args = cli.parse_args()
     try:
         body = download()
@@ -237,7 +243,12 @@ def main():
         candidates, audit = supplement_directory(directory, evidence)
         events = json.loads(BOARD_EVENT_EVIDENCE.read_text(encoding="utf-8"))["board_movement_events"]
         candidates, board_events = apply_board_events(candidates, events, as_of)
-        next50 = verify_next50(candidates) if args.check_next50 else None
+        index_reports = {}
+        if args.check_next50:
+            index_reports["next50"] = verify_next50(candidates)
+        if args.check_sti:
+            index_reports["sti"] = verify_sti(candidates)
+        property_report = verify_property_trusts(candidates) if args.check_property_trusts else None
     except (OSError, SubprocessError, ValueError) as error:
         print(f"SGX candidate directory fetch failed: {error}", file=sys.stderr)
         return 1
@@ -264,10 +275,19 @@ def main():
         "official_market_coverage_verified": False,
         "stock_quotes_fetched": False,
     }
-    if next50 is not None:
-        report["next50"] = next50
+    if index_reports:
+        matched_codes = {
+            code for result in index_reports.values() for codes in result["matches"].values() for code in codes
+        }
+        report["index_matched_distinct_isin_count"] = len({candidates[code]["isin"] for code in matched_codes})
+    for index_name, result in index_reports.items():
         if not args.include_records:
-            del report["next50"]["matches"]
+            del result["matches"]
+        report[index_name] = result
+    if property_report is not None:
+        if not args.include_records:
+            del property_report["matches"]
+        report["property_trusts"] = property_report
     if args.include_records:
         report["candidates"] = [candidates[symbol] for symbol in sorted(candidates)]
     print(json.dumps(report, ensure_ascii=False, indent=2))

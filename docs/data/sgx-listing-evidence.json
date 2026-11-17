@@ -89,5 +89,79 @@
     "evidence_date": "2026-11-03",
     "security_type": "ordinary_share",
     "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/23V5ER2V4U912R5M/821531b6674ffed56a705888a5fd998b8b14c0ea7d0b42efc5d72611b156f68e"
+  },
+  {
+    "symbol": "XZL",
+    "isin": "SGXC80011726",
+    "issuer": "Acrophyte Hospitality Trust",
+    "board": "Mainboard",
+    "evidence_date": "2024-10-02",
+    "security_type": "stapled_security",
+    "trading_currency": "USD",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/XQPBBG06SP65PODX/"
+  },
+  {
+    "symbol": "MXNU",
+    "isin": "SGXC59097235",
+    "issuer": "Elite UK REIT GBP",
+    "board": "Mainboard",
+    "evidence_date": "2026-03-12",
+    "security_type": "reit",
+    "trading_currency": "GBP",
+    "source_url": "https://links.sgx.com/FileOpen/Elite%20UK%20REIT-Dual%20Currency%20Trading-Trading%20Name%20and%20Stock%20Code.ashx?App=Announcement&FileID=878167",
+    "corroborating_source_url": "https://investor.eliteukreit.com/stock_fundamentals.html"
+  },
+  {
+    "symbol": "UD1U",
+    "isin": "SG1AB8000006",
+    "issuer": "IREIT Global SGD",
+    "board": "Mainboard",
+    "evidence_date": "2021-08-16",
+    "security_type": "reit",
+    "trading_currency": "SGD",
+    "source_url": "https://links.sgx.com/FileOpen/IREIT_Dual_Currency_Trading_Name_and_Stock_Code.ashx?App=Announcement&FileID=679167",
+    "corroborating_source_url": "https://investor.ireitglobal.com/stock_fundamentals.html"
+  },
+  {
+    "symbol": "SET",
+    "isin": "SGXC11267561",
+    "issuer": "Stoneweg Europe Stapled Trust EUR",
+    "board": "Mainboard",
+    "evidence_date": "2025-06-11",
+    "security_type": "stapled_security",
+    "trading_currency": "EUR",
+    "source_url": "https://links.sgx.com/FileOpen/Stoneweg_Stapling_Announcement_11%20June%202025.ashx?App=Announcement&FileID=848666"
+  },
+  {
+    "symbol": "SEB",
+    "isin": "SGXC11267561",
+    "issuer": "Stoneweg Europe Stapled Trust SGD",
+    "board": "Mainboard",
+    "evidence_date": "2025-06-11",
+    "security_type": "stapled_security",
+    "trading_currency": "SGD",
+    "source_url": "https://links.sgx.com/FileOpen/Stoneweg_Stapling_Announcement_11%20June%202025.ashx?App=Announcement&FileID=848666"
+  },
+  {
+    "symbol": "NS8U",
+    "isin": "SG2D00968206",
+    "issuer": "Hutchison Port Holdings Trust USD",
+    "board": "Mainboard",
+    "evidence_date": "2026-09-18",
+    "security_type": "business_trust",
+    "trading_currency": "USD",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/XYUPIE4PZD1LLVW6/92c0a0fcd32061594d38b97f3adf1d20123af3363c1476451ff6a964b0ebf59b",
+    "corroborating_source_url": "https://www.sgx.com/securities/trading"
+  },
+  {
+    "symbol": "P7VU",
+    "isin": "SG2D00968206",
+    "issuer": "Hutchison Port Holdings Trust SGD",
+    "board": "Mainboard",
+    "evidence_date": "2026-09-18",
+    "security_type": "business_trust",
+    "trading_currency": "SGD",
+    "source_url": "https://links.sgx.com/1.0.0/corporate-announcements/XYUPIE4PZD1LLVW6/92c0a0fcd32061594d38b97f3adf1d20123af3363c1476451ff6a964b0ebf59b",
+    "corroborating_source_url": "https://www.sgx.com/securities/trading"
   }
 ]

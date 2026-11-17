@@ -1,5 +1,15 @@
 # VALUE HUNTER AI シンガポール株の開発ログ
 
+## 2026-11-18 07:24 JST — STI・不動産信託の照合と7コード補完
+
+- 無料公開の[FTSE Russell STI構成ファイル](https://research.ftserussell.com/analytics/factsheets/Home/DownloadConstituentsWeights/?indexdetails=STI)と[SGX Q3不動産信託資料](https://api2.sgx.com/sites/default/files/2026-10/SGX%20Research%20-%20SREIT%20%26%20Property%20Trusts%20Chartbook%20-%20Q3%202026%20-%20v3.pdf)を直接取得。STIは2026年6月末の構成銘柄名30件を照合して30件一致。SGXの不動産信託資料は2026年9月末時点で掲載の39取引コードを完全一致で照合して39件一致。前回の候補からはこの39件中4件（XZL、MXNU、UD1U、SET）が欠けていた。
+- 上記の4件に加え、StonewegのSGD建てSEB、Hutchison Port Holdings TrustのUSD建てNS8UとSGD建てP7VUを発行体・SGX資料で照合。7コードを根拠URLと通貨付きで登録。候補は639コード（Mainboard 442、Catalist 197）、634種類のISIN。前回から7コード・3 ISIN増加。銘柄一覧に見つからなかった旧候補のうち、ParagonのSK6U、Silverlakeの5CP、AF GlobalのL38にはSGXNet上場廃止開示を確認した。現行候補いずれにも含まれていない。
+- Next 50は引き続き50/50。STIとNext 50の照合結果に共通ISINはなく、80種類のISINを照合。SGX不動産信託資料の照合には、資料が除外している売買停止中の2銘柄や別通貨カウンターの全数を含まない。全市場の未取得数は未確定。94件のPythonテスト成功。日次終値・Android連携は今回未実施。
+
+```sh
+python3 android-private/tools/sgx_public_directory.py --check-next50 --check-sti --check-property-trusts
+```
+
 ## 2026-11-18 07:16 JST — 上場廃止・市場異動を反映し、公式Next 50を照合
 
 - [Avargaの上場廃止](https://links.sgx.com/1.0.0/corporate-announcements/BBD9D0SIWRBWP9BX/7f1e66a8da899eaf1040290545c377bee25105b44b3979b7593cfb7da11d7307)（X5N、10月27日発効）と[Koh Brothers Eco Engineeringの市場異動](https://links.sgx.com/1.0.0/corporate-announcements/LJWBIHTNDQ91EHN5/e94d438950511be24f092d6c8351b401b4293836e877342da534a49710187b4c)（5HV、10月29日発効）を、既存のSGXNet原本照合データから通常更新時に適用。両原本を再取得し、ハッシュ、告知番号、ISINが保存済み証拠と一致した。候補の基準日までに効力が生じたイベントを、コードとISINの両方が一致した候補に適用する。
