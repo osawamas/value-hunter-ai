@@ -99,11 +99,13 @@ jobs:
           print("JPX closing prices and source-checked annual earnings/book value matched on two dates.")
           PY
 
-      - name: Check split and consolidation rows against an official JPX monthly report
+      - name: Check split and consolidation rows against official JPX monthly reports
         working-directory: android-private/tools
         run: |
           curl -fsSL --max-time 30 https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt0000013821-att/17_kenri2603.pdf -o "$RUNNER_TEMP/jpx-rights-202603.pdf"
-          python - "$RUNNER_TEMP/jpx-rights-202603.pdf" <<'PY'
+          curl -fsSL --max-time 30 https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000000nwgb-att/17_kenri2601.pdf -o "$RUNNER_TEMP/jpx-rights-202601.pdf"
+          curl -fsSL --max-time 30 https://www.jpx.co.jp/markets/statistics-equities/monthly/um3qrc0000027wd5-att/17_kenri2509.pdf -o "$RUNNER_TEMP/jpx-rights-202509.pdf"
+          python - "$RUNNER_TEMP/jpx-rights-202603.pdf" "$RUNNER_TEMP/jpx-rights-202601.pdf" "$RUNNER_TEMP/jpx-rights-202509.pdf" <<'PY'
           from datetime import date
           from decimal import Decimal
           import sys
@@ -147,7 +149,14 @@ jobs:
           other = DailyShareNotice(date(2026, 11, 16), date(2026, 11, 19), date(2026, 11, 20), notice_kind("その他"), "")
           assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [other]) == "hold_daily_rights_unclassified"
           assert share_basis_status("6861", nov, date(2026, 11, 19), (set(), {}), [notice, other]) == "hold_daily_share_notice"
-          print(f"Verified split/consolidation report: {sum(map(len, events.values()))} events")
+          print(f"Verified March 2026 split/consolidation report: {sum(map(len, events.values()))} events")
+
+          january, september = date(2026, 1, 1), date(2025, 9, 1)
+          rotated_months, rotated_events = load_rights_reports(sys.argv[2:])
+          assert rotated_months == {january, september}
+          assert ShareEvent(date(2026, 1, 28), date(2026, 1, 29), 1, 3) in rotated_events["2323"]
+          assert ShareEvent(date(2025, 9, 9), date(2025, 9, 10), 1, 2) in rotated_events["2726"]
+          print(f"Verified January 2026 and September 2025 reports: {sum(map(len, rotated_events.values()))} events")
           PY
 
       - name: Validate monthly JPX reports and inspect the daily rights catalog
@@ -204,33 +213,6 @@ jobs:
                   lines = page.get_text().splitlines()
                   if any("掲載ファイル利用時の留意点" in line for line in lines):
                       print("\n".join(lines))
-          PY
-
-  monthly_layout:
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - run: python3 -m pip install 'PyMuPDF>=1.24,<2'
-      - name: Compare source-page orientation and stock row coordinates
-        run: |
-          curl -fsSL https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000000nwgb-att/17_kenri2601.pdf -o "$RUNNER_TEMP/jan.pdf"
-          curl -fsSL https://www.jpx.co.jp/markets/statistics-equities/monthly/um3qrc0000027wd5-att/17_kenri2509.pdf -o "$RUNNER_TEMP/sep.pdf"
-          python3 - "$RUNNER_TEMP" <<'PY'
-          from pathlib import Path
-          import sys
-          import pymupdf
-          for name, code in (("jan", "2323"), ("sep", "2726")):
-              with pymupdf.open(Path(sys.argv[1]) / (name + ".pdf")) as d:
-                  p = d[0]
-                  print(name, p.rotation, p.rect, p.mediabox)
-                  for block in p.get_text("dict")["blocks"]:
-                      for line in block.get("lines", []):
-                          values = "|".join(span["text"] for span in line["spans"])
-                          if code in values or "株式分割" in values or "Split Ratio" in values:
-                              print(line["dir"], [round(x,1) for x in line["bbox"]], values[:90])
-                  for w in p.get_text("words"):
-                      if code in w[4]:
-                          print("word", w, "mapped", pymupdf.Rect(w[:4]) * p.rotation_matrix)
           PY
 
   hachiquant:

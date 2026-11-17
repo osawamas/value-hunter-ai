@@ -41,11 +41,17 @@ def read_monthly_rights(path):
         for page in document:
             page_text = unicodedata.normalize("NFKC", page.get_text())
             expected_actions = len(ACTION.findall(page_text))
-            words = [
-                ((x0 + x1) / (2 * page.rect.width), (y0 + y1) / 2,
-                 unicodedata.normalize("NFKC", value))
-                for x0, y0, x1, y1, value, *_ in page.get_text("words")
-            ]
+            # PyMuPDF returns word coordinates before the page's display rotation.
+            rotation = page.rotation_matrix
+            width = page.rect.width
+            words = []
+            for x0, y0, x1, y1, value, *_ in page.get_text("words"):
+                bounds = pymupdf.Rect(x0, y0, x1, y1) * rotation
+                words.append((
+                    (bounds.x0 + bounds.x1) / (2 * width),
+                    (bounds.y0 + bounds.y1) / 2,
+                    unicodedata.normalize("NFKC", value),
+                ))
             parsed_actions = 0
             for x, y, code in words:
                 if x >= .4 or not CODE.fullmatch(code):
