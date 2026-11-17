@@ -140,6 +140,17 @@ class PublicFilesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             coverage(date(2026, 11, 13), {"AAPL": ("Nasdaq", "common_or_ordinary_label")}, rows)
 
+    def test_dolt_rejects_unusable_prices_without_miscounting_missing(self):
+        for raw in ("NaN", "Infinity", "-Infinity", "0", "-1", "broken"):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                read_dolt_csv(f"symbol,trading_date,close\\nAAPL,2026-11-16,{raw}\\n".encode())
+        for raw in ("NULL", ""):
+            with self.subTest(raw=raw):
+                rows = read_dolt_csv(f"symbol,trading_date,close\\nAAPL,2026-11-16,{raw}\\n".encode())
+                self.assertIsNone(rows[0]["close"])
+        with self.assertRaises(ValueError):
+            read_dolt_csv(b"symbol,trading_date,close\\nAAPL,invalid,42\\n")
+
     @staticmethod
     def sec_rows(rows):
         return read_sec_directory(json.dumps({"fields": ["cik", "name", "ticker", "exchange"],
