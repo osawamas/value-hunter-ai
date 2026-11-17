@@ -93,6 +93,16 @@ def load_rights_reports(paths):
     return coverage, events
 
 
+def missing_rights_months(period_end, quote_day, coverage):
+    month = period_end.replace(day=1)
+    missing = []
+    while month <= quote_day:
+        if month not in coverage:
+            missing.append(month.strftime("%Y-%m"))
+        month = date(month.year + month.month // 12, month.month % 12 + 1, 1)
+    return tuple(missing)
+
+
 def share_basis_status(code, period_end, quote_day, rights, daily_notices=()):
     coverage, events = rights
     for action in events.get(code, ()):
@@ -109,9 +119,6 @@ def share_basis_status(code, period_end, quote_day, rights, daily_notices=()):
         return "hold_daily_share_notice"
     if due_dates:
         return "hold_daily_rights_unclassified"
-    month = period_end.replace(day=1)
-    while month <= quote_day:
-        if month not in coverage:
-            return "hold_rights_report_gap"
-        month = date(month.year + month.month // 12, month.month % 12 + 1, 1)
+    if missing_rights_months(period_end, quote_day, coverage):
+        return "hold_rights_report_gap"
     return "no_share_change_in_supplied_reports"

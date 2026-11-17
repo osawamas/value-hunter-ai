@@ -104,7 +104,7 @@ jobs:
           from datetime import date
           from decimal import Decimal
           import sys
-          from jpx_share_basis import ShareEvent, load_rights_reports, share_basis_status
+          from jpx_share_basis import ShareEvent, load_rights_reports, missing_rights_months, share_basis_status
           from jpx_daily_rights import DailyShareNotice, notice_kind
 
           march = date(2026, 3, 1)
@@ -121,6 +121,10 @@ jobs:
           assert share_basis_status("8336", march, ex_on, rights) == "hold_share_basis_change"
           assert share_basis_status("6731", record_on, record_on, rights) == "hold_share_basis_change"
           assert share_basis_status("6403", march, date(2026, 4, 1), rights) == "hold_rights_report_gap"
+
+          assert missing_rights_months(date(2025, 12, 31), date(2026, 4, 1), {march}) == (
+              "2025-12", "2026-01", "2026-02", "2026-04",
+          )
 
           # JPX's 2026-11-05 notice gives the 19th as the trading boundary for Keyence.
           nov = date(2026, 11, 1)

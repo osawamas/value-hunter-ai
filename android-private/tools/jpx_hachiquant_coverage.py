@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 from jpx_daily_probe import CODE, MARKETS, ordinary_stocks, read_quotes
 from jpx_valuation_probe import trading_date
-from jpx_share_basis import load_rights_reports, share_basis_status
+from jpx_share_basis import load_rights_reports, missing_rights_months, share_basis_status
 from jpx_daily_rights import load_daily_rights
 
 BASE = "https://hachiquant.com/api/v1"
@@ -144,6 +144,8 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             preliminary[market].append(code)
 
     results = {}
+    missing_by_month = Counter()
+    missing_combinations = Counter()
     for market, candidates in preliminary.items():
         counts = Counter()
         ordered = sorted(candidates)
@@ -169,10 +171,13 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             filed_on = date.fromisoformat(filing["actual_filing_date"])
             if filed_on < day:
                 counts["filed_before_quote"] += 1
-                status = share_basis_status(
-                    code, date.fromisoformat(row["period_end"]), day, rights, daily_rights.get(code, ()),
-                )
+                period_end = date.fromisoformat(row["period_end"])
+                status = share_basis_status(code, period_end, day, rights, daily_rights.get(code, ()))
                 counts[status] += 1
+                if status == "hold_rights_report_gap":
+                    missing = missing_rights_months(period_end, day, rights[0])
+                    missing_by_month.update(missing)
+                    missing_combinations[", ".join(missing)] += 1
             else:
                 counts["filed_on_or_after_quote"] += 1
 
@@ -194,6 +199,8 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
         "quote_date": day.isoformat(),
         "share_basis_verified": False,
         "by_market": results,
+        "gap_counts_by_month": dict(sorted(missing_by_month.items())),
+        "gap_combinations": dict(sorted(missing_combinations.items())),
     }
 
 

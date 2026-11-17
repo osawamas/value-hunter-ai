@@ -148,7 +148,7 @@ def main():
             if found != month:
                 raise ValueError("Report header month differs from the index link")
         except (ValueError, pymupdf.FileDataError) as error:
-            rejected[key] = str(error)
+            rejected[key] = {"reason": str(error), "official_url": selected[month]}
             continue
         accepted[key] = sum(map(len, events.values()))
         (args.output / f"rights-{key}.pdf").write_bytes(body)
