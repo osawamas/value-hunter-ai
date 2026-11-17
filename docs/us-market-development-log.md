@@ -2,6 +2,14 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 04:11 JST — Doltの成功終了でも不正なローカルDBを採用しない
+
+- 開始時main: [d0c4bd4](https://github.com/osawamas/value-hunter-ai/commit/d0c4bd4908fd2cb8c8a1a767db4447f8f104d0ea)。直近の[米国株テストActions](https://github.com/osawamas/value-hunter-ai/actions/runs/44154786930)と[Android Actions](https://github.com/osawamas/value-hunter-ai/actions/runs/44154786872)は成功。既存のNYSEクラスA/B照合には触れず、Dolt同期の異常終了判定を対象とした。
+- [同期コード](https://github.com/osawamas/value-hunter-ai/commit/b5efb6b45ce69c7b9c99c5df38ac403d0a1b3663): Doltコマンドが終了コード0を返しても、取得先に .dolt ディレクトリがなければ成功扱いせず invalid_repository_after_command を返す。CLIも非ゼロ終了する。成功と誤認して欠損キャッシュを使うのを防止。[回帰テスト](https://github.com/osawamas/value-hunter-ai/commit/0c7e434fae241808dc0e9796d671bd85909ba3663)を2件追加し、初回cloneと既存pullの異常を模擬。
+- GitHubへのコードとテストの保存は完了。実行環境のgit cloneはDNS解決失敗のため、ローカル全テストは未実行。新コミットの[Android Actions](https://github.com/osawamas/value-hunter-ai/actions/runs/44156036892)は確認時点で待機中。テスト成功とは記載しない。
+- 対象取引日2026-11-17: 今回はDolt実データの同期・終値取得・NYSE/Nasdaqの件数再測定なし。前回の2026-07-01 NYSE 2,397/2,401、2026-07-02 NYSE 2,398/2,403は公開サンプルに限る。Nasdaq全市場、正規セッション未調整終値、SEC株数、Android実機取得は未確認。原株価データ・APIキー・APKは公開していない。
+- 次回: 新Actionsの結果と対象テストの実行を確認し、Doltの429・タイムアウト時のキャッシュを実環境で検証。日付付きNYSE/Nasdaq網羅率の実測へ進む。
+
 ## 2026-11-18 04:05 JST — NYSEのクラスA/B株を比較対象に追加
 
 - 開始時mainは [15334b3](https://github.com/osawamas/value-hunter-ai/commit/15334b3b05ece7094b6521019002d9a0ef3604a5)。`--with-share-classes` でNYSE TAQの空白付きA/B接尾辞をドット付きの同一クラスとして照合。株式のクラス記号は[NYSE FIX仕様](https://www.nyse.com/publicdocs/nyse/markets/nyse/NYSE_CCG_FIX_Specification.pdf)と、11月17日作成の公開Nasdaq Trader otherlistedにあるACT/CQSの同表記で確認した。7月のNYSEサンプルに出たA/B表記21種が11月の一覧でもNYSE・同じドット付き表記に一致した。今回の7月サンプルの母集団はNYSE TAQ内で決め、11月の一覧は表記の確認にだけ使用した。
