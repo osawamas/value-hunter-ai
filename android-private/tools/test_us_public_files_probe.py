@@ -2,7 +2,7 @@ from datetime import date, datetime
 import json
 import unittest
 
-from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, read_sec_directory
+from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, listing_snapshot_assessment, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -16,6 +16,19 @@ NASDAQ = (
 
 
 class PublicFilesTest(unittest.TestCase):
+    def test_listing_snapshot_date_is_not_historical_proof(self):
+        observed = {"nasdaqlisted.txt": "2026-11-17T06:00:00",
+                    "otherlisted.txt": "2026-11-17T06:00:00"}
+        result = listing_snapshot_assessment(DAY, observed)
+        self.assertEqual("future_directory_snapshot", result["status"])
+        self.assertEqual(1, result["calendar_day_offset"])
+        self.assertFalse(result["historical_universe_verified"])
+        same = {key: "2026-11-16T06:00:00" for key in observed}
+        self.assertEqual("same_day_directory_unverified",
+                         listing_snapshot_assessment(DAY, same)["status"])
+        with self.assertRaises(ValueError):
+            listing_snapshot_assessment(DAY, dict(observed, **{"otherlisted.txt": "2026-11-16T06:00:00"}))
+
     def test_listing_scope_and_creation(self):
         stamp, rows = read_directory(NASDAQ, nasdaq=True)
         self.assertEqual(datetime(2026, 11, 17, 6), stamp)
