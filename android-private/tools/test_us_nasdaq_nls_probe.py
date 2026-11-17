@@ -71,6 +71,25 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             inspect_tape_c(BytesIO(framed[:-12]))
 
 
+
+    def test_tape_c_rejects_duplicate_or_out_of_order_session_markers(self):
+        start = bytes(8) + b"SO"
+        end = bytes(8) + b"SC"
+        trade_report = bytearray(49)
+        trade_report[8:19] = b"TQAAPL    Q"
+        trade_report[29:33] = (1230123).to_bytes(4, "big")
+        trade_report[40:41] = b"M"
+        for records in (
+            (start, end, end),
+            (start, end, start, end),
+            (start, end, start),
+            (end, start),
+            (start, bytes(8) + b"SH", end),
+        ):
+            framed = b"".join(pack(">H", len(record)) + record for record in records)
+            with self.subTest(records=records), self.assertRaisesRegex(ValueError, "start and end"):
+                inspect_tape_c(BytesIO(framed))
+
     def test_full_dolt_comparison_reports_exception_tickers_without_price_values(self):
         reference = {symbol: Decimal("10.00") for symbol in ("EXACT", "CENT", "DIFF", "NULL", "ABSENT")}
         prices = {"EXACT": 10.0, "CENT": 10.01, "DIFF": 10.02}
