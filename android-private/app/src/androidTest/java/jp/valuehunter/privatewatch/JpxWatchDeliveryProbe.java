@@ -155,11 +155,13 @@ final class JpxWatchDeliveryProbe {
                     sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")), complete));
             denyAlert.set(true);
             var blocked = TestWorkerBuilder.from(context, JpxWatchWorker.class, executor)
-                    .setWorkerFactory(factory).build().doWork();
+                    .setWorkerFactory(factory).setRunAttemptCount(0).build().doWork();
             denyAlert.set(false);
-            if (!blocked.equals(ListenableWorker.Result.success())
-                    || !JpxWatchWorker.displayStatus(state).contains("無音通知を送信できなかった")) {
-                throw new AssertionError("JPX reported a blocked alert as sent");
+            String blockedStatus = JpxWatchWorker.displayStatus(state);
+            if (!blocked.equals(ListenableWorker.Result.retry())
+                    || !blockedStatus.contains("無音通知を送信できなかった")
+                    || !blockedStatus.contains("再試行を予約した")) {
+                throw new AssertionError("JPX did not retry a blocked alert: " + blocked + " " + blockedStatus);
             }
             expectQuiet(notifications);
 
