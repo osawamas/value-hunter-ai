@@ -53,10 +53,13 @@ public final class JpxCloseTableCheck {
         var duplicate2 = new JpxCloseTable.Word(410, 10, 420, 12, "101");
         var goodCode = new JpxCloseTable.Word(65, 30, 75, 32, "1302");
         var goodPrice = new JpxCloseTable.Word(400, 30, 415, 32, "200");
+        table.acceptPage(1000, List.of(badCode, duplicate1));
         table.acceptPage(1000, List.of(badCode, duplicate1, duplicate2, goodCode, goodPrice));
+        var goodRow = table.prices().get("1302");
         if (!table.ambiguousCodes().equals(java.util.Set.of("1301"))
                 || table.prices().containsKey("1301")
-                || !new java.math.BigDecimal("200").equals(table.prices().get("1302").close())) {
+                || goodRow == null || goodRow.close() == null
+                || new java.math.BigDecimal("200").compareTo(goodRow.close()) != 0) {
             throw new AssertionError("Malformed JPX quote must be excluded without losing valid symbols");
         }
         table.acceptPage(1000, List.of(badCode, duplicate1));
