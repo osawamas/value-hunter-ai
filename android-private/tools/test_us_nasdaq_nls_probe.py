@@ -46,6 +46,13 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             inspect_capture(capture([trade("AAPL", 123456)])[:-1])
 
 
+    def test_moldudp_truncated_message_length_is_rejected(self):
+        from us_nasdaq_nls_probe import mold_messages
+        header = bytes(18) + pack(">H", 1)
+        for truncated in (header, header + b"\x00"):
+            with self.assertRaisesRegex(ValueError, "Truncated MoldUDP64 message length"):
+                list(mold_messages(truncated))
+
     def test_tape_c_distinguishes_official_trade_from_consolidated_summary(self):
         start = bytes(8) + b"SO"
         end = bytes(8) + b"SC"
