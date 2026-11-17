@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 05:15 JST — Nasdaq NLSの破損パケットを安全に拒否
+
+- 開始時main: [fdb3fa1](https://github.com/osawamas/value-hunter-ai/commit/fdb3fa19c32824e182d1aae6df2eea449247c3f5)。前回のNasdaq NOCPとDoltの照合を維持し、NLSキャプチャの破損入力検査を改善。
+- MoldUDP64で宣言されたメッセージ数に対して残り2バイト未満の長さヘッダーを読もうとすると、従来は空スライスが長さ0として扱われていた。明示的に `ValueError` を返すよう[コード修正](https://github.com/osawamas/value-hunter-ai/commit/3372b23d8f7e72bbbd682d2ce78d471fb7072f72)、0/1バイトの不足を検査する[回帰テスト追加](https://github.com/osawamas/value-hunter-ai/commit/aa66f0d3365b0f277f7febbf8afa8d47eb2e824c)。不完全なサンプルを正常な終値欠落と誤認しないための修正。
+- [Nasdaq NLS仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)と既存のMoldUDP64解析コードを参照。テストのGitHub保存は完了したが、この回ではPythonテストと新コミットのActionsは未実行・未確認。[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)。
+- 対象の実測参照日は2021-06-14（既存サンプルのNOCP 4,605銘柄）。今回は新規の終値照会0件、NYSE/Nasdaqの当日網羅率再測定なし。SEC株数、分割前終値、Android実機相当の更新・通知は未検証。価格原本、APIキー、APKの公開なし。
+- 次回: 追加テストのActions結果を確認し、MoldUDP64のパケット境界異常を追加検証。続いてDolt日次同期と同日上場一覧で市場別網羅率を実測。
+
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
 ## 2026-11-18 05:03 JST — Nasdaq公式終値との差が大きい銘柄を同一条件で再照合
