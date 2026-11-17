@@ -91,3 +91,14 @@ python3 tools/us_public_files_probe.py 2026-11-16
 
 無料サンプルは評価用途で、価格は株式分割調整済み。端末で継続取得する運用、未調整終値、
 同じ基準の株数との照合、正式なPER・PBR・通知への接続は引き続き検証が必要。
+
+`--with-sec` を付けると、同じ検証で
+[SECの公開企業・銘柄対応表](https://www.sec.gov/files/company_tickers_exchange.json)
+も取得する。株価が取れた普通株候補のうち、11月13日は5,173銘柄、16日は5,208銘柄を
+取引所情報と一意のSEC企業ID（CIK）に照合できた。
+株式クラス別の銘柄が同じCIKを使う場合も検出する。CIKの一致は、株数や決算、
+評価指標の検証済みを意味しない。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --with-sec
+```

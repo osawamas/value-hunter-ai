@@ -1,7 +1,8 @@
 from datetime import date, datetime
+import json
 import unittest
 
-from us_public_files_probe import coverage, read_directory
+from us_public_files_probe import coverage, read_directory, read_sec_directory
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -53,6 +54,46 @@ class PublicFilesTest(unittest.TestCase):
                      [dict(self.bar("AAPL"), asset_type="ETF")]):
             with self.subTest(rows=rows), self.assertRaises(ValueError):
                 coverage(DAY, listings, rows)
+
+    def test_sec_join_checks_exchange_and_counts_share_classes(self):
+        kind = "common_or_ordinary_label"
+        listings = {
+            "BRK.A": ("NYSE", kind), "BRK.B": ("NYSE", kind),
+            "SAME": ("Nasdaq", kind), "DIFF": ("Nasdaq", kind),
+            "NONE": ("Nasdaq", kind), "MISS": ("NYSE American", kind),
+        }
+        sec = self.sec_rows([
+            [1, "Issuer A", "BRK-A", "NYSE"], [1, "Issuer A", "BRK-B", "NYSE"],
+            [2, "Issuer B", "SAME", "Nasdaq"], [3, "Issuer C", "SAME", "Nasdaq"],
+            [4, "Issuer D", "DIFF", "OTC"], [5, "Issuer E", "MISS", "NYSE"],
+        ])
+        result = coverage(DAY, listings, [self.bar(ticker) for ticker in listings if ticker != "MISS"], sec)
+        join = result["common_or_ordinary_label_sec_join"]
+        self.assertEqual(3, join["listed_with_sec_issuer"])
+        self.assertEqual(2, join["listed_with_close_and_sec_issuer"])
+        self.assertEqual(2, join["with_both_sharing_issuer_with_another_listed_class"])
+        self.assertEqual(3, join["with_close_missing_sec_issuer"])
+        self.assertEqual(1, join["with_sec_issuer_missing_close"])
+        self.assertEqual({"ambiguous_sec_issuer": 1, "sec_exchange_unconfirmed": 1, "no_sec_ticker": 1},
+                         join["unlinked"])
+
+    def test_sec_alias_cannot_steal_another_listing(self):
+        kind = "common_or_ordinary_label"
+        listings = {"FOO.A": ("NYSE", kind), "FOO-A": ("NYSE", kind)}
+        sec = self.sec_rows([[1, "Issuer A", "FOO-A", "NYSE"]])
+        result = coverage(DAY, listings, [self.bar("FOO.A")], sec)
+        self.assertEqual(0, result["common_or_ordinary_label_sec_join"]["listed_with_close_and_sec_issuer"])
+
+    def test_sec_data_must_have_valid_schema_and_issuer_id(self):
+        with self.assertRaises(ValueError):
+            read_sec_directory(b"{}")
+        with self.assertRaises(ValueError):
+            self.sec_rows([[False, "Issuer", "A", "Nasdaq"]])
+
+    @staticmethod
+    def sec_rows(rows):
+        return read_sec_directory(json.dumps({"fields": ["cik", "name", "ticker", "exchange"],
+                                              "data": rows}).encode())
 
     @staticmethod
     def bar(symbol, close=10):

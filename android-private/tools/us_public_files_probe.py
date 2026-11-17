@@ -1,6 +1,7 @@
 """Measure US listing coverage using public files without an account or API key."""
 
 import argparse
+from collections import Counter, defaultdict
 import csv
 from datetime import date, datetime
 import json
@@ -11,6 +12,7 @@ import subprocess
 from zoneinfo import ZoneInfo
 
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
+SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
 SAMPLE = "https://marketparquet.com/api/data/download/stock_daily/"
 MAX_BYTES = 4 * 1024 * 1024
 CREATED = re.compile(r"File Creation Time: (\d{8}\d{2}:\d{2})\|+")
@@ -24,13 +26,13 @@ EXCHANGES = {"A": "NYSE American", "N": "NYSE", "P": "NYSE Arca", "Z": "Cboe BZX
 
 def fetch(url):
     name = url.rsplit("/", 1)[-1]
+    command = ["curl", "--fail", "--silent", "--location", "--max-redirs", "4",
+               "--proto", "=https", "--proto-redir", "=https", "--max-time", "25",
+               "--max-filesize", str(MAX_BYTES)]
+    if url == SEC_DIRECTORY:
+        command.extend(["--user-agent", "VALUE HUNTER AI research https://github.com/osawamas/value-hunter-ai"])
     try:
-        result = subprocess.run(
-            ["curl", "--fail", "--silent", "--location", "--max-redirs", "4",
-             "--proto", "=https", "--proto-redir", "=https", "--max-time", "25",
-             "--max-filesize", str(MAX_BYTES), url],
-            capture_output=True, check=False,
-        )
+        result = subprocess.run([*command, url], capture_output=True, check=False)
     except FileNotFoundError:
         raise ValueError("Install curl to download the public files") from None
     if result.returncode or not result.stdout or len(result.stdout) > MAX_BYTES:
@@ -71,7 +73,70 @@ def read_directory(content, nasdaq):
     return timestamp, rows
 
 
-def coverage(day, listings, bars):
+def read_sec_directory(content):
+    if len(content) > MAX_BYTES:
+        raise ValueError("Oversized SEC company directory")
+    payload = json.loads(content)
+    if (not isinstance(payload, dict) or payload.get("fields") != ["cik", "name", "ticker", "exchange"]
+            or not isinstance(payload.get("data"), list) or not payload["data"]):
+        raise ValueError("Unexpected SEC company directory schema")
+    rows = defaultdict(set)
+    for row in payload["data"]:
+        if not isinstance(row, list) or len(row) != 4:
+            raise ValueError("Invalid SEC company directory row")
+        cik, name, ticker, venue = row
+        if (type(cik) is not int or not 0 < cik < 10**10 or not isinstance(name, str) or not name
+                or not isinstance(ticker, str) or not SYMBOL.fullmatch(ticker)
+                or (venue is not None and not isinstance(venue, str))):
+            raise ValueError("Invalid SEC company directory row")
+        rows[ticker].add((cik, venue))
+    return rows
+
+
+def filing_join(listings, closes, sec):
+    # The SEC may label NYSE-group listings simply as NYSE.
+    venues = {"Nasdaq": {"Nasdaq"}, "NYSE": {"NYSE"}, "NYSE American": {"NYSE", "NYSE American"},
+              "NYSE Arca": {"NYSE", "NYSE Arca"}, "Cboe BZX": {"CBOE"},
+              "Texas Stock Exchange": {"TXSE"}}
+    matches = {}
+    diagnostics = Counter()
+    for ticker, (venue, kind) in listings.items():
+        if kind != "common_or_ordinary_label":
+            continue
+        candidates = sec.get(ticker, set())
+        # SEC uses BRK-B where Nasdaq Trader uses BRK.B. Restrict this to share-class suffixes.
+        if re.fullmatch(r"[A-Z]+\.[A-Z]", ticker):
+            alias = ticker.replace(".", "-")
+            if alias not in listings:
+                candidates = candidates | sec.get(alias, set())
+        compatible = {cik for cik, exchange in candidates if exchange in venues.get(venue, set())}
+        if len(compatible) == 1:
+            matches[ticker] = next(iter(compatible))
+        elif len(compatible) > 1:
+            diagnostics["ambiguous_sec_issuer"] += 1
+        elif candidates:
+            diagnostics["sec_exchange_unconfirmed"] += 1
+        else:
+            diagnostics["no_sec_ticker"] += 1
+
+    issuer_counts = Counter(matches.values())
+    with_both = closes & matches.keys()
+    return {
+        "listed_with_sec_issuer": len(matches),
+        "listed_with_close_and_sec_issuer": len(with_both),
+        "with_close_missing_sec_issuer": sum(
+            ticker in closes and ticker not in matches
+            for ticker, (_, kind) in listings.items() if kind == "common_or_ordinary_label"
+        ),
+        "with_sec_issuer_missing_close": len(matches.keys() - closes),
+        "with_both_sharing_issuer_with_another_listed_class": sum(
+            issuer_counts[matches[ticker]] > 1 for ticker in with_both
+        ),
+        "unlinked": dict(sorted(diagnostics.items())),
+    }
+
+
+def coverage(day, listings, bars, sec=None):
     seen = set()
     closes = set()
     for row in bars:
@@ -97,11 +162,14 @@ def coverage(day, listings, bars):
         return {"listed": len(symbols), "with_close": matched, "without_close": len(symbols) - matched,
                 "percent": round(100 * matched / len(symbols), 2)}
 
-    return {"trading_date": day.isoformat(), "sample_price_basis": "split-adjusted",
+    result = {"trading_date": day.isoformat(), "sample_price_basis": "split-adjusted",
             "price_rows": len(seen), "valid_close_rows": len(closes),
             "unmatched_price_tickers": len(closes - listings.keys()),
             "groups": {key: counts(value) for key, value in groups.items()},
             "common_or_ordinary_label_by_exchange": {key: counts(value) for key, value in sorted(by_exchange.items())}}
+    if sec is not None:
+        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec)
+    return result
 
 
 def parquet_rows(content):
@@ -123,9 +191,11 @@ def main():
     parser.add_argument("--directory-cache", type=Path,
                         help="Replay both original Nasdaq files from this directory")
     parser.add_argument("--sample-file", type=Path, help="Replay an original MarketParquet evaluation sample")
+    parser.add_argument("--with-sec", action="store_true", help="Include the SEC issuer directory in the comparison")
+    parser.add_argument("--sec-file", type=Path, help="Replay the original SEC issuer directory")
     args = parser.parse_args()
-    if args.sample_file and not args.trading_day:
-        parser.error("--sample-file requires its trading date")
+    if (args.sample_file or args.with_sec or args.sec_file) and not args.trading_day:
+        parser.error("The sample and SEC options require a trading date")
     if args.trading_day and args.trading_day >= datetime.now(ZoneInfo("America/New_York")).date():
         parser.exit(1, "Use a completed US trading date. The public sample window is limited.\n")
     try:
@@ -145,7 +215,11 @@ def main():
         if args.trading_day:
             sample = (args.sample_file.read_bytes() if args.sample_file
                       else fetch(SAMPLE + args.trading_day.isoformat() + ".parquet"))
-            result.update(coverage(args.trading_day, listings, parquet_rows(sample)))
+            sec = None
+            if args.with_sec or args.sec_file:
+                content = args.sec_file.read_bytes() if args.sec_file else fetch(SEC_DIRECTORY)
+                sec = read_sec_directory(content)
+            result.update(coverage(args.trading_day, listings, parquet_rows(sample), sec))
             result["comparison_basis"] = "observed listings; not a historical listing snapshot"
         print(json.dumps(result, indent=2))
     except ImportError:
