@@ -2,6 +2,12 @@
 
 無料・APIキーなしで、NYSE・Nasdaq上場の普通株を広く扱う個人用Androidアプリの開発記録。ダウ平均は構成銘柄の確認対象として扱う。各回の結果を新しい順に追記する。
 
+## 2026-11-18 04:05 JST — NYSEのクラスA/B株を比較対象に追加
+
+- 開始時mainは [15334b3](https://github.com/osawamas/value-hunter-ai/commit/15334b3b05ece7094b6521019002d9a0ef3604a5)。`--with-share-classes` でNYSE TAQの空白付きA/B接尾辞をドット付きの同一クラスとして照合。株式のクラス記号は[NYSE FIX仕様](https://www.nyse.com/publicdocs/nyse/markets/nyse/NYSE_CCG_FIX_Specification.pdf)と、11月17日作成の公開Nasdaq Trader otherlistedにあるACT/CQSの同表記で確認した。7月のNYSEサンプルに出たA/B表記21種が11月の一覧でもNYSE・同じドット付き表記に一致した。今回の7月サンプルの母集団はNYSE TAQ内で決め、11月の一覧は表記の確認にだけ使用した。
+- 7月1日のTAQとDolt公開DBで16/16、7月2日は17/17のクラスA/B行が同日有効値で完全一致。既存の英字のみ銘柄を合わせると7月1日は2,397/2,401、7月2日は2,398/2,403がDoltにあり、比較できた値にはどちらも1セント超の差がなかった。
+- ローカルテスト67件成功。無接尾辞・A・Bを別銘柄として検証し、優先株や条件付き接尾辞は変換対象外。11月17日当日分、Nasdaq全体、Android端末での取得は未検証。
+
 ## 2026-11-18 03:56 JST — NYSEで欠けた銘柄の後日の終値を追跡
 
 - 開始時mainは [b1d484c](https://github.com/osawamas/value-hunter-ai/commit/b1d484cce6c6c358e92c158657b8148dadd3173c)。NYSE TAQ検証に `--follow-through` を追加。対象日にDoltで終値が欠けた銘柄だけをローカルDBで照会し、指定日までに見つかった最も早い終値の日付を出す。追跡エラー時も対象日の集計を出力する。

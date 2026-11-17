@@ -12,10 +12,12 @@ import re
 from us_public_files_probe import MAX_BYTES, dolt_csv, dolt_rows, validated_closes
 
 PLAIN_SYMBOL = re.compile(r"[A-Z]{1,5}")
+TAQ_CLASS_SYMBOL = re.compile(r"[A-Z]{1,5} [AB]")
+BENCHMARK_SYMBOL = re.compile(r"[A-Z]{1,5}(?:\.[AB])?")
 CENT = Decimal("0.01")
 
 
-def read_nyse_sample(path, day):
+def read_nyse_sample(path, day, *, include_share_classes=False):
     if path.name != f"EQY_US_NYSE_SUM_CLOSE_{day:%Y%m%d}.txt":
         raise ValueError("Expected the original NYSE TAQ sample filename for the trading date")
     with path.open("rb") as file:
@@ -33,7 +35,10 @@ def read_nyse_sample(path, day):
             continue
         totals["nyse_listed_rows"] += 1
         ticker, last, volume, last_date = row[0], row[5], row[7], row[8]
-        if not PLAIN_SYMBOL.fullmatch(ticker):
+        is_share_class = include_share_classes and TAQ_CLASS_SYMBOL.fullmatch(ticker)
+        if is_share_class:
+            ticker = ticker.replace(" ", ".")
+        elif not PLAIN_SYMBOL.fullmatch(ticker):
             totals["excluded_non_plain_symbol"] += 1
             continue
         if last_date != same_day:
@@ -51,6 +56,8 @@ def read_nyse_sample(path, day):
         if ticker in prices:
             raise ValueError("Duplicate NYSE TAQ symbol")
         prices[ticker] = close
+        if is_share_class:
+            totals["included_share_class_rows"] += 1
     if not prices:
         raise ValueError("No eligible same-date NYSE TAQ Last values")
     return prices, dict(totals)
@@ -63,14 +70,22 @@ def benchmark(day, reference, bars):
     exact = sum(delta == 0 for delta in differences.values())
     within = sum(delta <= CENT for delta in differences.values())
     above_cent = sorted(symbol for symbol, delta in differences.items() if delta > CENT)
+    share_classes = {symbol for symbol in reference if "." in symbol}
+    scope = "plain and A/B share-class symbols" if share_classes else "plain symbols"
     return {
-        "reference_basis": "NYSE TAQ Last, row trade date matches session; NYSE-listed plain symbols",
+        "reference_basis": f"NYSE TAQ Last, row trade date matches session; NYSE-listed {scope}",
         "reference_symbols": len(reference),
         "matched_dolt": len(matched),
         "missing_dolt": len(reference) - len(matched),
         "exact_matches": exact,
         "within_one_cent_nonexact": within - exact,
         "differ_over_one_cent": len(above_cent),
+        "share_class_scope": {
+            "reference_symbols": len(share_classes),
+            "matched_dolt": len(share_classes & matched),
+            "missing_dolt_symbols": sorted(share_classes - matched),
+            "differ_over_one_cent_symbols": sorted(share_classes.intersection(above_cent)),
+        },
         "exceptions": {
             "no_dolt_row": sorted(reference.keys() - seen),
             "dolt_row_without_usable_close": sorted((reference.keys() & seen) - matched),
@@ -82,8 +97,8 @@ def benchmark(day, reference, bars):
 def follow_missing(directory, day, through, symbols):
     """Find the earliest later positive close in the current mirror for each exception."""
     requested = sorted(set(symbols))
-    if through <= day or any(not PLAIN_SYMBOL.fullmatch(symbol) for symbol in requested):
-        raise ValueError("Follow-up needs a later date and plain NYSE TAQ symbols")
+    if through <= day or any(not BENCHMARK_SYMBOL.fullmatch(symbol) for symbol in requested):
+        raise ValueError("Follow-up needs a later date and valid NYSE TAQ symbols")
     found = {}
     if requested:
         literals = ", ".join(f"'{symbol}'" for symbol in requested)
@@ -114,13 +129,16 @@ def main():
     parser.add_argument("trading_day", type=date.fromisoformat)
     parser.add_argument("--nyse-sample-file", type=Path, required=True)
     parser.add_argument("--dolt-dir", type=Path, required=True)
+    parser.add_argument("--with-share-classes", action="store_true", help="Include exact NYSE Class A/B suffix mappings")
     parser.add_argument("--follow-through", type=date.fromisoformat,
                         help="Check missing tickers through this later trading date")
     args = parser.parse_args()
     if args.follow_through is not None and args.follow_through <= args.trading_day:
         parser.error("--follow-through must be later than the TAQ sample date")
     try:
-        reference, checks = read_nyse_sample(args.nyse_sample_file, args.trading_day)
+        reference, checks = read_nyse_sample(
+            args.nyse_sample_file, args.trading_day, include_share_classes=args.with_share_classes,
+        )
         directory = args.dolt_dir.resolve()
         result = benchmark(args.trading_day, reference, dolt_rows(directory, args.trading_day))
     except (OSError, ValueError, KeyError) as error:

@@ -56,3 +56,20 @@ class NyseTaqProbeTest(unittest.TestCase):
         query.return_value = b"symbol,first_close_date\nSECZ,2026-07-02\n"
         with self.assertRaises(ValueError):
             follow_missing(Path("stocks"), day, end, ["SECZ"])
+
+
+    def test_share_class_option_keeps_a_b_and_unsuffixed_tickers_distinct(self):
+        day = date(2026, 7, 1)
+        rows = "\n".join(f"{symbol}|000000000|1|1|1|10.10|0|100|07/01/2026|0|0|0|0|N"
+                         for symbol in ("BF", "BF A", "BF B", "BF PR", "BF BWI"))
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "EQY_US_NYSE_SUM_CLOSE_20260701.txt"
+            path.write_text(rows)
+            self.assertEqual({"BF"}, read_nyse_sample(path, day)[0].keys())
+            reference, checks = read_nyse_sample(path, day, include_share_classes=True)
+        self.assertEqual({"BF", "BF.A", "BF.B"}, reference.keys())
+        self.assertEqual(2, checks["included_share_class_rows"])
+        bars = [{"asset_type": "Stock", "date": day, "symbol": symbol, "close": 10.10}
+                for symbol in ("BF", "BF.A")]
+        result = benchmark(day, reference, bars)
+        self.assertEqual(["BF.B"], result["share_class_scope"]["missing_dolt_symbols"])
