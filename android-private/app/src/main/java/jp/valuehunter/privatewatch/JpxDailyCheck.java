@@ -5,6 +5,7 @@ import android.annotation.TargetApi;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.FileInputStream;
 import java.net.URL;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -104,6 +105,17 @@ final class JpxDailyCheck {
                         throw new IOException("東証日報のPDFが上限サイズを超えている");
                     }
                     output.write(buffer, 0, count);
+                }
+            }
+            // A CDN or proxy can return an HTML error page with HTTP 200.
+            // Never pass such a response to the Android PDF engine.
+            try (var header = new FileInputStream(pdf)) {
+                byte[] signature = new byte[5];
+                if (header.read(signature) != signature.length
+                        || signature[0] != '%' || signature[1] != 'P'
+                        || signature[2] != 'D' || signature[3] != 'F'
+                        || signature[4] != '-') {
+                    throw new IOException("東証日報の取得内容がPDFではない");
                 }
             }
             return true;
