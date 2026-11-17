@@ -19,6 +19,7 @@ from us_sec_statement_coverage import measure as measure_statements
 
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
 SEC_DIRECTORY = "https://www.sec.gov/files/company_tickers_exchange.json"
+SEC_INDEX = "https://www.sec.gov/Archives/edgar/full-index/"
 SEC_NOTES = "https://www.sec.gov/files/dera/data/financial-statement-notes-data-sets/"
 SEC_STATEMENTS = "https://www.sec.gov/files/dera/data/financial-statement-data-sets/"
 DIA_HOLDINGS = "https://www.ssga.com/library-content/products/fund-data/etfs/us/holdings-daily-us-en-dia.xlsx"
@@ -42,7 +43,7 @@ def fetch(url, destination=None):
                "--max-filesize", str((350_000_000 if url.startswith(SEC_NOTES) else 220_000_000) if destination else MAX_BYTES)]
     if destination:
         command.extend(["--output", str(destination)])
-    if url == SEC_DIRECTORY or url.startswith((SEC_STATEMENTS, SEC_NOTES)):
+    if url == SEC_DIRECTORY or url.startswith((SEC_STATEMENTS, SEC_NOTES, SEC_INDEX)):
         command.extend(["--user-agent", "VALUE HUNTER AI research https://github.com/osawamas/value-hunter-ai"])
     try:
         result = subprocess.run([*command, url], capture_output=True, check=False)
@@ -161,7 +162,7 @@ def issuers_requiring_class_review(listings, sec):
     return {cik for cik, symbols in symbols_by_issuer.items() if len(symbols) > 1}
 
 
-def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None, notes_files=()):
+def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None, notes_files=(), indexes=None):
     # The SEC may label NYSE-group listings simply as NYSE.
     venues = {"Nasdaq": {"Nasdaq"}, "NYSE": {"NYSE"}, "NYSE American": {"NYSE", "NYSE American"},
               "NYSE Arca": {"NYSE", "NYSE Arca"}, "Cboe BZX": {"CBOE"},
@@ -214,7 +215,7 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None,
     share_dates = None
     if notes_files:
         result["cover_share_archive_coverage"], share_dates = measure_shares(
-            notes_files, day, securities, grouped, issuers_requiring_class_review(listings, sec)
+            notes_files, day, securities, grouped, issuers_requiring_class_review(listings, sec), indexes
         )
     if statement_files:
         result["statement_archive_coverage"] = measure_statements(
@@ -223,7 +224,7 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None,
     return result
 
 
-def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=()):
+def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_files=(), indexes=None):
     seen = set()
     closes = set()
     for row in bars:
@@ -269,7 +270,7 @@ def coverage(day, listings, bars, sec=None, statement_files=(), dow=None, notes_
                 "listing_venues": dict(Counter(listings[ticker][0] for ticker in sorted(listed))),
             })
     if sec is not None:
-        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files)
+        result["common_or_ordinary_label_sec_join"] = filing_join(listings, closes, sec, statement_files, day, focus, notes_files, indexes)
     return result
 
 
@@ -303,7 +304,24 @@ def main():
     notes = parser.add_mutually_exclusive_group()
     notes.add_argument("--sec-notes", action="append", default=[], help="Download a public SEC notes ZIP, e.g. 2026-10")
     notes.add_argument("--sec-notes-file", type=Path, action="append", default=[], help="Replay an original SEC notes ZIP")
+    indexes = parser.add_mutually_exclusive_group()
+    indexes.add_argument("--sec-index-quarter", action="append", default=[],
+                         help="Download an EDGAR filing index by quarter, e.g. 2026q4")
+    indexes.add_argument("--sec-index-file", action="append", default=[],
+                         help="Replay an original EDGAR index as YYYYqN=FILE")
     args = parser.parse_args()
+    index_paths = {}
+    for item in args.sec_index_file or args.sec_index_quarter:
+        name, separator, filename = item.partition("=")
+        match = re.fullmatch(r"(20[0-9]{2})q([1-4])", name)
+        if not match or (args.sec_index_file and (not separator or not filename)) or (args.sec_index_quarter and separator):
+            parser.error("Use YYYYqN for --sec-index-quarter or YYYYqN=FILE for --sec-index-file")
+        key = tuple(map(int, match.groups()))
+        if key in index_paths:
+            parser.error("Each EDGAR quarter can be specified once")
+        index_paths[key] = Path(filename) if filename else None
+    if len(index_paths) > 4 or (index_paths and not (args.sec_notes or args.sec_notes_file)):
+        parser.error("Use up to four EDGAR quarters with at least one SEC notes archive")
     check_notes = args.sec_notes or args.sec_notes_file
     if any(not re.fullmatch(r"20[0-9]{2}-(0[1-9]|1[0-2])", month) for month in args.sec_notes):
         parser.error("--sec-notes expects YYYY-MM")
@@ -356,8 +374,13 @@ def main():
                     destination = Path(directory) / filename
                     fetch(SEC_NOTES + filename, destination)
                     notes_files.append(destination)
+                for (year, part), supplied in index_paths.items():
+                    if supplied is None:
+                        destination = Path(directory) / f"{year}q{part}-master.idx"
+                        fetch(f"{SEC_INDEX}{year}/QTR{part}/master.idx", destination)
+                        index_paths[year, part] = destination
                 result.update(coverage(args.trading_day, listings, parquet_rows(sample),
-                                       sec, statement_files, holdings, notes_files))
+                                       sec, statement_files, holdings, notes_files, index_paths))
             if notes_files:
                 result["sec_notes_archives"] = [path.name for path in notes_files]
             if statement_files:

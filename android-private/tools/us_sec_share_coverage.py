@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from zipfile import ZipFile
 
+from us_sec_filing_followup import check as check_edgar
 from us_sec_statement_coverage import collect_filings, latest_unique
 
 TAG = b"EntityCommonStockSharesOutstanding"
@@ -61,7 +62,7 @@ def cover_facts(archives, filings, cutoff):
     return reported, blocked
 
 
-def measure(paths, cutoff, securities, report_groups, multiple_classes):
+def measure(paths, cutoff, securities, report_groups, multiple_classes, indexes=None):
     issuers = set(securities.values())
     for group in report_groups.values():
         issuers.update(group.values())
@@ -110,4 +111,9 @@ def measure(paths, cutoff, securities, report_groups, multiple_classes):
     result = counts(securities)
     if report_groups:
         result["by_market_or_index"] = {name: counts(group) for name, group in report_groups.items()}
+    if indexes:
+        accessions = {cik: latest[cik].accession for cik in effective_dates}
+        result["edgar_filing_followup"] = check_edgar(
+            indexes, cutoff, effective_dates, accessions, securities, report_groups
+        )
     return result, effective_dates

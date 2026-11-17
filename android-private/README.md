@@ -171,3 +171,18 @@ python3 tools/us_public_files_probe.py 2026-11-16 --dow --sec-notes 2026-10 --se
 3,015銘柄に日付付き株数があり、うち441銘柄は11月16日まで30日以内の開示基準日だった。
 四半期ZIPの決算も含めて揃ったのは2,583銘柄。NYSE本市場は789銘柄、Nasdaqは1,679銘柄、
 DIA保有株は18銘柄だった。DIAは取引所と重複する。
+
+### 株数の基準日以降に提出された書類
+
+`--sec-index-quarter` は [SECのEDGAR四半期索引](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data)
+を取得する。株数の基準日から対象取引日までについて、株数を開示した元の書類を除き、
+同じ企業の8-K・10-Qや証券登録届出書・目論見書などを確認対象として集計する。
+基準日から対象取引日までの索引が欠ける場合は、書類なしと判定しない。
+この集計は書類の候補を探すもので、株数変更の有無は書類本文と他の開示を確認する必要がある。
+
+```sh
+python3 tools/us_public_files_probe.py 2026-11-16 --dow --sec-notes 2026-10 --sec-notes 2026-09 --sec-notes 2026-08 --sec-index-quarter 2026q3 --sec-index-quarter 2026q4
+```
+
+11月16日分では、株数を確認した3,015銘柄のうち、追跡対象の書類があったのは2,959銘柄。
+56銘柄は対象の書類種類が索引から見つからなかった。
