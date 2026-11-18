@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 13:13 JST — Dolt 429が3回続く場合のキャッシュ保護テスト追加
+
+- 開始時main: [5196e0d](https://github.com/osawamas/value-hunter-ai/commit/5196e0db4b9324b014a8028f2bde0f2687c741bd)。直近の[Android Actions 44227434927](https://github.com/osawamas/value-hunter-ai/actions/runs/44227434927)は前回ログで成功と記録されているが、今回のActions一覧・新コミットのCI結果は未確認。既存ログ・Dolt同期コード・テストを読み、JP側と重複しない変更を選択。
+- [回帰テスト追加 18ebd23](https://github.com/osawamas/value-hunter-ai/commit/18ebd23226d0795462a8a59e250751b3176dc3f1)。Dolt pullの標準出力に429が3回連続で出た場合、待機60秒・120秒、再試行計3回、既存ローカルキャッシュ保持、結果cached_after_rate_limitを検査。同期コード自体は変更なし。参考: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- GitHubへテスト保存済み。ローカルgit ls-remoteはDNS解決失敗。追加したPythonテスト、リポジトリ全テスト、Dolt実同期、新コミットのActionsは未実行・未確認で成功とは扱わない。[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)。
+- 対象取引日: 新規照会なし。今回の終値取得0件、NYSE/Nasdaq同日網羅率未測定。株価原本・APIキー・APKの公開なし。未解決: Dolt実同期、正規終値と分割、SEC株数、PER/PBR、Android無音通知。次回はCIで新テストを実行し、Doltの実同期または代替公開ファイルによる日付付き網羅率を測定。
+
 ## 2026-11-18 12:16 JST — Dolt 429後の復帰を回帰テスト化
 
 - 開始時main: [b8b1dc6](https://github.com/osawamas/value-hunter-ai/commit/b8b1dc67f6237df12ca02df939471b7fa98b84f8)。直近[Android Actions 44227434927](https://github.com/osawamas/value-hunter-ai/actions/runs/44227434927)は成功（今回のPythonテストではない）。既存米国ログとDolt同期コード・テストを読み、並行JP開発と重複しない変更を選択。
