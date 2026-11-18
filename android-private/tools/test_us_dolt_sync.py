@@ -215,6 +215,21 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'failed')
             self.assertEqual(len(calls), 1)
 
+    def test_single_attempt_rate_limit_keeps_cache_without_sleep(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('safe')
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            self.assertEqual(sync(dest, runner=runner, attempts=1,
+                                  sleeper=lambda _: self.fail('unexpected sleep')),
+                             'cached_after_rate_limit')
+            self.assertEqual(calls, [['dolt', 'pull', '--ff-only']])
+            self.assertEqual((dest / 'marker').read_text(), 'safe')
+
     def test_initial_rate_limit_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
