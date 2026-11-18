@@ -235,17 +235,19 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None,
     return result
 
 
-def android_massive_rows(path, day):
+def android_close_rows(path, day, *, dolt=False):
     with path.open("rb") as source:
         content = source.read(16 * 1024 * 1024 + 1)
     if len(content) > 16 * 1024 * 1024:
         raise ValueError("Android close cache is too large")
     payload = json.loads(content)
-    if (not isinstance(payload, dict)
-            or payload.get("source") != "massive-grouped-daily"
-            or payload.get("adjusted") is not False
+    source_name = "dolthub-post-no-preference-stocks" if dolt else "massive-grouped-daily"
+    expected_adjustment = None if dolt else False
+    if (not isinstance(payload, dict) or payload.get("source") != source_name
+            or "adjusted" not in payload or payload["adjusted"] is not expected_adjustment
             or payload.get("trading_date_et") != day.isoformat()):
-        raise ValueError("Expected an unadjusted Android close cache for the requested date")
+        basis = "Dolt reference" if dolt else "unadjusted Massive"
+        raise ValueError(f"Expected an Android close cache ({basis}) for the requested date")
     closes = payload.get("closes")
     if not isinstance(closes, list) or not 0 < len(closes) <= 50_000:
         raise ValueError("Invalid Android close cache row count")
@@ -606,6 +608,8 @@ def main():
     prices.add_argument("--dolt-dir", type=Path, help="Read closes from a local post-no-preference/stocks clone")
     prices.add_argument("--massive-android-file", type=Path,
                         help="Read the private unadjusted Android close cache")
+    prices.add_argument("--dolt-android-file", type=Path,
+                        help="Read the private Android Dolt cache as reference prices for SEC coverage")
     comparisons = parser.add_mutually_exclusive_group()
     comparisons.add_argument("--compare-marketparquet", action="store_true",
                              help="Compare Dolt closes with the public split-adjusted sample")
@@ -672,7 +676,8 @@ def main():
         parser.error("--directory-archive requires a trading date")
     if args.save_directory_to and args.trading_day:
         parser.error("--save-directory-to is a directory-only operation; omit the trading date")
-    if (args.sample_file or args.dolt_dir or args.massive_android_file or args.with_sec or args.sec_file or check_statements
+    if (args.sample_file or args.dolt_dir or args.massive_android_file or args.dolt_android_file
+            or args.with_sec or args.sec_file or check_statements
             or args.dow or args.dow_file or check_notes) and not args.trading_day:
         parser.error("The sample, SEC and Dow options require a trading date")
     ny_day = datetime.now(ZoneInfo("America/New_York")).date()
@@ -705,8 +710,11 @@ def main():
             if args.dolt_dir:
                 bars = dolt_rows(args.dolt_dir.resolve(), args.trading_day)
                 price_basis = "Dolt reported close (basis under evaluation)"
+            elif args.dolt_android_file:
+                bars = android_close_rows(args.dolt_android_file, args.trading_day, dolt=True)
+                price_basis = "Dolt reported close (basis under evaluation)"
             elif args.massive_android_file:
-                bars = android_massive_rows(args.massive_android_file, args.trading_day)
+                bars = android_close_rows(args.massive_android_file, args.trading_day)
                 price_basis = "Massive unadjusted close"
             else:
                 sample = (args.sample_file.read_bytes() if args.sample_file

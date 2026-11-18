@@ -43,7 +43,6 @@ public final class MainActivity extends Activity {
     private TextView lastCheck;
     private TextView detail;
     private TextView usDailyStatus;
-    private boolean usDailyConfigured;
     private Button notificationButton;
     private Button checkNow;
     private Thread detailThread;
@@ -57,8 +56,7 @@ public final class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         state = ScanWorker.prefs(this);
         ScanWorker.cancelLegacyApiWork(this);
-        usDailyConfigured = UsDailyWorker.configured(this);
-        UsDailyWorker.schedule(this, usDailyConfigured);
+        UsDailyWorker.schedule(this);
 
         var scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -177,7 +175,7 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
-        usDailyStatus.setText(UsDailyWorker.displayStatus(state, usDailyConfigured));
+        usDailyStatus.setText(UsDailyWorker.displayStatus(state));
         boolean active = supported() && monitorSwitch.isChecked();
         monitorStatus.setText(!supported() ? "Android 15以降に対応" : active ? "●  東証日報の自動監視中" : "○  日本株の自動監視を停止中");
         checkNow.setEnabled(active);

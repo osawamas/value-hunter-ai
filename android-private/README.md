@@ -452,8 +452,8 @@ Doltと取引所横断の集計終値がどれだけ一致するかを出す。�
 
 ## 米国株の終値の定期取得
 
-Massive Stocks Basic の無料キーを取得し、キーだけを書いたテキストファイルをビルドするPCのリポジトリ外に置く。Android StudioのGradle実行構成に `-PmassiveKeyFile=/絶対パス/massive-key.txt` を設定するか、`android-private` から `gradle -PmassiveKeyFile=/絶対パス/massive-key.txt :app:assembleDebug` を実行する。APK内のキーは取り出せるため、本人の端末用のAPKとして扱う。
+初回起動で通信可能時の定期更新（6時間間隔のWorkManager）を登録する。既定のデータ元はDoltHubの公開データセット [post-no-preference/stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。無料でキー登録不要。米東部の前日以前を照会し、週末や結果0件の日は繰り戻す。同一リビジョンの終値を全ページ取得し、件数・取引日・重複を確認して最新1取引日分を端末内に保存する。画面には取得日と件数を表示する。DoltHubの終値は参考値として扱う。画面の件数は全取得行で、普通株だけの網羅件数は別途照合する。
 
-初回起動で通信可能時の定期更新（6時間間隔のWorkManager）を登録する。米東部の前日以前を照会し、週末や結果0件の日は繰り戻す。株式分割の調整をしていない終値を端末内に保存し、画面には最終取得日と件数を表示する。件数はグループ取得した有効終値の数で、普通株だけの網羅件数は別途照合する。初期版では最新1取引日を保持する。
+Massive Stocks Basicは任意の代替経路。無料キーだけを書いたテキストファイルをビルドするPCのリポジトリ外に置き、Android StudioのGradle実行構成に `-PmassiveKeyFile=/絶対パス/massive-key.txt` を設定するか、`android-private` から `gradle -PmassiveKeyFile=/絶対パス/massive-key.txt :app:assembleDebug` を実行する。設定したビルドはMassiveの未調整終値を使う。APK内のキーは取り出せるため、本人の端末用のAPKとして扱う。実配信の検査は、PCのローカル環境変数 `MASSIVE_API_KEY` を設定して `python tools/us_massive_probe.py YYYY-MM-DD` を複数の完了済み取引日について実行する。
 
-実配信の検査は、PCのローカル環境変数 `MASSIVE_API_KEY` を設定して `python tools/us_massive_probe.py YYYY-MM-DD` を複数の完了済み取引日について実行する。終値の財務・株数との照合には、端末の非公開キャッシュ `no_backup/us-daily-closes.json` を手元で取得し、`python tools/us_public_files_probe.py YYYY-MM-DD --massive-android-file /ローカル/us-daily-closes.json --with-sec` を使う。財務・株数の内訳を計測する場合は既存の `--sec-quarter` と `--sec-notes` も使える。画面で自動更新が設定されていても、無料アカウントの実通信、取得件数、同日終値と適切な株数の照合はそれぞれ確認する。
+終値の財務・株数との照合には、端末の非公開キャッシュ `no_backup/us-daily-closes.json` を手元で取得し、`python tools/us_public_files_probe.py YYYY-MM-DD --dolt-android-file /ローカル/us-daily-closes.json --with-sec` を使う。Massiveのキャッシュは `--massive-android-file` を指定する。財務・株数の内訳を計測する場合は既存の `--sec-quarter` と `--sec-notes` も使える。

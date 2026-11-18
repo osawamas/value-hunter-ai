@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HashSet;
+import java.util.Locale;
 
 final class UsDailyCloses {
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
@@ -35,7 +36,7 @@ final class UsDailyCloses {
         var closes = new JSONArray();
         for (int i = 0; i < rows.length(); i++) {
             JSONObject row = rows.getJSONObject(i);
-            String symbol = row.getString("T");
+            String symbol = row.getString("T").toUpperCase(Locale.ROOT);
             Object close = row.opt("c");
             Object timestamp = row.opt("t");
             if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}") || !seen.add(symbol)

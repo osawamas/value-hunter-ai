@@ -32,9 +32,11 @@ import java.util.concurrent.TimeUnit;
 import javax.net.ssl.HttpsURLConnection;
 
 public final class UsDailyWorker extends Worker {
-    private static final String WORK = "us-massive-daily-closes";
+    private static final String WORK = "us-daily-closes";
     private static final String KEY_FILE = "massive-key.txt";
     private static final String STATUS = "us_massive_daily_status";
+    private static final String PROVIDER = "us_daily_close_provider";
+    private static final String MASSIVE = "massive-grouped-daily";
     private static final String DATE = "us_massive_daily_close_date";
     private static final String COUNT = "us_massive_daily_close_count";
     private static final String ENDPOINT =
@@ -44,20 +46,8 @@ public final class UsDailyWorker extends Worker {
         super(context, parameters);
     }
 
-    static boolean configured(Context context) {
-        try {
-            return !readKey(context).isEmpty();
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    static void schedule(Context context, boolean configured) {
+    static void schedule(Context context) {
         var workManager = WorkManager.getInstance(context);
-        if (!configured) {
-            workManager.cancelUniqueWork(WORK);
-            return;
-        }
         var request = new PeriodicWorkRequest.Builder(UsDailyWorker.class, 6, TimeUnit.HOURS)
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
@@ -65,12 +55,12 @@ public final class UsDailyWorker extends Worker {
         workManager.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
     }
 
-    static String displayStatus(SharedPreferences state, boolean configured) {
-        if (!configured) return "終値の自動更新は未設定";
+    static String displayStatus(SharedPreferences state) {
         String status = state.getString(STATUS, "初回の自動更新待ち");
         String day = state.getString(DATE, "");
         if (day.isEmpty()) return status;
-        return status + "\n取得済み " + day + "（米東部） · 終値 "
+        String source = MASSIVE.equals(state.getString(PROVIDER, "")) ? "Massive" : "DoltHub参考値";
+        return status + "\n取得済み " + day + "（米東部） · " + source + " "
                 + state.getInt(COUNT, 0) + "件";
     }
 
@@ -79,12 +69,9 @@ public final class UsDailyWorker extends Worker {
         var state = ScanWorker.prefs(context);
         try {
             String key = readKey(context);
-            if (key.isEmpty()) {
-                report(state, "終値の自動更新は未設定");
-                return Result.success();
-            }
+            String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
-            LocalDate previous = cachedDate(file, state);
+            LocalDate previous = cachedDate(file, state, provider);
             LocalDate target = UsDailyCloses.mostRecentEligibleDay(Instant.now());
             for (int offset = 0; offset < 7; offset++) {
                 if (isStopped()) return Result.retry();
@@ -97,17 +84,23 @@ public final class UsDailyWorker extends Worker {
                     continue;
                 }
 
-                JSONObject payload = fetch(day, key);
-                var closes = UsDailyCloses.parse(payload, day);
+                var closes = key.isEmpty()
+                        ? UsDoltCloses.fetch(day, address -> {
+                            if (isStopped()) throw new IOException("Worker stopped");
+                            return fetch(address, "");
+                        })
+                        : UsDailyCloses.parse(fetch(ENDPOINT + day + "?adjusted=false&include_otc=false", key), day);
                 if (closes.length() == 0) continue;
                 var snapshot = new JSONObject()
-                        .put("source", "massive-grouped-daily")
-                        .put("adjusted", false)
+                        .put("source", provider)
+                        .put("adjusted", key.isEmpty() ? JSONObject.NULL : Boolean.FALSE)
                         .put("trading_date_et", day.toString())
                         .put("fetched_at_utc", Instant.now().toString())
                         .put("closes", closes);
+                if (isStopped()) return Result.retry();
                 writeSnapshot(file, snapshot);
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
+                        .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
                 return Result.success();
             }
@@ -125,15 +118,16 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static LocalDate cachedDate(AtomicFile file, SharedPreferences state) {
+    private static LocalDate cachedDate(AtomicFile file, SharedPreferences state, String provider) {
         try {
             var snapshot = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
             var date = LocalDate.parse(snapshot.getString("trading_date_et"));
-            state.edit().putString(DATE, date.toString())
+            String storedProvider = snapshot.getString("source");
+            state.edit().putString(DATE, date.toString()).putString(PROVIDER, storedProvider)
                     .putInt(COUNT, snapshot.getJSONArray("closes").length()).apply();
-            return date;
+            return provider.equals(storedProvider) ? date : null;
         } catch (IOException | JSONException | DateTimeParseException e) {
-            state.edit().remove(DATE).remove(COUNT).apply();
+            state.edit().remove(DATE).remove(COUNT).remove(PROVIDER).apply();
             return null;
         }
     }
@@ -149,14 +143,14 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static JSONObject fetch(LocalDate day, String key) throws IOException, JSONException {
-        var url = new URL(ENDPOINT + day + "?adjusted=false&include_otc=false");
+    private static JSONObject fetch(String address, String key) throws IOException, JSONException {
+        var url = new URL(address);
         var connection = (HttpsURLConnection) url.openConnection();
         try {
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(30_000);
             connection.setInstanceFollowRedirects(false);
-            connection.setRequestProperty("Authorization", "Bearer " + key);
+            if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
             int code = connection.getResponseCode();
             if (code != 200) throw new HttpStatus(code);
             try (var input = connection.getInputStream()) {
