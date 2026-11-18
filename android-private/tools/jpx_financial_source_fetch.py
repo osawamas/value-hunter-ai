@@ -82,6 +82,11 @@ def fetch(entry, destination, allowed_hosts, opener=None):
                     raise
             time.sleep(0.5 * (2 ** attempt))
         with response:
+            # Even an injected/custom opener must not silently follow redirects.
+            # A redirected original needs its own approved manifest and SHA256.
+            resolved_url = response.geturl() if hasattr(response, "geturl") else url
+            if resolved_url != url:
+                raise ValueError("Redirected original URL is not manifest-approved")
             length = response.headers.get("Content-Length")
             if length and int(length) > MAX_BYTES:
                 raise ValueError("PDF exceeds size limit")
