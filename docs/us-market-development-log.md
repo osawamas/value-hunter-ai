@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 15:18 JST — Dolt起動OSエラー後のキャッシュ消失を検出
+
+- 開始時main: [12407a5](https://github.com/osawamas/value-hunter-ai/commit/12407a5e7585b229d111ba1922cb6051dc770fb0)。最新main・既存米国ログ・Dolt同期コードとテスト・[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)を確認。前回のtimeout/429とは別のOS例外分岐を修正し、JP並行開発には触れない。
+- 既存pullのrunnerがPermissionErrorなどのOSErrorを出す際に .dolt が消失しても cached_after_os_error と誤判定する問題を修正。[実装 ceb4a79](https://github.com/osawamas/value-hunter-ai/commit/ceb4a79a17e81ebb20f0efaf3772294128f23d14)、[回帰テスト ad9fb7d](https://github.com/osawamas/value-hunter-ai/commit/ad9fb7d7aa0ecdee59ee49fe11ad1ece241de965)。消失時は invalid_repository_after_command とする。
+- ローカルPythonで同条件の独立した分岐再現2/2成功（リポジトリのテスト自体ではない）。ローカルgit ls-remoteはDNS解決失敗。Dolt実接続、追加テスト実行、米国株Python全テスト、変更後Actions成功は未確認。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 対象取引日: 今回新規取得なし（0件）、NYSE/Nasdaq同日網羅率未測定。未調整終値・分割前価格・SEC株数・PER/PBR・Android無音通知は未検証。株価原本・APIキー・APKの公開なし。次回は新規回帰テストのCI実行とDolt実同期、NYSE/Nasdaqの日付付き網羅率を優先。
+
+
 ## 2026-11-18 15:15 JST — Dolt pullタイムアウト後のキャッシュ消失を誤認しない
 
 - 開始時main: [f5a290e](https://github.com/osawamas/value-hunter-ai/commit/f5a290e42ad5ba16f8182cd8f5fc14f16bac3a5d)。直近[JPX Actions 44247823835](https://github.com/osawamas/value-hunter-ai/actions/runs/44247823835)は成功。ただし米国株Pythonテストではない。既存米国開発ログ・Dolt同期コード・テストを読んでJP側とは重複しない障害処理を選択。
