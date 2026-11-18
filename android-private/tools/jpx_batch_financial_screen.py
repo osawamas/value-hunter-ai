@@ -48,6 +48,9 @@ def screen(payload):
         financial_date = row.get("financial_as_of")
         if financial_date is not None and date.fromisoformat(financial_date) > trade_date:
             raise ValueError("Future financial basis date")
+        disclosed = row.get("financial_disclosed_on")
+        if disclosed is not None and date.fromisoformat(disclosed) >= trade_date:
+            raise ValueError("Financial disclosure not available before trade date")
         # A financial date alone does not prove price/share-basis comparability.
         # The producer must explicitly attest to independent verification.
         verified = (financial_date is not None and row.get("financial_verified") is True
@@ -101,7 +104,7 @@ def screen_report(day, stocks, prices, duplicates, financials, rights, single_sh
             source_counts["financials_not_yet_public" if code in pending else "no_financials"] += 1
             continue
 
-        (period_end, _), financial = latest[code]
+        (period_end, disclosed_on), financial = latest[code]
         basis = share_basis_status(code, period_end, day, rights)
         source_counts[basis] += 1
         if basis != "no_share_change_in_supplied_reports":
@@ -113,7 +116,8 @@ def screen_report(day, stocks, prices, duplicates, financials, rights, single_sh
             source_counts["both_ratios_usable"] += 1
         else:
             source_counts["incomplete_or_nonpositive_ratios"] += 1
-        row.update(financial_as_of=period_end.isoformat(), financial_verified=True, share_basis_verified=True,
+        row.update(financial_as_of=period_end.isoformat(), financial_disclosed_on=disclosed_on.isoformat(),
+                   financial_verified=True, share_basis_verified=True,
                    per=per, pbr=pbr)
 
     result = screen({"trade_date": day.isoformat(), "observations": observations})
