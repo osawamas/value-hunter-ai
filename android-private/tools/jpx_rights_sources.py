@@ -72,8 +72,12 @@ def download(url, *, limit=FILE_LIMIT):
 def page_links(index):
     page = Links()
     page.feed(download(index).decode("utf-8"))
+    return official_links(index, page.urls)
+
+
+def official_links(index, hrefs):
     return list(dict.fromkeys(
-        url for href in page.urls if official_url(url := urljoin(index, href))
+        url for href in hrefs if official_url(url := urljoin(index, href))
     ))
 
 
@@ -93,13 +97,12 @@ def monthly_archive_links(years):
     """Use the official year selector rather than assuming archive numbers stay fixed."""
     index = Links()
     index.feed(download(MONTHLY_INDEX).decode("utf-8"))
-    return {
-        month: link
-        for year in sorted(years & index.archives.keys())
-        for month, link in monthly_links(
-            index.urls if index.archives[year] == MONTHLY_INDEX else page_links(index.archives[year]), year
-        ).items()
-    }
+    reports = {}
+    for year in sorted(years & index.archives.keys()):
+        archive = index.archives[year]
+        links = official_links(archive, index.urls) if archive == MONTHLY_INDEX else page_links(archive)
+        reports.update(monthly_links(links, year))
+    return reports
 
 
 def workbook_notes(body):

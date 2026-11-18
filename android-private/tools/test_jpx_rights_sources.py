@@ -15,6 +15,22 @@ import jpx_rights_sources as sources
 
 
 class SourceProvenanceTests(TestCase):
+    def test_current_and_archived_monthly_links_stay_on_the_official_origin(self):
+        index = """
+        <option value="/markets/statistics-equities/monthly/index.html">2026年</option>
+        <option value="/markets/statistics-equities/monthly/00-archives-01.html">2025年</option>
+        <a href="today/17_kenri2609.pdf">Current</a>
+        <a href="https://example.com/17_kenri2609.pdf">Untrusted</a>
+        """.encode("utf-8")
+        archive = b'<a href="/markets/statistics-equities/monthly/older/17_kenri2509.pdf">Archive</a>'
+        with patch.object(sources, "download", side_effect=[index, archive]) as download:
+            links = sources.monthly_archive_links({2025, 2026})
+        self.assertEqual(links, {
+            date(2025, 9, 1): "https://www.jpx.co.jp/markets/statistics-equities/monthly/older/17_kenri2509.pdf",
+            date(2026, 9, 1): "https://www.jpx.co.jp/markets/statistics-equities/monthly/today/17_kenri2609.pdf",
+        })
+        self.assertEqual(download.call_count, 2)
+
     def test_duplicate_daily_edition_identical_is_accepted(self):
         day = date(2026, 11, 16)
         urls = [
