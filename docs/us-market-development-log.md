@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 09:19 JST — NLS Plusの不正なシステム通知長を拒否
+
+- 開始時main: [5cb54ec](https://github.com/osawamas/value-hunter-ai/commit/5cb54ec89fc588d1e0810ca455066058cdc7d533)。直近コミットのActionsを照会したが、コミット紐付けのPR実行は0件（通常pushの実行状況は未確認、[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。既存ログ・NLSコードとテストを読んで、並行JPX更新と重ならない入力検証を選択。
+- [Nasdaq NLS Plus仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)の10バイトのシステム通知に対し、開始後に長さ12の不正なSレコードが挿入されても従来は無視されていた。長さ不正を明示的に拒否する[コード変更](https://github.com/osawamas/value-hunter-ai/commit/764829be3cbc254f2da63c3db36fcd887c1f7dae)と[回帰テスト](https://github.com/osawamas/value-hunter-ai/commit/9d4596e3149771b577d6428eb5c035c0187b95e3)を追加。
+- 同条件の最小Python再現を実行し、不正長ではValueError、正規O/Cでは成功を確認。リポジトリ全体のPythonテストと新コミットのActionsは未実行・未確認。対象取引日は新規なし、今回の株価取得0件、NYSE/Nasdaqの同日網羅率は未測定。価格原本・APIキー・APKの追加なし。
+- 未解決: 回帰テスト全件、Dolt実同期・429時キャッシュの実測、正規セッション未調整終値と分割前価格、SEC株数、Android更新・無音通知。次回は新コミットのテストを実行し、Doltと市場別同日網羅率の検証を優先。
+
 ## 2026-11-18 08:10 JST — NLS Plus開始前の価格レコードを拒否
 
 - 開始時main: [de375f3](https://github.com/osawamas/value-hunter-ai/commit/de375f3434e1d64474eac3f8e6de7b45153b2edf)。直近Actionsの今回変更に対する実行結果は未確認（[一覧](https://github.com/osawamas/value-hunter-ai/actions)）。前回ログと既存コードを読み、並行するJPX/Android更新と重複しないNLS Plusの入力検証を選択。
