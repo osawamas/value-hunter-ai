@@ -1,5 +1,14 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 21:12 JST — Dolt 429の英数字識別子誤検出を修正
+
+- 開始時main: [b4f9737](https://github.com/osawamas/value-hunter-ai/commit/b4f97376570425ca10012d9d1e9ffdc92ab2971e)。既存ログ、同期コード、テスト、[米国CI定義](https://github.com/osawamas/value-hunter-ai/blob/main/.github/workflows/us-daily-coverage-tests.yml)を読んだ。日本株の並行変更は編集していない。
+- 既存正規表現は 429A / X429 までHTTP 429と誤判定する。英数字に埋まった429を除外する[同期コード修正 68d549d](https://github.com/osawamas/value-hunter-ai/commit/68d549d4f612bf6c83f8e06471e81d64f57801eb)と[回帰テスト bfadee8](https://github.com/osawamas/value-hunter-ai/commit/bfadee844b1b5da90da833c0c6d3b0c150fba9a0)をmainに保存。
+- ローカルPythonで新正規表現の7条件を実行し7/7成功。旧実装では429A / X429の誤検出を再現。既存判定の独立8条件も8/8成功。ただしリポジトリのunittestと変更後GitHub Actionsの結果は未確認。[米国CI一覧](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)は今回取得できず、前回の既知成功は[44265403943](https://github.com/osawamas/value-hunter-ai/actions/runs/44265403943)。
+- ローカルGit接続はgithub.comのDNS解決失敗。GitHubコネクタでコード・テストは保存済み。Dolt実同期・429実測・キャッシュDB検査は未実施。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 対象取引日: 2026-11-17（米国）。新規終値取得0件、NYSE/Nasdaqの同日網羅率未測定。正規セッション終値・分割前価格・SEC株数・正式PER/PBR・Android更新/無音通知は未完了。株価原本/APIキー/APKは公開していない。
+- 次回: 今回の回帰テストのCI成否を確認し、Dolt実同期と市場別日付付き網羅率を優先。接続不可なら公開ファイル・SEC側の実装とテストを進める。
+
 ## 2026-11-18 20:11 JST — Dolt 429の単回試行・キャッシュ保持テスト追加
 
 - 開始時main: [c3600a7](https://github.com/osawamas/value-hunter-ai/commit/c3600a78cb9d739df4d0a712aaf7f2bf00e91b38)。最新コミット・既存米国ログ・Dolt同期実装とテストを取得。直近の米国CIの既知成功は [44265403943](https://github.com/osawamas/value-hunter-ai/actions/runs/44265403943)（前回記録）。今回の最新コミットに紐づくPR起動Actions照会は0件で、push CIの新しい成否は未確認。
