@@ -136,7 +136,8 @@ class SyncTest(unittest.TestCase):
                 calls.append(cmd)
                 (dest / '.dolt').mkdir(parents=True)
                 raise subprocess.TimeoutExpired(cmd, 180)
-            self.assertEqual(sync(dest, runner=runner), 'timed_out')
+            self.assertEqual(sync(dest, runner=runner), 'partial_clone_requires_manual_cleanup')
+            self.assertTrue((dest / '.dolt').is_dir())
             self.assertEqual(len(calls), 1)
 
     def test_timeout_initial_clone_partial_directory_is_preserved(self):
