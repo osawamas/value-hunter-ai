@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 15:15 JST — Dolt pullタイムアウト後のキャッシュ消失を誤認しない
+
+- 開始時main: [f5a290e](https://github.com/osawamas/value-hunter-ai/commit/f5a290e42ad5ba16f8182cd8f5fc14f16bac3a5d)。直近[JPX Actions 44247823835](https://github.com/osawamas/value-hunter-ai/actions/runs/44247823835)は成功。ただし米国株Pythonテストではない。既存米国開発ログ・Dolt同期コード・テストを読んでJP側とは重複しない障害処理を選択。
+- 既存pullがタイムアウトした際に .dolt が消失しても cached_after_timeout と返す問題を修正。[コード 140bd59](https://github.com/osawamas/value-hunter-ai/commit/140bd594253c2c4c9b1041d11e016983c37d9010)、[回帰テスト d707791](https://github.com/osawamas/value-hunter-ai/commit/d70779136a4e322b2672a4eadc27ecd41ee15507)。消失時は invalid_repository_after_command とし、再試行や削除はしない。
+- GitHubへのコード・テスト保存は成功。ローカルgit ls-remoteはDNS解決失敗。追加テスト・全Pythonテスト・新コミットActions・Dolt実同期は未実行/未確認。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 対象取引日: 今回の新規照会なし。取得0件、NYSE/Nasdaq同日網羅率未測定。株価原本・APIキー・APKの公開なし。未解決: キャッシュ実体の検査、429実測、正規終値・分割、SEC株数、正式PER/PBR、Android更新・無音通知。次回は追加テストの実行経路を確保し、Dolt実同期・市場別取得率へ進む。
+
 ## 2026-11-18 14:13 JST — Dolt失敗時にキャッシュ消失を誤認しない
 
 - 開始時main: [b0149c1](https://github.com/osawamas/value-hunter-ai/commit/b0149c158229c011a61255d4fbb9e052b0e68909)。直近コミットのPR紐付けActions照会は0件。通常push Actionsの成否は未確認（[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。既存ログとDolt同期・テストを読み、並行JP開発とは別の障害処理を選択。
