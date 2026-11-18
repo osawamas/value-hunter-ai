@@ -86,7 +86,8 @@ class BatchScreenTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             folder = Path(directory)
             (folder / "a.json").write_text(json.dumps([row]), encoding="utf-8")
-            (folder / "b.json").write_text(json.dumps([row]), encoding="utf-8")
+            (folder / "issuer" / "1301").mkdir(parents=True)
+            (folder / "issuer" / "1301" / "b.json").write_text(json.dumps([row]), encoding="utf-8")
             argv = ["batch", "dummy.pdf", "--jpx-universe", "dummy.xlsx",
                     "--annual-financials-dir", str(folder)]
             with patch("sys.argv", argv), \
@@ -98,9 +99,9 @@ class BatchScreenTests(unittest.TestCase):
                 with redirect_stdout(output):
                     main()
                 self.assertEqual(json.loads(output.getvalue())["source_counts"]["financial_basis_verified"], 1)
-            (folder / "b.json").write_text(json.dumps([dict(row, eps_jpy="55")]), encoding="utf-8")
+            (folder / "issuer" / "1301" / "b.json").write_text(json.dumps([dict(row, eps_jpy="55")]), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Conflicting"):
-                load_financial_batches(sorted(folder.glob("*.json")))
+                load_financial_batches(sorted(folder.rglob("*.json")))
 
     def test_future_financial_date_rejected(self):
         with self.assertRaises(ValueError):
