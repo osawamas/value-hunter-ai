@@ -6,7 +6,7 @@ from unittest import TestCase
 from unittest.mock import patch
 from zipfile import ZipFile
 
-from us_monitor_ledger import reference_screen
+from us_monitor_ledger import read_close_snapshot, reference_screen
 from us_monitor_sync import exclusive, get_splits, refresh_companyfacts
 
 DAY = date(2026, 11, 17)
@@ -43,6 +43,20 @@ class MonitorSyncTest(TestCase):
                 with exclusive(Path(workspace)) as second:
                     self.assertTrue(first)
                     self.assertFalse(second)
+
+    def test_close_snapshot_requires_numeric_prices(self):
+        with TemporaryDirectory() as workspace:
+            file = Path(workspace) / "closes.json"
+            data = {"source": "dolthub-post-no-preference-stocks", "trading_date_et": str(DAY),
+                    "adjusted": None, "closes": [{"symbol": "ABC", "close_usd": "12.5"}]}
+            file.write_text(json.dumps(data), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Invalid close"):
+                read_close_snapshot(file, DAY)
+            data["closes"][0]["close_usd"] = 12.5
+            file.write_text(json.dumps(data), encoding="utf-8")
+            _, digest, prices = read_close_snapshot(file, DAY)
+            self.assertEqual(prices, {"ABC": 12.5})
+            self.assertEqual(len(digest), 64)
 
     def test_reference_rows_exclude_unverified_prices_and_share_bases(self):
         base = {"cik": 1, "exchange": "NYSE", "shares": 100, "profit": 200,

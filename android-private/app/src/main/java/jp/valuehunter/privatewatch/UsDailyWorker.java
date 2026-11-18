@@ -163,7 +163,7 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private void updatePrivateScreen(SharedPreferences state, AtomicFile closeFile, LocalDate day, String provider) {
+    void updatePrivateScreen(SharedPreferences state, AtomicFile closeFile, LocalDate day, String provider) {
         if (isStopped()) return;
         var context = getApplicationContext();
         var ledgerFile = new File(context.getNoBackupFilesDir(), UsMarketCoverage.ASSET);

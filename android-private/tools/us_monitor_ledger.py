@@ -13,7 +13,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from us_public_files_probe import (
     SEC_DIRECTORY,
-    android_close_rows,
+    android_close_payload,
     fetch,
     issuers_requiring_class_review,
     load_listing_directories,
@@ -118,6 +118,20 @@ def reference_screen(rows, prices, session, fx, splits):
     return summary, observations
 
 
+def read_close_snapshot(path, session):
+    with path.open("rb") as file:
+        close_bytes = file.read(16 * 1024 * 1024 + 1)
+    if len(close_bytes) > 16 * 1024 * 1024:
+        raise ValueError("Android close cache is too large")
+    close_snapshot = json.loads(close_bytes)
+    provider = close_snapshot.get("source")
+    seen, prices = validated_closes(session, android_close_payload(
+        close_bytes, session, dolt=provider == "dolthub-post-no-preference-stocks"))
+    if len(prices) != len(seen):
+        raise ValueError("Invalid close in Android snapshot")
+    return provider, sha256(close_bytes).hexdigest(), prices
+
+
 def main(argv=None):
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("trading_date", type=date.fromisoformat)
@@ -134,20 +148,13 @@ def main(argv=None):
         cli.error("--companyfacts and --json-jar are used together")
     if bool(options.fx_snapshot) != bool(options.split_snapshot):
         cli.error("--fx-snapshot and --split-snapshot are used together")
+    provider, close_digest, prices = read_close_snapshot(options.close_cache, options.trading_date)
     observed, listings, _ = load_listing_directories(options.directory_cache)
     sec_content = options.sec_directory.read_bytes() if options.sec_directory else fetch(SEC_DIRECTORY)
     sec = read_sec_directory(sec_content)
     rows = universe(listings, sec)
-    with options.close_cache.open('rb') as file:
-        close_bytes = file.read(16 * 1024 * 1024 + 1)
-    if len(close_bytes) > 16 * 1024 * 1024:
-        raise ValueError('Android close cache is too large')
-    close_snapshot = json.loads(close_bytes)
-    provider = close_snapshot.get("source")
-    _, prices = validated_closes(options.trading_date, android_close_rows(
-        options.close_cache, options.trading_date, dolt=provider == "dolthub-post-no-preference-stocks"))
     ledger = {"trading_date_et": options.trading_date.isoformat(), "listing_observed_et": observed,
-              "close_sha256": sha256(close_bytes).hexdigest(), "close_provider": provider, "listings": rows}
+              "close_sha256": close_digest, "close_provider": provider, "listings": rows}
     if options.companyfacts:
         with TemporaryDirectory(prefix="us-bulk-ledger-") as build:
             subprocess.run(["javac", "--release", "17", "-cp", str(options.json_jar), "-d", build,
@@ -168,7 +175,7 @@ def main(argv=None):
                                                   json.loads(options.split_snapshot.read_bytes()))
         metrics["reference_screen"] = summary
         ledger["reference_screen"] = {
-            "provider": provider, "close_sha256": sha256(close_bytes).hexdigest(),
+            "provider": provider, "close_sha256": close_digest,
             "fx_date": summary["fx_date"], "observations": observations,
         }
     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=options.output.parent, delete=False) as staging:

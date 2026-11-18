@@ -238,6 +238,10 @@ def filing_join(listings, closes, sec, statement_files=(), day=None, focus=None,
 def android_close_rows(path, day, *, dolt=False):
     with path.open("rb") as source:
         content = source.read(16 * 1024 * 1024 + 1)
+    return android_close_payload(content, day, dolt=dolt)
+
+
+def android_close_payload(content, day, *, dolt=False):
     if len(content) > 16 * 1024 * 1024:
         raise ValueError("Android close cache is too large")
     payload = json.loads(content)
