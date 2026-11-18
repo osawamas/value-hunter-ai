@@ -50,6 +50,7 @@ public final class UsDailyWorker extends Worker {
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = UsDailyCloses.MASSIVE_SOURCE;
+    static final Object QUOTE_LOCK = new Object();
     static final String PRIVATE_STATUS = "us_private_sec_status";
     private static final String PRIVATE_BASELINE = "us_private_sec_baseline";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
@@ -112,7 +113,7 @@ public final class UsDailyWorker extends Worker {
                     boolean assess = needsValuation(state, previous, provider);
                     boolean count = needsCoverage(state, previous, provider);
                     if (assess || count) {
-                        var snapshot = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
+                        var snapshot = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
                         var closes = snapshot.getJSONArray("closes");
                         if (count) updateCoverage(state, closes, previous, provider);
                         if (assess) assess(state, closes, previous, provider);
@@ -139,7 +140,9 @@ public final class UsDailyWorker extends Worker {
                         .put("fetched_at_utc", Instant.now().toString())
                         .put("closes", closes);
                 if (isStopped()) return Result.retry();
-                writeSnapshot(file, snapshot);
+                synchronized (QUOTE_LOCK) {
+                    writeSnapshot(file, snapshot);
+                }
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
                         .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
@@ -325,7 +328,7 @@ public final class UsDailyWorker extends Worker {
 
     private static LocalDate cachedDate(AtomicFile file, SharedPreferences state, String provider) {
         try {
-            var snapshot = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
+            var snapshot = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
             var date = LocalDate.parse(snapshot.getString("trading_date_et"));
             String storedProvider = snapshot.getString("source");
             state.edit().putString(DATE, date.toString()).putString(PROVIDER, storedProvider)
@@ -334,6 +337,12 @@ public final class UsDailyWorker extends Worker {
         } catch (IOException | JSONException | DateTimeParseException e) {
             state.edit().remove(DATE).remove(COUNT).remove(PROVIDER).apply();
             return null;
+        }
+    }
+
+    static byte[] readQuote(AtomicFile file) throws IOException {
+        synchronized (QUOTE_LOCK) {
+            return file.readFully();
         }
     }
 

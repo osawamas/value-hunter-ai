@@ -73,7 +73,7 @@ public final class UsSecFinanceWorker extends Worker {
         var closeFile = new AtomicFile(new File(directory, QUOTES));
         var checkpoint = new AtomicFile(new File(directory, STATE));
         try {
-            byte[] bytes = closeFile.readFully();
+            byte[] bytes = UsDailyWorker.readQuote(closeFile);
             JSONObject quote = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
             String hash = UsReferenceAlerts.sha256(bytes);
             var day = LocalDate.parse(quote.getString("trading_date_et"));
@@ -129,11 +129,13 @@ public final class UsSecFinanceWorker extends Worker {
                 scan.put("ledger", ledger);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
-            if (!hash.equals(UsReferenceAlerts.sha256(closeFile.readFully()))) {
-                if (!isStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
-                return Result.success();
+            synchronized (UsDailyWorker.QUOTE_LOCK) {
+                if (!hash.equals(UsReferenceAlerts.sha256(closeFile.readFully()))) {
+                    if (!isStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
+                    return Result.success();
+                }
+                UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::isStopped);
             }
-            UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::isStopped);
             return Result.success();
         } catch (FileNotFoundException absent) {
             return Result.success();
@@ -158,7 +160,8 @@ public final class UsSecFinanceWorker extends Worker {
     private static JSONObject resume(AtomicFile file, String hash) throws IOException {
         try {
             var scan = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
-            if (hash.equals(scan.optString("hash"))) return scan;
+            if (hash.equals(scan.optString("hash")) && scan.optInt("cursor", -1) >= 0
+                    && scan.optJSONArray("targets") != null && scan.optJSONArray("results") != null) return scan;
         } catch (FileNotFoundException | JSONException absent) {
             // A missing or damaged local checkpoint starts a fresh scan.
         }

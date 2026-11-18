@@ -17,6 +17,11 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxWatchWorker.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ScanWorker.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDailyWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSecFinanceWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsFinancialFacts.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDoltCloses.java'
       - 'android-private/app/src/main/assets/jpx-share-rights.json'
       - 'android-private/tools/jpx_daily_probe.py'
 
