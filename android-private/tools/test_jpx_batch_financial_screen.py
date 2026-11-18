@@ -5,8 +5,11 @@ from tempfile import TemporaryDirectory
 from datetime import date
 from decimal import Decimal
 import unittest
+from unittest.mock import patch
+from io import StringIO
+from contextlib import redirect_stdout
 
-from jpx_batch_financial_screen import screen, screen_report, load_financial_batches
+from jpx_batch_financial_screen import screen, screen_report, load_financial_batches, main
 
 
 class BatchScreenTests(unittest.TestCase):
@@ -75,6 +78,29 @@ class BatchScreenTests(unittest.TestCase):
             b.write_text(json.dumps([changed]), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Conflicting"):
                 load_financial_batches([a, b])
+
+    def test_directory_batches_load_without_manual_file_enumeration(self):
+        row = {"code": "1301", "period_end": "2026-03-31",
+               "disclosed_on": "2026-05-15", "source": "https://example.org/filing",
+               "basis": "annual_reported_unadjusted", "eps_jpy": "50", "bps_jpy": "500"}
+        with TemporaryDirectory() as directory:
+            folder = Path(directory)
+            (folder / "a.json").write_text(json.dumps([row]), encoding="utf-8")
+            (folder / "b.json").write_text(json.dumps([row]), encoding="utf-8")
+            argv = ["batch", "dummy.pdf", "--jpx-universe", "dummy.xlsx",
+                    "--annual-financials-dir", str(folder)]
+            with patch("sys.argv", argv), \
+                 patch("jpx_batch_financial_screen.ordinary_stocks", return_value={"1301": "prime"}), \
+                 patch("jpx_batch_financial_screen.trading_date", return_value=date(2026, 9, 30)), \
+                 patch("jpx_batch_financial_screen.read_quotes", return_value=({"1301": (None, Decimal("500"))}, set())), \
+                 patch("jpx_batch_financial_screen.load_rights_reports", return_value=({date(2026, 3, 1), date(2026, 4, 1), date(2026, 5, 1), date(2026, 6, 1), date(2026, 7, 1), date(2026, 8, 1), date(2026, 9, 1)}, {})):
+                output = StringIO()
+                with redirect_stdout(output):
+                    main()
+                self.assertEqual(json.loads(output.getvalue())["source_counts"]["financial_basis_verified"], 1)
+            (folder / "b.json").write_text(json.dumps([dict(row, eps_jpy="55")]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Conflicting"):
+                load_financial_batches(sorted(folder.glob("*.json")))
 
     def test_future_financial_date_rejected(self):
         with self.assertRaises(ValueError):
