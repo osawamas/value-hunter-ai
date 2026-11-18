@@ -4,6 +4,7 @@ plugins {
 
 def privateAssets = layout.buildDirectory.dir('generated/privateAssets')
 def historyPath = providers.gradleProperty('jpxHistoryFile').orNull
+def massiveKeyPath = providers.gradleProperty('massiveKeyFile').orNull
 def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
     from(rootProject.file('../docs/data/android-s63-shares.json'))
     if (historyPath != null) {
@@ -13,6 +14,15 @@ def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
         }
         from(historyFile) {
             rename { 'jpx-history.json' }
+        }
+    }
+    if (massiveKeyPath != null) {
+        def massiveKeyFile = rootProject.file(massiveKeyPath)
+        if (!massiveKeyFile.isFile()) {
+            throw new GradleException('massiveKeyFile must point to a local key file')
+        }
+        from(massiveKeyFile) {
+            rename { 'massive-key.txt' }
         }
     }
     into(privateAssets)

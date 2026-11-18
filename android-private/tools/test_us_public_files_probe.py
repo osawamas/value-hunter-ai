@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from us_public_files_probe import DOW, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, listing_snapshot_assessment, load_listing_directories, read_sec_directory, require_listing_date, save_listing_snapshot
+from us_public_files_probe import DOW, android_massive_rows, coverage, issuers_requiring_class_review, read_dia_rows, read_directory, read_dolt_csv, read_halt_notices, read_listing_events, listing_snapshot_assessment, load_listing_directories, read_sec_directory, require_listing_date, save_listing_snapshot
 
 DAY = date(2026, 11, 16)
 NASDAQ = (
@@ -18,6 +18,22 @@ NASDAQ = (
 
 
 class PublicFilesTest(unittest.TestCase):
+    def test_android_close_cache_joins_the_existing_sec_issuer_check(self):
+        cache = {"source": "massive-grouped-daily", "adjusted": False, "trading_date_et": DAY.isoformat(),
+                 "closes": [{"symbol": "AAPL", "close_usd": 100}]}
+        _, listings = read_directory(NASDAQ, nasdaq=True)
+        sec = self.sec_rows([[320193, "Apple Inc.", "AAPL", "Nasdaq"]])
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "private-cache.json"
+            path.write_text(json.dumps(cache))
+            result = coverage(DAY, listings, android_massive_rows(path, DAY), sec)
+            self.assertEqual(1, result["common_or_ordinary_label_sec_join"]["listed_with_close_and_sec_issuer"])
+            with self.assertRaisesRegex(ValueError, "requested date"):
+                android_massive_rows(path, date(2026, 11, 17))
+            path.write_text(json.dumps(dict(cache, adjusted=True)))
+            with self.assertRaisesRegex(ValueError, "unadjusted"):
+                android_massive_rows(path, DAY)
+
     def test_listing_archive_keeps_first_complete_pair_and_rejects_wrong_target(self):
         day = date(2026, 11, 17)
         other = (b"ACT Symbol|Security Name|Exchange|ETF|Test Issue\n"

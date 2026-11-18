@@ -449,3 +449,11 @@ Tape C照合の `exceptions` には、Doltに当日の行がない銘柄、行�
 `nocp_differences_vs_consolidated` は、DoltとNOCPに1セント超の差が出た同じ銘柄だけを対象に、
 Doltと取引所横断の集計終値がどれだけ一致するかを出す。集計終値が欠けている場合や値が複数ある場合も、
 銘柄別に記録する。これにより同じ対象群の中で終値の定義による差を調べられる。
+
+## 米国株の終値の定期取得
+
+Massive Stocks Basic の無料キーを取得し、キーだけを書いたテキストファイルをビルドするPCのリポジトリ外に置く。Android StudioのGradle実行構成に `-PmassiveKeyFile=/絶対パス/massive-key.txt` を設定するか、`android-private` から `gradle -PmassiveKeyFile=/絶対パス/massive-key.txt :app:assembleDebug` を実行する。APK内のキーは取り出せるため、本人の端末用のAPKとして扱う。
+
+初回起動で通信可能時の定期更新（6時間間隔のWorkManager）を登録する。米東部の前日以前を照会し、週末や結果0件の日は繰り戻す。株式分割の調整をしていない終値を端末内に保存し、画面には最終取得日と件数を表示する。件数はグループ取得した有効終値の数で、普通株だけの網羅件数は別途照合する。初期版では最新1取引日を保持する。
+
+実配信の検査は、PCのローカル環境変数 `MASSIVE_API_KEY` を設定して `python tools/us_massive_probe.py YYYY-MM-DD` を複数の完了済み取引日について実行する。終値の財務・株数との照合には、端末の非公開キャッシュ `no_backup/us-daily-closes.json` を手元で取得し、`python tools/us_public_files_probe.py YYYY-MM-DD --massive-android-file /ローカル/us-daily-closes.json --with-sec` を使う。財務・株数の内訳を計測する場合は既存の `--sec-quarter` と `--sec-notes` も使える。画面で自動更新が設定されていても、無料アカウントの実通信、取得件数、同日終値と適切な株数の照合はそれぞれ確認する。
