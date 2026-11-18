@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 17:15 JST — 米国株CIのSyntaxErrorを修正
+
+- 開始時main: [405675b](https://github.com/osawamas/value-hunter-ai/commit/405675b100ee386b7a73a5eed0548ad438d8a3da)。最新main、既存米国ログ、[直近Actions 44263420532](https://github.com/osawamas/value-hunter-ai/actions/runs/44263420532)（JPX成功）と[米国株CI 44258042386](https://github.com/osawamas/value-hunter-ai/actions/runs/44258042386)（失敗）を確認。JPX並行更新には触れない。
+- 米国CIの実ログから、前回のNasdaqテスト期待値修正でPythonコードに文字列としての `\\n` が混入し、97行目がSyntaxErrorとなってテスト収集自体が止まったことを特定。該当箇所を実際の改行に置換して[修正 f928afe](https://github.com/osawamas/value-hunter-ai/commit/f928afe453134d20929f344fc4d536f2c40605b7)を保存。独立したPython構文再現は成功。修正したリポジトリのテスト実行と修正後CIは未確認で、全件成功とはしない。
+- 対象取引日: 2026-11-17（米国市場）。今回の実株価取得0件、NYSE/Nasdaq同日網羅率未測定。参照: [GitHub Actionsログ](https://github.com/osawamas/value-hunter-ai/actions/runs/44258042386)、[DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。株価原本・APIキー・APKの公開なし。
+- 未解決: 修正後CIの成功、Dolt実同期・429実測・ローカルキャッシュ、正規未調整終値・株式分割・SEC株数照合、PER/PBR、Android無音通知。次回はCI結果と失敗箇所を確認し、Dolt実同期および市場別日付付き網羅率へ進む。
+
 ## 2026-11-18 16:19 JST — Dolt回帰テストを米国株CIに組み込み
 
 - 開始時main: [5dd023d](https://github.com/osawamas/value-hunter-ai/commit/5dd023d551a9e255cad4c5959f0630f1f7252607)。既存米国ログ、Dolt同期コードと19件の既存テスト、[直近Actions 44252477996](https://github.com/osawamas/value-hunter-ai/actions/runs/44252477996)（JPX関連、成功）を確認。並行JPX変更は触らず。
