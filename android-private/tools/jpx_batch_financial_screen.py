@@ -133,7 +133,7 @@ def main():
     parser.add_argument("input", type=Path, help="Local JSON observations or JPX daily PDF")
     parser.add_argument("--jpx-universe", type=Path, help="JPX listing workbook")
     parser.add_argument("--annual-financials", type=Path, action="append", default=[], help="Source-checked annual financial JSON; repeat for multiple batches")
-    parser.add_argument("--annual-financials-dir", type=Path, action="append", default=[], help="Local directory of source-checked annual JSON batches; files are sorted and merged")
+    parser.add_argument("--annual-financials-dir", type=Path, action="append", default=[], help="Local directory of source-checked annual JSON batches; nested files are sorted and merged")
     parser.add_argument("--rights-pdf", type=Path, action="append", default=[])
     parser.add_argument("--single-share-code", action="append", default=[])
     args = parser.parse_args()
@@ -141,7 +141,7 @@ def main():
     for directory in args.annual_financials_dir:
         if not directory.is_dir():
             parser.error(f"Annual financial directory does not exist: {directory}")
-        financial_paths.extend(sorted(directory.glob("*.json")))
+        financial_paths.extend(sorted(path for path in directory.rglob("*.json") if path.is_file()))
     if args.annual_financials_dir and not financial_paths:
         parser.error("No annual financial JSON files found")
     if args.jpx_universe or financial_paths or args.rights_pdf or args.single_share_code:
