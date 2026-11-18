@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'android-private/tools/*us_massive_probe.py'
+      - 'android-private/tools/us_dolt_sync.py'
+      - 'android-private/tools/test_us_dolt_sync.py'
       - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_nyse_taq_probe.py'
       - 'android-private/tools/*us_nasdaq_nls_probe.py'
@@ -15,6 +17,8 @@ on:
   pull_request:
     paths:
       - 'android-private/tools/*us_massive_probe.py'
+      - 'android-private/tools/us_dolt_sync.py'
+      - 'android-private/tools/test_us_dolt_sync.py'
       - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_nyse_taq_probe.py'
       - 'android-private/tools/*us_nasdaq_nls_probe.py'
@@ -32,6 +36,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Test price, issuer and statement coverage
+      - name: Test Dolt sync, price, issuer and statement coverage
         working-directory: android-private/tools
-        run: python3 -m unittest -v test_us_massive_probe test_us_daily_coverage test_us_nyse_taq_probe test_us_nasdaq_nls_probe test_us_public_files_probe test_us_sec_statement_coverage test_us_sec_share_coverage test_us_sec_filing_followup test_us_sec_original_cover
+        run: python3 -m unittest -v test_us_dolt_sync test_us_massive_probe test_us_daily_coverage test_us_nyse_taq_probe test_us_nasdaq_nls_probe test_us_public_files_probe test_us_sec_statement_coverage test_us_sec_share_coverage test_us_sec_filing_followup test_us_sec_original_cover
