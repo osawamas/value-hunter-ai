@@ -65,6 +65,22 @@ class SyncTest(unittest.TestCase):
             self.assertTrue(all(cmd == ['dolt', 'pull', '--ff-only'] for cmd in calls))
             self.assertEqual((dest / 'marker').read_text(), 'safe')
 
+    def test_three_rate_limits_exhaust_backoff_without_mutating_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('safe')
+            calls, waits = [], []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='', stdout='Too Many Requests (429)')
+            self.assertEqual(sync(dest, runner=runner, sleeper=waits.append,
+                                  attempts=3), 'cached_after_rate_limit')
+            self.assertEqual(waits, [60, 120])
+            self.assertEqual(len(calls), 3)
+            self.assertTrue(all(cmd == ['dolt', 'pull', '--ff-only'] for cmd in calls))
+            self.assertEqual((dest / 'marker').read_text(), 'safe')
+
     def test_unexpected_error_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
