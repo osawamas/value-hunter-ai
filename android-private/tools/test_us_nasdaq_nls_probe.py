@@ -94,7 +94,9 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             (start, bytes(8) + b"SH", end),
         ):
             framed = b"".join(pack(">H", len(record)) + record for record in records)
-            with self.subTest(records=records), self.assertRaisesRegex(\n                ValueError, "start and end|after session end"\n            ):
+            with self.subTest(records=records), self.assertRaisesRegex(
+                ValueError, "start and end|after session end"
+            ):
                 inspect_tape_c(BytesIO(framed))
 
     def test_tape_c_rejects_malformed_system_event_length(self):
