@@ -341,5 +341,39 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(calls, [['dolt', 'pull', '--ff-only']])
             self.assertEqual((dest / 'marker').read_text(), 'preserve')
 
+    def test_symlinked_dolt_metadata_rejected_without_running_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real = root / 'real-metadata'
+            real.mkdir()
+            dest = root / 'stocks'
+            dest.mkdir()
+            (dest / '.dolt').symlink_to(real, target_is_directory=True)
+            def runner(cmd, **kwargs):
+                self.fail('symlinked metadata must never execute Dolt')
+            with self.assertRaisesRegex(ValueError, 'not a Dolt repository'):
+                sync(dest, runner=runner)
+            self.assertTrue(real.is_dir())
+
+    def test_metadata_replaced_with_symlink_during_backoff_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            real = root / 'other-metadata'
+            real.mkdir()
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            def sleeper(seconds):
+                self.assertEqual(seconds, 60)
+                (dest / '.dolt').rmdir()
+                (dest / '.dolt').symlink_to(real, target_is_directory=True)
+            self.assertEqual(sync(dest, runner=runner, sleeper=sleeper),
+                             'invalid_repository_after_command')
+            self.assertEqual(len(calls), 1)
+            self.assertTrue(real.is_dir())
+
 if __name__ == '__main__':
     unittest.main()
