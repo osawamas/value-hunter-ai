@@ -115,11 +115,24 @@ def screen_report(day, stocks, prices, duplicates, financials, rights, single_sh
     return result
 
 
+def load_financial_batches(paths):
+    """Merge source-checked batches; reject conflicting records."""
+    merged = {}
+    for path in paths:
+        for code, period_end, disclosed_on, row in load_financials(path):
+            key = (code, period_end, disclosed_on)
+            if key in merged and merged[key] != row:
+                raise ValueError("Conflicting annual financial record across files")
+            merged[key] = row
+    return [(code, period_end, disclosed_on, row)
+            for (code, period_end, disclosed_on), row in sorted(merged.items())]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Local JSON observations or JPX daily PDF")
     parser.add_argument("--jpx-universe", type=Path, help="JPX listing workbook")
-    parser.add_argument("--annual-financials", type=Path, help="Source-checked annual financial JSON")
+    parser.add_argument("--annual-financials", type=Path, action="append", default=[], help="Source-checked annual financial JSON; repeat for multiple batches")
     parser.add_argument("--rights-pdf", type=Path, action="append", default=[])
     parser.add_argument("--single-share-code", action="append", default=[])
     args = parser.parse_args()
@@ -132,7 +145,7 @@ def main():
             parser.error("--single-share-code must identify a code present in the JPX list")
         day = trading_date(args.input)
         prices, duplicates = read_quotes(args.input, stocks)
-        result = screen_report(day, stocks, prices, duplicates, load_financials(args.annual_financials),
+        result = screen_report(day, stocks, prices, duplicates, load_financial_batches(args.annual_financials),
                                load_rights_reports(args.rights_pdf), single_share)
     else:
         result = screen(json.loads(args.input.read_text(encoding="utf-8")))
