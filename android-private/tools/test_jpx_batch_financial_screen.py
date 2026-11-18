@@ -1,9 +1,12 @@
 """Regression tests for private batch screening; no network or market prices."""
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from datetime import date
 from decimal import Decimal
 import unittest
 
-from jpx_batch_financial_screen import screen, screen_report
+from jpx_batch_financial_screen import screen, screen_report, load_financial_batches
 
 
 class BatchScreenTests(unittest.TestCase):
@@ -56,6 +59,22 @@ class BatchScreenTests(unittest.TestCase):
         gap = screen_report(day, stocks, prices, {"9432"}, filings, (set(), {}))
         self.assertEqual(gap["tiers"]["priority"], 0)
         self.assertEqual(gap["source_counts"]["hold_rights_report_gap"], 2)
+
+    def test_multiple_source_checked_financial_files_and_conflict(self):
+        row = {"code": "1301", "period_end": "2026-03-31",
+               "disclosed_on": "2026-05-15",
+               "source": "https://example.org/filing",
+               "basis": "annual_reported_unadjusted",
+               "eps_jpy": "50", "bps_jpy": "500"}
+        with TemporaryDirectory() as directory:
+            a, b = Path(directory) / "a.json", Path(directory) / "b.json"
+            a.write_text(json.dumps([row]), encoding="utf-8")
+            b.write_text(json.dumps([row]), encoding="utf-8")
+            self.assertEqual(len(load_financial_batches([a, b])), 1)
+            changed = dict(row, eps_jpy="55")
+            b.write_text(json.dumps([changed]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Conflicting"):
+                load_financial_batches([a, b])
 
     def test_future_financial_date_rejected(self):
         with self.assertRaises(ValueError):
