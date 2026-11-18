@@ -10,15 +10,19 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 final class UsFinancialFacts {
     record Facts(LocalDate filed, LocalDate shareDate, BigDecimal shares,
-                 BigDecimal profit, BigDecimal equity, String accession) {}
+                 BigDecimal profit, BigDecimal equity, String accession,
+                 String sharesBasis, boolean reconciledParentAmounts) {}
 
     private record Fact(LocalDate start, LocalDate end, LocalDate filed,
-                        String form, String accession, BigDecimal value) {}
+                        String form, String accession, BigDecimal value, boolean reconciled) {}
 
     static boolean matchesIssuer(JSONObject payload, int cik) {
         String value = String.valueOf(payload.opt("cik"));
@@ -28,14 +32,31 @@ final class UsFinancialFacts {
     static Facts read(JSONObject payload, int cik, LocalDate session) throws JSONException {
         if (!matchesIssuer(payload, cik)) throw new JSONException("SEC issuer mismatch");
         var document = payload.getJSONObject("facts");
-        var gaap = document.getJSONObject("us-gaap");
-        var equity = latest(facts(gaap, "StockholdersEquity", "USD", session), false);
+        // Preserve an already complete set of directly reported figures.
+        var primary = read(document, session, false);
+        return primary == null ? read(document, session, true) : primary;
+    }
+
+    private static Facts read(JSONObject document, LocalDate session, boolean supplementary) {
+        var gaap = document.optJSONObject("us-gaap");
+        var equities = facts(gaap, "StockholdersEquity", "USD", session);
+        if (supplementary) reconcileParentAmounts(equities,
+                facts(gaap, "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", "USD", session),
+                facts(gaap, "MinorityInterest", "USD", session));
+        var equity = latest(equities, false);
         if (equity == null || equity.start != null
                 || equity.end.isBefore(session.minusDays(150))) return null;
 
-        var shareRows = facts(document.getJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session);
-        var shares = one(shareRows.stream().filter(f -> sameFiling(f, equity)
-                && f.start == null && !f.end.isBefore(equity.end)).collect(Collectors.toList()));
+        var shareRows = facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session);
+        var cover = shareRows.stream().filter(f -> sameFiling(f, equity)
+                && f.start == null && !f.end.isBefore(equity.end)).collect(Collectors.toList());
+        var shares = one(cover);
+        String sharesBasis = "cover";
+        if (supplementary && cover.isEmpty()) {
+            shares = one(facts(gaap, "CommonStockSharesOutstanding", "shares", session).stream()
+                    .filter(f -> samePeriod(f, equity)).collect(Collectors.toList()));
+            sharesBasis = "balance_sheet";
+        }
         if (shares == null || shares.value.signum() <= 0 || shares.value.stripTrailingZeros().scale() > 0) return null;
 
         var preferred = facts(gaap, "PreferredStockValue", "USD", session);
@@ -43,12 +64,16 @@ final class UsFinancialFacts {
                 && f.value.signum() != 0)) return null;
 
         var profits = facts(gaap, "NetIncomeLoss", "USD", session);
+        if (supplementary) reconcileParentAmounts(profits, facts(gaap, "ProfitLoss", "USD", session),
+                facts(gaap, "NetIncomeLossAttributableToNoncontrollingInterest", "USD", session));
         var atEnd = profits.stream().filter(f -> sameFiling(f, equity) && f.end.equals(equity.end)).collect(Collectors.toList());
         BigDecimal profit;
+        boolean reconciled = equity.reconciled;
         if ("10-K".equals(equity.form)) {
             var annual = one(atEnd.stream().filter(UsFinancialFacts::fullYear).collect(Collectors.toList()));
             if (annual == null) return null;
             profit = annual.value;
+            reconciled |= annual.reconciled;
         } else {
             var annual = latest(profits.stream().filter(f -> "10-K".equals(f.form) && fullYear(f)
                     && f.end.isBefore(equity.end) && f.filed.isBefore(equity.filed)).collect(Collectors.toList()), true);
@@ -61,13 +86,45 @@ final class UsFinancialFacts {
                     && Math.abs(days(ytd) - days(f)) <= 7).collect(Collectors.toList()));
             if (prior == null) return null;
             profit = annual.value.add(ytd.value).subtract(prior.value);
+            reconciled |= annual.reconciled || ytd.reconciled || prior.reconciled;
         }
-        return new Facts(equity.filed, shares.end, shares.value, profit, equity.value, equity.accession);
+        return new Facts(equity.filed, shares.end, shares.value, profit, equity.value, equity.accession,
+                sharesBasis, reconciled);
+    }
+
+    private static void reconcileParentAmounts(List<Fact> parent, List<Fact> consolidated, List<Fact> minority) {
+        var periods = new HashSet<Period>();
+        for (var direct : parent) periods.add(Period.of(direct));
+        var totals = groupPeriods(consolidated);
+        var minorities = groupPeriods(minority);
+        totals.forEach((period, items) -> {
+            if (periods.contains(period) || !minorities.containsKey(period)) return;
+            var total = one(items);
+            var component = one(minorities.get(period));
+            if (total == null || component == null) return;
+            parent.add(new Fact(total.start, total.end, total.filed, total.form, total.accession,
+                    total.value.subtract(component.value), true));
+        });
+    }
+
+    private record Period(LocalDate start, LocalDate end, LocalDate filed, String form, String accession) {
+        static Period of(Fact fact) {
+            return new Period(fact.start, fact.end, fact.filed, fact.form, fact.accession);
+        }
+    }
+
+    private static Map<Period, List<Fact>> groupPeriods(List<Fact> facts) {
+        return facts.stream().collect(Collectors.groupingBy(Period::of));
+    }
+
+    private static boolean samePeriod(Fact first, Fact second) {
+        return sameFiling(first, second) && first.end.equals(second.end)
+                && Objects.equals(first.start, second.start);
     }
 
     private static List<Fact> facts(JSONObject namespace, String tag, String unit, LocalDate session) {
         var output = new ArrayList<Fact>();
-        var concept = namespace.optJSONObject(tag);
+        var concept = namespace == null ? null : namespace.optJSONObject(tag);
         var units = concept == null ? null : concept.optJSONObject("units");
         JSONArray rows = units == null ? null : units.optJSONArray(unit);
         if (rows == null) return output;
@@ -84,7 +141,7 @@ final class UsFinancialFacts {
                 Object value = row.get("val");
                 if (!filed.isBefore(session) || end.isAfter(filed) || (start != null && start.isAfter(end))
                         || !(value instanceof Number)) continue;
-                output.add(new Fact(start, end, filed, form, accession, new BigDecimal(value.toString())));
+                output.add(new Fact(start, end, filed, form, accession, new BigDecimal(value.toString()), false));
             } catch (DateTimeParseException | JSONException | NumberFormatException invalid) {
                 // Other valid filing records may still contain the requested fiscal period.
             }

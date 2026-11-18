@@ -61,6 +61,8 @@ def counts(rows, prices):
             "listed": len(scoped), "with_daily_close": len(priced),
             "with_close_and_sec_issuer": sum("cik" in row for row in priced),
             "with_close_and_reference_financials": len(covered),
+            "with_balance_sheet_shares": sum(row.get("shares_basis") == "balance_sheet" for row in covered),
+            "with_reconciled_parent_amounts": sum(row.get("reconciled_parent_amounts") is True for row in covered),
             "with_positive_profit_and_equity": len(ready),
             "financial_holds": dict(Counter(row["hold"] for row in priced if "hold" in row)),
         }

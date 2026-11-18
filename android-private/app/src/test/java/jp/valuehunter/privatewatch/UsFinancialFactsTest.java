@@ -9,6 +9,7 @@ import java.time.LocalDate;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThrows;
 import org.json.JSONException;
 
@@ -34,6 +35,56 @@ public class UsFinancialFactsTest {
                 .put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
         assertNull(UsFinancialFacts.read(duplicate, 1, SESSION));
         assertThrows(JSONException.class, () -> UsFinancialFacts.read(payload(), 42, SESSION));
+    }
+
+    @Test public void usesBalanceSheetSharesOnlyWithMatchingAccessionAndPeriod() throws Exception {
+        var document = payload();
+        var sections = document.getJSONObject("facts");
+        var gaap = sections.getJSONObject("us-gaap");
+        var shares = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 38));
+        gaap.put("CommonStockSharesOutstanding", units("shares", shares));
+
+        assertEquals("cover", UsFinancialFacts.read(document, 1, SESSION).sharesBasis());
+        var cover = sections.getJSONObject("dei").getJSONObject("EntityCommonStockSharesOutstanding")
+                .getJSONObject("units").getJSONArray("shares");
+        cover.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+        sections.remove("dei");
+        var facts = UsFinancialFacts.read(document, 1, SESSION);
+        assertEquals("balance_sheet", facts.sharesBasis());
+        assertEquals(LocalDate.parse("2026-09-30"), facts.shareDate());
+        assertEquals(new BigDecimal("38"), facts.shares());
+
+        shares.getJSONObject(0).put("accn", K);
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void reconcilesParentEquityAndProfitOnlyFromMatchedComponents() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        gaap.remove("StockholdersEquity");
+        gaap.put("StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", units("USD",
+                new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 380))));
+        var minority = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 30));
+        gaap.put("MinorityInterest", units("USD", minority));
+        var profits = gaap.getJSONObject("NetIncomeLoss").getJSONObject("units").getJSONArray("USD");
+        profits.remove(2);
+        gaap.put("ProfitLoss", units("USD", new JSONArray()
+                .put(row("2026-01-01", "2026-09-30", "2026-10-20", Q, "10-Q", 75))));
+        var minorityProfit = new JSONArray()
+                .put(row("2026-01-01", "2026-09-30", "2026-10-20", Q, "10-Q", 5));
+        gaap.put("NetIncomeLossAttributableToNoncontrollingInterest", units("USD", minorityProfit));
+
+        var facts = UsFinancialFacts.read(document, 1, SESSION);
+        assertEquals(new BigDecimal("350"), facts.equity());
+        assertEquals(new BigDecimal("110"), facts.profit());
+        assertTrue(facts.reconciledParentAmounts());
+
+        minorityProfit.getJSONObject(0).put("start", "2026-07-01");
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+        minorityProfit.getJSONObject(0).put("start", "2026-01-01");
+        minority.put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 31));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
     }
 
     private static JSONObject payload() throws JSONException {

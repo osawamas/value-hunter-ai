@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+
+## 2026-11-18 23:25 JST — SEC同一提出書類の株数・親会社帰属額を追加照合
+
+- 連結貸借対照表の発行済普通株数を、表紙の株数を取得できず、同じ提出書類・同じ期末の値を一意に確定できる場合に使用。連結合計と非支配持分が同じ提出書類・期間・単位で確認できる場合は、親会社帰属額を差し引いて計算する。財務台帳に株数の根拠と差引計算の有無を記録。
+- 11月17日のDoltHub終値とSEC Company Facts原本を同じ入力で再生。終値4,958銘柄のうち照合済みは2,575→2,707銘柄（NYSE +70、Nasdaq +62）。以前の照合結果2,575件の株数・基準日・利益・自己資本・提出書類番号は一致。参考条件該当は312→321件。
+- 未照合2,251銘柄。うち決算期間・株数等の確認待ち1,448件、複数上場クラス375件、US GAAP財務なし348件。分類別に次の取得経路を決める。Mac自動同期の実機運用は引き続き別途確認。
+
 ## 2026-11-18 23:19 JST — Dolt初回clone失敗時の不完全ディレクトリを保護
 
 - 開始時main: [2037103](https://github.com/osawamas/value-hunter-ai/commit/2037103351fdfbc9e5bd0fc39bf981ff762b55ef)。既存ログ・同期実装・回帰テスト・[米国CI定義](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)を読んだ。直近のpush Actions結果は今回取得できず、前回記録の[米国CI成功44307602334](https://github.com/osawamas/value-hunter-ai/actions/runs/44307602334)のみ既知。

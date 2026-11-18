@@ -40,9 +40,8 @@ public final class UsBulkLedger {
                     if (bytes.length != entry.getSize()) throw new IOException("Incomplete SEC ZIP entry");
                     var payload = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
                     if (payload.optJSONObject("facts") == null
-                            || payload.getJSONObject("facts").optJSONObject("us-gaap") == null
-                            || payload.getJSONObject("facts").optJSONObject("dei") == null) {
-                        row.put("hold", "no_us_gaap_or_cover_facts");
+                            || payload.getJSONObject("facts").optJSONObject("us-gaap") == null) {
+                        row.put("hold", "no_us_gaap_facts");
                         continue;
                     }
                     if (!UsFinancialFacts.matchesIssuer(payload, cik)) {
@@ -59,7 +58,8 @@ public final class UsBulkLedger {
                 } else {
                     row.put("filed", facts.filed().toString()).put("share_date", facts.shareDate().toString())
                             .put("shares", facts.shares()).put("profit", facts.profit()).put("equity", facts.equity())
-                            .put("accession", facts.accession());
+                            .put("accession", facts.accession()).put("shares_basis", facts.sharesBasis())
+                            .put("reconciled_parent_amounts", facts.reconciledParentAmounts());
                 }
             }
         }
