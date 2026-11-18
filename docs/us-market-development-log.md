@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 12:16 JST — Dolt 429後の復帰を回帰テスト化
+
+- 開始時main: [b8b1dc6](https://github.com/osawamas/value-hunter-ai/commit/b8b1dc67f6237df12ca02df939471b7fa98b84f8)。直近[Android Actions 44227434927](https://github.com/osawamas/value-hunter-ai/actions/runs/44227434927)は成功（今回のPythonテストではない）。既存米国ログとDolt同期コード・テストを読み、並行JP開発と重複しない変更を選択。
+- [回帰テスト追加 b81242f](https://github.com/osawamas/value-hunter-ai/commit/b81242f3c01baafbc5e0b305bf448df03d2c965e)。429が2回続いた後の3回目成功、待機60秒・120秒、キャッシュ保持、pull継続を検証する条件。
+- 既存sync関数と同一ロジックを抜粋した独立Python再現1件は成功。リポジトリ全テストと追加テスト自体の実行、変更後Actionsは未確認。git ls-remoteはDNS解決失敗。実Dolt接続・日次同期は未実施。参考: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 対象取引日: 新規照会なし。取得0件、NYSE/Nasdaq同日網羅率未測定。価格原本・APIキー・APKの公開なし。未解決: Dolt実同期、正規終値・分割前価格、SEC株数、正式PER/PBR、Android無音通知。次回は追加テストのCI実行確認とDolt実同期、市場別同日網羅率検証。
+
 ## 2026-11-18 11:12 JST — MoldUDP64ハートビートの境界回帰テストを追加
 
 - 開始時main: [09eb1ee](https://github.com/osawamas/value-hunter-ai/commit/09eb1ee6728d4a04b7f550e34520df24dd85d7ce)。最新ログとNasdaq解析コード・テストを読んだ。直近コミットのPR紐付けActions照会は0件（push Actionsの成功は未確認、[一覧](https://github.com/osawamas/value-hunter-ai/actions)）。JPX並行開発と重複しないNLS境界テストを選択。
