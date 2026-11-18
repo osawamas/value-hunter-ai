@@ -9,6 +9,8 @@ import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.chrono.JapaneseChronology;
+import java.time.chrono.JapaneseEra;
 import java.util.regex.Pattern;
 
 /** Actual full-year EPS and book value per share from a JPX Inline XBRL summary. */
@@ -17,6 +19,7 @@ final class JpxAnnualSummary {
     private static final String DIMENSIONS = "http://xbrl.org/2006/xbrldi";
     private static final String IX = "http://www.xbrl.org/2008/inlineXBRL";
     private static final Pattern DATE = Pattern.compile("(\\d{4})年(\\d{1,2})月(\\d{1,2})日");
+    private static final Pattern ERA_DATE = Pattern.compile("(令和|平成)(元|[0-9]{1,2})年([0-9]{1,2})月([0-9]{1,2})日");
     private static final Pattern NUMBER = Pattern.compile("(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]+)?");
     private static final Pattern FORBIDDEN_XML = Pattern.compile("<!\\s*(?:DOCTYPE|ENTITY)", Pattern.CASE_INSENSITIVE);
 
@@ -32,7 +35,7 @@ final class JpxAnnualSummary {
 
     private JpxAnnualSummary() {}
 
-    static Annual read(String body, String code, LocalDate released, String source) {
+    static Annual read(String body, String code, LocalDate released, String source, boolean corrected) {
         if (body.startsWith("\ufeff")) body = body.substring(1);
         if (FORBIDDEN_XML.matcher(body).find()) return null;
         try {
@@ -45,11 +48,10 @@ final class JpxAnnualSummary {
             String issuer = uniqueFact(root, "nonNumeric", "SecuritiesCode", "CurrentYearInstant");
             if (!issuer.equals(code) && !issuer.equals(code + "0")) return null;
             String title = uniqueFact(root, "nonNumeric", "DocumentName", "CurrentYearInstant");
-            var filing = DATE.matcher(uniqueFact(root, "nonNumeric", "FilingDate", "CurrentYearInstant"));
-            if (!title.contains("決算短信") || title.matches(".*(?:四半期|中間|半期|第[123四]四半期).*")
-                    || !filing.matches()
-                    || !released.equals(LocalDate.of(Integer.parseInt(filing.group(1)),
-                        Integer.parseInt(filing.group(2)), Integer.parseInt(filing.group(3))))) return null;
+            LocalDate coverDate = documentDate(uniqueFact(root, "nonNumeric", "FilingDate", "CurrentYearInstant"));
+            if (!title.contains("決算短信") || title.matches(".*(?:四半期|中間|半期).*")
+                    || coverDate == null || coverDate.isAfter(released)
+                    || !corrected && !coverDate.equals(released)) return null;
             boolean standalone = title.contains("(非連結)");
             if (!standalone && !title.contains("(連結)")) return null;
             String member = standalone ? "NonConsolidatedMember" : "ConsolidatedMember";
@@ -61,7 +63,7 @@ final class JpxAnnualSummary {
             LocalDate end = LocalDate.parse(only(earningsContext, XBRL, "endDate"));
             long days = ChronoUnit.DAYS.between(start, end) + 1;
             if (days < 350 || days > 380 || !end.equals(LocalDate.parse(only(equityContext, XBRL, "instant")))
-                    || end.isAfter(released)) return null;
+                    || end.isAfter(coverDate)) return null;
 
             String epsTag = "NetIncomePerShare";
             String bpsTag = "NetAssetsPerShare";
@@ -81,6 +83,18 @@ final class JpxAnnualSummary {
             // A changed taxonomy, incomplete filing or ambiguous financials cannot enter the screen.
             return null;
         }
+    }
+
+    private static LocalDate documentDate(String value) {
+        var western = DATE.matcher(value);
+        if (western.matches()) return LocalDate.of(Integer.parseInt(western.group(1)),
+                Integer.parseInt(western.group(2)), Integer.parseInt(western.group(3)));
+        var era = ERA_DATE.matcher(value);
+        if (!era.matches()) return null;
+        var calendar = "令和".equals(era.group(1)) ? JapaneseEra.REIWA : JapaneseEra.HEISEI;
+        int year = "元".equals(era.group(2)) ? 1 : Integer.parseInt(era.group(2));
+        return LocalDate.from(JapaneseChronology.INSTANCE.date(calendar, year,
+                Integer.parseInt(era.group(3)), Integer.parseInt(era.group(4))));
     }
 
     private static Element context(Element root, String id, String code, String member) {

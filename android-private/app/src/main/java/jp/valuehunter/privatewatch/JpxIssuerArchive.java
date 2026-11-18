@@ -34,6 +34,7 @@ final class JpxIssuerArchive {
     private static final Pattern SECTION = Pattern.compile("displayMore\\('(110[1-4])', '(\\d+)', '1'\\)");
     private static final Pattern ANNUAL_LINK = Pattern.compile(
             "href=\"(/disc/[0-9A-Z]{4}0/[0-9]+_tse-a(?:ce|ne)[A-Za-z0-9-]+-ixbrl\\.htm)\"");
+    private static final Pattern FISCAL_MONTH = Pattern.compile("(?:(20[0-9]{2})|(令和)(元|[0-9]{1,2}))年(0?[1-9]|1[0-2])月期");
     private static final Pattern NON_ANNUAL = Pattern.compile("四半期|中間|半期");
     private static final Pattern ROW = Pattern.compile(
             "<tr id=\"(110[1-4])_(\\d+)\"[^>]*>\\s*<td[^>]*>\\s*(\\d{4}/\\d{2}/\\d{2})"
@@ -50,7 +51,17 @@ final class JpxIssuerArchive {
 
     private JpxIssuerArchive() {}
 
-    record Disclosure(LocalDate day, String title, URI annualLink, boolean results) {}
+    record Disclosure(LocalDate day, String title, URI annualLink, boolean results) {
+        boolean corrected() { return title.contains("訂正"); }
+
+        YearMonth fiscalMonth() {
+            var match = FISCAL_MONTH.matcher(title);
+            if (!match.find()) return null;
+            int year = match.group(1) != null ? Integer.parseInt(match.group(1))
+                    : 2018 + ("元".equals(match.group(3)) ? 1 : Integer.parseInt(match.group(3)));
+            return YearMonth.of(year, Integer.parseInt(match.group(4)));
+        }
+    }
 
     record Page(List<Disclosure> disclosures) {
         boolean clearSince(LocalDate since) {
@@ -58,38 +69,73 @@ final class JpxIssuerArchive {
         }
 
         Disclosure annualOn(LocalDate date) {
+            var annuals = disclosures.stream().filter(disclosure -> disclosure.results()
+                    && disclosure.day().isBefore(date) && annualTitle(disclosure.title())).toList();
+            var latestMonth = annuals.stream().map(Disclosure::fiscalMonth).filter(java.util.Objects::nonNull)
+                    .max(YearMonth::compareTo).orElse(null);
             Disclosure latest = null;
-            for (var disclosure : disclosures) {
-                if (!disclosure.results() || !disclosure.day().isBefore(date) || !annualTitle(disclosure.title())) continue;
+            boolean ambiguous = false;
+            for (var disclosure : annuals) {
+                var month = disclosure.fiscalMonth();
+                if (month != null && !month.equals(latestMonth)) continue;
                 if (latest == null || disclosure.day().isAfter(latest.day())) {
                     latest = disclosure;
-                } else if (latest.day().equals(disclosure.day())) {
-                    if (latest.equals(disclosure)) continue;
-                    if (latest.title().contains("訂正") != disclosure.title().contains("訂正")) {
-                        if (disclosure.title().contains("訂正")) latest = disclosure;
-                    } else {
-                        return null;
+                    ambiguous = false;
+                } else if (latest.day().equals(disclosure.day()) && !latest.equals(disclosure)) {
+                    if (latest.corrected() == disclosure.corrected()) ambiguous = true;
+                    else if (disclosure.corrected()) {
+                        latest = disclosure;
+                        ambiguous = false;
                     }
                 }
             }
+            if (ambiguous) return null;
             return latest;
         }
     }
 
+    @FunctionalInterface
+    interface Transport {
+        String fetch(URI uri, String code, CookieManager cookies) throws IOException;
+    }
+
     static final class Session {
         private final CookieManager cookies = new CookieManager();
+        private final Transport transport;
         private boolean opened;
 
+        Session() { this(JpxIssuerArchive::request); }
+
+        Session(Transport transport) { this.transport = transport; }
+
         Page archive(String code) throws IOException {
+            String html = companyPage(code);
+            if (searchForm(html)) {
+                cookies.getCookieStore().removeAll();
+                opened = false;
+                html = companyPage(code);
+                if (searchForm(html)) {
+                    opened = false;
+                    throw new IOException("JPX returned its search form instead of the company archive");
+                }
+            }
+            return read(html, code);
+        }
+
+        private String companyPage(String code) throws IOException {
             if (!opened) {
-                request(HOME, null, cookies);
+                transport.fetch(HOME, null, cookies);
                 opened = true;
             }
-            return read(request(DETAIL, code, cookies), code);
+            return transport.fetch(DETAIL, code, cookies);
+        }
+
+        private static boolean searchForm(String html) {
+            return html.contains("name=\"JJK010010Form\"") && !html.contains("上場会社詳細（適時開示情報）");
         }
 
         String annual(URI uri) throws IOException {
-            return request(uri, null, cookies);
+            return transport.fetch(uri, null, cookies);
         }
     }
 
@@ -122,8 +168,7 @@ final class JpxIssuerArchive {
         while (sections.find()) {
             if (counts.put(sections.group(1), Integer.parseInt(sections.group(2))) != null) return null;
         }
-        if (!counts.keySet().equals(Set.of("1101", "1102", "1103", "1104"))
-                || counts.get("1102") == 0) return null;
+        if (!counts.keySet().equals(Set.of("1101", "1102", "1103", "1104"))) return null;
 
         var found = new HashMap<String, Set<Integer>>();
         var disclosures = new ArrayList<Disclosure>();
@@ -165,8 +210,7 @@ final class JpxIssuerArchive {
         var cache = context.getSharedPreferences("jpx-issuer-archive", Context.MODE_PRIVATE);
         var verified = new HashMap<String, Review>();
         List<String> audited = new ArrayList<>();
-        var session = new CookieManager();
-        boolean connected = false;
+        var session = new Session();
         boolean offline = false;
         for (String code : JpxDailyCheck.WATCH_CODES) {
             if (!rights.coveredCodes().contains(code)
@@ -176,11 +220,8 @@ final class JpxIssuerArchive {
             String current = through.toString() + ":";
             if (!reviewed.startsWith(current) && !offline) {
                 try {
-                    if (!connected) {
-                        request(HOME, null, session);
-                        connected = true;
-                    }
-                    boolean clear = clear(request(DETAIL, code, session), code, since.minusYears(1));
+                    var page = session.archive(code);
+                    boolean clear = page != null && page.clearSince(since.minusYears(1));
                     reviewed = current + (clear ? "clear" : "hold");
                     cache.edit().putString(key, reviewed).apply();
                 } catch (IOException failure) {

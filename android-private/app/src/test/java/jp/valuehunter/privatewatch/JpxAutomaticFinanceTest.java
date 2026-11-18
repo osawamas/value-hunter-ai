@@ -1,11 +1,14 @@
 package jp.valuehunter.privatewatch;
 
+import android.content.SharedPreferences;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,10 +37,83 @@ public class JpxAutomaticFinanceTest {
                 results.entered());
     }
 
+    @Test public void newFilingComparesAgainstCachedFinancialsAndAlertsOnlyOnce() throws Exception {
+        var cache = new HashMap<String, Object>();
+        var prefs = preferences(cache);
+        LocalDate previousDay = DAY.minusDays(1);
+        LocalDate beforeFiling = previousDay.minusDays(1);
+        var initial = JpxAutomaticFinance.refresh(prefs, report(beforeFiling, "890"), beforeFiling,
+                sources(archive("決算短信〔日本基準〕(連結)", PATH),
+                        filing().replace(">60.00<", ">20.00<")), () -> false);
+        var old = initial.entries().get(CODE);
+        cache.put("disclosure-days", """
+                {"2026-11-16":{"rights":[],"annual":["1420"]},"2026-11-17":{"rights":[],"annual":[]}}
+                """);
+        var latestSources = sources(archive("決算短信〔日本基準〕(連結)", PATH)
+                .replace("2026/05/11", "2026/11/16"), filing().replace("2026年５月11日", "2026年11月16日"));
+        var refreshed = JpxAutomaticFinance.refresh(prefs, report(DAY, "890"), DAY, latestSources, () -> false);
+        assertEquals(1, refreshed.fetched());
+        var next = refreshed.entries().get(CODE);
+        assertEquals(old.annual(), next.annualFor(previousDay));
+        assertEquals(next.annual(), next.annualFor(DAY));
+        var resumed = JpxAutomaticFinance.refresh(prefs, report(DAY, "890"), DAY, null, () -> true);
+        assertEquals(next, resumed.entries().get(CODE));
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "890"), report(previousDay, "890"));
+        var screen = comparison.screen(new JpxShareRights(Set.of(), Set.of(), List.of()),
+                new JpxAutomaticFinance.Batch(Map.of(CODE, next), Map.of(), 1, 1));
+        assertEquals(1, screen.entered().size());
+        assertEquals(screen.entered(), JpxWatchWorker.pending(previousDay, previousDay, DAY, screen.entered(), Set.of()));
+        assertTrue(JpxWatchWorker.pending(previousDay, DAY, DAY, screen.entered(), Set.of(CODE)).isEmpty());
+    }
+
+    @Test public void alertsWhenAnExistingValueCandidateFirstFitsOneHundredShares() throws Exception {
+        var entry = acquire(archive("決算短信〔日本基準〕(連結)", PATH),
+                filing().replace(">60.00<", ">100.00<").replace(">1,000.00<", ">1,500.00<"));
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "1000"), report(DAY.minusDays(1), "1001"));
+        var results = comparison.screen(new JpxShareRights(Set.of(), Set.of(), List.of()),
+                new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1));
+        assertEquals(List.of(new JpxDailyCheck.Candidate(CODE, 100, ValueCandidateScreen.Level.PRIORITY)),
+                results.entered());
+    }
+
     @Test public void rejectsAnotherIssuerAndCorrectionWithoutSummary() throws Exception {
         assertNull(acquire(archive("決算短信〔日本基準〕(連結)", PATH),
                 filing().replace("14200", "99990")).annual());
         assertNull(acquire(archive("（訂正）決算短信の一部訂正", null), filing()).annual());
+    }
+
+    @Test public void correctedStatementUsesOfficialReleaseAndAcceptsEraDate() throws Exception {
+        var summary = filing().replace("2026年５月11日", "令和８年５月11日");
+        var corrected = archive("（訂正）2026年3月期決算短信〔日本基準〕(連結)", PATH)
+                .replace("2026/05/11", "2026/06/03");
+        var entry = JpxAutomaticFinance.acquire(CODE, DAY, null, sources(corrected, summary));
+        LocalDate release = LocalDate.of(2026, 6, 3);
+        assertNotNull(entry.annual());
+        assertEquals(release, entry.annual().released());
+        assertNull(entry.annualFor(release));
+        assertEquals(entry.annual(), entry.annualFor(release.plusDays(1)));
+        assertNull(JpxAutomaticFinance.acquire(CODE, DAY, null,
+                sources(corrected.replace("（訂正）", ""), summary)).annual());
+        assertNull(JpxAutomaticFinance.acquire(CODE, DAY, null,
+                sources(corrected, summary.replace("５月11日", "７月11日"))).annual());
+    }
+
+    @Test public void prefersTheNewestFiscalPeriodOverALateCorrectionOfAnOlderPeriod() {
+        var html = archive("令和８年3月期決算短信〔日本基準〕(連結)", PATH)
+                .replace("'1101', '1'", "'1101', '2'")
+                + """
+                <tr id="1101_1"><td>2026/05/29</td><td>（訂正）2025年3月期決算短信</td></tr>
+                """;
+        var page = JpxIssuerArchive.read(html, CODE);
+        assertNotNull(page);
+        assertEquals(URI.create("https://www2.jpx.co.jp" + PATH), page.annualOn(DAY).annualLink());
+    }
+
+    @Test public void acceptsAnExplicitlyEmptyCorporateActionSection() {
+        var html = archive("2026年3月期決算短信〔日本基準〕(連結)", PATH)
+                .replace("'1102', '1'", "'1102', '0'")
+                .replaceAll("(?s)<tr id=\"1102_0\">.*?</tr>", "");
+        assertNotNull(JpxIssuerArchive.read(html, CODE));
     }
 
     @Test public void splitOrIncompleteRecentDisclosuresPreventNotification() throws Exception {
@@ -72,6 +148,71 @@ public class JpxAutomaticFinanceTest {
         var empty = JpxDisclosureCalendar.read(DAY.withDayOfMonth(3), ignored -> holiday, () -> false);
         assertTrue(empty.rights().isEmpty());
         assertTrue(empty.annual().isEmpty());
+    }
+
+    @Test public void reopensTheJpxSessionOnAnUnexpectedSearchForm() throws Exception {
+        var visits = new java.util.ArrayList<String>();
+        String candidate = archive("2026年3月期決算短信〔日本基準〕(連結)", PATH);
+        var session = new JpxIssuerArchive.Session((uri, code, cookies) -> {
+            visits.add(uri.getPath());
+            return visits.size() < 4 ? "<form name=\"JJK010010Form\">" : candidate;
+        });
+        assertNotNull(session.archive(CODE));
+        assertEquals(List.of("/tseHpFront/StockSearch.do", "/tseHpFront/JJK010030Action.do",
+                "/tseHpFront/StockSearch.do", "/tseHpFront/JJK010030Action.do"), visits);
+    }
+
+    @Test public void resumesPastAnIndividualIssuerWithATransientNetworkError() {
+        var prefs = preferences(new HashMap<>());
+        var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/",
+                Map.of("1419", new JpxCloseTable.Sessions(null, new BigDecimal("900")),
+                        CODE, new JpxCloseTable.Sessions(null, new BigDecimal("890"))), Set.of());
+        var good = sources(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var checks = new java.util.ArrayList<String>();
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                checks.add(code);
+                if ("1419".equals(code)) throw new IOException("Issuer timed out");
+                return good.archive(code);
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                return good.financial(disclosure);
+            }
+        };
+        assertEquals(1, JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false).fetched());
+        assertEquals(0, JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false).fetched());
+        assertEquals(List.of("1419", CODE), checks);
+    }
+
+    private static JpxAutomaticFinance.Sources sources(String archive, String filing) {
+        return new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) {
+                return JpxIssuerArchive.read(archive, code);
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) {
+                return filing;
+            }
+        };
+    }
+
+    private static SharedPreferences preferences(Map<String, Object> data) {
+        return (SharedPreferences) Proxy.newProxyInstance(SharedPreferences.class.getClassLoader(),
+                new Class<?>[]{SharedPreferences.class}, (instance, method, args) -> switch (method.getName()) {
+                    case "getString", "getLong" -> data.getOrDefault(args[0].toString(), args[1]);
+                    case "edit" -> Proxy.newProxyInstance(SharedPreferences.Editor.class.getClassLoader(),
+                            new Class<?>[]{SharedPreferences.Editor.class}, (editor, change, values) -> {
+                                switch (change.getName()) {
+                                    case "putString", "putLong" -> data.put(values[0].toString(), values[1]);
+                                    case "remove" -> data.remove(values[0].toString());
+                                    case "apply" -> { return null; }
+                                    default -> throw new IllegalStateException(change.getName());
+                                }
+                                return editor;
+                            });
+                    default -> throw new IllegalStateException(method.getName());
+                });
     }
 
     private static JpxAutomaticFinance.Entry acquire(String archive, String filing) throws IOException {

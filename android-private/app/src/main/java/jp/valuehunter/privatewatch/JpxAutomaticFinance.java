@@ -23,12 +23,24 @@ final class JpxAutomaticFinance {
     private static final int RETRY_MISSING_DAYS = 7;
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
+    private static final String RETRY_PREFIX = "retry-after-";
 
-    record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold) {
+    record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
+                 JpxAnnualSummary.Annual previousAnnual) {
+        Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold) {
+            this(checkedThrough, annual, hold, null);
+        }
+
+        JpxAnnualSummary.Annual annualFor(LocalDate day) {
+            if (annual != null && annual.usable(day)) return annual;
+            return previousAnnual != null && previousAnnual.usable(day) ? previousAnnual : null;
+        }
+
         String failure(String code, LocalDate day, Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
             if (annual == null || !hold.isEmpty()) return hold;
-            if (!annual.usable(day)) return "立会日時点の通期決算なし";
-            if (annual.eps().signum() <= 0 || annual.bps().signum() <= 0) return "実績EPS・BPSのいずれかがゼロ以下";
+            var asOf = annualFor(day);
+            if (asOf == null) return "立会日時点の通期決算なし";
+            if (asOf.eps().signum() <= 0 || asOf.bps().signum() <= 0) return "実績EPS・BPSのいずれかがゼロ以下";
             for (LocalDate next = checkedThrough.plusDays(1); !next.isAfter(day); next = next.plusDays(1)) {
                 var update = updates.get(next);
                 if (update == null) return "TDnet日次開示の確認待ち";
@@ -46,8 +58,15 @@ final class JpxAutomaticFinance {
         String status() {
             if (budget == 0) return "";
             long financials = entries.values().stream().filter(entry -> entry.annual() != null).count();
-            return "通期決算の自動取得 " + financials + " / 予算内 " + budget + "銘柄"
-                    + " · 取得保留 " + (entries.size() - financials) + "銘柄 · 今回 " + fetched + "銘柄確認";
+            var message = new StringBuilder("通期決算の自動取得 ").append(financials)
+                    .append(" / 予算内 ").append(budget).append("銘柄 · 取得保留 ")
+                    .append(entries.size() - financials).append("銘柄 · 今回 ").append(fetched).append("銘柄確認");
+            var holds = new java.util.TreeMap<String, Integer>();
+            for (var entry : entries.values()) {
+                if (entry.annual() == null) holds.merge(entry.hold(), 1, Integer::sum);
+            }
+            holds.forEach((reason, count) -> message.append("\n").append(reason).append(" ").append(count).append("銘柄"));
+            return message.toString();
         }
     }
 
@@ -96,7 +115,10 @@ final class JpxAutomaticFinance {
             if (entry.annual() != null && entry.hold().isEmpty() && tomorrow.isBefore(earliest)) earliest = tomorrow;
         }
         var updates = JpxDisclosureCalendar.refresh(state, report.date(), earliest, stopped);
-        var pending = eligible.stream().filter(code -> due(entries.get(code), code, through, report.date(), updates))
+        long now = System.currentTimeMillis();
+        var pending = eligible.stream()
+                .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
+                .filter(code -> due(entries.get(code), code, through, report.date(), updates))
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
                         .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
                         .thenComparing(code -> entries.containsKey(code) ? entries.get(code).checkedThrough() : LocalDate.MIN)
@@ -104,18 +126,26 @@ final class JpxAutomaticFinance {
                 .toList();
 
         int checked = 0;
+        int attempted = 0;
+        int consecutiveFailures = 0;
         long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(75);
         for (String code : pending) {
-            if (checked >= BATCH_SIZE || stopped.getAsBoolean() || System.nanoTime() >= until) break;
+            if (attempted >= BATCH_SIZE || stopped.getAsBoolean() || System.nanoTime() >= until) break;
+            attempted++;
             try {
                 var entry = acquire(code, through, entries.get(code), sources);
                 if (stopped.getAsBoolean()) break;
-                state.edit().putString(PREFIX + code, encode(entry).toString()).apply();
+                state.edit().putString(PREFIX + code, encode(entry).toString()).remove(RETRY_PREFIX + code).apply();
                 entries.put(code, entry);
                 checked++;
+                consecutiveFailures = 0;
             } catch (IOException unavailable) {
-                // Preserve the last verified data and retry the interrupted batch at the next run.
-                break;
+                if (unavailable instanceof JpxIssuerArchive.HttpFailure http
+                        && (http.status == 429 || http.status == 503)) break;
+                // Keep verified data and move on when an individual issuer stalls.
+                state.edit().putLong(RETRY_PREFIX + code,
+                        now + java.util.concurrent.TimeUnit.HOURS.toMillis(1)).apply();
+                if (++consecutiveFailures >= 3) break;
             } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
                 var entry = new Entry(through, null, "東証の決算開示を確認できなかった");
                 state.edit().putString(PREFIX + code, encode(entry).toString()).apply();
@@ -158,16 +188,28 @@ final class JpxAutomaticFinance {
         if (page == null) return new Entry(through, null, "東証の決算開示一覧を確認できなかった");
         LocalDate followingDay = through.plusDays(1);
         var filing = page.annualOn(followingDay);
-        if (filing == null || filing.annualLink() == null) {
-            return new Entry(through, null, "最新の通期決算サマリー未取得・訂正確認待ち");
+        if (filing == null) return new Entry(through, null, "通期決算の開示を特定できなかった");
+        if (filing.annualLink() == null) {
+            String reason = filing.corrected() ? "訂正版のiXBRLなし" : "通期資料のiXBRLなし";
+            return new Entry(through, null, reason);
         }
         String source = filing.annualLink().toString();
         var annual = old != null && old.annual() != null && source.equals(old.annual().source())
                 && filing.day().equals(old.annual().released()) ? old.annual()
-                : JpxAnnualSummary.read(sources.financial(filing), code, filing.day(), source);
-        if (annual == null || !annual.usable(followingDay)) return new Entry(through, null, "通期EPS・BPSを照合できなかった");
+                : JpxAnnualSummary.read(sources.financial(filing), code, filing.day(), source, filing.corrected());
+        if (annual == null || !annual.usable(followingDay)
+                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return new Entry(through, null, "通期EPS・BPSを照合できなかった");
+        JpxAnnualSummary.Annual previous = null;
+        if (old != null) {
+            // A session must only be valued with a filing that was already public.
+            var last = old.annual();
+            previous = last != null && last.released().isBefore(annual.released()) ? last : old.previousAnnual();
+            if (previous != null && (!previous.released().isBefore(annual.released())
+                    || !previous.usable(annual.released()))) previous = null;
+        }
+        if (previous != null && !page.clearSince(previous.end().minusYears(1))) previous = null;
         boolean clear = page.clearSince(annual.end().minusYears(1));
-        return new Entry(through, annual, clear ? "" : "株式分割・併合等の開示を確認中");
+        return new Entry(through, annual, clear ? "" : "株式分割・併合等の開示を確認中", previous);
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {
@@ -176,27 +218,39 @@ final class JpxAutomaticFinance {
             LocalDate checked = LocalDate.parse(json.getString("checked"));
             if (checked.isAfter(through)) return null;
             String hold = json.getString("hold");
-            if (!json.has("source")) return new Entry(checked, null, hold);
-            String source = json.getString("source");
-            if (!JpxIssuerArchive.annualSource(source, code)) return null;
-            var annual = new JpxAnnualSummary.Annual(LocalDate.parse(json.getString("end")),
-                    LocalDate.parse(json.getString("released")), new BigDecimal(json.getString("eps")),
-                    new BigDecimal(json.getString("bps")), source);
-            return new Entry(checked, annual, hold);
+            var annual = decodeAnnual(json, code);
+            var previous = json.optJSONObject("previous");
+            return new Entry(checked, annual, hold, previous == null ? null : decodeAnnual(previous, code));
         } catch (JSONException | IllegalArgumentException | java.time.DateTimeException invalid) {
             return null;
         }
     }
 
+    private static JpxAnnualSummary.Annual decodeAnnual(JSONObject object, String code) throws JSONException {
+        if (!object.has("source")) return null;
+        String source = object.getString("source");
+        if (!JpxIssuerArchive.annualSource(source, code)) throw new JSONException("Invalid JPX filing source");
+        return new JpxAnnualSummary.Annual(LocalDate.parse(object.getString("end")),
+                LocalDate.parse(object.getString("released")), new BigDecimal(object.getString("eps")),
+                new BigDecimal(object.getString("bps")), source);
+    }
+
     private static JSONObject encode(Entry entry) {
         try {
             var json = new JSONObject().put("checked", entry.checkedThrough().toString()).put("hold", entry.hold());
-            var annual = entry.annual();
-            if (annual != null) json.put("end", annual.end().toString()).put("released", annual.released().toString())
-                    .put("eps", annual.eps().toPlainString()).put("bps", annual.bps().toPlainString()).put("source", annual.source());
+            if (entry.annual() != null) encodeAnnual(json, entry.annual());
+            if (entry.previousAnnual() != null) {
+                json.put("previous", encodeAnnual(new JSONObject(), entry.previousAnnual()));
+            }
             return json;
         } catch (JSONException impossible) {
             throw new IllegalStateException(impossible);
         }
+    }
+
+    private static JSONObject encodeAnnual(JSONObject destination, JpxAnnualSummary.Annual annual) throws JSONException {
+        return destination.put("end", annual.end().toString()).put("released", annual.released().toString())
+                .put("eps", annual.eps().toPlainString()).put("bps", annual.bps().toPlainString())
+                .put("source", annual.source());
     }
 }

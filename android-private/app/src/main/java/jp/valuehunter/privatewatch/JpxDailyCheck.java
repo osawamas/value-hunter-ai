@@ -86,7 +86,7 @@ final class JpxDailyCheck {
                             && finance.entries().containsKey(candidate.code())).toList();
             if (!automaticCandidates.isEmpty()) message.append("<br><br>自動取得の割安候補");
             for (var candidate : automaticCandidates.subList(0, Math.min(50, automaticCandidates.size()))) {
-                var annual = finance.entries().get(candidate.code()).annual();
+                var annual = finance.entries().get(candidate.code()).annualFor(latest.date());
                 var close = latest.close(candidate.code());
                 message.append("<br>").append(candidate.summary())
                         .append(" · 参考PER ").append(close.divide(annual.eps(), 2, RoundingMode.HALF_UP))
@@ -160,7 +160,8 @@ final class JpxDailyCheck {
                     .append("銘柄 · 1株枠 ").append(single).append("銘柄")
                     .append(newline).append("財務照合済み ").append(assessed)
                     .append(" / 登録 ").append(screenCodes(finance).size()).append("銘柄");
-            if (!finance.status().isEmpty()) message.append(newline).append(finance.status());
+            String financeStatus = finance.status();
+            if (!financeStatus.isEmpty()) message.append(newline).append(financeStatus.replace("\n", newline));
         }
 
         private Set<String> screenCodes(JpxAutomaticFinance.Batch finance) {
@@ -228,17 +229,22 @@ final class JpxDailyCheck {
 
         private ReferenceChange automaticChange(String code, JpxShareRights rights,
                                                 JpxAutomaticFinance.Batch finance, JpxAutomaticFinance.Entry entry) {
-            var annual = entry.annual();
             var held = new Candidate(code, 0, Level.HELD);
             String reason = entry.failure(code, latest.date(), finance.updates());
-            var notice = rights.firstChange(code, annual.end(), latest.date());
-            if (notice != null) reason = notice.description();
             if (!reason.isEmpty()) return new ReferenceChange(held, held, reason);
+            var annual = entry.annualFor(latest.date());
+            var notice = rights.firstChange(code, annual.end(), latest.date());
+            if (notice != null) return new ReferenceChange(held, held, notice.description());
             var now = candidate(code, latest.close(code), annual.level(latest.date(), latest.close(code)));
             if (previous == null || !previous.date().isBefore(latest.date())) {
                 return new ReferenceChange(held, now, "比較用の日報なし");
             }
-            var before = candidate(code, previous.close(code), annual.level(previous.date(), previous.close(code)));
+            var previousAnnual = entry.annualFor(previous.date());
+            if (previousAnnual == null) return new ReferenceChange(held, now, "比較日時点の通期決算なし");
+            var previousNotice = rights.firstChange(code, previousAnnual.end(), previous.date());
+            if (previousNotice != null) return new ReferenceChange(held, now, previousNotice.description());
+            var before = candidate(code, previous.close(code),
+                    previousAnnual.level(previous.date(), previous.close(code)));
             if (before.level() == Level.HELD || now.level() == Level.HELD) {
                 return new ReferenceChange(before, now, "比較に必要な終値または通期決算なし");
             }
@@ -311,7 +317,8 @@ final class JpxDailyCheck {
 
     private record ReferenceChange(Candidate before, Candidate now, String hold) {
         boolean entered() {
-            return hold.isEmpty() && now.level().entersFrom(before.level());
+            return hold.isEmpty() && (now.level().entersFrom(before.level())
+                    || before.qualifies() && now.qualifies() && before.quantity() == 1 && now.quantity() == 100);
         }
     }
 
