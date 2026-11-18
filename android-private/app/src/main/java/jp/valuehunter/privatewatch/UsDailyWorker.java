@@ -49,7 +49,11 @@ public final class UsDailyWorker extends Worker {
     private static final String MARKET_TEXT = "us_market_coverage_text";
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
-    private static final String MASSIVE = "massive-grouped-daily";
+    private static final String MASSIVE = UsDailyCloses.MASSIVE_SOURCE;
+    private static final String PRIVATE_STATUS = "us_private_sec_status";
+    private static final String PRIVATE_BASELINE = "us_private_sec_baseline";
+    private static final String PRIVATE_PENDING = "us_private_sec_pending";
+    private static final int US_NOTIFICATION_ID = 6;
     private static final String DATE = "us_massive_daily_close_date";
     private static final String COUNT = "us_massive_daily_close_count";
     private static final String ENDPOINT =
@@ -83,6 +87,8 @@ public final class UsDailyWorker extends Worker {
                 && state.getString(PROVIDER, "").equals(state.getString(VALUATION_SOURCE, ""))) {
             result += "\n\n" + state.getString(VALUATION_TEXT, "");
         }
+        String privateStatus = state.getString(PRIVATE_STATUS, "全銘柄の財務はMacからの同期を待っています");
+        if (!privateStatus.isEmpty()) result += "\n\n" + privateStatus;
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
@@ -97,6 +103,7 @@ public final class UsDailyWorker extends Worker {
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
             LocalDate previous = cachedDate(file, state, provider);
+            if (previous != null) updatePrivateScreen(state, file, previous, provider);
             LocalDate target = UsDailyCloses.mostRecentEligibleDay(Instant.now());
             for (int offset = 0; offset < 7; offset++) {
                 if (isStopped()) return Result.retry();
@@ -138,6 +145,7 @@ public final class UsDailyWorker extends Worker {
                         .putString(STATUS, "終値の自動取得に成功").apply();
                 updateCoverage(state, closes, day, provider);
                 assess(state, closes, day, provider);
+                updatePrivateScreen(state, file, day, provider);
                 updateHistory(state, day);
                 return Result.success();
             }
@@ -152,6 +160,78 @@ public final class UsDailyWorker extends Worker {
         } catch (JSONException e) {
             report(state, "終値を取得できず（配信形式を要確認）");
             return Result.success();
+        }
+    }
+
+    private void updatePrivateScreen(SharedPreferences state, AtomicFile closeFile, LocalDate day, String provider) {
+        if (isStopped()) return;
+        var context = getApplicationContext();
+        var ledgerFile = new File(context.getNoBackupFilesDir(), UsMarketCoverage.ASSET);
+        if (!ledgerFile.isFile()) return;
+        try (var input = new java.io.FileInputStream(ledgerFile)) {
+            var ledger = new JSONObject(readText(input));
+            LocalDate ledgerDay = LocalDate.parse(ledger.getString("trading_date_et"));
+            if (!day.equals(ledgerDay)) {
+                state.edit().putString(PRIVATE_STATUS, day + "の自動財務台帳を同期待ち").apply();
+                return;
+            }
+            String closeHash = UsReferenceAlerts.sha256(closeFile.readFully());
+            if (!provider.equals(ledger.optString("close_provider")) || !closeHash.equals(ledger.optString("close_sha256"))) {
+                state.edit().putString(PRIVATE_STATUS, day + "の終値に対応する財務台帳を同期待ち").apply();
+                return;
+            }
+            var coverage = ledger.getJSONObject("coverage");
+            int financials = coverage.getJSONObject("NYSE").getInt("with_close_and_reference_financials")
+                    + coverage.getJSONObject("Nasdaq").getInt("with_close_and_reference_financials");
+            String status = day + " · SEC財務・株数の自動照合 " + financials + "銘柄";
+            if (!ledger.has("reference_screen")) {
+                state.edit().putString(PRIVATE_STATUS, status + " · 為替・分割資料待ち").apply();
+                return;
+            }
+            var screen = UsReferenceAlerts.read(ledger);
+            if (!provider.equals(screen.provider()) || !closeHash.equals(screen.hash())) {
+                throw new JSONException("Reference screen does not match the daily close");
+            }
+            var previous = readPrivateBaseline(state);
+            if (previous != null && day.isBefore(previous.day())) return;
+            status += " · 参考判定 " + screen.rows().size() + "銘柄";
+            long count = 0;
+            for (var observation : screen.rows().values()) if (observation.candidate()) count++;
+            status += " · 条件該当 " + count + "銘柄";
+            String pending = state.getString(PRIVATE_PENDING, "");
+            if (previous == null || day.isAfter(previous.day()) || !provider.equals(previous.provider())) {
+                var entrants = UsReferenceAlerts.entrants(previous, screen);
+                pending = entrants.isEmpty() ? "" : "米国株の参考条件入り " + entrants.size() + "銘柄"
+                        + "\n" + day + "の終値（参考）\n"
+                        + String.join("\n", entrants.subList(0, Math.min(12, entrants.size())));
+            }
+            var baseline = new JSONObject().put("trading_date_et", day.toString())
+                    .put("reference_screen", ledger.getJSONObject("reference_screen"));
+            if (previous != null && day.equals(previous.day()) && !closeHash.equals(previous.hash())) pending = "";
+            if (!pending.contains("\n")) pending = "";
+            if (isStopped() || !state.edit().putString(PRIVATE_BASELINE, baseline.toString())
+                    .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status).commit()) return;
+            if (!pending.isEmpty() && !isStopped()) {
+                int separator = pending.indexOf('\n');
+                if (ScanWorker.postNotification(context, US_NOTIFICATION_ID,
+                        pending.substring(0, separator), pending.substring(separator + 1))) {
+                    state.edit().remove(PRIVATE_PENDING).commit();
+                } else {
+                    state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
+                }
+            }
+        } catch (IOException | JSONException | DateTimeParseException e) {
+            state.edit().putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
+        }
+    }
+
+    private static UsReferenceAlerts.Screen readPrivateBaseline(SharedPreferences state) {
+        String saved = state.getString(PRIVATE_BASELINE, "");
+        if (saved.isEmpty()) return null;
+        try {
+            return UsReferenceAlerts.read(new JSONObject(saved));
+        } catch (JSONException invalid) {
+            return null;
         }
     }
 

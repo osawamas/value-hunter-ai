@@ -7,7 +7,7 @@
 3. 「最新の確認」で取引日、比較日、保留理由を確認できる。「今すぐ更新」で監視と同じ処理を予約する。「終値と判定の詳細」で公表済みの日報を取得し、出典付きで確認できる。
 4. 「自動監視」をオフにすると監視は停止する。次に開いたときも停止状態を保持する。
 
-国内普通株の終値は東証日報から一括取得する。財務を登録している銘柄は極洋、王子ホールディングス、トヨタ自動車、NTT、ソフトバンク。米国株（NYSE・Nasdaq）とシンガポール株（SGX）はホーム画面の個別欄に表示し、公開データによる終値監視は準備中と表示する。
+国内普通株の終値は東証日報から一括取得する。財務を登録している銘柄は極洋、王子ホールディングス、トヨタ自動車、NTT、ソフトバンク。米国株（NYSE・Nasdaq）は公開データで終値を定期取得し、Macとの同期でSEC財務を照合する。シンガポール株（SGX）はホーム画面に準備中と表示する。
 
 ## 3市場の判定方針と5年履歴の検証
 
@@ -479,3 +479,44 @@ python tools/us_monitor_ledger.py 2026-11-17 \
 為替と分割の参考判定を出す場合は、同じ取引日の取得資料を `--fx-snapshot`（Frankfurter v2 USD/JPY）と `--split-snapshot`（DoltHubの分割照会結果）で渡す。分割照会は直前150暦日から取引日までの `split` 表を `act_symbol` で集約し、`symbol` と `CAST(MAX(ex_date) AS CHAR) AS split_date` を返す。集計と判定の内訳は標準出力に出る。生成する台帳に終値を含めない。
 
 生成した日の照合件数をAndroidに表示する場合は、ローカルで `gradle -PusMonitorFile=/path/to/us-monitor-universe.json :app:assembleDebug` を実行する。別日の終値にはその台帳を適用しない。銘柄一覧との終値照合は台帳の組み込みなしでも日次で動く。
+
+### Macから財務台帳を自動更新して無音通知する
+
+Androidのデバッグ版が先に終値を取得する。MacではJDK 17以上、Python 3、Android SDK Platform-Toolsの `adb`、上記の `org.json` JARを使う。USBまたは無線デバッグで本人のAndroid端末1台を接続し、`adb devices` で `device` と表示される状態にする。
+
+```sh
+python3 /absolute/path/value-hunter-ai/android-private/tools/us_monitor_sync.py \
+  --adb /absolute/path/Android/sdk/platform-tools/adb \
+  --json-jar /absolute/path/json-20240303.jar \
+  --cache /absolute/path/value-hunter-private-cache \
+  --sec-user-agent 'VALUE HUNTER AI your-email@example.com'
+```
+
+Macの `~/Library/LaunchAgents/jp.valuehunter.us-financial-sync.plist` に、次の内容を保存すれば定期実行できる。各絶対パスとSEC連絡先は自分の環境に合わせる。先に上のコマンドを1回実行し、`Private SEC ledger synced` が出ることを確認する。
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>jp.valuehunter.us-financial-sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/absolute/path/python3</string>
+    <string>/absolute/path/value-hunter-ai/android-private/tools/us_monitor_sync.py</string>
+    <string>--adb</string><string>/absolute/path/Android/sdk/platform-tools/adb</string>
+    <string>--json-jar</string><string>/absolute/path/json-20240303.jar</string>
+    <string>--cache</string><string>/absolute/path/value-hunter-private-cache</string>
+    <string>--sec-user-agent</string><string>VALUE HUNTER AI your-email@example.com</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/absolute/path/jdk/bin:/usr/bin:/bin</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>7200</integer>
+</dict>
+</plist>
+```
+
+`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/jp.valuehunter.us-financial-sync.plist` で有効にする。端末未接続や通信失敗時は次の定期実行で再試行する。約1.43 GBのSEC ZIPをMacのキャッシュに置く。更新時には新旧ファイルのために約3 GBの空きが必要。配信側が未変更なら条件付き取得で省略する。Androidに転送するのはローカルで作った財務・判定台帳のみ。
+
+Androidは次の定期更新で、同じ終値キャッシュに対応する台帳だけを読む。初回は基準として保存し、2回目以降は同じ終値配信元で、直近7暦日以内の前回に判定できた同一銘柄が新たに条件に入ったとき、または参考候補から優先候補に上がったときに無音通知する。通知を有効にする必要がある。株数や終値の基準に保留があるため、米国株の通知には「参考条件入り」と表示する。端末の定期実行とMacの同期は別々に動くため、配信時刻と通知時刻には間隔が空く。

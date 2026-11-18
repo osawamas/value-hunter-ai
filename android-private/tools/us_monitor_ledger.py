@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 from datetime import date, timedelta
 from decimal import Decimal
+from hashlib import sha256
 import json
 import re
 from pathlib import Path
@@ -84,6 +85,7 @@ def reference_screen(rows, prices, session, fx, splits):
     fx_day = max(available)
     fx_rate = rates[fx_day]
     summary = {"fx_date": fx_day.isoformat(), "exchanges": {}}
+    observations = []
     for venue in sorted(VENUES):
         reasons = Counter()
         for row in rows:
@@ -95,26 +97,28 @@ def reference_screen(rows, prices, session, fx, splits):
                 continue
             price = Decimal(str(prices[symbol]))
             yen = price * fx_rate
-            if yen > 100_000:
-                reasons["outside_budget"] += 1
-                continue
             earnings, equity = Decimal(str(row["profit"])), Decimal(str(row["equity"]))
             if earnings <= 0 or equity <= 0:
                 reasons["hold_nonpositive_profit_or_equity"] += 1
                 continue
             cap = price * Decimal(str(row["shares"]))
             per_ok, pbr_ok = cap <= 15 * earnings, cap <= equity
-            if per_ok and pbr_ok:
-                reasons["priority"] += 1
-            elif per_ok and cap <= Decimal("1.5") * equity or pbr_ok and cap <= 20 * earnings:
-                reasons["reference"] += 1
+            if yen > 100_000:
+                status = "outside_budget"
+            elif per_ok and pbr_ok:
+                status = "priority"
+            elif (per_ok and cap <= Decimal("1.5") * equity) or (pbr_ok and cap <= 20 * earnings):
+                status = "reference"
             else:
-                reasons["outside_valuation"] += 1
+                status = "outside_valuation"
+            reasons[status] += 1
+            observations.append({"symbol": symbol, "exchange": venue, "cik": row["cik"], "status": status,
+                                 "quantity": 100 if yen * 100 <= 100_000 else 1})
         summary["exchanges"][venue] = dict(reasons)
-    return summary
+    return summary, observations
 
 
-def main():
+def main(argv=None):
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("trading_date", type=date.fromisoformat)
     cli.add_argument("--close-cache", type=Path, required=True)
@@ -125,7 +129,7 @@ def main():
     cli.add_argument("--fx-snapshot", type=Path)
     cli.add_argument("--split-snapshot", type=Path)
     cli.add_argument("--output", type=Path, required=True, help="Private output JSON used by the Android build")
-    options = cli.parse_args()
+    options = cli.parse_args(argv)
     if bool(options.companyfacts) != bool(options.json_jar):
         cli.error("--companyfacts and --json-jar are used together")
     if bool(options.fx_snapshot) != bool(options.split_snapshot):
@@ -134,10 +138,16 @@ def main():
     sec_content = options.sec_directory.read_bytes() if options.sec_directory else fetch(SEC_DIRECTORY)
     sec = read_sec_directory(sec_content)
     rows = universe(listings, sec)
-    _, prices = validated_closes(options.trading_date,
-                                 android_close_rows(options.close_cache, options.trading_date, dolt=True))
+    with options.close_cache.open('rb') as file:
+        close_bytes = file.read(16 * 1024 * 1024 + 1)
+    if len(close_bytes) > 16 * 1024 * 1024:
+        raise ValueError('Android close cache is too large')
+    close_snapshot = json.loads(close_bytes)
+    provider = close_snapshot.get("source")
+    _, prices = validated_closes(options.trading_date, android_close_rows(
+        options.close_cache, options.trading_date, dolt=provider == "dolthub-post-no-preference-stocks"))
     ledger = {"trading_date_et": options.trading_date.isoformat(), "listing_observed_et": observed,
-              "listings": rows}
+              "close_sha256": sha256(close_bytes).hexdigest(), "close_provider": provider, "listings": rows}
     if options.companyfacts:
         with TemporaryDirectory(prefix="us-bulk-ledger-") as build:
             subprocess.run(["javac", "--release", "17", "-cp", str(options.json_jar), "-d", build,
@@ -151,10 +161,16 @@ def main():
         for row in rows:
             row.setdefault("hold", "companyfacts_archive_not_loaded")
     metrics = counts(ledger["listings"], prices)
+    ledger["coverage"] = metrics.copy()
     if options.fx_snapshot:
-        metrics["reference_screen"] = reference_screen(ledger["listings"], prices, options.trading_date,
-                                                        json.loads(options.fx_snapshot.read_bytes()),
-                                                        json.loads(options.split_snapshot.read_bytes()))
+        summary, observations = reference_screen(ledger["listings"], prices, options.trading_date,
+                                                  json.loads(options.fx_snapshot.read_bytes()),
+                                                  json.loads(options.split_snapshot.read_bytes()))
+        metrics["reference_screen"] = summary
+        ledger["reference_screen"] = {
+            "provider": provider, "close_sha256": sha256(close_bytes).hexdigest(),
+            "fx_date": summary["fx_date"], "observations": observations,
+        }
     with NamedTemporaryFile(mode="w", encoding="utf-8", dir=options.output.parent, delete=False) as staging:
         temporary = Path(staging.name)
         try:

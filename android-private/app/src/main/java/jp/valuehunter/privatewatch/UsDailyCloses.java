@@ -12,6 +12,7 @@ import java.util.Locale;
 
 final class UsDailyCloses {
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
+    static final String MASSIVE_SOURCE = "massive-grouped-daily";
     static final int MAX_BYTES = 16 * 1024 * 1024;
 
     static LocalDate mostRecentEligibleDay(Instant now) {
