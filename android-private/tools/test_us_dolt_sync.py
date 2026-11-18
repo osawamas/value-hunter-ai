@@ -375,5 +375,43 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(len(calls), 1)
             self.assertTrue(real.is_dir())
 
+
+    def test_destination_swapped_to_symlink_during_backoff_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            other = root / 'other'
+            (other / '.dolt').mkdir(parents=True)
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            def sleeper(seconds):
+                self.assertEqual(seconds, 60)
+                (dest / '.dolt').rmdir()
+                dest.rmdir()
+                dest.symlink_to(other, target_is_directory=True)
+            self.assertEqual(sync(dest, runner=runner, sleeper=sleeper),
+                             'invalid_repository_after_command')
+            self.assertEqual(len(calls), 1)
+            self.assertTrue((other / '.dolt').is_dir())
+
+    def test_destination_swapped_to_symlink_on_success_is_not_updated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            other = root / 'other'
+            (other / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                dest.rmdir()
+                dest.symlink_to(other, target_is_directory=True)
+                return SimpleNamespace(returncode=0, stderr='', stdout='')
+            self.assertEqual(sync(dest, runner=runner),
+                             'invalid_repository_after_command')
+            self.assertTrue((other / '.dolt').is_dir())
+
 if __name__ == '__main__':
     unittest.main()
