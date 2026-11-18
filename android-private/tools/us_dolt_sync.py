@@ -6,7 +6,7 @@ import subprocess
 import time
 
 REMOTE = 'post-no-preference/stocks'
-RATE_LIMIT = re.compile(r'(?<!\d)429(?!\d)|too many requests', re.I)
+RATE_LIMIT = re.compile(r'(?<![A-Za-z0-9])429(?![A-Za-z0-9])|too many requests', re.I)
 
 
 def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
