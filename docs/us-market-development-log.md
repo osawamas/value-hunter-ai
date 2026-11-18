@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 23:19 JST — Dolt初回clone失敗時の不完全ディレクトリを保護
+
+- 開始時main: [2037103](https://github.com/osawamas/value-hunter-ai/commit/2037103351fdfbc9e5bd0fc39bf981ff762b55ef)。既存ログ・同期実装・回帰テスト・[米国CI定義](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)を読んだ。直近のpush Actions結果は今回取得できず、前回記録の[米国CI成功44307602334](https://github.com/osawamas/value-hunter-ai/actions/runs/44307602334)のみ既知。
+- Dolt初回cloneがHTTP 429等で失敗し、不完全なディレクトリが残ると、次回起動は既存非Doltディレクトリとして拒否される。破損キャッシュとして誤認せず、削除も自動実行しない専用結果 `partial_clone_requires_manual_cleanup` を追加。[同期実装 aedd71b](https://github.com/osawamas/value-hunter-ai/commit/aedd71bd1cc1aea10baaec4acaf56b595a0a79b2)、[テスト af83cb3](https://github.com/osawamas/value-hunter-ai/commit/af83cb3640f4c429ba0306e7b2d66b199da82206)、[既存期待値調整 67fc245](https://github.com/osawamas/value-hunter-ai/commit/67fc245fd82076d3f9ac9026a419e04322e211eb)。
+- ローカルPythonで不完全ディレクトリのファイル保存条件を1件再現して成功。リポジトリの追加unittest実行と変更後Actionsは**未確認**。既存テストがCIで成功するまで修正完了とは断定しない。株価原本・APIキー・APKは公開していない。
+- 対象取引日2026-11-17。今回の新規終値取得0件。既存22:27の報告値はNYSE 1,877/1,896、Nasdaq 3,081/3,189（11月18日観測一覧との照合であり17日当日の厳密網羅率ではない）。SEC財務照合2,575件は既存報告で、今回の再測定ではない。
+- 未解決: Dolt実同期と実429、正規終値・分割前価格・株数基準日の厳密照合、正式通知、Android連続更新と無音通知。次回は[米国CI](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)で新規テストを確認し、不完全cloneからの安全な復旧手順を検証。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+
 ## 2026-11-18 22:27 JST — NYSE・Nasdaq全候補の終値監視とSEC一括照合
 
 - 11月18日08:16米東部のNasdaq Trader一覧を11月17日取引分のDoltHub終値と照合。NYSE 1,877 / 1,896、Nasdaq 3,081 / 3,189、合計4,958 / 5,085。Androidの定期処理からも同じ公開一覧を読み、取引日の終値取得件数・不足数・一覧日を表示する。JVMで原本を再生し同じ件数を確認。
