@@ -31,8 +31,8 @@ class BatchScreenTests(unittest.TestCase):
 
     def test_verified_flags_without_financial_date_are_held(self):
         payload = {"trade_date": "2026-11-16", "observations": [
-            {"code": "1301", "close": "800", "financial_verified": True,
-             "share_basis_verified": True, "per": "12", "pbr": "0.8"}]}
+            {"code": "1301", "close": "800", "financial_disclosed_on": "2026-10-15",
+             "financial_verified": True, "share_basis_verified": True, "per": "12", "pbr": "0.8"}]}
         result = screen(payload)
         self.assertEqual(result["tiers"]["priority"], 0)
         self.assertEqual(result["tiers"]["held"], 1)

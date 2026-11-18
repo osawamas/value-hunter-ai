@@ -1,5 +1,11 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+
+## 2026-11-19 00:29 JST — 普通株主帰属利益と日本株登録を拡張
+
+- SEC財務の利益期間がそろわない場合に、普通株主帰属利益が同じ指標・期間・提出書類でそろうときの算出経路を追加。11月17日の終値4,958銘柄で全件を再集計し、照合済みは2,707→2,742銘柄（NYSE +15、Nasdaq +20）、参考候補は321→327件。以前の照合済み銘柄の株数・利益・純資産・提出番号は一致。
+- 東証は三菱製紙（3864）、ENEOS（5020）、KDDI（9433）の通期決算原本からEPS、BPS、自己株式控除後の株数を登録。11月17日の日報に3銘柄の終値を確認。公式月報の3～9月分と日次Excel5本を再照合した。10・11月の月報は未掲載のため、資料不足の場合は通知を保留する。
+
 ## 2026-11-19 00:18 JST — Dolt初回clone中断時の不完全ディレクトリを保護
 
 - 開始時main: [348b37a](https://github.com/osawamas/value-hunter-ai/commit/348b37a3d4d126fc60bf9a231a167f6d734c7edc)。最新main・本ログ・同期コード・テスト・[米国CI設定](https://github.com/osawamas/value-hunter-ai/blob/main/.github/workflows/us-daily-coverage-tests.yml)を読んだ。直近push Actionsの成否は取得できず、成功未確認。
