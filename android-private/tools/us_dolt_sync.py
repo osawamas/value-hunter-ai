@@ -38,6 +38,9 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
                 # Do not report a successful refresh or attempt another clone.
                 return 'invalid_repository_after_command'
             return 'updated' if existing else 'cloned'
+        if existing and not (destination / '.dolt').is_dir():
+            # A failed pull must not be reported as a usable cached repository.
+            return 'invalid_repository_after_command'
         message = ((result.stderr or '') + '\n' + (result.stdout or '')).lower()
         rate_limited = bool(RATE_LIMIT.search(message))
         # A failed initial clone may leave a partial directory; do not retry it blindly.
