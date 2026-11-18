@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 11:12 JST — MoldUDP64ハートビートの境界回帰テストを追加
+
+- 開始時main: [09eb1ee](https://github.com/osawamas/value-hunter-ai/commit/09eb1ee6728d4a04b7f550e34520df24dd85d7ce)。最新ログとNasdaq解析コード・テストを読んだ。直近コミットのPR紐付けActions照会は0件（push Actionsの成功は未確認、[一覧](https://github.com/osawamas/value-hunter-ai/actions)）。JPX並行開発と重複しないNLS境界テストを選択。
+- MoldUDP64のハートビート（件数0xFFFF）を空メッセージとして受理し、末尾に1バイト余剰があれば拒否する2条件をPythonで独立再現し2/2成功。既存関数の抜粋による再現であり、リポジトリ全体のテストではない。参照: [Nasdaq NLS Plus仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)。
+- [テスト追加](https://github.com/osawamas/value-hunter-ai/commit/f3aff902b16543c7610187ee8f26af679be8c635)、[入力1バイトの明示修正](https://github.com/osawamas/value-hunter-ai/commit/97c7b9b536e1701a288f97a2bedf685e886e2fd9)。実装コード変更なし。追加テストのリポジトリ内実行・Actionsは未確認。
+- 対象取引日の新規株価取得0件、NYSE/Nasdaq同日網羅率未測定。価格原本・APIキー・APKの公開なし。未解決: Dolt日次同期と429キャッシュ、正規終値・分割、SEC株数、正式PER/PBR、Android更新・無音通知。次回はテスト実行経路を確保し、Dolt同期と同日網羅率を優先。
+
 ## 2026-11-18 10:16 JST — MoldUDP64境界検査を最小再現で再検証
 
 - 開始時main: [3e1047e](https://github.com/osawamas/value-hunter-ai/commit/3e1047e9ef2bd281d1146fdf6c1e80c9a2c17690)。[開発ログ](https://github.com/osawamas/value-hunter-ai/blob/main/docs/us-market-development-log.md)と `android-private/tools/us_nasdaq_nls_probe.py`、既存テストを読んだ。直近コミットのPR紐付けActions照会は0件で、pushの実行状況は未確認（[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。JP市場の並行コミットには触れない。
