@@ -193,7 +193,7 @@ public class JpxAutomaticFinanceTest {
         assertEquals(List.of("1419", CODE), checks);
     }
 
-    @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() {
+    @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() throws Exception {
         var cache = new HashMap<String, Object>();
         var prefs = preferences(cache);
         LocalDate old = DAY.minusDays(21);
