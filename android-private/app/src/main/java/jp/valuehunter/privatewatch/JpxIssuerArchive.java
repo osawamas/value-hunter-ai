@@ -8,6 +8,8 @@ import java.net.CookieManager;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.CharacterCodingException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -30,13 +32,15 @@ final class JpxIssuerArchive {
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final Charset LEGACY_JAPANESE = Charset.forName("windows-31j");
     private static final Pattern SECTION = Pattern.compile("displayMore\\('(110[1-4])', '(\\d+)', '1'\\)");
+    private static final Pattern ANNUAL_LINK = Pattern.compile(
+            "href=\"(/disc/[0-9A-Z]{4}0/[0-9]+_tse-a(?:ce|ne)[A-Za-z0-9-]+-ixbrl\\.htm)\"");
+    private static final Pattern NON_ANNUAL = Pattern.compile("四半期|中間|半期");
     private static final Pattern ROW = Pattern.compile(
             "<tr id=\"(110[1-4])_(\\d+)\"[^>]*>\\s*<td[^>]*>\\s*(\\d{4}/\\d{2}/\\d{2})"
-                    + "\\s*</td>\\s*<td[^>]*>(.*?)</td>", Pattern.DOTALL);
+                    + "\\s*</td>\\s*<td[^>]*>(.*?)</td>(.*?)</tr>", Pattern.DOTALL);
     private static final Pattern SHARE_CHANGE = Pattern.compile(
             "株式(?:の)?(?:分割|併合)|無償割当[てり]?|新株落|割当増資|権利落");
     private static final Pattern TAG = Pattern.compile("<[^>]*>");
-    private static final Pattern SPACE = Pattern.compile("\\s+");
 
     record Review(LocalDate since, LocalDate through) {
         boolean covers(LocalDate from, LocalDate until) {
@@ -46,33 +50,106 @@ final class JpxIssuerArchive {
 
     private JpxIssuerArchive() {}
 
+    record Disclosure(LocalDate day, String title, URI annualLink, boolean results) {}
+
+    record Page(List<Disclosure> disclosures) {
+        boolean clearSince(LocalDate since) {
+            return disclosures.stream().noneMatch(d -> !d.day().isBefore(since) && shareChange(d.title()));
+        }
+
+        Disclosure annualOn(LocalDate date) {
+            Disclosure latest = null;
+            for (var disclosure : disclosures) {
+                if (!disclosure.results() || !disclosure.day().isBefore(date) || !annualTitle(disclosure.title())) continue;
+                if (latest == null || disclosure.day().isAfter(latest.day())) {
+                    latest = disclosure;
+                } else if (latest.day().equals(disclosure.day())) {
+                    if (latest.equals(disclosure)) continue;
+                    if (latest.title().contains("訂正") != disclosure.title().contains("訂正")) {
+                        if (disclosure.title().contains("訂正")) latest = disclosure;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+            return latest;
+        }
+    }
+
+    static final class Session {
+        private final CookieManager cookies = new CookieManager();
+        private boolean opened;
+
+        Page archive(String code) throws IOException {
+            if (!opened) {
+                request(HOME, null, cookies);
+                opened = true;
+            }
+            return read(request(DETAIL, code, cookies), code);
+        }
+
+        String annual(URI uri) throws IOException {
+            return request(uri, null, cookies);
+        }
+    }
+
     static boolean clear(String html, String code, LocalDate since) {
-        if (!html.contains("上場会社詳細（適時開示情報）")
+        var page = read(html, code);
+        return page != null && page.clearSince(since);
+    }
+
+    static boolean shareChange(String title) {
+        return SHARE_CHANGE.matcher(title).find();
+    }
+
+    static String visibleText(String markup) {
+        return JpxAnnualSummary.normalized(TAG.matcher(markup).replaceAll("")
+                .replace("&nbsp;", "").replace("&amp;", "&"));
+    }
+
+    static boolean annualSource(String source, String code) {
+        return source.matches("https://www2\\.jpx\\.co\\.jp/disc/" + code
+                + "0/[0-9]+_tse-a(?:ce|ne)[A-Za-z0-9-]+-ixbrl\\.htm");
+    }
+
+    static Page read(String html, String code) {
+        if (!code.matches("[0-9][0-9A-Z]{3}") || !html.contains("上場会社詳細（適時開示情報）")
                 || !Pattern.compile("<td>\\s*" + code + "0\\s*</td>").matcher(html).find()
-                || !html.contains("決定事実 / 発生事実")) return false;
+                || !html.contains("決定事実 / 発生事実")) return null;
 
         var counts = new HashMap<String, Integer>();
         var sections = SECTION.matcher(html);
         while (sections.find()) {
-            if (counts.put(sections.group(1), Integer.parseInt(sections.group(2))) != null) return false;
+            if (counts.put(sections.group(1), Integer.parseInt(sections.group(2))) != null) return null;
         }
         if (!counts.keySet().equals(Set.of("1101", "1102", "1103", "1104"))
-                || counts.get("1102") == 0) return false;
+                || counts.get("1102") == 0) return null;
 
         var found = new HashMap<String, Set<Integer>>();
+        var disclosures = new ArrayList<Disclosure>();
         var rows = ROW.matcher(html);
         while (rows.find()) {
             String section = rows.group(1);
             int index = Integer.parseInt(rows.group(2));
             if (index >= counts.get(section) || !found.computeIfAbsent(section, ignored -> new HashSet<>()).add(index)) {
-                return false;
+                return null;
             }
             LocalDate date = LocalDate.parse(rows.group(3).replace('/', '-'));
-            String title = SPACE.matcher(TAG.matcher(rows.group(4)).replaceAll("")).replaceAll("");
-            if (title.isEmpty() || (!date.isBefore(since) && SHARE_CHANGE.matcher(title).find())) return false;
+            String title = visibleText(rows.group(4));
+            if (title.isEmpty()) return null;
+            URI annualLink = null;
+            if ("1101".equals(section)) {
+                var links = ANNUAL_LINK.matcher(rows.group(5));
+                if (links.find()) {
+                    annualLink = HOME.resolve(links.group(1));
+                    if (links.find() || !annualSource(annualLink.toString(), code)) return null;
+                }
+            }
+            disclosures.add(new Disclosure(date, title, annualLink, "1101".equals(section)));
         }
-        return counts.entrySet().stream().allMatch(
-                section -> found.getOrDefault(section.getKey(), Set.of()).size() == section.getValue());
+        if (!counts.entrySet().stream().allMatch(
+                section -> found.getOrDefault(section.getKey(), Set.of()).size() == section.getValue())) return null;
+        return new Page(List.copyOf(disclosures));
     }
 
     static JpxShareRights.Selection extend(Context context, JpxShareRights.Selection selection) {
@@ -129,6 +206,22 @@ final class JpxIssuerArchive {
                 selection.revision() + "/" + String.join(",", audited));
     }
 
+    static final class HttpFailure extends IOException {
+        final int status;
+        HttpFailure(int status) {
+            super("JPX disclosure HTTP " + status);
+            this.status = status;
+        }
+    }
+
+    static boolean annualTitle(String title) {
+        return title.contains("決算短信") && !NON_ANNUAL.matcher(title).find();
+    }
+
+    static String publicPage(URI uri) throws IOException {
+        return request(uri, null, new CookieManager());
+    }
+
     private static String request(URI uri, String code, CookieManager session) throws IOException {
         var connection = (HttpsURLConnection) new URL(uri.toString()).openConnection();
         connection.setInstanceFollowRedirects(false);
@@ -150,16 +243,20 @@ final class JpxIssuerArchive {
                     output.write(payload);
                 }
             }
-            if (connection.getResponseCode() != 200) throw new IOException("JPX company archive unavailable");
+            int status = connection.getResponseCode();
+            if (status != 200) throw new HttpFailure(status);
             session.put(uri, connection.getHeaderFields());
             try (var input = connection.getInputStream(); var bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 for (int n; (n = input.read(buffer)) != -1;) {
-                    if (bytes.size() + n > MAX_RESPONSE) throw new IOException("JPX company archive too large");
+                    if (bytes.size() + n > MAX_RESPONSE) throw new IllegalArgumentException("JPX company archive too large");
                     bytes.write(buffer, 0, n);
                 }
-                String utf8 = bytes.toString(StandardCharsets.UTF_8.name());
-                return utf8.contains("東京証券取引所") ? utf8 : bytes.toString(LEGACY_JAPANESE.name());
+                try {
+                    return StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes.toByteArray())).toString();
+                } catch (CharacterCodingException legacy) {
+                    return bytes.toString(LEGACY_JAPANESE.name());
+                }
             }
         } finally {
             connection.disconnect();

@@ -8,6 +8,7 @@ import android.text.Html;
 
 import androidx.annotation.NonNull;
 import androidx.work.Constraints;
+import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.OneTimeWorkRequest;
@@ -36,6 +37,8 @@ import java.util.function.Function;
 public final class JpxWatchWorker extends Worker {
     static final String WORK = "jpx-daily-watch";
     static final String MANUAL = "jpx-daily-check-now";
+    private static final String FINANCE = "jpx-annual-finance";
+    private static final String FINANCE_PASS = "jpx_finance_pass";
     private static final String TOKEN = "jpx_watch_token";
     private static final String BASELINE = "jpx_watch_baseline";
     private static final String LATEST = "jpx_watch_latest";
@@ -63,18 +66,26 @@ public final class JpxWatchWorker extends Worker {
     private final ComparisonLoader comparisons;
     private final Function<Context, JpxShareRights.Selection> rights;
     private final AlertSender alerts;
+    private final boolean automaticFinance;
 
     public JpxWatchWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         this(context, parameters, (app, key, revision) -> JpxDailyCheck.checkWatch(app, key, revision),
-                JpxShareRights::refresh, ScanWorker::postNotification);
+                JpxShareRights::refresh, ScanWorker::postNotification, true);
     }
 
     JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
                    Function<Context, JpxShareRights.Selection> rights, AlertSender alerts) {
+        this(context, parameters, comparisons, rights, alerts, false);
+    }
+
+    private JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
+                           Function<Context, JpxShareRights.Selection> rights, AlertSender alerts,
+                           boolean automaticFinance) {
         super(context, parameters);
         this.comparisons = comparisons;
         this.rights = rights;
         this.alerts = alerts;
+        this.automaticFinance = automaticFinance;
     }
 
     static boolean enabled(Context context) {
@@ -93,11 +104,16 @@ public final class JpxWatchWorker extends Worker {
                 var request = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 6, TimeUnit.HOURS)
                         .setConstraints(connected()).build();
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+                var finance = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 30, TimeUnit.MINUTES)
+                        .setConstraints(connected()).setInitialDelay(30, TimeUnit.MINUTES)
+                        .setInputData(financePass()).build();
+                work.enqueueUniquePeriodicWork(FINANCE, ExistingPeriodicWorkPolicy.KEEP, finance);
             } else {
                 state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
                         .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).apply();
                 work.cancelUniqueWork(WORK);
                 work.cancelUniqueWork(MANUAL);
+                work.cancelUniqueWork(FINANCE);
                 context.getSystemService(NotificationManager.class).cancel(NOTIFICATION_ID);
             }
         }
@@ -107,10 +123,14 @@ public final class JpxWatchWorker extends Worker {
         synchronized (STATE_LOCK) {
             if (Build.VERSION.SDK_INT < 35 || !enabled(context)) return false;
             var request = new OneTimeWorkRequest.Builder(JpxWatchWorker.class)
-                    .setConstraints(connected()).build();
+                    .setConstraints(connected()).setInputData(financePass()).build();
             WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP, request);
             return true;
         }
+    }
+
+    private static Data financePass() {
+        return new Data.Builder().putBoolean(FINANCE_PASS, true).build();
     }
 
     private static Constraints connected() {
@@ -134,15 +154,19 @@ public final class JpxWatchWorker extends Worker {
             var evidence = rights.apply(context);
             if (isStopped()) return Result.success();
             String processedKey = ScanWorker.alertsEnabled(context) ? state.getString(PROCESSED, "") : "";
+            if (automaticFinance && getInputData().getBoolean(FINANCE_PASS, false)) processedKey = "";
             var comparison = comparisons.load(context, processedKey, evidence.revision());
             if (isStopped()) return Result.success();
+            var finance = automaticFinance && comparison != null
+                    ? JpxAutomaticFinance.refresh(context, comparison, this::isStopped)
+                    : JpxAutomaticFinance.Batch.empty();
             synchronized (STATE_LOCK) {
                 if (isStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();
                 if (comparison == null) {
                     recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略").apply();
                     return Result.success();
                 }
-                var screen = comparison.screen(evidence.rights());
+                var screen = comparison.screen(evidence.rights(), finance);
                 LocalDate date = comparison.latest().date();
                 var baseline = dateOrNull(state.getString(BASELINE, ""));
                 var last = dateOrNull(state.getString(LATEST, ""));
@@ -153,7 +177,7 @@ public final class JpxWatchWorker extends Worker {
                 if (comparison.previous() == null) {
                     var partial = new StringBuilder("比較用の日報を取得できなかった");
                     partial.append("\n").append(date).append("の当日判定");
-                    comparison.appendCoverage(partial, screen.assessed(), "\n");
+                    comparison.appendCoverage(partial, screen.assessed(), "\n", finance);
                     appendCandidates(partial, screen);
                     return retryReport(state, partial.toString());
                 }
@@ -164,7 +188,7 @@ public final class JpxWatchWorker extends Worker {
                         : List.<JpxDailyCheck.Candidate>of();
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
-                comparison.appendCoverage(summary, screen.assessed(), "\n");
+                comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
                 appendCandidates(summary, screen);
                 appendHolds(summary, screen);
                 if (!notifyEnabled) summary.append("\n通知設定を確認");
@@ -179,7 +203,10 @@ public final class JpxWatchWorker extends Worker {
                 if (!update.commit()) return Result.retry();
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
-                    for (var entry : added) detail.append("\n").append(entry.summary());
+                    for (var entry : added.subList(0, Math.min(12, added.size()))) {
+                        detail.append("\n").append(entry.summary());
+                    }
+                    if (added.size() > 12) detail.append("\nほか ").append(added.size() - 12).append("銘柄");
                     if (!alerts.post(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
                             detail.toString())) {
                         state.edit().putString(STATUS, summary + "\n無音通知を送信できなかった · 通知設定を確認").apply();

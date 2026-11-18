@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,6 +35,7 @@ final class JpxDailyCheck {
             "https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/";
     private static final int MAX_PDF_BYTES = 32_000_000;
     static final List<String> WATCH_CODES = JpxReferenceFinancials.watchCodes();
+    private static volatile Comparison cachedComparison;
 
     private static final BigDecimal BUDGET = BigDecimal.valueOf(JapanScreen.BUDGET);
     private static final BigDecimal LOT_PRICE_LIMIT = BUDGET.movePointLeft(2);
@@ -67,13 +69,34 @@ final class JpxDailyCheck {
         }
 
         String html(JpxShareRights rights, JpxHistoryReference history) {
+            return html(rights, history, JpxAutomaticFinance.Batch.empty());
+        }
+
+        String html(JpxShareRights rights, JpxHistoryReference history, JpxAutomaticFinance.Batch finance) {
             var message = new StringBuilder("立会日 ").append(latest.date());
             if (previous == null) {
                 message.append("<br>比較用の日報を取得できなかった");
             } else {
                 message.append("<br>比較日 ").append(previous.date()).append("（分割等の調整前の終値）");
             }
-            appendCoverage(message, screen(rights).assessed(), "<br>");
+            var screening = screen(rights, finance);
+            appendCoverage(message, screening.assessed(), "<br>", finance);
+            var automaticCandidates = screening.candidates().stream()
+                    .filter(candidate -> !WATCH_CODES.contains(candidate.code())
+                            && finance.entries().containsKey(candidate.code())).toList();
+            if (!automaticCandidates.isEmpty()) message.append("<br><br>自動取得の割安候補");
+            for (var candidate : automaticCandidates.subList(0, Math.min(50, automaticCandidates.size()))) {
+                var annual = finance.entries().get(candidate.code()).annual();
+                var close = latest.close(candidate.code());
+                message.append("<br>").append(candidate.summary())
+                        .append(" · 参考PER ").append(close.divide(annual.eps(), 2, RoundingMode.HALF_UP))
+                        .append(" · 参考PBR ").append(close.divide(annual.bps(), 2, RoundingMode.HALF_UP))
+                        .append(" · <a href='").append(annual.source()).append("'>通期決算 ")
+                        .append(annual.end()).append("</a>");
+            }
+            if (automaticCandidates.size() > 50) {
+                message.append("<br>ほか ").append(automaticCandidates.size() - 50).append("銘柄");
+            }
             var ordered = new ArrayList<>(WATCH_CODES);
             ordered.sort(Comparator.comparingInt((String code) -> budgetQuantity(latest.close(code))).reversed());
             for (String code : ordered) {
@@ -113,6 +136,10 @@ final class JpxDailyCheck {
         }
 
         void appendCoverage(StringBuilder message, int assessed, String newline) {
+            appendCoverage(message, assessed, newline, JpxAutomaticFinance.Batch.empty());
+        }
+
+        void appendCoverage(StringBuilder message, int assessed, String newline, JpxAutomaticFinance.Batch finance) {
             var universe = latest.universe();
             if (universe == null) return;
             int closes = 0;
@@ -132,7 +159,16 @@ final class JpxDailyCheck {
                     .append(newline).append("購入額10万円以内 · 100株枠 ").append(lots)
                     .append("銘柄 · 1株枠 ").append(single).append("銘柄")
                     .append(newline).append("財務照合済み ").append(assessed)
-                    .append(" / 登録 ").append(WATCH_CODES.size()).append("銘柄");
+                    .append(" / 登録 ").append(screenCodes(finance).size()).append("銘柄");
+            if (!finance.status().isEmpty()) message.append(newline).append(finance.status());
+        }
+
+        private Set<String> screenCodes(JpxAutomaticFinance.Batch finance) {
+            var codes = new LinkedHashSet<>(WATCH_CODES);
+            for (var entry : finance.entries().entrySet()) {
+                if (entry.getValue().annual() != null) codes.add(entry.getKey());
+            }
+            return codes;
         }
 
         private static void appendBudget(StringBuilder message, BigDecimal close) {
@@ -168,12 +204,18 @@ final class JpxDailyCheck {
         }
 
         Screening screen(JpxShareRights rights) {
+            return screen(rights, JpxAutomaticFinance.Batch.empty());
+        }
+
+        Screening screen(JpxShareRights rights, JpxAutomaticFinance.Batch finance) {
             var candidates = new ArrayList<Candidate>();
             var entered = new ArrayList<Candidate>();
             var held = new ArrayList<Held>();
             int assessed = 0;
-            for (String code : WATCH_CODES) {
-                var change = referenceChange(code, rights);
+            for (String code : screenCodes(finance)) {
+                var automatic = finance.entries().get(code);
+                var change = automatic != null && automatic.annual() != null
+                        ? automaticChange(code, rights, finance, automatic) : referenceChange(code, rights);
                 if (change.now().level() != Level.HELD) assessed++;
                 if (change.now().qualifies()) candidates.add(change.now());
                 if (!change.hold().isEmpty()) held.add(new Held(code, change.hold()));
@@ -182,6 +224,25 @@ final class JpxDailyCheck {
             candidates.sort(CANDIDATE_ORDER);
             entered.sort(CANDIDATE_ORDER);
             return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held), assessed);
+        }
+
+        private ReferenceChange automaticChange(String code, JpxShareRights rights,
+                                                JpxAutomaticFinance.Batch finance, JpxAutomaticFinance.Entry entry) {
+            var annual = entry.annual();
+            var held = new Candidate(code, 0, Level.HELD);
+            String reason = entry.failure(code, latest.date(), finance.updates());
+            var notice = rights.firstChange(code, annual.end(), latest.date());
+            if (notice != null) reason = notice.description();
+            if (!reason.isEmpty()) return new ReferenceChange(held, held, reason);
+            var now = candidate(code, latest.close(code), annual.level(latest.date(), latest.close(code)));
+            if (previous == null || !previous.date().isBefore(latest.date())) {
+                return new ReferenceChange(held, now, "比較用の日報なし");
+            }
+            var before = candidate(code, previous.close(code), annual.level(previous.date(), previous.close(code)));
+            if (before.level() == Level.HELD || now.level() == Level.HELD) {
+                return new ReferenceChange(before, now, "比較に必要な終値または通期決算なし");
+            }
+            return new ReferenceChange(before, now, "");
         }
 
         private ReferenceChange referenceChange(String code, JpxShareRights rights) {
@@ -257,6 +318,10 @@ final class JpxDailyCheck {
     private static Candidate assess(Report report, String code) {
         var close = report.close(code);
         var level = JpxReferenceFinancials.level(code, report.date(), close);
+        return candidate(code, close, level);
+    }
+
+    private static Candidate candidate(String code, BigDecimal close, Level level) {
         int quantity = budgetQuantity(close);
         if (level.qualifies() && quantity == 0) level = Level.OUTSIDE;
         return new Candidate(code, level.qualifies() ? quantity : 0, level);
@@ -290,7 +355,13 @@ final class JpxDailyCheck {
     static Comparison checkWatch(Context context, String processedKey, String rightsRevision) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
         if (unchanged(today, processedKey, rightsRevision, JpxDailyCheck::head)) return null;
-        return check(context);
+        var saved = cachedComparison;
+        if (saved != null && unchanged(today, saved.processedKey("quotes"), "quotes", JpxDailyCheck::head)) {
+            return saved;
+        }
+        var comparison = check(context);
+        cachedComparison = comparison;
+        return comparison;
     }
 
     record Edition(boolean exists, String version) {}

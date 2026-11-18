@@ -76,7 +76,7 @@ public final class MainActivity extends Activity {
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
-        label(japan, "普通株の終値を一括取得 · 財務登録5銘柄", 13, MUTED, false, 5);
+        label(japan, "普通株の終値を一括取得 · 通期決算を順次自動取得", 13, MUTED, false, 5);
         label(japan, "PER・PBRから優先候補と参考候補を判定\n10万円以内で100株を優先", 13, MUTED, false, 7);
 
         monitorSwitch = new Switch(this);
@@ -198,7 +198,8 @@ public final class MainActivity extends Activity {
                 var daily = JpxDailyCheck.check(this);
                 var rights = JpxShareRights.refresh(this);
                 var history = JpxHistoryReference.load(this);
-                message = Html.fromHtml(daily.html(rights.rights(), history) + "<br><br>" + rights.status(),
+                var finance = JpxAutomaticFinance.cached(this, daily.latest());
+                message = Html.fromHtml(daily.html(rights.rights(), history, finance) + "<br><br>" + rights.status(),
                         Html.FROM_HTML_MODE_LEGACY);
             } catch (IOException error) {
                 message = "東証日報の確認に失敗\n" + error.getMessage();
