@@ -53,6 +53,13 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Truncated MoldUDP64 message length"):
                 list(mold_messages(truncated))
 
+    def test_moldudp_heartbeat_rejects_trailing_bytes(self):
+        from us_nasdaq_nls_probe import mold_messages
+        heartbeat = bytes(18) + pack(">H", 0xFFFF)
+        self.assertEqual([], list(mold_messages(heartbeat)))
+        with self.assertRaisesRegex(ValueError, "Unexpected bytes"):
+            list(mold_messages(heartbeat + b"\\x00"))
+
     def test_tape_c_distinguishes_official_trade_from_consolidated_summary(self):
         start = bytes(8) + b"SO"
         end = bytes(8) + b"SC"
