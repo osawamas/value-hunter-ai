@@ -42,8 +42,18 @@ def fetch(entry, destination, allowed_hosts, opener=None):
     destination.mkdir(parents=True, exist_ok=True)
     target = destination / (code + "-" + expected[:16] + ".pdf")
     if target.exists():
-        data = target.read_bytes()
-        if data.startswith(b"%PDF-") and hashlib.sha256(data).hexdigest() == expected:
+        # A local cache must obey the same size bound as a network response.
+        # Stream the digest instead of loading an untrusted large file into RAM.
+        if target.stat().st_size > MAX_BYTES:
+            raise ValueError("Existing PDF exceeds size limit")
+        sha = hashlib.sha256()
+        with target.open("rb") as cached:
+            if cached.read(5) != b"%PDF-":
+                raise ValueError("Existing PDF does not match manifest")
+            cached.seek(0)
+            for chunk in iter(lambda: cached.read(65536), b""):
+                sha.update(chunk)
+        if sha.hexdigest() == expected:
             return "cached"
         raise ValueError("Existing PDF does not match manifest")
     opener = opener or build_opener(NoRedirect())
