@@ -76,6 +76,12 @@ def screen_report(day, stocks, prices, duplicates, financials, rights, single_sh
     latest, pending = latest_financials(day, financials)
     observations = []
     source_counts = Counter()
+    # Report source coverage separately from quote, budget and valuation counts.
+    # Financial rows are already deduplicated by load_financial_batches.
+    source_counts["financial_records_loaded"] = len(financials)
+    source_counts["financial_codes_loaded"] = len({code for code, _, _, _ in financials})
+    source_counts["financial_codes_in_universe"] = len({code for code, _, _, _ in financials if code in stocks})
+    source_counts["financial_codes_public_before_trade"] = len(set(latest) & set(stocks))
     for code in sorted(stocks):
         row = {"code": code, "single_share_supported": code in single_share_codes}
         observations.append(row)
