@@ -15,10 +15,10 @@ from jpx_batch_financial_screen import screen, screen_report, load_financial_bat
 class BatchScreenTests(unittest.TestCase):
     def test_two_updates_and_guardrails(self):
         base = {"trade_date": "2026-11-16", "observations": [
-            {"code": "1301", "close": "800", "financial_as_of": "2026-09-30",
+            {"code": "1301", "close": "800", "financial_as_of": "2026-09-30", "financial_disclosed_on": "2026-10-15",
              "financial_verified": True, "share_basis_verified": True,
              "per": "12", "pbr": "0.8"},
-            {"code": "3861", "close": "700", "financial_as_of": "2026-09-30",
+            {"code": "3861", "close": "700", "financial_as_of": "2026-09-30", "financial_disclosed_on": "2026-10-15",
              "financial_verified": False, "share_basis_verified": True,
              "per": "8", "pbr": "0.5"}]}
         first = screen(base)
@@ -106,6 +106,13 @@ class BatchScreenTests(unittest.TestCase):
             (folder / "issuer" / "1301" / "b.json").write_text(json.dumps([dict(row, eps_jpy="55")]), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Conflicting"):
                 load_financial_batches(sorted(folder.rglob("*.json")))
+
+    def test_verified_financials_without_disclosure_date_rejected(self):
+        with self.assertRaisesRegex(ValueError, "disclosure date"):
+            screen({"trade_date": "2026-11-16", "observations": [
+                {"code": "1301", "close": "500", "financial_as_of": "2026-09-30",
+                 "financial_verified": True, "share_basis_verified": True,
+                 "per": "10", "pbr": "0.8"}]})
 
     def test_future_financial_date_rejected(self):
         with self.assertRaises(ValueError):
