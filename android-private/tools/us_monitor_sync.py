@@ -6,6 +6,7 @@ import fcntl
 from datetime import date, timedelta
 from hashlib import sha256
 import json
+import re
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
@@ -58,21 +59,33 @@ def get_splits(session):
     def query(sql):
         return json.loads(fetch(DOLT + "?" + urlencode({"q": sql})))
 
-    manifest = query("SELECT DOLT_HASHOF('HEAD') AS revision, COUNT(DISTINCT act_symbol) AS n FROM split" + where)
+    manifest = query("SELECT DOLT_HASHOF('HEAD') AS revision")
     if manifest.get("query_execution_status") != "Success" or len(manifest["rows"]) != 1:
-        raise ValueError("Split manifest unavailable")
-    row = manifest["rows"][0]
-    revision, count = row["revision"], int(row["n"])
-    if len(revision) != 32 or any(char not in "0123456789abcdefghijklmnopqrstuv" for char in revision):
+        raise ValueError("Split revision unavailable")
+    revision = manifest["rows"][0]["revision"]
+    if not re.fullmatch(r"[0-9a-v]{32}", revision):
         raise ValueError("Invalid split revision")
-    # The public service caps each query at 1,000 rows.
-    if not 0 <= count <= 1000:
-        raise ValueError("Split response exceeds the public query limit")
-    rows = query("SELECT act_symbol AS symbol, CAST(MAX(ex_date) AS CHAR) AS split_date"
-                 f" FROM split AS OF '{revision}'{where} GROUP BY act_symbol LIMIT 1000")
-    if rows.get("query_execution_status") != "Success" or len(rows["rows"]) != count:
-        raise ValueError("Incomplete split history")
-    return rows
+
+    results = []
+    seen = set()
+    # SQL API limits each response to 1,000 rows. Continue when at the limit.
+    for offset in range(0, 12_000, 1000):
+        page = f" OFFSET {offset}" if offset else ""
+        response = query("SELECT act_symbol AS symbol, CAST(MAX(ex_date) AS CHAR) AS split_date"
+                         f" FROM split AS OF '{revision}'{where}"
+                         f" GROUP BY act_symbol ORDER BY act_symbol LIMIT 1000{page}")
+        rows = response["rows"]
+        if response.get("query_execution_status") != "Success" or len(rows) > 1000:
+            raise ValueError("Incomplete split history")
+        for row in rows:
+            symbol = row["symbol"]
+            if not re.fullmatch(r"[A-Z0-9.$+^=/_-]{1,24}", symbol) or symbol in seen:
+                raise ValueError("Unexpected or duplicate split symbol")
+            seen.add(symbol)
+        results.extend(rows)
+        if len(rows) < 1000:
+            return {"query_execution_status": "Success", "rows": results}
+    raise ValueError("Split history exceeded the page limit")
 
 
 def sync(adb, directory, jar, user_agent):

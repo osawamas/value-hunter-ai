@@ -68,7 +68,7 @@ final class UsReferenceDeliveryProbe {
                 .put("Nasdaq", new JSONObject().put("with_close_and_reference_financials", 0));
         var snapshot = new JSONObject().put("trading_date_et", day.toString()).put("close_provider", PROVIDER)
                 .put("close_sha256", hash).put("reference_screen", screen).put("coverage", coverage);
-        Files.writeString(ledger.toPath(), snapshot.toString(), StandardCharsets.UTF_8);
+        Files.write(ledger.toPath(), snapshot.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     private static void expectQuiet(NotificationManager manager) throws InterruptedException {

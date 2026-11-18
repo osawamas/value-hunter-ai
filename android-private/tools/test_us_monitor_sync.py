@@ -13,11 +13,18 @@ DAY = date(2026, 11, 17)
 
 
 class MonitorSyncTest(TestCase):
-    def test_rejects_truncated_split_response(self):
-        manifest = {"query_execution_status": "Success",
-                    "rows": [{"revision": "a" * 32, "n": "2"}]}
-        rows = {"query_execution_status": "Success", "rows": []}
-        with patch("us_monitor_sync.fetch", side_effect=[json.dumps(manifest), json.dumps(rows)]):
+    def test_pages_pinned_split_history_and_rejects_timeout(self):
+        manifest = {"query_execution_status": "Success", "rows": [{"revision": "a" * 32}]}
+        first = [{"symbol": f"S{i:04}", "split_date": str(DAY)} for i in range(1000)]
+        next_row = {"symbol": "S1000", "split_date": str(DAY)}
+        parts = [manifest, {"query_execution_status": "Success", "rows": first},
+                 {"query_execution_status": "Success", "rows": [next_row]}]
+        with patch("us_monitor_sync.fetch", side_effect=[json.dumps(x) for x in parts]) as fetch:
+            self.assertEqual(get_splits(DAY)["rows"], first + [next_row])
+            self.assertIn("AS+OF+", fetch.call_args.args[0])
+            self.assertIn("OFFSET+1000", fetch.call_args.args[0])
+        parts[-1] = {"query_execution_status": "Timeout", "rows": []}
+        with patch("us_monitor_sync.fetch", side_effect=[json.dumps(x) for x in parts]):
             with self.assertRaisesRegex(ValueError, "Incomplete split history"):
                 get_splits(DAY)
 
