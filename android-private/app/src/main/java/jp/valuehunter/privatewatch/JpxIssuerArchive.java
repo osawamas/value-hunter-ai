@@ -32,6 +32,7 @@ final class JpxIssuerArchive {
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final Charset LEGACY_JAPANESE = Charset.forName("windows-31j");
     private static final Pattern SECTION = Pattern.compile("displayMore\\('(110[1-4])', '(\\d+)', '1'\\)");
+    private static final Pattern PDF_LINK = Pattern.compile("href=\"(/disc/[0-9A-Z]{4}0/[0-9]+\\.pdf)\"");
     private static final Pattern ANNUAL_LINK = Pattern.compile(
             "href=\"(/disc/[0-9A-Z]{4}0/[0-9]+_tse-a(?:ce|ne)[A-Za-z0-9-]+-ixbrl\\.htm)\"");
     private static final Pattern FISCAL_MONTH = Pattern.compile("(?:(20[0-9]{2})|(令和)(元|[0-9]{1,2}))年(0?[1-9]|1[0-2])月期");
@@ -51,7 +52,7 @@ final class JpxIssuerArchive {
 
     private JpxIssuerArchive() {}
 
-    record Disclosure(LocalDate day, String title, URI annualLink, boolean results) {
+    record Disclosure(LocalDate day, String title, URI annualLink, URI pdfLink, boolean results) {
         boolean corrected() { return title.contains("訂正"); }
 
         YearMonth fiscalMonth() {
@@ -153,6 +154,10 @@ final class JpxIssuerArchive {
                 .replace("&nbsp;", "").replace("&amp;", "&"));
     }
 
+    static boolean disclosureSource(URI uri) {
+        return uri != null && uri.toString().matches("https://www2\\.jpx\\.co\\.jp/disc/[0-9A-Z]{4}0/[0-9]+\\.pdf");
+    }
+
     static boolean annualSource(String source, String code) {
         return source.matches("https://www2\\.jpx\\.co\\.jp/disc/" + code
                 + "0/[0-9]+_tse-a(?:ce|ne)[A-Za-z0-9-]+-ixbrl\\.htm");
@@ -190,7 +195,15 @@ final class JpxIssuerArchive {
                     if (links.find() || !annualSource(annualLink.toString(), code)) return null;
                 }
             }
-            disclosures.add(new Disclosure(date, title, annualLink, "1101".equals(section)));
+            URI pdfLink = null;
+            if (shareChange(title)) {
+                var pdfs = PDF_LINK.matcher(rows.group(4));
+                if (pdfs.find()) {
+                    URI link = HOME.resolve(pdfs.group(1));
+                    if (link.getPath().startsWith("/disc/" + code + "0/") && !pdfs.find()) pdfLink = link;
+                }
+            }
+            disclosures.add(new Disclosure(date, title, annualLink, pdfLink, "1101".equals(section)));
         }
         if (!counts.entrySet().stream().allMatch(
                 section -> found.getOrDefault(section.getKey(), Set.of()).size() == section.getValue())) return null;

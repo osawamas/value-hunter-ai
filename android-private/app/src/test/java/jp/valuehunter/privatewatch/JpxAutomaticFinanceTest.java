@@ -223,6 +223,36 @@ public class JpxAutomaticFinanceTest {
         assertEquals(List.of("1421", CODE), order);
     }
 
+    @Test public void verifiedHistoricSplitCanBeScreenedAndLaterOrUncertainActionsStayHeld() throws Exception {
+        String link = "/disc/14200/140120251112000000.pdf";
+        String archive = archive("決算短信〔日本基準〕(連結)", PATH).replace("2026/11/12", "2025/11/12")
+                .replace("自己株式の取得状況", "<a href=\"" + link + "\">株式分割に関するお知らせ</a>");
+        var filingSources = sources(archive, filing());
+        var proof = new java.util.concurrent.atomic.AtomicReference<>(
+                "株式分割に関するお知らせ　基準日 2025年11月30日　効力発生日 令和7年12月1日");
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                return filingSources.archive(code);
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                return filingSources.financial(disclosure);
+            }
+
+            @Override public LocalDate effective(JpxIssuerArchive.Disclosure disclosure) {
+                assertEquals(URI.create("https://www2.jpx.co.jp" + link), disclosure.pdfLink());
+                return JpxCorporateActionDate.effective(proof.get(), disclosure);
+            }
+        };
+        assertEquals("", JpxAutomaticFinance.acquire(CODE, DAY, null, network).hold());
+        proof.set("株式分割　基準日 2026年3月31日　効力発生日 2026年4月1日");
+        assertFalse(JpxAutomaticFinance.acquire(CODE, DAY, null, network).hold().isEmpty());
+        proof.set("株式分割　基準日 2025年11月30日　定款変更の効力発生日 2025年12月1日");
+        assertFalse(JpxAutomaticFinance.acquire(CODE, DAY, null, network).hold().isEmpty());
+        proof.set("株式分割　基準日 2025年11月30日　効力発生日 2025年12月1日　効力発生日 2026年4月1日");
+        assertFalse(JpxAutomaticFinance.acquire(CODE, DAY, null, network).hold().isEmpty());
+    }
+
     private static JpxAutomaticFinance.Sources sources(String archive, String filing) {
         return new JpxAutomaticFinance.Sources() {
             @Override public JpxIssuerArchive.Page archive(String code) {

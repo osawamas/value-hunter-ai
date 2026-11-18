@@ -87,6 +87,20 @@ final class JpxAutomaticFinance {
             @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
                 return session.annual(disclosure.annualLink());
             }
+
+            @Override public LocalDate effective(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                String key = "share-action-v1:" + disclosure.pdfLink();
+                String saved = state.getString(key, "");
+                try {
+                    if (!saved.isEmpty()) return LocalDate.parse(saved);
+                } catch (java.time.DateTimeException invalid) {
+                    // Revalidate an invalid cached date from the official document.
+                }
+                var date = JpxCorporateActionDate.effective(
+                        JpxCorporateActionDate.readPdf(disclosure.pdfLink(), context.getCacheDir()), disclosure);
+                if (date != null && !stopped.getAsBoolean()) state.edit().putString(key, date.toString()).apply();
+                return date;
+            }
         }, stopped);
     }
 
@@ -98,6 +112,7 @@ final class JpxAutomaticFinance {
     interface Sources {
         JpxIssuerArchive.Page archive(String code) throws IOException;
         String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException;
+        default LocalDate effective(JpxIssuerArchive.Disclosure disclosure) throws IOException { return null; }
     }
 
     static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
@@ -209,9 +224,37 @@ final class JpxAutomaticFinance {
             if (previous != null && (!previous.released().isBefore(annual.released())
                     || !previous.usable(annual.released()))) previous = null;
         }
-        if (previous != null && !page.clearSince(previous.end().minusYears(1))) previous = null;
-        boolean clear = page.clearSince(annual.end().minusYears(1));
+        var examined = new HashMap<java.net.URI, LocalDate>();
+        if (previous != null && !consistentShareBasis(page, previous.end(), sources, examined)) previous = null;
+        boolean clear = consistentShareBasis(page, annual.end(), sources, examined);
         return new Entry(through, annual, clear ? "" : "株式分割・併合等の開示を確認中", previous);
+    }
+
+    private static boolean consistentShareBasis(JpxIssuerArchive.Page page, LocalDate periodEnd,
+                                                Sources sources, Map<java.net.URI, LocalDate> examined) {
+        var since = periodEnd.minusYears(1);
+        var relevant = page.disclosures().stream().filter(d -> !d.day().isBefore(since)
+                && JpxIssuerArchive.shareChange(d.title())).distinct().toList();
+        if (relevant.size() > 6) return false;
+        for (var disclosure : relevant) {
+            if (disclosure.day().isAfter(periodEnd) || disclosure.pdfLink() == null
+                    || !JpxCorporateActionDate.supported(disclosure.title())) return false;
+        }
+        for (var disclosure : relevant) {
+            var url = disclosure.pdfLink();
+            if (!examined.containsKey(url)) {
+                LocalDate date;
+                try {
+                    date = sources.effective(disclosure);
+                } catch (IOException unavailable) {
+                    date = null;
+                }
+                examined.put(url, date);
+            }
+            LocalDate date = examined.get(url);
+            if (date == null || date.isBefore(disclosure.day()) || date.isAfter(periodEnd)) return false;
+        }
+        return true;
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {

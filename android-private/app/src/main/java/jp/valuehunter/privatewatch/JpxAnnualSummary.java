@@ -90,7 +90,7 @@ final class JpxAnnualSummary {
         }
     }
 
-    private static LocalDate documentDate(String value) {
+    static LocalDate documentDate(String value) {
         var western = DATE.matcher(value);
         if (western.matches()) return LocalDate.of(Integer.parseInt(western.group(1)),
                 Integer.parseInt(western.group(2)), Integer.parseInt(western.group(3)));
