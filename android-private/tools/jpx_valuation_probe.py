@@ -53,7 +53,7 @@ def ratio(close, per_share):
     return close / value if value.is_finite() and value > 0 else None
 
 
-def associate(day, stocks, prices, duplicates, financials):
+def latest_financials(day, financials):
     latest = {}
     pending = set()
     for code, period_end, disclosed_on, row in financials:
@@ -65,6 +65,11 @@ def associate(day, stocks, prices, duplicates, financials):
         if code not in latest or stamp > latest[code][0]:
             latest[code] = stamp, row
 
+    return latest, pending
+
+
+def associate(day, stocks, prices, duplicates, financials):
+    latest, pending = latest_financials(day, financials)
     results = {}
     for code in sorted(stocks):
         if code in duplicates:

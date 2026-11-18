@@ -38,6 +38,27 @@ python3 tools/jpx_adjust_monthly_history.py /tmp/jpx-monthly-closes.json --right
 
 `tools/value_candidate_screen.py` は判定の試作。終値・円換算・取扱単位の確認後に、PER 15倍以下かつPBR 1倍以下を優先候補とする。PERのみ条件を満たす場合はPBRが未取得か1.5倍以下、PBRのみ条件を満たす場合はPERが未取得か20倍以下なら参考候補。取得できた指標がゼロ以下なら参考候補へ回さず保留する。株式分割を調整済みの履歴を別途用意できた銘柄は、5年レンジ内の位置を参考表示に使える。Androidの東証日報監視にも、この2段階の財務判定を組み込んだ。過去データを使った通知件数の検証は未実施。
 
+## 東証日報と決算を一括照合する
+
+日報PDF、上場銘柄一覧、原本照合済みの通期財務JSON、取引日までの権利落ち月報を
+ローカルで組み合わせる。銘柄の手動入力は不要。月報が足りない銘柄や取引日までに
+開示されていない財務は保留する。結果は市場・取引日・取得区分・判定区分の件数のみ。
+1株枠を含めるのは取扱いを確認した銘柄に `--single-share-code` を指定した場合。
+
+```sh
+rights=()
+for report in /tmp/jpx-rights/rights-*.pdf; do
+  rights+=(--rights-pdf "$report")
+done
+python3 tools/jpx_batch_financial_screen.py /tmp/jpx-daily.pdf \
+  --jpx-universe /tmp/data_j.xlsx \
+  --annual-financials tools/fixtures/jpx-annual-reference.json "${rights[@]}"
+```
+
+この例の通期財務は取得・照合経路の検証用に登録された極洋1銘柄分。判定件数は
+指定した銘柄一覧の母集団に依存する。最新一覧を過去の日報に使った場合は、当時の市場全体の
+正確な網羅率として扱わない。Androidへの接続と財務原本の一括収集は別工程。
+
 ## 東証日報の終値を試す
 
 同梱する[東証上場銘柄一覧](https://www.jpx.co.jp/markets/statistics-equities/misc/01.html)

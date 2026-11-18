@@ -12,6 +12,8 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java'
       - 'android-private/tools/jpx_daily_sources.py'
       - 'android-private/tools/jpx_valuation_probe.py'
+      - 'android-private/tools/jpx_batch_financial_screen.py'
+      - 'android-private/tools/test_jpx_batch_financial_screen.py'
       - 'android-private/tools/jpx_hachiquant_coverage.py'
       - 'android-private/tools/jpx_share_basis.py'
       - 'android-private/tools/jpx_rights_sources.py'
@@ -175,6 +177,34 @@ jobs:
         run: |
           python android-private/tools/jpx_rights_sources.py \
             --year 2026 --start-month 2025-08 --cutoff-month 11 --output "$RUNNER_TEMP/jpx-rights"
+
+      - name: Batch-screen original JPX prices and reference financials
+        run: |
+          python -m unittest discover -s android-private/tools -p 'test_jpx_batch_financial_screen.py' -v
+          curl -fsSL --retry 1 --max-time 45 \
+            https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202609/stq_20260930.pdf \
+            -o "$RUNNER_TEMP/jpx-20260930.pdf"
+          reports=()
+          for report in "$RUNNER_TEMP"/jpx-rights/rights-*.pdf; do
+            reports+=(--rights-pdf "$report")
+          done
+          for day in 20260930 20261029; do
+            python android-private/tools/jpx_batch_financial_screen.py "$RUNNER_TEMP/jpx-$day.pdf" \
+              --jpx-universe "$RUNNER_TEMP/jpx-list.xlsx" \
+              --annual-financials android-private/tools/fixtures/jpx-annual-reference.json \
+              "${reports[@]}" > "$RUNNER_TEMP/jpx-batch-$day.json"
+            cat "$RUNNER_TEMP/jpx-batch-$day.json"
+          done
+          python - "$RUNNER_TEMP/jpx-batch-20260930.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          report = json.loads(Path(sys.argv[1]).read_text())
+          assert report["trade_date"] == "2026-09-30"
+          assert report["source_counts"]["valid_close"] > 3000
+          assert report["source_counts"]["no_share_change_in_supplied_reports"] >= 1
+          assert sum(report["tiers"].values()) == report["processed"]
+          PY
 
       - name: Fetch and verify the latest JPX stock-price report
         run: |
