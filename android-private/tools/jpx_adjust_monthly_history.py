@@ -49,7 +49,7 @@ def adjusted_prices(points, events):
     return list(reversed(adjusted))
 
 
-def analyze(points, coverage, events, *, include_prices=False):
+def analyze(points, coverage, events, *, include_prices=False, include_range=False):
     if not points:
         return {"status": "no_closes", "months_with_close": 0}
     first, last = points[0][0], points[-1][0]
@@ -73,6 +73,9 @@ def analyze(points, coverage, events, *, include_prices=False):
         "splits_or_consolidations": len(actions),
         "range_position": str(position.quantize(Decimal(".0001"))) if position is not None else None,
     }
+    if include_range and position is not None:
+        result["range_low"] = format(min(closes), "f")
+        result["range_high"] = format(max(closes), "f")
     if include_prices:
         result["points"] = [{"session": day.isoformat(), "close": str(close)} for day, close in series]
     return result
@@ -123,6 +126,7 @@ def main():
     parser.add_argument("monthly_json", type=Path)
     parser.add_argument("rights_pdf", type=Path, nargs="*")
     parser.add_argument("--include-prices", action="store_true", help="include adjusted prices in local output")
+    parser.add_argument("--include-range", action="store_true", help="include adjusted price bounds for a private APK")
     parser.add_argument("--rights-cache", type=Path, help="fetch official archived rights reports into this directory")
     args = parser.parse_args()
     if bool(args.rights_pdf) == bool(args.rights_cache):
@@ -135,7 +139,8 @@ def main():
     else:
         coverage, by_code = load_rights_reports(args.rights_pdf)
         unpublished, failed = [], {}
-    result = {code: analyze(points[code], coverage, by_code.get(code, ()), include_prices=args.include_prices)
+    result = {code: analyze(points[code], coverage, by_code.get(code, ()),
+                            include_prices=args.include_prices, include_range=args.include_range)
               for code in report["months_with_close_by_code"]}
     print(json.dumps({"months_requested": report["months_requested"],
                       "rights_months_verified": len(coverage),

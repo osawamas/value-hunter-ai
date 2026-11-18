@@ -6,7 +6,9 @@
       "first_session": "2021-10-29",
       "last_session": "2026-09-30",
       "months_with_close": 60,
-      "range_position": "0.2510"
+      "range_position": "0.2510",
+      "range_low": "600",
+      "range_high": "1000"
     },
     "1301": {
       "status": "split_adjusted",

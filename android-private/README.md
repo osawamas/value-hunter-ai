@@ -119,15 +119,19 @@ gradle :app:testDebugUnitTest :app:assembleDebug
 ## Androidに過去の終値レンジを表示する
 
 前節の調整ツールの要約をローカルに出力し、本人用APKのビルド時に渡す。
-この要約には終値の原データを含めないため、調整ツールでは `--include-prices` を付けない。
+日次終値との比較にも使う場合は、調整ツールに `--include-range` を付けて調整後の上下限を含める。
+月次価格の全件は不要なので `--include-prices` は省く。上下限入りの要約は本人の環境だけに保管する。
 
 ```sh
-python3 tools/jpx_adjust_monthly_history.py /tmp/jpx-monthly-closes.json --rights-cache /tmp/value-hunter-jpx-rights > /tmp/jpx-history.json
+python3 tools/jpx_adjust_monthly_history.py /tmp/jpx-monthly-closes.json --rights-cache /tmp/value-hunter-jpx-rights --include-range > /tmp/jpx-history.json
 gradle :app:assembleDebug -PjpxHistoryFile=/tmp/jpx-history.json
 ```
 
 「終値と判定の詳細」に、履歴末時点の月次終値レンジ内の位置と対象期間を表示する。
 最新の立会日より後の履歴や調整が保留された履歴は表示対象から外れる。
+履歴末から直近の立会日までに株式分割等がなく、権利落ち月報がそろっているときは、
+直近終値の位置またはレンジ超過を表示する。確認資料が足りない場合には比較を保留する。
+上下限のない旧要約からも履歴末時点のレンジ位置を表示できる。
 日次のPER・PBR判定と無音通知は従来の財務・権利落ち照合を使う。
 更新した要約を同じプロパティで渡して再ビルドすると履歴が更新される。
 本人用の要約とそれを含むAPKはGitHubに置かない。

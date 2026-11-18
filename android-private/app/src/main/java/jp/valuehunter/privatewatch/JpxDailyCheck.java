@@ -90,7 +90,7 @@ final class JpxDailyCheck {
                     message.append(close.toPlainString()).append(" 円")
                             .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
                     appendBudget(message, close);
-                    history.appendHtml(message, code, latest.date());
+                    history.appendHtml(message, code, latest.date(), close, rights);
                     if (previous != null) appendChange(message, code, close, rights);
                     // Missing monthly evidence is not evidence that no split occurred.
                     // Keep the displayed valuation on hold, not only its day-to-day transition.

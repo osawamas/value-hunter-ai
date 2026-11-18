@@ -36,6 +36,11 @@ class AdjustMonthlyHistoryTest(unittest.TestCase):
         self.assertEqual([Decimal(row["close"]) for row in result["points"]], [100, 100, 110])
         self.assertEqual(result["splits_or_consolidations"], 2)
         self.assertEqual(result["range_position"], "1.0000")
+        self.assertNotIn("range_low", result)
+        private = analyze(points, coverage, events, include_range=True)
+        self.assertEqual(Decimal(private["range_low"]), 100)
+        self.assertEqual(Decimal(private["range_high"]), 110)
+        self.assertNotIn("points", private)
 
     def test_refuses_gaps_and_other_share_changes(self):
         first, last = date(2026, 5, 29), date(2026, 6, 30)

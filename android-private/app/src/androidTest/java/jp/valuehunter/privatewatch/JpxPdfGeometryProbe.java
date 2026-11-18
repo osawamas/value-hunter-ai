@@ -103,6 +103,27 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 || html.split("月次終値レンジ内の位置", -1).length != 2) {
             throw new AssertionError("JPX details did not show only the applicable historical range");
         }
+        if (!html.contains("直近終値との比較は保留（権利落月報の未確認月 2026-10、2026-11")
+                || html.contains("直近終値のレンジ位置")) {
+            throw new AssertionError("Missing share-basis evidence allowed a current price comparison");
+        }
+        var currentMonths = Set.of(YearMonth.of(2026, 10), YearMonth.of(2026, 11));
+        var comparable = new JpxShareRights(Set.of("3861"), currentMonths, List.of());
+        if (!comparison.html(comparable, history).contains("直近終値のレンジ位置 61.9%")) {
+            throw new AssertionError("JPX details did not compare the current close with the verified range");
+        }
+        var split = new JpxShareRights(Set.of("3861"), currentMonths, List.of(
+                new JpxShareRights.Notice("3861", day, "https://www.jpx.co.jp/")));
+        if (!comparison.html(split, history).contains("直近終値との比較は保留（権利落日 " + day)) {
+            throw new AssertionError("JPX details compared the current close across a share change");
+        }
+        var outside = new StringBuilder();
+        history.appendHtml(outside, "3861", day, new BigDecimal("500"), comparable);
+        history.appendHtml(outside, "3861", day, new BigDecimal("1100"), comparable);
+        if (!outside.toString().contains("レンジ下限を下回る")
+                || !outside.toString().contains("レンジ上限を上回る")) {
+            throw new AssertionError("Out-of-range closes were not identified");
+        }
         var realScreen = comparison.screen(rights);
         if (!html.contains("終値取得 3676 / 3686銘柄")
                 || !html.contains("100株枠 1347銘柄 · 1株枠 2329銘柄")
