@@ -13,6 +13,8 @@ import re
 import tempfile
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError, URLError
+import time
 
 CODE = re.compile(r"[0-9]{4}[0-9A-Z]?")
 DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -66,7 +68,20 @@ def fetch(entry, destination, allowed_hosts, opener=None):
     request = Request(url, headers={"User-Agent": "ValueHunterPrivateResearch/1.0"})
     temp = None
     try:
-        with opener.open(request, timeout=25) as response:
+        # Retry only transient transport failures; never retry rejected originals.
+        response = None
+        for attempt in range(3):
+            try:
+                response = opener.open(request, timeout=25)
+                break
+            except HTTPError as exc:
+                if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
+                    raise
+            except (URLError, TimeoutError):
+                if attempt == 2:
+                    raise
+            time.sleep(0.5 * (2 ** attempt))
+        with response:
             length = response.headers.get("Content-Length")
             if length and int(length) > MAX_BYTES:
                 raise ValueError("PDF exceeds size limit")
