@@ -119,6 +119,15 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(len(calls), 1)
             self.assertEqual((dest / 'marker').read_text(), 'safe')
 
+    def test_timeout_with_disappeared_cache_is_not_cached(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                raise subprocess.TimeoutExpired(cmd, 180)
+            self.assertEqual(sync(dest, runner=runner), 'invalid_repository_after_command')
+
     def test_timeout_initial_clone_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
