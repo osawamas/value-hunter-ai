@@ -1,0 +1,103 @@
+{
+  "date_utc": "2026-11-18",
+  "source_updated_at_utc": "2026-11-18T12:23:03.464681+00:00",
+  "records": [
+    {
+      "symbol": "S68",
+      "price_sgd": 20.02,
+      "per_reference": 30.6958,
+      "pbr_reference_unverified": 9.0726,
+      "market_cap_sgd": 21438286549.68,
+      "quote_timestamp_utc": "2026-11-18T09:04:58+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-09-01",
+      "quality_flags": []
+    },
+    {
+      "symbol": "G13",
+      "price_sgd": 0.545,
+      "per_reference": 16.8432,
+      "pbr_reference_unverified": 0.8013,
+      "market_cap_sgd": 6574685039.33,
+      "quote_timestamp_utc": "2026-11-18T09:04:58+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-06-30",
+      "quality_flags": []
+    },
+    {
+      "symbol": "S20",
+      "price_sgd": 1.4,
+      "per_reference": null,
+      "pbr_reference_unverified": 0.5437,
+      "market_cap_sgd": 678751956.4,
+      "quote_timestamp_utc": "2026-11-18T08:59:30+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-06-30",
+      "quality_flags": []
+    },
+    {
+      "symbol": "S63",
+      "price_sgd": 8.66,
+      "per_reference": 58.3728,
+      "pbr_reference_unverified": 10.4961,
+      "market_cap_sgd": 27013181196.08,
+      "quote_timestamp_utc": "2026-11-18T09:14:13+00:00",
+      "quote_freshness": "RECENT",
+      "shares_as_of_date": "2026-06-30",
+      "quality_flags": []
+    },
+    {
+      "symbol": "D05",
+      "price_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "market_cap_sgd": null,
+      "quote_timestamp_utc": null,
+      "quote_freshness": "MISSING",
+      "shares_as_of_date": null,
+      "quality_flags": [
+        "QUOTE_NOT_AVAILABLE",
+        "QUOTE_TIMESTAMP_MISSING",
+        "SHARES_NOT_AVAILABLE",
+        "SHARES_DATE_MISSING",
+        "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+      ]
+    },
+    {
+      "symbol": "O39",
+      "price_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "market_cap_sgd": null,
+      "quote_timestamp_utc": null,
+      "quote_freshness": "MISSING",
+      "shares_as_of_date": null,
+      "quality_flags": [
+        "QUOTE_NOT_AVAILABLE",
+        "QUOTE_TIMESTAMP_MISSING",
+        "SHARES_NOT_AVAILABLE",
+        "SHARES_DATE_MISSING",
+        "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+      ]
+    },
+    {
+      "symbol": "U11",
+      "price_sgd": null,
+      "per_reference": null,
+      "pbr_reference_unverified": null,
+      "market_cap_sgd": null,
+      "quote_timestamp_utc": null,
+      "quote_freshness": "MISSING",
+      "shares_as_of_date": null,
+      "quality_flags": [
+        "QUOTE_NOT_AVAILABLE",
+        "QUOTE_TIMESTAMP_MISSING",
+        "SHARES_NOT_AVAILABLE",
+        "SHARES_DATE_MISSING",
+        "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+      ]
+    }
+  ],
+  "quote_count": 4,
+  "source": "VALUE_HUNTER_AI_PUBLIC_FEED_UNVERIFIED_QUOTES"
+}
