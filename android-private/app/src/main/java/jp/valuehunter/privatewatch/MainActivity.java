@@ -182,7 +182,6 @@ public final class MainActivity extends Activity {
         boolean alerts = ScanWorker.alertsEnabled(this);
         notificationStatus.setText(alerts ? "通知は有効" : "通知の許可が必要");
         notificationButton.setText(alerts ? "通知設定を開く" : "通知を有効にする");
-        notificationButton.setEnabled(supported());
         String report = JpxWatchWorker.displayStatus(state);
         lastCheck.setText(!supported() ? "この端末では東証日報を読み取れない"
                 : !report.isEmpty() ? report : active ? "初回の東証日報を確認待ち" : "自動監視をオンにすると確認を開始");
