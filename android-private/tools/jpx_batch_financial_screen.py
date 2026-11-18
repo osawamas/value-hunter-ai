@@ -51,6 +51,8 @@ def screen(payload):
         disclosed = row.get("financial_disclosed_on")
         if disclosed is not None and date.fromisoformat(disclosed) >= trade_date:
             raise ValueError("Financial disclosure not available before trade date")
+        if (row.get("financial_verified") is True and disclosed is None):
+            raise ValueError("Verified financials require a disclosure date")
         # A financial date alone does not prove price/share-basis comparability.
         # The producer must explicitly attest to independent verification.
         verified = (financial_date is not None and row.get("financial_verified") is True
