@@ -33,7 +33,10 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
         except FileNotFoundError:
             return 'dolt_not_installed'
         except OSError:
-            # OS-level spawn failures must not discard the existing cache.
+            # A runner may have removed the metadata before raising an OS error.
+            # Never report a usable cache unless its directory still exists.
+            if existing and not (destination / '.dolt').is_dir():
+                return 'invalid_repository_after_command'
             return 'cached_after_os_error' if existing else 'os_error'
         if result.returncode == 0:
             if not (destination / '.dolt').is_dir():
