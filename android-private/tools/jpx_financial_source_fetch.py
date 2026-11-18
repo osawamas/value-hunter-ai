@@ -41,6 +41,12 @@ def fetch(entry, destination, allowed_hosts, opener=None):
     code, url, expected = validate(entry, allowed_hosts)
     destination.mkdir(parents=True, exist_ok=True)
     target = destination / (code + "-" + expected[:16] + ".pdf")
+    # A manifest-approved cache must be a regular file, never a symlink.
+    # Otherwise a malicious local entry could redirect validation to another path.
+    if target.is_symlink():
+        raise ValueError("Cached PDF symlink is not allowed")
+    if target.exists() and not target.is_file():
+        raise ValueError("Cached PDF is not a regular file")
     if target.exists():
         # A local cache must obey the same size bound as a network response.
         # Stream the digest instead of loading an untrusted large file into RAM.
