@@ -190,6 +190,31 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'failed')
             self.assertEqual(len(calls), 1)
 
+    def test_rate_limit_in_stdout_uses_cache_without_deleting_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('safe')
+            calls, waits = [], []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='', stdout='HTTP status=429')
+            self.assertEqual(sync(dest, runner=runner, sleeper=waits.append), 'cached_after_rate_limit')
+            self.assertEqual(waits, [60])
+            self.assertEqual(len(calls), 2)
+            self.assertEqual((dest / 'marker').read_text(), 'safe')
+
+    def test_unrelated_4290_does_not_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='error 4290: invalid data', stdout='')
+            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'failed')
+            self.assertEqual(len(calls), 1)
+
     def test_initial_rate_limit_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
