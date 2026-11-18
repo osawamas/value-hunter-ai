@@ -25,6 +25,10 @@ final class JpxReferenceFinancials {
                     List.of(new Shares(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 11, 6),
                             914_381_817L, 64_360_900L, "中間決算",
                             "https://www.ojiholdings.co.jp/uploads/news/docs/ja1106irnews02.pdf"))),
+            "3864", annualDisclosure(LocalDate.of(2026, 5, 14), "43.37", "2354.68",
+                    44_741_433L, 933_254L, "https://www.mpm.co.jp/news/pdf/2026/20260514-2.pdf"),
+            "5020", annualDisclosure(LocalDate.of(2026, 5, 14), "96.18", "1252.75",
+                    2_706_766_549L, 16_873_857L, "https://www2.jpx.co.jp/disc/50200/140120260512526455.pdf"),
             "7203", new Disclosures(
                     new Annual(LocalDate.of(2026, 5, 8), new BigDecimal("295.25"),
                             new BigDecimal("3062.82"),
@@ -41,11 +45,20 @@ final class JpxReferenceFinancials {
                             new BigDecimal("119.47"), NTT_ANNUAL),
                     List.of(new Shares(ANNUAL_END, LocalDate.of(2026, 5, 8),
                             90_550_316_400L, 9_126_691_363L, "通期決算", NTT_ANNUAL))),
+            "9433", annualDisclosure(LocalDate.of(2026, 5, 12), "183.59", "1333.50",
+                    4_187_847_474L, 380_769_056L,
+                    "https://www.kddi.com/extlib/files/corporate/ir/library/presentation/2026/pdf/kddi_2026_4qc_PsXBu3.pdf"),
             "9434", new Disclosures(
                     new Annual(LocalDate.of(2026, 5, 11), new BigDecimal("11.35"),
                             new BigDecimal("55.13"), SOFTBANK_ANNUAL),
                     List.of(new Shares(ANNUAL_END, LocalDate.of(2026, 5, 11),
                             47_971_989_700L, 170_724_817L, "通期決算", SOFTBANK_ANNUAL))));
+
+    private static Disclosures annualDisclosure(LocalDate released, String eps, String bps,
+                                                long issued, long treasury, String source) {
+        return new Disclosures(new Annual(released, new BigDecimal(eps), new BigDecimal(bps), source),
+                List.of(new Shares(ANNUAL_END, released, issued, treasury, "通期決算", source)));
+    }
 
     static List<String> watchCodes() {
         return BY_CODE.keySet().stream().sorted().toList();

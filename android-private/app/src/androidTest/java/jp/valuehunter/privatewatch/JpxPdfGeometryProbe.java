@@ -128,10 +128,10 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var realScreen = comparison.screen(rights);
         if (!html.contains("終値取得 3676 / 3686銘柄")
                 || !html.contains("100株枠 1347銘柄 · 1株枠 2329銘柄")
-                || !html.contains("財務照合済み 0 / 登録 5銘柄")) {
+                || !html.contains("財務照合済み 0 / 登録 " + JpxDailyCheck.WATCH_CODES.size() + "銘柄")) {
             throw new AssertionError("JPX batch coverage did not match the independent stock counts");
         }
-        if (realScreen.held() != 5 || !realScreen.entered().isEmpty()) {
+        if (realScreen.held() != JpxDailyCheck.WATCH_CODES.size() || !realScreen.entered().isEmpty()) {
             throw new AssertionError("Published JPX reports notified during missing rights coverage");
         }
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")

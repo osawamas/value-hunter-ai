@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 final class UsFinancialFacts {
     record Facts(LocalDate filed, LocalDate equityDate, LocalDate shareDate, BigDecimal shares,
                  BigDecimal profit, BigDecimal equity, String accession,
-                 String sharesBasis, boolean reconciledParentAmounts) {}
+                 String sharesBasis, boolean reconciledParentAmounts, String profitBasis) {}
 
     record Filing(LocalDate periodEnd, LocalDate filed, String form, String accession) {}
     record Assessment(Facts facts, String hold, Filing filing) {}
@@ -79,30 +79,48 @@ final class UsFinancialFacts {
         var profits = facts(gaap, "NetIncomeLoss", "USD", session);
         if (supplementary) reconcileParentAmounts(profits, facts(gaap, "ProfitLoss", "USD", session),
                 facts(gaap, "NetIncomeLossAttributableToNoncontrollingInterest", "USD", session));
-        var atEnd = profits.stream().filter(f -> sameFiling(f, equity) && f.end.equals(equity.end)).collect(Collectors.toList());
-        BigDecimal profit;
-        boolean reconciled = equity.reconciled;
+        var profit = calculateProfit(profits, equity);
+        String profitBasis = "parent_net_income";
+        if (supplementary && profit.value == null) {
+            // Keep the same numerator definition in all periods of the trailing-year calculation.
+            var common = calculateProfit(
+                    facts(gaap, "NetIncomeLossAvailableToCommonStockholdersBasic", "USD", session), equity);
+            if (common.value != null) {
+                profit = common;
+                profitBasis = "income_available_to_common";
+            }
+        }
+        if (profit.value == null) return held(profit.hold);
+        return new Assessment(new Facts(equity.filed, equity.end, shares.end, shares.value, profit.value, equity.value,
+                equity.accession, sharesBasis, equity.reconciled || profit.reconciled, profitBasis), "", null);
+    }
+
+    private record Profit(BigDecimal value, boolean reconciled, String hold) {
+        static Profit held(String reason) {
+            return new Profit(null, false, reason);
+        }
+    }
+
+    private static Profit calculateProfit(List<Fact> profits, Fact equity) {
+        var atEnd = profits.stream().filter(f -> sameFiling(f, equity) && f.end.equals(equity.end))
+                .collect(Collectors.toList());
         if ("10-K".equals(equity.form)) {
             var annual = one(atEnd.stream().filter(UsFinancialFacts::fullYear).collect(Collectors.toList()));
-            if (annual == null) return held("annual_profit_unconfirmed");
-            profit = annual.value;
-            reconciled |= annual.reconciled;
-        } else {
-            var annual = latest(profits.stream().filter(f -> "10-K".equals(f.form) && fullYear(f)
-                    && f.end.isBefore(equity.end) && f.filed.isBefore(equity.filed)).collect(Collectors.toList()), true);
-            if (annual == null) return held("previous_annual_profit_unconfirmed");
-            var ytd = one(atEnd.stream().filter(f -> annual.end.plusDays(1).equals(f.start)).collect(Collectors.toList()));
-            if (ytd == null) return held("current_ytd_profit_unconfirmed");
-            var prior = one(profits.stream().filter(f -> sameFiling(f, equity) && annual.start.equals(f.start)
-                    && f.end.isBefore(annual.end)
-                    && Math.abs(ChronoUnit.DAYS.between(f.end, ytd.end.minusYears(1))) <= 7
-                    && Math.abs(days(ytd) - days(f)) <= 7).collect(Collectors.toList()));
-            if (prior == null) return held("prior_ytd_profit_unconfirmed");
-            profit = annual.value.add(ytd.value).subtract(prior.value);
-            reconciled |= annual.reconciled || ytd.reconciled || prior.reconciled;
+            return annual == null ? Profit.held("annual_profit_unconfirmed")
+                    : new Profit(annual.value, annual.reconciled, "");
         }
-        return new Assessment(new Facts(equity.filed, equity.end, shares.end, shares.value, profit, equity.value,
-                equity.accession, sharesBasis, reconciled), "", null);
+        var annual = latest(profits.stream().filter(f -> "10-K".equals(f.form) && fullYear(f)
+                && f.end.isBefore(equity.end) && f.filed.isBefore(equity.filed)).collect(Collectors.toList()), true);
+        if (annual == null) return Profit.held("previous_annual_profit_unconfirmed");
+        var ytd = one(atEnd.stream().filter(f -> annual.end.plusDays(1).equals(f.start)).collect(Collectors.toList()));
+        if (ytd == null) return Profit.held("current_ytd_profit_unconfirmed");
+        var prior = one(profits.stream().filter(f -> sameFiling(f, equity) && annual.start.equals(f.start)
+                && f.end.isBefore(annual.end)
+                && Math.abs(ChronoUnit.DAYS.between(f.end, ytd.end.minusYears(1))) <= 7
+                && Math.abs(days(ytd) - days(f)) <= 7).collect(Collectors.toList()));
+        if (prior == null) return Profit.held("prior_ytd_profit_unconfirmed");
+        return new Profit(annual.value.add(ytd.value).subtract(prior.value),
+                annual.reconciled || ytd.reconciled || prior.reconciled, "");
     }
 
     private static Assessment held(String reason) {

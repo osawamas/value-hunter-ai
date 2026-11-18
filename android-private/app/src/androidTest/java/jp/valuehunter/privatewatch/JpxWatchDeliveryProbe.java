@@ -101,9 +101,9 @@ final class JpxWatchDeliveryProbe {
             awaitRun(work, id, starts, 2);
             String checked = JpxWatchWorker.displayStatus(state);
             if (!checked.contains("最終確認") || !checked.contains("（日本時間）")
-                    || !checked.contains("保留 5銘柄") || !checked.contains("比較日 2026-11-13")
+                    || !checked.contains("保留 " + JpxDailyCheck.WATCH_CODES.size() + "銘柄") || !checked.contains("比較日 2026-11-13")
                     || !checked.contains("終値取得 3676 / 3686銘柄")
-                    || !checked.contains("財務照合済み 0 / 登録 5銘柄")
+                    || !checked.contains("財務照合済み 0 / 登録 " + JpxDailyCheck.WATCH_CODES.size() + "銘柄")
                     || !checked.contains("1301・3861・7203 · 権利落月報の未確認月 2026-10、2026-11")
                     || checked.contains("<a")) {
                 throw new AssertionError("JPX status did not show the official reports' hold reason: " + checked);
@@ -115,7 +115,7 @@ final class JpxWatchDeliveryProbe {
             driver.setPeriodDelayMet(id);
             awaitRun(work, id, starts, 3);
             String updated = JpxWatchWorker.displayStatus(state);
-            if (!updated.contains("保留 5銘柄")
+            if (!updated.contains("保留 " + JpxDailyCheck.WATCH_CODES.size() + "銘柄")
                     || !updated.contains("1301・3861・7203 · 権利落月報の未確認月 2026-11")
                     || updated.contains("未確認月 2026-10")) {
                 throw new AssertionError("New monthly coverage did not update the watch status: " + updated);
@@ -128,7 +128,7 @@ final class JpxWatchDeliveryProbe {
             awaitRun(work, id, starts, 4);
             String unchanged = JpxWatchWorker.displayStatus(state);
             if (!unchanged.contains("版に変更なし · PDFの再取得を省略")
-                    || !unchanged.contains("保留 5銘柄") || !unchanged.contains("最終確認")
+                    || !unchanged.contains("保留 " + JpxDailyCheck.WATCH_CODES.size() + "銘柄") || !unchanged.contains("最終確認")
                     || !unchanged.contains("未確認月 2026-11")) {
                 throw new AssertionError("The no-change check dropped the previous screening status");
             }

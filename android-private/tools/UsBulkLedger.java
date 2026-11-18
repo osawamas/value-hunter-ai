@@ -64,7 +64,7 @@ public final class UsBulkLedger {
                     row.put("filed", facts.filed().toString()).put("share_date", facts.shareDate().toString())
                             .put("shares", facts.shares()).put("profit", facts.profit()).put("equity", facts.equity())
                             .put("accession", facts.accession()).put("shares_basis", facts.sharesBasis())
-                            .put("reconciled_parent_amounts", facts.reconciledParentAmounts());
+                            .put("reconciled_parent_amounts", facts.reconciledParentAmounts()).put("profit_basis", facts.profitBasis());
                 }
             }
         }

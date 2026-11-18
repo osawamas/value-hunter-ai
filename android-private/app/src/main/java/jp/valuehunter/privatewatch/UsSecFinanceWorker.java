@@ -202,6 +202,7 @@ public final class UsSecFinanceWorker extends Worker {
             return new JSONObject().put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                     .put("cik", cik).put("share_date", figures.shareDate().toString())
                     .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
+                    .put("profit_basis", figures.profitBasis())
                     .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
                     .put("equity", figures.equity().toPlainString());
         } catch (UsDailyWorker.HttpStatus error) {

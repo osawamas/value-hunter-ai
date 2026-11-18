@@ -92,6 +92,28 @@ public class UsFinancialFactsTest {
         assertNull(UsFinancialFacts.read(document, 1, SESSION));
     }
 
+    @Test public void usesCommonStockholderIncomeOnlyWhenAllPeriodsMatch() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        var direct = gaap.remove("NetIncomeLoss");
+        var alternate = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "10-K", 92))
+                .put(row("2025-01-01", "2025-09-30", "2026-10-20", Q, "10-Q", 54))
+                .put(row("2026-01-01", "2026-09-30", "2026-10-20", Q, "10-Q", 61));
+        gaap.put("NetIncomeLossAvailableToCommonStockholdersBasic", units("USD", alternate));
+        var facts = UsFinancialFacts.read(document, 1, SESSION);
+        assertEquals(new BigDecimal("99"), facts.profit());
+        assertEquals("income_available_to_common", facts.profitBasis());
+
+        gaap.put("NetIncomeLoss", direct);
+        assertEquals(new BigDecimal("110"), UsFinancialFacts.read(document, 1, SESSION).profit());
+
+        var net = gaap.getJSONObject("NetIncomeLoss").getJSONObject("units").getJSONArray("USD");
+        net.remove(2);
+        alternate.remove(1);
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
     private static JSONObject payload() throws JSONException {
         var equity = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 350));
         var profit = new JSONArray()
