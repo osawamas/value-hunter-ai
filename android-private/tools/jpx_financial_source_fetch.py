@@ -83,20 +83,33 @@ def main():
     parser.add_argument("manifest", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--allowed-host", action="append", required=True)
+    parser.add_argument("--report", type=Path, help="Private per-source acquisition audit JSON")
     args = parser.parse_args()
     hosts = {host.lower() for host in args.allowed_host}
     records = json.loads(args.manifest.read_text(encoding="utf-8"))
     if not isinstance(records, list):
         parser.error("Manifest must be a JSON array")
     counts = {"downloaded": 0, "cached": 0, "failed": 0}
+    audit = []
     for entry in records:
+        code = entry.get("code") if isinstance(entry, dict) else None
+        digest = entry.get("sha256") if isinstance(entry, dict) else None
         try:
-            counts[fetch(entry, args.output, hosts)] += 1
-        except (ValueError, OSError, KeyError) as exc:
+            status = fetch(entry, args.output, hosts)
+            counts[status] += 1
+            audit.append({"code": code, "sha256": digest, "status": status})
+        except (ValueError, OSError, KeyError, TypeError) as exc:
             counts["failed"] += 1
+            audit.append({"code": code, "sha256": digest, "status": "failed",
+                          "error_type": type(exc).__name__})
             print(f"Source rejected: {type(exc).__name__}", file=__import__("sys").stderr)
-    print(json.dumps({"market": "JP", "source_records": len(records), **counts,
-                      "financial_records_verified": 0}, sort_keys=True))
+    summary = {"market": "JP", "source_records": len(records), **counts,
+               "financial_records_verified": 0}
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps({"summary": summary, "sources": audit},
+                                          ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(summary, sort_keys=True))
     if counts["failed"]:
         raise SystemExit(1)
 
