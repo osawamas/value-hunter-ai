@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 03:16 JST — Dolt同期の入力異常時の安全停止を回帰テスト化
+
+- 開始時main: [482dcf8](https://github.com/osawamas/value-hunter-ai/commit/482dcf8586a3f2f4ebfd51fc357e706feda691e4)。最新main、直近Actions、既存開発ログ、Dolt同期コードと既存テストを確認。全体開発のJPX変更とは重複しない。
+- Dolt同期の再試行回数が0・負数・4回の場合、およびclone先の親ディレクトリがない場合に、外部コマンドを一度も呼ばず入力エラーで停止する回帰テスト2件を追加。[コード差分 0bc8fa5](https://github.com/osawamas/value-hunter-ai/commit/0bc8fa5bbc37f293a558a122286c19226bb23cf3)。既存の入力検査を明示的に固定するテストであり、本体コードの変更なし。
+- ローカルGit接続はDNS解決エラーで失敗。追加したunittestは未実行、今回の変更後CIも未確認。前回までの[米国CI成功 44356701499](https://github.com/osawamas/value-hunter-ai/actions/runs/44356701499)は今回のテスト成功を意味しない。直近[Android CI失敗 44364251701](https://github.com/osawamas/value-hunter-ai/actions/runs/44364251701)はJPX関連コミットの実行で、原因は未調査。
+- 対象取引日2026-11-17。今回の新規株価取得0件、NYSE/Nasdaqの新規網羅率測定なし。既存の照合4,958/5,085件は11月18日観測一覧との比較であり厳密な当日網羅率ではない。原データ・キー・APKは公開していない。
+- 未解決: Dolt実同期と実429、正式終値・株式分割・SEC株数基準日の照合、正式PER/PBR判定、Android連続更新と無音通知。次回は新規テストのCI確認、Dolt実同期、Android失敗ログの調査を優先。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC](https://www.sec.gov/edgar/sec-api-documentation)。
+
 ## 2026-11-19 03:06 JST — 追加した米国株の終値を取引所資料で照合
 
 - 財務・株数を照合済みの17銘柄のうち、利益と自己資本が正の5銘柄について、Nasdaqの公開履歴から同じ11月17日の終値を確認した。DoltHubの株式分割記録はタイムアウトし、株数基準日以降の区間を確認できなかった。
