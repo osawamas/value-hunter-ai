@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 import subprocess
+import time
 from tempfile import TemporaryDirectory
 from urllib.parse import urlencode
 from zipfile import ZipFile
@@ -57,7 +58,13 @@ def get_splits(session):
     where = f" WHERE ex_date BETWEEN '{start}' AND '{session}'"
 
     def query(sql):
-        return json.loads(fetch(DOLT + "?" + urlencode({"q": sql})))
+        url = DOLT + "?" + urlencode({"q": sql})
+        try:
+            payload = fetch(url)
+        except ValueError:
+            time.sleep(3)
+            payload = fetch(url)
+        return json.loads(payload)
 
     manifest = query("SELECT DOLT_HASHOF('HEAD') AS revision")
     if manifest.get("query_execution_status") != "Success" or len(manifest["rows"]) != 1:

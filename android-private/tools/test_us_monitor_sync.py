@@ -28,6 +28,14 @@ class MonitorSyncTest(TestCase):
             with self.assertRaisesRegex(ValueError, "Incomplete split history"):
                 get_splits(DAY)
 
+    def test_retries_one_failed_split_download(self):
+        manifest = {"query_execution_status": "Success", "rows": [{"revision": "a" * 32}]}
+        empty = {"query_execution_status": "Success", "rows": []}
+        replies = [ValueError("Public download unavailable"), json.dumps(manifest), json.dumps(empty)]
+        with patch("us_monitor_sync.fetch", side_effect=replies), patch("us_monitor_sync.time.sleep") as wait:
+            self.assertEqual(get_splits(DAY), empty)
+            wait.assert_called_once_with(3)
+
     def test_keeps_existing_archive_if_replacement_is_incomplete(self):
         with TemporaryDirectory() as workspace:
             cache = Path(workspace) / "companyfacts.zip"
