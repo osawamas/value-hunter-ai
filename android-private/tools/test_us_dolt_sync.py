@@ -7,6 +7,27 @@ from us_dolt_sync import sync
 
 
 class SyncTest(unittest.TestCase):
+
+    def test_invalid_attempt_count_rejected_without_running_dolt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            def runner(cmd, **kwargs):
+                self.fail('invalid attempt count must not execute Dolt')
+            for attempts in (0, -1, 4):
+                with self.subTest(attempts=attempts):
+                    with self.assertRaisesRegex(ValueError, 'attempts must be 1..3'):
+                        sync(dest, runner=runner, attempts=attempts)
+            self.assertFalse(dest.exists())
+
+    def test_missing_parent_rejected_without_running_dolt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'missing-parent' / 'stocks'
+            def runner(cmd, **kwargs):
+                self.fail('missing destination parent must not execute Dolt')
+            with self.assertRaisesRegex(ValueError, 'destination parent does not exist'):
+                sync(dest, runner=runner)
+            self.assertFalse(dest.parent.exists())
+
     def test_zero_exit_without_clone_is_not_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
