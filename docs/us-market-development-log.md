@@ -1,5 +1,14 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 00:18 JST — Dolt初回clone中断時の不完全ディレクトリを保護
+
+- 開始時main: [348b37a](https://github.com/osawamas/value-hunter-ai/commit/348b37a3d4d126fc60bf9a231a167f6d734c7edc)。最新main・本ログ・同期コード・テスト・[米国CI設定](https://github.com/osawamas/value-hunter-ai/blob/main/.github/workflows/us-daily-coverage-tests.yml)を読んだ。直近push Actionsの成否は取得できず、成功未確認。
+- 初回Dolt cloneのTimeoutExpiredまたはOSErrorで不完全な保存先が残る場合、従来の timed_out / os_error ではなく partial_clone_requires_manual_cleanup と判定し、ファイルを削除せず保持する。[実装 a929075](https://github.com/osawamas/value-hunter-ai/commit/a929075f7aa04068c521b7c8ff6ad03846477bb3)、[回帰テスト fbd496d](https://github.com/osawamas/value-hunter-ai/commit/fbd496d81187a5b3cc87a3f8c092d3d45159b864)。並行するSEC/日本株コードには触れず。
+- Pythonで初回cloneタイムアウトと不完全ディレクトリの判定条件を独立再現し1件成功。ただし追加したリポジトリ内unittestとActionsは未実行・未確認。Dolt実同期・実429は未実施。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 対象取引日2026-11-17（既存保存データ）。今回新規終値取得0件、NYSE 1,877/1,896・Nasdaq 3,081/3,189は既存11月18日観測一覧との照合で今回の再測定ではない。SEC照合2,707件も既存記録で再測定なし。株価原本・APIキー・APKは公開していない。
+- 未解決: 最新CI、Dolt実同期、正規未調整終値と分割前価格、企業イベント・株数基準日、正式PER/PBR、Android実機連続更新と無音通知。次回は追加テストのCI完走と中断clone復旧手順を検証し、Doltが不可ならSEC側のテストへ。
+
+
 
 
 
