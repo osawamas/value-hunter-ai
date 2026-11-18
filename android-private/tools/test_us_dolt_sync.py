@@ -276,7 +276,7 @@ class SyncTest(unittest.TestCase):
                 calls.append(cmd)
                 (dest / '.dolt').mkdir(parents=True)
                 return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
-            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'rate_limited')
+            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected sleep')), 'partial_clone_requires_manual_cleanup')
             self.assertEqual(len(calls), 1)
 
 
