@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 18:15 JST — Dolt 429判定を独立再現、実同期は環境制約で保留
+
+- 開始時main: [f0cd8dd](https://github.com/osawamas/value-hunter-ai/commit/f0cd8dd3814b485bd61cae4d6ab5e775e52a43c2)。最新main、既存米国ログ、[米国株CI設定](https://github.com/osawamas/value-hunter-ai/blob/main/.github/workflows/us-daily-coverage-tests.yml)、[直近既知の米国CI 44258042386](https://github.com/osawamas/value-hunter-ai/actions/runs/44258042386)（失敗）、Dolt同期実装とテストを確認。今回の新しいpush Actions成否は未確認。日本株側の並行コミットには触れない。
+- DoltのRATE_LIMIT正規表現をローカルPythonで独立再現。HTTP 429 / Too Many Requests / 1429 / 4290 / status=429 / status 429 の6条件すべて期待通り（6/6）。ただし実リポジトリのテストではないため全テスト成功とは扱わない。今回コード変更なし（既存判定が再現で正しく、重複修正を避けた）。変更箇所はこのログのみ。
+- 実行環境の git ls-remote は github.com のDNS解決に失敗。GitHubコネクタによるソース読取とログ書込は利用可能。Dolt実同期、HTTP 429実測、キャッシュ実体の検証は未実施。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)、[同期コード](https://github.com/osawamas/value-hunter-ai/blob/main/android-private/tools/us_dolt_sync.py)。
+- 対象取引日: 2026-11-17（米国）。今回の新規株価取得0件、NYSE/Nasdaq市場別の同日網羅率は未測定。正規セッション終値・分割前価格・SEC株数・PER/PBR・Android無音通知は未検証。株価原本・APIキー・APKの公開なし。
+- 次回: [Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)で修正後の米国株CI完走を確認し、可能な環境でDolt同期・同一取引日の市場別網羅率を測定。CI失敗なら実ログに沿って修正する。
+
 ## 2026-11-18 17:15 JST — 米国株CIのSyntaxErrorを修正
 
 - 開始時main: [405675b](https://github.com/osawamas/value-hunter-ai/commit/405675b100ee386b7a73a5eed0548ad438d8a3da)。最新main、既存米国ログ、[直近Actions 44263420532](https://github.com/osawamas/value-hunter-ai/actions/runs/44263420532)（JPX成功）と[米国株CI 44258042386](https://github.com/osawamas/value-hunter-ai/actions/runs/44258042386)（失敗）を確認。JPX並行更新には触れない。
