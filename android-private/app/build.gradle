@@ -4,6 +4,7 @@ plugins {
 
 def privateAssets = layout.buildDirectory.dir('generated/privateAssets')
 def historyPath = providers.gradleProperty('jpxHistoryFile').orNull
+def usMonitorPath = providers.gradleProperty('usMonitorFile').orNull
 def massiveKeyPath = providers.gradleProperty('massiveKeyFile').orNull
 def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
     from(rootProject.file('../docs/data/android-s63-shares.json'))
@@ -23,6 +24,15 @@ def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
         }
         from(massiveKeyFile) {
             rename { 'massive-key.txt' }
+        }
+    }
+    if (usMonitorPath != null) {
+        def monitorFile = rootProject.file(usMonitorPath)
+        if (!monitorFile.isFile()) {
+            throw new GradleException('usMonitorFile must point to the generated local SEC ledger')
+        }
+        from(monitorFile) {
+            rename { 'us-monitor-universe.json' }
         }
     }
     into(privateAssets)

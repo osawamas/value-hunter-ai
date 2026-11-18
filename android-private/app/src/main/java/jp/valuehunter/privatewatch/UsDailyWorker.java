@@ -44,6 +44,9 @@ public final class UsDailyWorker extends Worker {
     private static final String HISTORY_MONTH = "us_pilot_history_month";
     private static final String HISTORY_TEXT = "us_pilot_history_text";
     private static final String HISTORY_CURSOR = "us_pilot_history_cursor";
+    private static final String MARKET_DATE = "us_market_coverage_date";
+    private static final String MARKET_SOURCE = "us_market_coverage_source";
+    private static final String MARKET_TEXT = "us_market_coverage_text";
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = "massive-grouped-daily";
@@ -72,6 +75,10 @@ public final class UsDailyWorker extends Worker {
         String source = MASSIVE.equals(state.getString(PROVIDER, "")) ? "Massive" : "DoltHub参考値";
         String result = status + "\n取得済み " + day + "（米東部） · " + source + " "
                 + state.getInt(COUNT, 0) + "件";
+        if (day.equals(state.getString(MARKET_DATE, ""))
+                && state.getString(PROVIDER, "").equals(state.getString(MARKET_SOURCE, ""))) {
+            result += "\n\n" + state.getString(MARKET_TEXT, "");
+        }
         if (day.equals(state.getString(VALUATION_DATE, ""))
                 && state.getString(PROVIDER, "").equals(state.getString(VALUATION_SOURCE, ""))) {
             result += "\n\n" + state.getString(VALUATION_TEXT, "");
@@ -95,9 +102,13 @@ public final class UsDailyWorker extends Worker {
                 if (isStopped()) return Result.retry();
                 LocalDate day = target.minusDays(offset);
                 if (previous != null && !day.isAfter(previous)) {
-                    if (needsValuation(state, previous, provider)) {
+                    boolean assess = needsValuation(state, previous, provider);
+                    boolean count = needsCoverage(state, previous, provider);
+                    if (assess || count) {
                         var snapshot = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
-                        assess(state, snapshot.getJSONArray("closes"), previous, provider);
+                        var closes = snapshot.getJSONArray("closes");
+                        if (count) updateCoverage(state, closes, previous, provider);
+                        if (assess) assess(state, closes, previous, provider);
                     }
                     updateHistory(state, previous);
                     report(state, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち");
@@ -125,6 +136,7 @@ public final class UsDailyWorker extends Worker {
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
                         .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
+                updateCoverage(state, closes, day, provider);
                 assess(state, closes, day, provider);
                 updateHistory(state, day);
                 return Result.success();
@@ -140,6 +152,30 @@ public final class UsDailyWorker extends Worker {
         } catch (JSONException e) {
             report(state, "終値を取得できず（配信形式を要確認）");
             return Result.success();
+        }
+    }
+
+    private static boolean needsCoverage(SharedPreferences state, LocalDate day, String provider) {
+        return !day.toString().equals(state.getString(MARKET_DATE, ""))
+                || !provider.equals(state.getString(MARKET_SOURCE, ""));
+    }
+
+    private void updateCoverage(SharedPreferences state, JSONArray closes, LocalDate day, String provider) {
+        if (isStopped()) return;
+        try {
+            var nasdaq = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "nasdaqlisted.txt", ""), true);
+            var nyse = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "otherlisted.txt", ""), false);
+            JSONObject ledger = null;
+            try (var input = getApplicationContext().getAssets().open(UsMarketCoverage.ASSET)) {
+                ledger = new JSONObject(readText(input));
+            } catch (FileNotFoundException absent) {
+                // Close monitoring uses the live exchange directories even without a private SEC ledger.
+            }
+            String summary = UsMarketCoverage.summarize(nyse, nasdaq, closes, day, ledger);
+            if (!isStopped()) state.edit().putString(MARKET_DATE, day.toString())
+                    .putString(MARKET_SOURCE, provider).putString(MARKET_TEXT, summary).apply();
+        } catch (IOException | JSONException unable) {
+            // Retry the coverage comparison on the next periodic run, keeping the saved closes.
         }
     }
 
@@ -242,6 +278,10 @@ public final class UsDailyWorker extends Worker {
     }
 
     private static JSONObject fetch(String address, String key) throws IOException, JSONException {
+        return new JSONObject(fetchText(address, key));
+    }
+
+    private static String fetchText(String address, String key) throws IOException, JSONException {
         var url = new URL(address);
         var connection = (HttpsURLConnection) url.openConnection();
         try {
@@ -257,20 +297,24 @@ public final class UsDailyWorker extends Worker {
             int code = connection.getResponseCode();
             if (code != 200) throw new HttpStatus(code);
             try (var input = connection.getInputStream()) {
-                var output = new ByteArrayOutputStream();
-                byte[] buffer = new byte[8192];
-                int count;
-                while ((count = input.read(buffer)) != -1) {
-                    if (output.size() + count > UsDailyCloses.MAX_BYTES) {
-                        throw new JSONException("Daily summary exceeds size limit");
-                    }
-                    output.write(buffer, 0, count);
-                }
-                return new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
+                return readText(input);
             }
         } finally {
             connection.disconnect();
         }
+    }
+
+    private static String readText(java.io.InputStream input) throws IOException, JSONException {
+        var output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+            if (output.size() + count > UsDailyCloses.MAX_BYTES) {
+                throw new JSONException("Daily summary exceeds size limit");
+            }
+            output.write(buffer, 0, count);
+        }
+        return new String(output.toByteArray(), StandardCharsets.UTF_8);
     }
 
     private static String readKey(Context context) throws IOException {

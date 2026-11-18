@@ -461,3 +461,21 @@ Massive Stocks Basicは任意の代替経路。無料キーだけを書いたテ
 Android端末では IBM、AAPL、HPQ、AMD、INTC、GM の6銘柄について、SEC Company Factsの開示とUSD/JPYを自動取得し、最新の終値に対する試験的な時価総額・PER・PBR・円換算額を米国株欄に表示する。株数に発行時点との差があり得るため参考判定とする。決算期末と開示日、株数基準日を区別し、確認できる分割や赤字・負の自己資本は保留にする。
 
 同じ6銘柄には過去60か月の月末近くの参考終値レンジも表示する。比較対象は完了済みの月で、各月の終盤3平日から最後に取得できた日を使う。更新は月単位。通信エラー後は取得済みの12か月区間を再利用する。履歴が60か月に満たない場合や分割記録がある場合はレンジを保留する。
+
+### NYSE・Nasdaqの普通株候補を一括照合
+
+米国株欄は定期更新時に Nasdaq Trader の公開銘柄一覧を読み、NYSE本市場・Nasdaqそれぞれの終値取得件数と不足数を表示する。一覧の作成日も表示する。市場の分類は銘柄名称の普通株表記に基づく。
+
+SECの無料公開一括ファイル `companyfacts.zip` と端末の終値キャッシュを使うと、Androidと同じ財務抽出処理で一括照合できる。株式クラスを特定できない銘柄などは保留にする。JDK 17以上とアプリと同じ `org.json:json:20240303` のJARを使用する。
+
+```sh
+python tools/us_monitor_ledger.py 2026-11-17 \
+  --close-cache /path/to/us-daily-closes.json \
+  --companyfacts /path/to/companyfacts.zip \
+  --json-jar /path/to/json-20240303.jar \
+  --output /path/to/us-monitor-universe.json
+```
+
+為替と分割の参考判定を出す場合は、同じ取引日の取得資料を `--fx-snapshot`（Frankfurter v2 USD/JPY）と `--split-snapshot`（DoltHubの分割照会結果）で渡す。分割照会は直前150暦日から取引日までの `split` 表を `act_symbol` で集約し、`symbol` と `CAST(MAX(ex_date) AS CHAR) AS split_date` を返す。集計と判定の内訳は標準出力に出る。生成する台帳に終値を含めない。
+
+生成した日の照合件数をAndroidに表示する場合は、ローカルで `gradle -PusMonitorFile=/path/to/us-monitor-universe.json :app:assembleDebug` を実行する。別日の終値にはその台帳を適用しない。銘柄一覧との終値照合は台帳の組み込みなしでも日次で動く。

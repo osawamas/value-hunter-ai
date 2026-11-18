@@ -20,8 +20,13 @@ final class UsFinancialFacts {
     private record Fact(LocalDate start, LocalDate end, LocalDate filed,
                         String form, String accession, BigDecimal value) {}
 
+    static boolean matchesIssuer(JSONObject payload, int cik) {
+        String value = String.valueOf(payload.opt("cik"));
+        return value.matches("[0-9]{1,10}") && Long.parseLong(value) == cik;
+    }
+
     static Facts read(JSONObject payload, int cik, LocalDate session) throws JSONException {
-        if (payload.optInt("cik") != cik) throw new JSONException("SEC issuer mismatch");
+        if (!matchesIssuer(payload, cik)) throw new JSONException("SEC issuer mismatch");
         var document = payload.getJSONObject("facts");
         var gaap = document.getJSONObject("us-gaap");
         var equity = latest(facts(gaap, "StockholdersEquity", "USD", session), false);
