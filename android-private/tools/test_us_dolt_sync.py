@@ -81,6 +81,15 @@ class SyncTest(unittest.TestCase):
             self.assertTrue(all(cmd == ['dolt', 'pull', '--ff-only'] for cmd in calls))
             self.assertEqual((dest / 'marker').read_text(), 'safe')
 
+    def test_failed_pull_with_disappeared_cache_is_not_cached(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('unexpected retry')), 'invalid_repository_after_command')
+
     def test_unexpected_error_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
