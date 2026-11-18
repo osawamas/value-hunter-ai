@@ -90,6 +90,15 @@ class NasdaqNlsProbeTest(unittest.TestCase):
             with self.subTest(records=records), self.assertRaisesRegex(ValueError, "start and end"):
                 inspect_tape_c(BytesIO(framed))
 
+    def test_tape_c_rejects_malformed_system_event_length(self):
+        start = bytes(8) + b"SO"
+        end = bytes(8) + b"SC"
+        malformed = bytes(8) + b"SH" + bytes(2)
+        framed = b"".join(pack(">H", len(record)) + record
+                          for record in (start, malformed, end))
+        with self.assertRaisesRegex(ValueError, "system event length"):
+            inspect_tape_c(BytesIO(framed))
+
     def test_tape_c_rejects_records_after_session_end(self):
         start = bytes(8) + b"SO"
         end = bytes(8) + b"SC"
