@@ -76,6 +76,14 @@ public class JpxAutomaticFinanceTest {
                 results.entered());
     }
 
+    @Test public void rejectsExternalXmlEntitiesInPublicAnnualFilings() throws Exception {
+        String malicious = filing().replaceFirst("<", "<!DOCTYPE html [<!ENTITY leak SYSTEM \"file:///etc/passwd\">]><");
+        assertNull(JpxAnnualSummary.read(malicious, CODE, RELEASED,
+                "https://www2.jpx.co.jp" + PATH, false));
+        assertNotNull(JpxAnnualSummary.read(filing(), CODE, RELEASED,
+                "https://www2.jpx.co.jp" + PATH, false));
+    }
+
     @Test public void rejectsAnotherIssuerAndCorrectionWithoutSummary() throws Exception {
         assertNull(acquire(archive("決算短信〔日本基準〕(連結)", PATH),
                 filing().replace("14200", "99990")).annual());
