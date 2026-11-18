@@ -1,5 +1,14 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 01:15 JST — Dolt初回タイムアウトのCI期待値を修正
+
+- 開始時main: [d201026](https://github.com/osawamas/value-hunter-ai/commit/d201026be611506406ff96a3b7315ced784d74cd)。本ログ、同期実装、回帰テスト、米国CI設定と直近Actionsを読んだ。並行JPX開発には触れず。
+- 同期実装は初回cloneがタイムアウトし、`.dolt` ディレクトリを残した場合に `partial_clone_requires_manual_cleanup` を返すが、既存の `test_timeout_initial_clone_not_retried` は旧値 `timed_out` を期待していた。実装の保護方針を維持してテスト期待値を修正し、部分メタデータの保存も明示的に検査。[修正コミット c799f0a](https://github.com/osawamas/value-hunter-ai/commit/c799f0af8275407d92949d09f3413b0ca628cc37)。
+- 変更後[米国CI 44345265730](https://github.com/osawamas/value-hunter-ai/actions/runs/44345265730) は確認時点でqueued、成功未確認。変更前の[米国CI 44334278932](https://github.com/osawamas/value-hunter-ai/actions/runs/44334278932) は失敗。ローカルunittestとDolt実同期は未実施。直近[Android CI 44342640998](https://github.com/osawamas/value-hunter-ai/actions/runs/44342640998) は成功だが今回の変更以前の結果。
+- 対象取引日2026-11-17（既存記録）。今回の新規取得0件、網羅率の再測定なし。既存値NYSE 1,877/1,896、Nasdaq 3,081/3,189（11月18日観測一覧基準）。SEC照合済みは最新既存記録で2,746件。原株価/APIキー/APKは公開せず。
+- 未解決: 変更後CI、Dolt実同期、正規未調整終値・分割前価格、株式クラスと株数基準日、正式PER/PBR、Android連続更新・無音通知。次回はCI完走と失敗ログを確認し、Dolt不可ならSECの追加検証。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC Company Facts](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)。
+
+
 
 
 ## 2026-11-19 00:40 JST — 四半期利益と異なる決算期に対応
