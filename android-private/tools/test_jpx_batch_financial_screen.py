@@ -112,6 +112,14 @@ class BatchScreenTests(unittest.TestCase):
             screen({"trade_date": "2026-11-16", "observations": [
                 {"code": "1301", "close": "500", "financial_as_of": "2026-11-17"}]})
 
+    def test_same_day_or_future_disclosure_cannot_qualify(self):
+        for disclosure in ("2026-11-16", "2026-11-17"):
+            with self.subTest(disclosure=disclosure), self.assertRaisesRegex(ValueError, "disclosure"):
+                screen({"trade_date": "2026-11-16", "observations": [
+                    {"code": "1301", "close": "500", "financial_as_of": "2026-09-30",
+                     "financial_disclosed_on": disclosure, "financial_verified": True,
+                     "share_basis_verified": True, "per": "10", "pbr": "0.8"}]})
+
     def test_duplicate_code_rejected(self):
         with self.assertRaises(ValueError):
             screen({"trade_date": "2026-11-16", "observations": [
