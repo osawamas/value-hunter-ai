@@ -230,6 +230,19 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(calls, [['dolt', 'pull', '--ff-only']])
             self.assertEqual((dest / 'marker').read_text(), 'safe')
 
+    def test_alphanumeric_429_identifiers_do_not_trigger_backoff(self):
+        for message in ('error 429A: invalid identifier', 'error X429: invalid identifier'):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / 'stocks'
+                (dest / '.dolt').mkdir(parents=True)
+                calls = []
+                def runner(cmd, **kwargs):
+                    calls.append(cmd)
+                    return SimpleNamespace(returncode=1, stderr=message, stdout='')
+                self.assertEqual(sync(dest, runner=runner,
+                                      sleeper=lambda _: self.fail('unexpected sleep')), 'failed')
+                self.assertEqual(len(calls), 1)
+
     def test_initial_rate_limit_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
