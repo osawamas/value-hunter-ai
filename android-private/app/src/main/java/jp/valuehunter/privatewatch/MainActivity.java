@@ -195,7 +195,8 @@ public final class MainActivity extends Activity {
             try {
                 var daily = JpxDailyCheck.check(this);
                 var rights = JpxShareRights.refresh(this);
-                message = Html.fromHtml(daily.html(rights.rights()) + "<br><br>" + rights.status(),
+                var history = JpxHistoryReference.load(this);
+                message = Html.fromHtml(daily.html(rights.rights(), history) + "<br><br>" + rights.status(),
                         Html.FROM_HTML_MODE_LEGACY);
             } catch (IOException error) {
                 message = "東証日報の確認に失敗\n" + error.getMessage();

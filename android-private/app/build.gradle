@@ -2,14 +2,24 @@ plugins {
     id 'com.android.application' version '8.7.3'
 }
 
-def ledgerAssets = layout.buildDirectory.dir('generated/s63LedgerAssets')
-def syncS63ShareLedger = tasks.register('syncS63ShareLedger', Sync) {
+def privateAssets = layout.buildDirectory.dir('generated/privateAssets')
+def historyPath = providers.gradleProperty('jpxHistoryFile').orNull
+def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
     from(rootProject.file('../docs/data/android-s63-shares.json'))
-    into(ledgerAssets)
+    if (historyPath != null) {
+        def historyFile = rootProject.file(historyPath)
+        if (!historyFile.isFile()) {
+            throw new GradleException('jpxHistoryFile must point to a local history JSON file')
+        }
+        from(historyFile) {
+            rename { 'jpx-history.json' }
+        }
+    }
+    into(privateAssets)
 }
 
 android {
-    sourceSets.main.assets.srcDir(ledgerAssets)
+    sourceSets.main.assets.srcDir(privateAssets)
     namespace 'jp.valuehunter.privatewatch'
     compileSdk 35
     defaultConfig {
@@ -27,7 +37,7 @@ android {
 }
 
 tasks.named('preBuild').configure {
-    dependsOn(syncS63ShareLedger)
+    dependsOn(syncPrivateAssets)
 }
 
 dependencies {

@@ -63,6 +63,10 @@ final class JpxDailyCheck {
             return editionKey(latest.date(), latest.edition(), previous.date(), previous.edition(), rightsRevision);
         }
         String html(JpxShareRights rights) {
+            return html(rights, JpxHistoryReference.empty());
+        }
+
+        String html(JpxShareRights rights, JpxHistoryReference history) {
             var message = new StringBuilder("立会日 ").append(latest.date());
             if (previous == null) {
                 message.append("<br>比較用の日報を取得できなかった");
@@ -86,6 +90,7 @@ final class JpxDailyCheck {
                     message.append(close.toPlainString()).append(" 円")
                             .append(sessions.afternoon() == null ? "（前場）" : "（後場）");
                     appendBudget(message, close);
+                    history.appendHtml(message, code, latest.date());
                     if (previous != null) appendChange(message, code, close, rights);
                     // Missing monthly evidence is not evidence that no split occurred.
                     // Keep the displayed valuation on hold, not only its day-to-day transition.

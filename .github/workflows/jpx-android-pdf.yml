@@ -11,6 +11,7 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxCloseTable.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxAndroidPdfReader.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxDailyCheck.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxHistoryReference.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxReferenceFinancials.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxShareRights.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxWatchWorker.java'
@@ -40,7 +41,10 @@ jobs:
           cache-read-only: true
       - name: Build APKs for the private emulator run
         working-directory: android-private
-        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+        run: |
+          gradle --no-daemon -PjpxHistoryFile=app/src/androidTest/assets/jpx-history-sample.json :app:assembleDebug :app:assembleDebugAndroidTest
+          unzip -p app/build/outputs/apk/debug/app-debug.apk assets/jpx-history.json > "$RUNNER_TEMP/jpx-packaged-history.json"
+          cmp app/src/androidTest/assets/jpx-history-sample.json "$RUNNER_TEMP/jpx-packaged-history.json"
       - name: Fetch reference PDFs from JPX
         run: |
           curl -fsSL --retry 2 --max-time 45 https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/202610/stq_20261029.pdf -o "$RUNNER_TEMP/jpx-20261029.pdf"

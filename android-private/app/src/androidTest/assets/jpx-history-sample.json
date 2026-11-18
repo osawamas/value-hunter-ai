@@ -1,0 +1,33 @@
+{
+  "months_requested": 60,
+  "by_code": {
+    "3861": {
+      "status": "split_adjusted",
+      "first_session": "2021-10-29",
+      "last_session": "2026-09-30",
+      "months_with_close": 60,
+      "range_position": "0.2510"
+    },
+    "1301": {
+      "status": "split_adjusted",
+      "first_session": "2021-12-30",
+      "last_session": "2026-11-30",
+      "months_with_close": 60,
+      "range_position": "0.9999"
+    },
+    "7203": {
+      "status": "rights_report_gap",
+      "first_session": "2021-10-29",
+      "last_session": "2026-09-30",
+      "months_with_close": 60,
+      "range_position": "0.8888"
+    },
+    "9434": {
+      "status": "split_adjusted",
+      "first_session": "2021-10-29",
+      "last_session": "2026-09-30",
+      "months_with_close": 60,
+      "range_position": "1.1234"
+    }
+  }
+}

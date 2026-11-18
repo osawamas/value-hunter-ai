@@ -46,10 +46,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 rights = JpxShareRights.parse(new String(input.readAllBytes(), StandardCharsets.UTF_8)).rights();
             }
             var universe = JpxStockUniverse.load(getTargetContext());
+            var history = JpxHistoryReference.load(getTargetContext());
             String logs = digestReport(directory, LocalDate.of(2026, 10, 29), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
                     + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
-                    + checkSampleReport(directory, rights, universe);
+                    + checkSampleReport(directory, rights, universe, history);
             checkRightsRefresh(getTargetContext());
             checkJpxWatch();
             checkReportEditions();
@@ -84,7 +85,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
     }
 
     private static String checkSampleReport(File directory, JpxShareRights rights,
-                                            JpxStockUniverse universe) throws IOException {
+                                            JpxStockUniverse universe, JpxHistoryReference history) throws IOException {
         var file = new File(directory, "jpx-20261116.pdf");
         var day = LocalDate.of(2026, 11, 16);
         var report = JpxDailyCheck.readReport(file, day, universe, "");
@@ -96,7 +97,12 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             if (date.equals(previousDay)) return previous;
             throw new AssertionError("Checked an unexpected JPX date: " + date);
         });
-        String html = comparison.html(rights);
+        String html = comparison.html(rights, history);
+        if (!html.contains("月次終値レンジ内の位置 25.1%")
+                || !html.contains("2021-10-29〜2026-09-30 · 60か月分")
+                || html.split("月次終値レンジ内の位置", -1).length != 2) {
+            throw new AssertionError("JPX details did not show only the applicable historical range");
+        }
         var realScreen = comparison.screen(rights);
         if (!html.contains("終値取得 3676 / 3686銘柄")
                 || !html.contains("100株枠 1347銘柄 · 1株枠 2329銘柄")
