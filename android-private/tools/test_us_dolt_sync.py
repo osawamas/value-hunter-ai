@@ -303,5 +303,22 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(len(calls), 1)
 
 
+    def test_cache_metadata_removed_during_backoff_stops_before_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('preserve')
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            def sleeper(seconds):
+                self.assertEqual(seconds, 60)
+                (dest / '.dolt').rmdir()
+            self.assertEqual(sync(dest, runner=runner, sleeper=sleeper),
+                             'invalid_repository_after_command')
+            self.assertEqual(calls, [['dolt', 'pull', '--ff-only']])
+            self.assertEqual((dest / 'marker').read_text(), 'preserve')
+
 if __name__ == '__main__':
     unittest.main()
