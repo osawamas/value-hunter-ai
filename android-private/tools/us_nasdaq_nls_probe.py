@@ -127,7 +127,9 @@ def inspect_tape_c(stream):
             raise ValueError("Expected one NLS Plus session with system start and end")
         if events == [b"O", b"C"]:
             raise ValueError("Unexpected NLS Plus record after session end")
-        if kind == b"S" and length == 10:
+        if kind == b"S":
+            if length != 10:
+                raise ValueError("Invalid NLS Plus system event length")
             events.append(message[9:10])
         if kind in (b"J", b"j"):
             size, left, right = (42, 26, 30) if kind == b"J" else (58, 34, 42)
