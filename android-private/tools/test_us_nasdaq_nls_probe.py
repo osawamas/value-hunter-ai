@@ -58,7 +58,7 @@ class NasdaqNlsProbeTest(unittest.TestCase):
         heartbeat = bytes(18) + pack(">H", 0xFFFF)
         self.assertEqual([], list(mold_messages(heartbeat)))
         with self.assertRaisesRegex(ValueError, "Unexpected bytes"):
-            list(mold_messages(heartbeat + b"\\x00"))
+            list(mold_messages(heartbeat + bytes([0])))
 
     def test_tape_c_distinguishes_official_trade_from_consolidated_summary(self):
         start = bytes(8) + b"SO"
