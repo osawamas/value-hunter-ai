@@ -24,7 +24,7 @@ final class UsMarketCoverage {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MMdduuuu")
             .withResolverStyle(ResolverStyle.STRICT);
 
-    record Directory(LocalDate date, Set<String> symbols) {}
+    record Directory(LocalDate date, Set<String> symbols, Set<String> listed, Set<String> other) {}
 
     static Directory directory(String file, boolean nasdaq) throws JSONException {
         String[] lines = file.replaceFirst("^\\uFEFF", "").trim().split("\\r?\\n");
@@ -48,6 +48,8 @@ final class UsMarketCoverage {
         }
 
         var symbols = new HashSet<String>();
+        var listed = new HashSet<String>();
+        var other = new HashSet<String>();
         for (int i = 1; i < lines.length - 1; i++) {
             var row = lines[i].split("\\|", -1);
             if (row.length != header.size() || !SYMBOL.matcher(row[symbol]).matches()
@@ -55,13 +57,17 @@ final class UsMarketCoverage {
                     || !(row[etf].equals("N") || row[etf].equals("Y"))) {
                 throw new JSONException("Invalid listing directory row");
             }
-            if (row[test].equals("N") && row[etf].equals("N")
-                    && (nasdaq ? !row[market].equals("Y") : row[market].equals("N"))
-                    && COMMON.matcher(row[name]).find() && !OTHER.matcher(row[name]).find()
-                    && !symbols.add(row[symbol])) throw new JSONException("Duplicate listing symbol");
+            if (row[test].equals("Y") || row[etf].equals("Y") || (nasdaq && row[market].equals("Y"))) continue;
+            String ticker = row[symbol];
+            if (!listed.add(ticker)) throw new JSONException("Duplicate listing symbol");
+            if (OTHER.matcher(row[name]).find()) {
+                other.add(ticker);
+            } else if ((nasdaq || row[market].equals("N")) && COMMON.matcher(row[name]).find()) {
+                symbols.add(ticker);
+            }
         }
         if (symbols.isEmpty()) throw new JSONException("No ordinary stock symbols");
-        return new Directory(date, symbols);
+        return new Directory(date, symbols, listed, other);
     }
 
     static String summarize(Directory nyse, Directory nasdaq, JSONArray closes,

@@ -84,6 +84,35 @@ final class UsDoltCloses {
         return dates;
     }
 
+    static Map<String, LocalDate> allSplits(LocalDate from, LocalDate to, Download download)
+            throws IOException, JSONException {
+        var manifest = query(download, "SELECT DOLT_HASHOF('HEAD') AS revision");
+        if (manifest.length() != 1) throw new JSONException("Missing split revision");
+        String revision = manifest.getJSONObject(0).getString("revision");
+        if (!revision.matches("[0-9a-v]{32}")) throw new JSONException("Invalid split revision");
+        var dates = new HashMap<String, LocalDate>();
+        for (int offset = 0; offset < 12_000; offset += PAGE_SIZE) {
+            var rows = query(download, "SELECT act_symbol AS symbol, CAST(MAX(ex_date) AS CHAR) AS split_date"
+                    + " FROM split AS OF '" + revision + "' WHERE ex_date BETWEEN '" + from + "' AND '" + to + "'"
+                    + " GROUP BY act_symbol ORDER BY act_symbol LIMIT " + PAGE_SIZE
+                    + (offset == 0 ? "" : " OFFSET " + offset));
+            if (rows.length() > PAGE_SIZE) throw new JSONException("Oversized split result");
+            for (int index = 0; index < rows.length(); index++) {
+                var row = rows.getJSONObject(index);
+                var symbol = row.getString("symbol");
+                try {
+                    var date = LocalDate.parse(row.getString("split_date"));
+                    if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}") || date.isBefore(from) || date.isAfter(to)
+                            || dates.put(symbol, date) != null) throw new JSONException("Invalid split page");
+                } catch (DateTimeParseException invalid) {
+                    throw new JSONException("Invalid split date");
+                }
+            }
+            if (rows.length() < PAGE_SIZE) return dates;
+        }
+        throw new JSONException("Incomplete split result");
+    }
+
     static JSONArray monthlyRows(YearMonth first, Download download) throws IOException, JSONException {
         String dates = UsMonthlyHistory.monthEndDates(first, 12).stream()
                 .map(day -> "'" + day + "'").collect(Collectors.joining(",", "(", ")"));

@@ -50,7 +50,7 @@ public final class UsDailyWorker extends Worker {
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = UsDailyCloses.MASSIVE_SOURCE;
-    private static final String PRIVATE_STATUS = "us_private_sec_status";
+    static final String PRIVATE_STATUS = "us_private_sec_status";
     private static final String PRIVATE_BASELINE = "us_private_sec_baseline";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final int US_NOTIFICATION_ID = 6;
@@ -87,7 +87,7 @@ public final class UsDailyWorker extends Worker {
                 && state.getString(PROVIDER, "").equals(state.getString(VALUATION_SOURCE, ""))) {
             result += "\n\n" + state.getString(VALUATION_TEXT, "");
         }
-        String privateStatus = state.getString(PRIVATE_STATUS, "全銘柄の財務はMacからの同期を待っています");
+        String privateStatus = state.getString(PRIVATE_STATUS, "米国株の財務取得はWi-Fi接続時に開始");
         if (!privateStatus.isEmpty()) result += "\n\n" + privateStatus;
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
@@ -103,7 +103,7 @@ public final class UsDailyWorker extends Worker {
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
             LocalDate previous = cachedDate(file, state, provider);
-            if (previous != null) updatePrivateScreen(state, file, previous, provider);
+            if (previous != null) UsSecFinanceWorker.ensureScheduled(context);
             LocalDate target = UsDailyCloses.mostRecentEligibleDay(Instant.now());
             for (int offset = 0; offset < 7; offset++) {
                 if (isStopped()) return Result.retry();
@@ -143,9 +143,9 @@ public final class UsDailyWorker extends Worker {
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
                         .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
+                UsSecFinanceWorker.ensureScheduled(context);
                 updateCoverage(state, closes, day, provider);
                 assess(state, closes, day, provider);
-                updatePrivateScreen(state, file, day, provider);
                 updateHistory(state, day);
                 return Result.success();
             }
@@ -163,23 +163,14 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    void updatePrivateScreen(SharedPreferences state, AtomicFile closeFile, LocalDate day, String provider) {
-        if (isStopped()) return;
-        var context = getApplicationContext();
-        var ledgerFile = new File(context.getNoBackupFilesDir(), UsMarketCoverage.ASSET);
-        if (!ledgerFile.isFile()) return;
-        try (var input = new java.io.FileInputStream(ledgerFile)) {
-            var ledger = new JSONObject(readText(input));
-            LocalDate ledgerDay = LocalDate.parse(ledger.getString("trading_date_et"));
-            if (!day.equals(ledgerDay)) {
-                state.edit().putString(PRIVATE_STATUS, day + "の自動財務台帳を同期待ち").apply();
-                return;
-            }
-            String closeHash = UsReferenceAlerts.sha256(closeFile.readFully());
-            if (!provider.equals(ledger.optString("close_provider")) || !closeHash.equals(ledger.optString("close_sha256"))) {
-                state.edit().putString(PRIVATE_STATUS, day + "の終値に対応する財務台帳を同期待ち").apply();
-                return;
-            }
+    static void applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,
+                                     LocalDate day, String provider, String closeHash,
+                                     java.util.function.BooleanSupplier stopped) {
+        if (stopped.getAsBoolean()) return;
+        try {
+            if (!day.toString().equals(ledger.optString("trading_date_et"))
+                    || !provider.equals(ledger.optString("close_provider"))
+                    || !closeHash.equals(ledger.optString("close_sha256"))) return;
             var coverage = ledger.getJSONObject("coverage");
             int financials = coverage.getJSONObject("NYSE").getInt("with_close_and_reference_financials")
                     + coverage.getJSONObject("Nasdaq").getInt("with_close_and_reference_financials");
@@ -209,9 +200,9 @@ public final class UsDailyWorker extends Worker {
                     .put("reference_screen", ledger.getJSONObject("reference_screen"));
             if (previous != null && day.equals(previous.day()) && !closeHash.equals(previous.hash())) pending = "";
             if (!pending.contains("\n")) pending = "";
-            if (isStopped() || !state.edit().putString(PRIVATE_BASELINE, baseline.toString())
+            if (stopped.getAsBoolean() || !state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status).commit()) return;
-            if (!pending.isEmpty() && !isStopped()) {
+            if (!pending.isEmpty() && !stopped.getAsBoolean()) {
                 int separator = pending.indexOf('\n');
                 if (ScanWorker.postNotification(context, US_NOTIFICATION_ID,
                         pending.substring(0, separator), pending.substring(separator + 1))) {
@@ -220,7 +211,7 @@ public final class UsDailyWorker extends Worker {
                     state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
                 }
             }
-        } catch (IOException | JSONException | DateTimeParseException e) {
+        } catch (JSONException | DateTimeParseException e) {
             state.edit().putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
         }
     }
@@ -346,7 +337,7 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static void writeSnapshot(AtomicFile file, JSONObject snapshot) throws IOException {
+    static void writeSnapshot(AtomicFile file, JSONObject snapshot) throws IOException {
         var stream = file.startWrite();
         try {
             stream.write(snapshot.toString().getBytes(StandardCharsets.UTF_8));
@@ -357,11 +348,11 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static JSONObject fetch(String address, String key) throws IOException, JSONException {
+    static JSONObject fetch(String address, String key) throws IOException, JSONException {
         return new JSONObject(fetchText(address, key));
     }
 
-    private static String fetchText(String address, String key) throws IOException, JSONException {
+    static String fetchText(String address, String key) throws IOException, JSONException {
         var url = new URL(address);
         var connection = (HttpsURLConnection) url.openConnection();
         try {
@@ -369,7 +360,7 @@ public final class UsDailyWorker extends Worker {
             connection.setReadTimeout(30_000);
             connection.setInstanceFollowRedirects(false);
             if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
-            if ("data.sec.gov".equals(url.getHost())) {
+            if (java.util.Set.of("data.sec.gov", "www.sec.gov").contains(url.getHost())) {
                 connection.setRequestProperty("User-Agent",
                         "VALUE HUNTER AI https://github.com/osawamas/value-hunter-ai");
                 connection.setRequestProperty("Accept", "application/json");
@@ -417,7 +408,7 @@ public final class UsDailyWorker extends Worker {
         state.edit().putString(STATUS, status).apply();
     }
 
-    private static final class HttpStatus extends IOException {
+    static final class HttpStatus extends IOException {
         final int code;
 
         HttpStatus(int code) {
