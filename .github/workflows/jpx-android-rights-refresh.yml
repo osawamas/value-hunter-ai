@@ -38,7 +38,7 @@ jobs:
         run: python -m unittest discover -s android-private/tools -p 'test_jpx*.py' -v
       - name: Verify a refresh against official JPX sources
         working-directory: android-private
-        run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-03 --dry-run
+        run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-01 --dry-run
 
   refresh:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -61,7 +61,7 @@ jobs:
         run: python -m unittest discover -s android-private/tools -p 'test_jpx_rights_sources.py' -v
       - name: Refresh the rights snapshot from JPX originals
         working-directory: android-private
-        run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-03
+        run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-01
       - name: Commit the verified rights snapshot if it changed
         run: |
           snapshot=android-private/app/src/main/assets/jpx-share-rights.json

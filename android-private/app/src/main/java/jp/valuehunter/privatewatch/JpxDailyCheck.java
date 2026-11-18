@@ -95,7 +95,7 @@ final class JpxDailyCheck {
                     // Missing monthly evidence is not evidence that no split occurred.
                     // Keep the displayed valuation on hold, not only its day-to-day transition.
                     String valuationHold = rights.holdReason(
-                            code, JpxReferenceFinancials.ANNUAL_END, latest.date());
+                            code, JpxReferenceFinancials.periodEnd(code), latest.date());
                     if (valuationHold.isEmpty()) {
                         JpxReferenceFinancials.appendHtml(message, code, latest.date(), close);
                     } else {
@@ -185,7 +185,7 @@ final class JpxDailyCheck {
         }
 
         private ReferenceChange referenceChange(String code, JpxShareRights rights) {
-            String reason = rights.holdReason(code, JpxReferenceFinancials.ANNUAL_END, latest.date());
+            String reason = rights.holdReason(code, JpxReferenceFinancials.periodEnd(code), latest.date());
             if (!reason.isEmpty()) {
                 var held = new Candidate(code, 0, Level.HELD);
                 return new ReferenceChange(held, held, reason);

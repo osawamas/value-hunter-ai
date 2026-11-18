@@ -114,6 +114,41 @@ public class UsFinancialFactsTest {
         assertNull(UsFinancialFacts.read(document, 1, SESSION));
     }
 
+    @Test public void addsOnlyFourConsecutiveFiscalQuarters() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        var quarters = new JSONArray()
+                .put(row("2025-10-01", "2025-12-31", "2026-02-01", K, "10-K", 10))
+                .put(row("2026-01-01", "2026-03-31", "2026-05-01", "0000000001-26-000003", "10-Q", 20))
+                .put(row("2026-04-01", "2026-06-30", "2026-08-01", "0000000001-26-000004", "10-Q", 30))
+                .put(row("2026-07-01", "2026-09-30", "2026-10-20", Q, "10-Q", 40));
+        gaap.put("NetIncomeLoss", units("USD", quarters));
+        var result = UsFinancialFacts.read(document, 1, SESSION);
+        assertEquals(new BigDecimal("100"), result.profit());
+        assertEquals("parent_four_quarters", result.profitBasis());
+
+        quarters.getJSONObject(2).put("start", "2026-04-02");
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+        quarters.getJSONObject(2).put("start", "2026-04-01");
+        quarters.put(row("2026-04-01", "2026-06-30", "2026-08-01", "0000000001-26-000004", "10-Q", 31));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void derivesFourthQuarterFromMatchingAnnualAndNineMonthPeriods() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        var quarters = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "10-K", 90))
+                .put(row("2025-01-01", "2025-09-30", "2025-10-20", "0000000001-25-000002", "10-Q", 80))
+                .put(row("2026-01-01", "2026-03-31", "2026-05-01", "0000000001-26-000003", "10-Q", 20))
+                .put(row("2026-04-01", "2026-06-30", "2026-08-01", "0000000001-26-000004", "10-Q", 30))
+                .put(row("2026-07-01", "2026-09-30", "2026-10-20", Q, "10-Q", 40));
+        gaap.put("NetIncomeLoss", units("USD", quarters));
+        assertEquals(new BigDecimal("100"), UsFinancialFacts.read(document, 1, SESSION).profit());
+        quarters.getJSONObject(1).put("start", "2025-01-02");
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
     private static JSONObject payload() throws JSONException {
         var equity = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 350));
         var profit = new JSONArray()

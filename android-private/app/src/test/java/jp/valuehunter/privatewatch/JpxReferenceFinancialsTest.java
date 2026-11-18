@@ -10,9 +10,15 @@ import static org.junit.Assert.assertTrue;
 
 public final class JpxReferenceFinancialsTest {
     @Test public void verifiedAnnualDisclosuresAreAvailableAfterRelease() {
-        assertEquals(8, JpxReferenceFinancials.watchCodes().size());
+        assertEquals(12, JpxReferenceFinancials.watchCodes().size());
+        check("1928", LocalDate.of(2026, 3, 5), "358.07", "3300.57", "648237426");
+        check("7751", LocalDate.of(2026, 1, 29), "367.48", "3974.81", "878624893");
+        assertEquals(LocalDate.of(2025, 12, 31), JpxReferenceFinancials.periodEnd("7751"));
+        assertEquals(LocalDate.of(2026, 1, 31), JpxReferenceFinancials.periodEnd("1928"));
         check("3864", LocalDate.of(2026, 5, 14), "43.37", "2354.68", "43808179");
         check("5020", LocalDate.of(2026, 5, 14), "96.18", "1252.75", "2689892692");
+        check("8002", LocalDate.of(2026, 5, 1), "330.42", "2663.18", "1638396915");
+        check("8591", LocalDate.of(2026, 5, 11), "400.27", "4080.24", "1101621922");
         check("9433", LocalDate.of(2026, 5, 12), "183.59", "1333.50", "3807078418");
     }
 

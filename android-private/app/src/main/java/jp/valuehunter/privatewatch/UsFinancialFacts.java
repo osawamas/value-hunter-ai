@@ -82,12 +82,24 @@ final class UsFinancialFacts {
         var profit = calculateProfit(profits, equity);
         String profitBasis = "parent_net_income";
         if (supplementary && profit.value == null) {
-            // Keep the same numerator definition in all periods of the trailing-year calculation.
-            var common = calculateProfit(
-                    facts(gaap, "NetIncomeLossAvailableToCommonStockholdersBasic", "USD", session), equity);
+            // Keep one numerator definition across all periods.
+            var commonRows = facts(gaap, "NetIncomeLossAvailableToCommonStockholdersBasic", "USD", session);
+            var common = calculateProfit(commonRows, equity);
             if (common.value != null) {
                 profit = common;
                 profitBasis = "income_available_to_common";
+            } else {
+                var quarters = fourQuarters(profits, equity);
+                if (quarters != null) {
+                    profit = quarters;
+                    profitBasis = "parent_four_quarters";
+                } else {
+                    quarters = fourQuarters(commonRows, equity);
+                    if (quarters != null) {
+                        profit = quarters;
+                        profitBasis = "income_available_to_common_four_quarters";
+                    }
+                }
             }
         }
         if (profit.value == null) return held(profit.hold);
@@ -121,6 +133,41 @@ final class UsFinancialFacts {
         if (prior == null) return Profit.held("prior_ytd_profit_unconfirmed");
         return new Profit(annual.value.add(ytd.value).subtract(prior.value),
                 annual.reconciled || ytd.reconciled || prior.reconciled, "");
+    }
+
+    private static Profit fourQuarters(List<Fact> profits, Fact equity) {
+        LocalDate end = equity.end;
+        var total = BigDecimal.ZERO;
+        boolean reconciled = false;
+        for (int index = 0; index < 4; index++) {
+            LocalDate endOfQuarter = end;
+            boolean current = index == 0;
+            var matching = profits.stream().filter(f -> f.start != null && f.end.equals(endOfQuarter)
+                    && days(f) >= 77 && days(f) <= 105 && !f.filed.isAfter(equity.filed)
+                    && (!current || sameFiling(f, equity))).collect(Collectors.toList());
+            var quarter = latest(matching, false);
+            if (!current && matching.isEmpty()) quarter = fiscalFourthQuarter(profits, end, equity.filed);
+            if (quarter == null) return null;
+            reconciled |= quarter.reconciled;
+            total = total.add(quarter.value);
+            end = quarter.start.minusDays(1);
+        }
+        long span = ChronoUnit.DAYS.between(end, equity.end);
+        return span >= 350 && span <= 380 ? new Profit(total, reconciled, "") : null;
+    }
+
+    private static Fact fiscalFourthQuarter(List<Fact> profits, LocalDate end, LocalDate filingCutoff) {
+        var annual = latest(profits.stream().filter(f -> "10-K".equals(f.form) && f.end.equals(end)
+                && !f.filed.isAfter(filingCutoff) && fullYear(f)).collect(Collectors.toList()), false);
+        if (annual == null) return null;
+        var throughThird = latest(profits.stream().filter(f -> annual.start.equals(f.start)
+                && !f.filed.isAfter(annual.filed) && ("10-Q".equals(f.form) || sameFiling(annual, f))
+                && f.end.isBefore(end) && days(f) >= 250 && days(f) <= 295
+                && ChronoUnit.DAYS.between(f.end, end) >= 77 && ChronoUnit.DAYS.between(f.end, end) <= 105)
+                .collect(Collectors.toList()), false);
+        if (throughThird == null) return null;
+        return new Fact(throughThird.end.plusDays(1), end, annual.filed, annual.form, annual.accession,
+                annual.value.subtract(throughThird.value), annual.reconciled || throughThird.reconciled);
     }
 
     private static Assessment held(String reason) {

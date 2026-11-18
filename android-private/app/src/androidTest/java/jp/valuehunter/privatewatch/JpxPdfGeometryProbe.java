@@ -134,6 +134,14 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         if (realScreen.held() != JpxDailyCheck.WATCH_CODES.size() || !realScreen.entered().isEmpty()) {
             throw new AssertionError("Published JPX reports notified during missing rights coverage");
         }
+        var sinceApril = new java.util.HashSet<YearMonth>();
+        for (int month = 4; month <= 11; month++) sinceApril.add(YearMonth.of(2026, month));
+        var splitBasis = new JpxShareRights(Set.of("7751", "1928"), sinceApril, List.of());
+        var reasons = comparison.screen(splitBasis).holds();
+        if (reasons.stream().noneMatch(row -> row.code().equals("7751") && row.reason().contains("2026-01、2026-02、2026-03"))
+                || reasons.stream().noneMatch(row -> row.code().equals("1928") && row.reason().contains("2026-02、2026-03"))) {
+            throw new AssertionError("JPX comparison did not check each issuer's fiscal-period end");
+        }
         if (!report.date().equals(day) || !report.source().endsWith("/202611/stq_20261116.pdf")
                 || !html.contains("7203  3428 円（後場）")
                 || !html.contains("3861  847.4 円（後場）")

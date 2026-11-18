@@ -1,17 +1,23 @@
 {
-  "revision": "2026-11-18T15:26:13.150973Z",
+  "revision": "2026-11-18T15:40:03.545650Z",
   "coveredCodes": [
     "1301",
+    "1928",
     "3861",
     "3864",
     "5020",
     "6861",
     "7203",
+    "7751",
+    "8002",
+    "8591",
     "9432",
     "9433",
     "9434"
   ],
   "monthlySources": {
+    "2026-01": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000000nwgb-att/17_kenri2601.pdf",
+    "2026-02": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000000poko-att/17_kenri2602.pdf",
     "2026-03": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt0000013821-att/17_kenri2603.pdf",
     "2026-04": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt00000178b0-att/17_kenri2604.pdf",
     "2026-05": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000001hyrc-att/17_kenri2605.pdf",
