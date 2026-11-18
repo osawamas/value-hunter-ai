@@ -100,9 +100,15 @@ def screen_report(day, stocks, prices, duplicates, financials, rights, single_sh
         source_counts[basis] += 1
         if basis != "no_share_change_in_supplied_reports":
             continue
+        per = financial_ratio(close, financial.get("eps_jpy"))
+        pbr = financial_ratio(close, financial.get("bps_jpy"))
+        source_counts["financial_basis_verified"] += 1
+        if per is not None and per > 0 and pbr is not None and pbr > 0:
+            source_counts["both_ratios_usable"] += 1
+        else:
+            source_counts["incomplete_or_nonpositive_ratios"] += 1
         row.update(financial_as_of=period_end.isoformat(), financial_verified=True, share_basis_verified=True,
-                   per=financial_ratio(close, financial.get("eps_jpy")),
-                   pbr=financial_ratio(close, financial.get("bps_jpy")))
+                   per=per, pbr=pbr)
 
     result = screen({"trade_date": day.isoformat(), "observations": observations})
     result["source_counts"] = dict(source_counts)
