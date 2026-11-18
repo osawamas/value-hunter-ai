@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 import sys
 import tempfile
@@ -70,6 +71,34 @@ class SourceFetchTest(unittest.TestCase):
             self.assertEqual(audit['summary']['failed'], 1)
             self.assertEqual([r['status'] for r in audit['sources']], ['cached', 'failed'])
             self.assertEqual(audit['summary']['financial_records_verified'], 0)
+
+    def test_transient_failure_recovers_without_partial_file(self):
+        class FlakyOpener(FakeOpener):
+            def open(self, request, timeout):
+                self.calls += 1
+                if self.calls == 1:
+                    raise URLError('temporary disconnect')
+                return FakeResponse(self.data)
+        with tempfile.TemporaryDirectory() as directory:
+            opener = FlakyOpener(self.data)
+            with patch('jpx_financial_source_fetch.time.sleep') as sleep:
+                self.assertEqual(fetch(self.record, Path(directory), {'issuer.example'}, opener), 'downloaded')
+            self.assertEqual(opener.calls, 2)
+            sleep.assert_called_once()
+            self.assertEqual(len(list(Path(directory).glob('*.pdf'))), 1)
+
+    def test_not_found_is_not_retried(self):
+        class NotFoundOpener(FakeOpener):
+            def open(self, request, timeout):
+                self.calls += 1
+                raise HTTPError(request.full_url, 404, 'missing', {}, None)
+        with tempfile.TemporaryDirectory() as directory:
+            opener = NotFoundOpener(self.data)
+            with patch('jpx_financial_source_fetch.time.sleep') as sleep:
+                with self.assertRaises(HTTPError):
+                    fetch(self.record, Path(directory), {'issuer.example'}, opener)
+            self.assertEqual(opener.calls, 1)
+            sleep.assert_not_called()
 
     def test_reject_non_pdf(self):
         with tempfile.TemporaryDirectory() as directory:
