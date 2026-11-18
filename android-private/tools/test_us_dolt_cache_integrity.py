@@ -7,6 +7,24 @@ from us_dolt_sync import sync
 
 
 class DoltCacheIntegrityTest(unittest.TestCase):
+    def test_symlink_destination_is_rejected_without_running_dolt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            actual = root / 'actual'
+            (actual / '.dolt').mkdir(parents=True)
+            linked = root / 'stocks'
+            linked.symlink_to(actual, target_is_directory=True)
+            calls = []
+
+            def runner(command, **kwargs):
+                calls.append(command)
+                self.fail('Dolt must not run for a linked destination')
+
+            with self.assertRaisesRegex(ValueError, 'symlink'):
+                sync(linked, runner=runner)
+            self.assertEqual(calls, [])
+            self.assertTrue((actual / '.dolt').is_dir())
+
     def test_failed_pull_replaced_metadata_symlink_is_not_cached(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
