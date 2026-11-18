@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 22:17 JST — 米国CI成功と429判定の独立再検証
+
+- 開始時main: [8973e0e](https://github.com/osawamas/value-hunter-ai/commit/8973e0ed77ffb60033c6c0a1d4d4382592aa070a)。最新main・本ログ・Dolt同期コード・直近Actionsを確認。22:16 JSTまでの並行米国開発（6銘柄60か月参考レンジ、11月17日終値12,604件、NYSE 1,877/1,896・Nasdaq 3,081/3,189、6銘柄SEC照合）を確認し、重複するコード変更を避けた。
+- [米国CI 44307602334](https://github.com/osawamas/value-hunter-ai/actions/runs/44307602334) は成功。直近[Android private preview 44312116889](https://github.com/osawamas/value-hunter-ai/actions/runs/44312116889) は確認時点で実行中、[ZIP 44312117027](https://github.com/osawamas/value-hunter-ai/actions/runs/44312117027) は成功。これらを実機の連続更新成功とは扱わない。
+- [Dolt同期コード](https://github.com/osawamas/value-hunter-ai/blob/main/android-private/tools/us_dolt_sync.py) の429正規表現をPython 3で独立再現し、HTTP 429・status=429・Too Many Requests・429A・X429・4290・1429・HTTP 429; retryの8条件を実行、8/8成功。リポジトリのテスト実行や実際のDolt接続ではない。コード変更なし、今回の差分はこのログのみ。
+- 対象取引日: 2026-11-17（米国）。既存ログ上の取得12,604件、普通株ラベル照合NYSE 1,877/1,896・Nasdaq 3,081/3,189（観測日11月18日、当日確定網羅率ではない）。今回の新規取得0件。原データ/APIキー/APKは公開していない。
+- 未解決: DoltローカルDBの実同期と429実測、正規セッション終値・全銘柄の分割前価格とSEC株数基準日照合、正式判定、Android実機連続更新と無音通知。次回はAndroid Actionsの完走確認、実同期と市場別照合の再測定、SECの基準日・株式クラス検証へ。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)、[米国CI](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)。
+
 ## 2026-11-18 22:16 JST — 米国株6銘柄に過去5年の参考レンジを追加
 
 - DoltHubの日付インデックスに合わせ、月末側3平日の正の終値を12か月単位で取得し、月ごとに最後に取得できた日を選ぶ。2021年11月〜2026年10月の60か月が6銘柄すべてで揃った。最初の5区間のうち1区間はタイムアウトし、再取得で補完した。
