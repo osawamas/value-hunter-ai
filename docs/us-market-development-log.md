@@ -1,5 +1,14 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 02:15 JST — Doltの429再試行中にキャッシュが消えた場合の安全停止
+
+- 開始時main: [b0bd248](https://github.com/osawamas/value-hunter-ai/commit/b0bd248716fd2b0852c94a2ba0526669ccf10efb)。最新main、直近Actions、当ログ、Dolt同期コードとテストを確認。並行JPX実装は変更しない。
+- 前回修正の[米国CI 44345265730](https://github.com/osawamas/value-hunter-ai/actions/runs/44345265730) は **success** と確認。直近[JPX CI 44347426281](https://github.com/osawamas/value-hunter-ai/actions/runs/44347426281) もsuccess（米国CIとは別）。
+- 新たな競合条件を修正: HTTP 429の60秒待機中に既存Doltリポジトリの .dolt が消えると、次回の試行が既存ディレクトリへのcloneに変わる可能性があった。各試行前にメタデータを再検査し、破損時は invalid_repository_after_command で停止。既存ファイルは削除しない。[実装修正 f9820eb](https://github.com/osawamas/value-hunter-ai/commit/f9820eb0a28e89ed2ca8256984aa53e7fec0b31c)、[回帰テスト 77fa9ba](https://github.com/osawamas/value-hunter-ai/commit/77fa9bae0218f318a0422f2a8f3498f8247ce951)。
+- ローカルでGit cloneしてunittestを実行しようとしたが github.com のDNS名前解決に失敗。今回追加テストと変更後Actionsは**未確認**。Dolt実同期も未実施。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 対象取引日2026-11-17（既存データ）。今回新規株価0件、網羅率の再測定なし。既存記録はNYSE 1,877/1,896、Nasdaq 3,081/3,189（11月18日観測一覧との比較）、SEC財務照合2,746件。原株価・APIキー・APKは公開していない。
+- 未解決: 新規CI完走、Dolt実同期、正規セッション未調整終値と分割前価格、株式クラス・株数基準日、正式PER/PBR、Android連続更新・無音通知。次回は新規CI結果とDolt同期を確認し、不可ならSEC照合へ。
+
 ## 2026-11-19 01:15 JST — Dolt初回タイムアウトのCI期待値を修正
 
 - 開始時main: [d201026](https://github.com/osawamas/value-hunter-ai/commit/d201026be611506406ff96a3b7315ced784d74cd)。本ログ、同期実装、回帰テスト、米国CI設定と直近Actionsを読んだ。並行JPX開発には触れず。
