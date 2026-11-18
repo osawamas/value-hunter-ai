@@ -27,7 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -39,6 +41,9 @@ public final class UsDailyWorker extends Worker {
     private static final String VALUATION_SOURCE = "us_pilot_valuation_source";
     private static final String VALUATION_TEXT = "us_pilot_valuation_text";
     private static final String VALUATION_RETRY = "us_pilot_valuation_retry";
+    private static final String HISTORY_MONTH = "us_pilot_history_month";
+    private static final String HISTORY_TEXT = "us_pilot_history_text";
+    private static final String HISTORY_CURSOR = "us_pilot_history_cursor";
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = "massive-grouped-daily";
@@ -69,7 +74,10 @@ public final class UsDailyWorker extends Worker {
                 + state.getInt(COUNT, 0) + "件";
         if (day.equals(state.getString(VALUATION_DATE, ""))
                 && state.getString(PROVIDER, "").equals(state.getString(VALUATION_SOURCE, ""))) {
-            return result + "\n\n" + state.getString(VALUATION_TEXT, "");
+            result += "\n\n" + state.getString(VALUATION_TEXT, "");
+        }
+        if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
+            result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
         return result;
     }
@@ -91,6 +99,7 @@ public final class UsDailyWorker extends Worker {
                         var snapshot = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
                         assess(state, snapshot.getJSONArray("closes"), previous, provider);
                     }
+                    updateHistory(state, previous);
                     report(state, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち");
                     return Result.success();
                 }
@@ -117,6 +126,7 @@ public final class UsDailyWorker extends Worker {
                         .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
                 assess(state, closes, day, provider);
+                updateHistory(state, day);
                 return Result.success();
             }
             report(state, "直近7日間の終値を取得できず");
@@ -165,6 +175,45 @@ public final class UsDailyWorker extends Worker {
         if (isStopped()) return;
         state.edit().putString(VALUATION_DATE, day.toString()).putString(VALUATION_SOURCE, provider)
                 .putString(VALUATION_TEXT, result.text()).putBoolean(VALUATION_RETRY, result.retry()).apply();
+    }
+
+    private void updateHistory(SharedPreferences state, LocalDate session) {
+        YearMonth month = YearMonth.from(session);
+        if (isStopped() || month.toString().equals(state.getString(HISTORY_MONTH, ""))) return;
+        YearMonth first = month.minusMonths(UsMonthlyHistory.MONTHS);
+        if (!month.toString().equals(state.getString(HISTORY_CURSOR, ""))) {
+            var reset = state.edit().putString(HISTORY_CURSOR, month.toString());
+            for (int offset = 0; offset < UsMonthlyHistory.MONTHS; offset += 12) {
+                reset.remove(HISTORY_CURSOR + offset);
+            }
+            reset.apply();
+        }
+        var batches = new ArrayList<JSONArray>();
+        try {
+            // Retain completed annual queries for retries within the same refresh month.
+            for (int offset = 0; offset < UsMonthlyHistory.MONTHS; offset += 12) {
+                if (isStopped()) return;
+                String key = HISTORY_CURSOR + offset;
+                String cached = state.getString(key, "");
+                JSONArray batch = cached.isEmpty()
+                        ? UsDoltCloses.monthlyRows(first.plusMonths(offset), address -> fetch(address, ""))
+                        : new JSONArray(cached);
+                batches.add(batch);
+                if (cached.isEmpty()) state.edit().putString(key, batch.toString()).apply();
+            }
+            var splits = UsDoltCloses.pilotSplits(first.atDay(1), session, address -> fetch(address, ""));
+            String text = UsMonthlyHistory.summarize(batches, first, splits, UsDailyValuation.pilotSymbols());
+            var update = state.edit().putString(HISTORY_MONTH, month.toString()).putString(HISTORY_TEXT, text);
+            for (int offset = 0; offset < UsMonthlyHistory.MONTHS; offset += 12) {
+                update.remove(HISTORY_CURSOR + offset);
+            }
+            if (!isStopped()) update.apply();
+        } catch (IOException e) {
+            // Resume any completed annual queries on the next periodic update.
+        } catch (JSONException e) {
+            // Restart after an invalid response or cache, keeping the daily close available.
+            state.edit().remove(HISTORY_CURSOR).apply();
+        }
     }
 
     private static LocalDate cachedDate(AtomicFile file, SharedPreferences state, String provider) {

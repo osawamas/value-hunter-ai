@@ -8,10 +8,12 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 final class UsDoltCloses {
     static final String SOURCE = "dolthub-post-no-preference-stocks";
@@ -80,6 +82,14 @@ final class UsDoltCloses {
             }
         }
         return dates;
+    }
+
+    static JSONArray monthlyRows(YearMonth first, Download download) throws IOException, JSONException {
+        String dates = UsMonthlyHistory.monthEndDates(first, 12).stream()
+                .map(day -> "'" + day + "'").collect(Collectors.joining(",", "(", ")"));
+        return query(download, "SELECT act_symbol AS symbol, date AS trading_date, close FROM ohlcv"
+                + " WHERE date IN " + dates + " AND act_symbol IN " + UsDailyValuation.pilotSymbolsSql()
+                + " AND close > 0 ORDER BY act_symbol,date");
     }
 
     private static JSONArray query(Download download, String sql)

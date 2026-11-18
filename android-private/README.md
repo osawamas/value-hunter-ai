@@ -459,3 +459,5 @@ Massive Stocks Basicは任意の代替経路。無料キーだけを書いたテ
 終値の財務・株数との照合には、端末の非公開キャッシュ `no_backup/us-daily-closes.json` を手元で取得し、`python tools/us_public_files_probe.py YYYY-MM-DD --dolt-android-file /ローカル/us-daily-closes.json --with-sec` を使う。Massiveのキャッシュは `--massive-android-file` を指定する。財務・株数の内訳を計測する場合は既存の `--sec-quarter` と `--sec-notes` も使える。
 
 Android端末では IBM、AAPL、HPQ、AMD、INTC、GM の6銘柄について、SEC Company Factsの開示とUSD/JPYを自動取得し、最新の終値に対する試験的な時価総額・PER・PBR・円換算額を米国株欄に表示する。株数に発行時点との差があり得るため参考判定とする。決算期末と開示日、株数基準日を区別し、確認できる分割や赤字・負の自己資本は保留にする。
+
+同じ6銘柄には過去60か月の月末近くの参考終値レンジも表示する。比較対象は完了済みの月で、各月の終盤3平日から最後に取得できた日を使う。更新は月単位。通信エラー後は取得済みの12か月区間を再利用する。履歴が60か月に満たない場合や分割記録がある場合はレンジを保留する。

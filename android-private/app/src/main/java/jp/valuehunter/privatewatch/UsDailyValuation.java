@@ -11,7 +11,9 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 final class UsDailyValuation {
@@ -29,8 +31,12 @@ final class UsDailyValuation {
 
     record Report(String text, boolean retry) {}
 
+    static Set<String> pilotSymbols() {
+        return Arrays.stream(PILOT).map(Issuer::symbol).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
     static String pilotSymbolsSql() {
-        return Arrays.stream(PILOT).map(issuer -> "'" + issuer.symbol + "'")
+        return pilotSymbols().stream().map(symbol -> "'" + symbol + "'")
                 .collect(Collectors.joining(",", "(", ")"));
     }
 
