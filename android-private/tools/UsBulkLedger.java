@@ -34,7 +34,7 @@ public final class UsBulkLedger {
                     row.put("hold", "companyfacts_size");
                     continue;
                 }
-                UsFinancialFacts.Facts facts;
+                UsFinancialFacts.Assessment assessment;
                 try (var input = archive.getInputStream(entry)) {
                     byte[] bytes = input.readNBytes(MAX_FACTS_BYTES + 1);
                     if (bytes.length != entry.getSize()) throw new IOException("Incomplete SEC ZIP entry");
@@ -48,13 +48,18 @@ public final class UsBulkLedger {
                         row.put("hold", "companyfacts_issuer_mismatch");
                         continue;
                     }
-                    facts = UsFinancialFacts.read(payload, cik, day);
+                    assessment = UsFinancialFacts.assess(payload, cik, day);
                 } catch (JSONException invalid) {
                     row.put("hold", "invalid_companyfacts");
                     continue;
                 }
+                var facts = assessment.facts();
                 if (facts == null) {
-                    row.put("hold", "financial_period_or_class_unconfirmed");
+                    row.put("hold", assessment.hold());
+                    var filing = assessment.filing();
+                    if (filing != null) row.put("target_filing", new JSONObject()
+                            .put("period_end", filing.periodEnd().toString()).put("filed", filing.filed().toString())
+                            .put("form", filing.form()).put("accession", filing.accession()));
                 } else {
                     row.put("filed", facts.filed().toString()).put("share_date", facts.shareDate().toString())
                             .put("shares", facts.shares()).put("profit", facts.profit()).put("equity", facts.equity())

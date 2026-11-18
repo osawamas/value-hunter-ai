@@ -34,6 +34,8 @@ public class UsFinancialFactsTest {
                 .getJSONObject("units").getJSONArray("shares")
                 .put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
         assertNull(UsFinancialFacts.read(duplicate, 1, SESSION));
+        assertEquals("shares_for_filing_ambiguous", UsFinancialFacts.assess(duplicate, 1, SESSION).hold());
+        assertEquals("parent_equity_stale", UsFinancialFacts.assess(payload(), 1, SESSION.plusDays(151)).hold());
         assertThrows(JSONException.class, () -> UsFinancialFacts.read(payload(), 42, SESSION));
     }
 
@@ -56,7 +58,10 @@ public class UsFinancialFactsTest {
         assertEquals(new BigDecimal("38"), facts.shares());
 
         shares.getJSONObject(0).put("accn", K);
-        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+        var held = UsFinancialFacts.assess(document, 1, SESSION);
+        assertEquals("shares_for_filing_missing", held.hold());
+        assertEquals(Q, held.filing().accession());
+        assertEquals(LocalDate.parse("2026-09-30"), held.filing().periodEnd());
     }
 
     @Test public void reconcilesParentEquityAndProfitOnlyFromMatchedComponents() throws Exception {

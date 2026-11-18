@@ -7,7 +7,7 @@ from unittest.mock import patch
 from zipfile import ZipFile
 
 from us_monitor_ledger import read_close_snapshot, reference_screen
-from us_monitor_sync import exclusive, get_splits, refresh_companyfacts
+from us_monitor_sync import exclusive, get_splits, refresh_companyfacts, sync_receipt
 
 DAY = date(2026, 11, 17)
 
@@ -58,6 +58,16 @@ class MonitorSyncTest(TestCase):
                 with exclusive(Path(workspace)) as second:
                     self.assertTrue(first)
                     self.assertFalse(second)
+
+    def test_receipt_changes_when_financial_rules_change(self):
+        with TemporaryDirectory() as workspace:
+            source = Path(workspace) / "rules"
+            with patch("us_monitor_sync.RULE_SOURCES", (source,)):
+                source.write_text("old rules")
+                previous = sync_receipt(b"same closes")
+                self.assertEqual(previous, sync_receipt(b"same closes"))
+                source.write_text("new rules")
+                self.assertNotEqual(previous, sync_receipt(b"same closes"))
 
     def test_close_snapshot_requires_numeric_prices(self):
         with TemporaryDirectory() as workspace:

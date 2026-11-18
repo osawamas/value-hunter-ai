@@ -21,6 +21,9 @@ final class UsFinancialFacts {
                  BigDecimal profit, BigDecimal equity, String accession,
                  String sharesBasis, boolean reconciledParentAmounts) {}
 
+    record Filing(LocalDate periodEnd, LocalDate filed, String form, String accession) {}
+    record Assessment(Facts facts, String hold, Filing filing) {}
+
     private record Fact(LocalDate start, LocalDate end, LocalDate filed,
                         String form, String accession, BigDecimal value, boolean reconciled) {}
 
@@ -30,22 +33,27 @@ final class UsFinancialFacts {
     }
 
     static Facts read(JSONObject payload, int cik, LocalDate session) throws JSONException {
+        return assess(payload, cik, session).facts();
+    }
+
+    static Assessment assess(JSONObject payload, int cik, LocalDate session) throws JSONException {
         if (!matchesIssuer(payload, cik)) throw new JSONException("SEC issuer mismatch");
         var document = payload.getJSONObject("facts");
         // Preserve an already complete set of directly reported figures.
-        var primary = read(document, session, false);
-        return primary == null ? read(document, session, true) : primary;
+        var primary = assess(document, session, false);
+        return primary.facts() == null ? assess(document, session, true) : primary;
     }
 
-    private static Facts read(JSONObject document, LocalDate session, boolean supplementary) {
+    private static Assessment assess(JSONObject document, LocalDate session, boolean supplementary) {
         var gaap = document.optJSONObject("us-gaap");
         var equities = facts(gaap, "StockholdersEquity", "USD", session);
         if (supplementary) reconcileParentAmounts(equities,
                 facts(gaap, "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", "USD", session),
                 facts(gaap, "MinorityInterest", "USD", session));
         var equity = latest(equities, false);
-        if (equity == null || equity.start != null
-                || equity.end.isBefore(session.minusDays(150))) return null;
+        if (equities.isEmpty()) return held("parent_equity_missing");
+        if (equity == null || equity.start != null) return held("parent_equity_ambiguous");
+        if (equity.end.isBefore(session.minusDays(150))) return held("parent_equity_stale");
 
         var shareRows = facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session);
         var cover = shareRows.stream().filter(f -> sameFiling(f, equity)
@@ -53,15 +61,20 @@ final class UsFinancialFacts {
         var shares = one(cover);
         String sharesBasis = "cover";
         if (supplementary && cover.isEmpty()) {
-            shares = one(facts(gaap, "CommonStockSharesOutstanding", "shares", session).stream()
-                    .filter(f -> samePeriod(f, equity)).collect(Collectors.toList()));
+            var balanceSheet = facts(gaap, "CommonStockSharesOutstanding", "shares", session).stream()
+                    .filter(f -> samePeriod(f, equity)).collect(Collectors.toList());
+            if (balanceSheet.isEmpty()) return held("shares_for_filing_missing", equity);
+            shares = one(balanceSheet);
             sharesBasis = "balance_sheet";
         }
-        if (shares == null || shares.value.signum() <= 0 || shares.value.stripTrailingZeros().scale() > 0) return null;
+        if (!supplementary && cover.isEmpty()) return held("shares_for_filing_missing", equity);
+        if (shares == null || shares.value.signum() <= 0 || shares.value.stripTrailingZeros().scale() > 0) {
+            return held("shares_for_filing_ambiguous", equity);
+        }
 
         var preferred = facts(gaap, "PreferredStockValue", "USD", session);
         if (preferred.stream().anyMatch(f -> sameFiling(f, equity) && f.end.equals(equity.end)
-                && f.value.signum() != 0)) return null;
+                && f.value.signum() != 0)) return held("preferred_equity_present");
 
         var profits = facts(gaap, "NetIncomeLoss", "USD", session);
         if (supplementary) reconcileParentAmounts(profits, facts(gaap, "ProfitLoss", "USD", session),
@@ -71,25 +84,33 @@ final class UsFinancialFacts {
         boolean reconciled = equity.reconciled;
         if ("10-K".equals(equity.form)) {
             var annual = one(atEnd.stream().filter(UsFinancialFacts::fullYear).collect(Collectors.toList()));
-            if (annual == null) return null;
+            if (annual == null) return held("annual_profit_unconfirmed");
             profit = annual.value;
             reconciled |= annual.reconciled;
         } else {
             var annual = latest(profits.stream().filter(f -> "10-K".equals(f.form) && fullYear(f)
                     && f.end.isBefore(equity.end) && f.filed.isBefore(equity.filed)).collect(Collectors.toList()), true);
-            if (annual == null) return null;
+            if (annual == null) return held("previous_annual_profit_unconfirmed");
             var ytd = one(atEnd.stream().filter(f -> annual.end.plusDays(1).equals(f.start)).collect(Collectors.toList()));
-            if (ytd == null) return null;
+            if (ytd == null) return held("current_ytd_profit_unconfirmed");
             var prior = one(profits.stream().filter(f -> sameFiling(f, equity) && annual.start.equals(f.start)
                     && f.end.isBefore(annual.end)
                     && Math.abs(ChronoUnit.DAYS.between(f.end, ytd.end.minusYears(1))) <= 7
                     && Math.abs(days(ytd) - days(f)) <= 7).collect(Collectors.toList()));
-            if (prior == null) return null;
+            if (prior == null) return held("prior_ytd_profit_unconfirmed");
             profit = annual.value.add(ytd.value).subtract(prior.value);
             reconciled |= annual.reconciled || ytd.reconciled || prior.reconciled;
         }
-        return new Facts(equity.filed, shares.end, shares.value, profit, equity.value, equity.accession,
-                sharesBasis, reconciled);
+        return new Assessment(new Facts(equity.filed, shares.end, shares.value, profit, equity.value,
+                equity.accession, sharesBasis, reconciled), "", null);
+    }
+
+    private static Assessment held(String reason) {
+        return new Assessment(null, reason, null);
+    }
+
+    private static Assessment held(String reason, Fact equity) {
+        return new Assessment(null, reason, new Filing(equity.end, equity.filed, equity.form, equity.accession));
     }
 
     private static void reconcileParentAmounts(List<Fact> parent, List<Fact> consolidated, List<Fact> minority) {

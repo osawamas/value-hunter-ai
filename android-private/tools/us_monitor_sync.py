@@ -14,7 +14,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urlencode
 from zipfile import ZipFile
 
-from us_monitor_ledger import main as build_ledger
+from us_monitor_ledger import SOURCE, main as build_ledger
 from us_public_files_probe import fetch
 
 PACKAGE = "jp.valuehunter.privatewatch"
@@ -22,6 +22,18 @@ SEC_BULK = "https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip
 DOLT = "https://www.dolthub.com/api/v1alpha1/post-no-preference/stocks"
 FX = "https://api.frankfurter.dev/v2/rates"
 MAX_PRIVATE_FILE = 16 * 1024 * 1024
+RULE_SOURCES = (SOURCE, Path(__file__).with_name("UsBulkLedger.java"),
+                Path(__file__).with_name("us_monitor_ledger.py"),
+                Path(__file__).with_name("us_public_files_probe.py"),
+                Path(__file__))
+
+
+def sync_receipt(close_bytes):
+    # A revised parser has to rebuild the ledger even when the session's close file is unchanged.
+    revision = sha256(sha256(close_bytes).digest())
+    for path in RULE_SOURCES:
+        revision.update(sha256(path.read_bytes()).digest())
+    return revision.hexdigest()
 
 
 @contextmanager
@@ -108,7 +120,7 @@ def sync(adb, directory, jar, user_agent):
             raise ValueError("Android close snapshot is missing or oversized")
         close_bytes = closes.read_bytes()
         session = date.fromisoformat(json.loads(close_bytes)["trading_date_et"])
-        digest = sha256(close_bytes).hexdigest()
+        digest = sync_receipt(close_bytes)
         archive = directory / "companyfacts.zip"
         receipt = directory / "synced-close.sha256"
         if receipt.is_file() and receipt.read_text(encoding="ascii").strip() == digest:
