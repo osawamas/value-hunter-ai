@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 14:13 JST — Dolt失敗時にキャッシュ消失を誤認しない
+
+- 開始時main: [b0149c1](https://github.com/osawamas/value-hunter-ai/commit/b0149c158229c011a61255d4fbb9e052b0e68909)。直近コミットのPR紐付けActions照会は0件。通常push Actionsの成否は未確認（[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。既存ログとDolt同期・テストを読み、並行JP開発とは別の障害処理を選択。
+- Dolt pullがHTTP 429で失敗し、同時に既存の .dolt ディレクトリも消えた場合、従来は cached_after_rate_limit と誤判定し得た。失敗直後に .dolt の存在を再検査して invalid_repository_after_command とする[コード変更](https://github.com/osawamas/value-hunter-ai/commit/78668ad7dfb29b7663b779f9c18287d4fde2257b)と[回帰テスト](https://github.com/osawamas/value-hunter-ai/commit/c7c12a2f04bab1cc9f9708c88730a8c3a36ebc70)を保存。参照: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 独立Python最小再現1件成功。GitHub上の追加テストそのもの・全テスト・Actionsは未実行/未確認。ローカルgit ls-remoteはDNS解決失敗。Dolt実同期も未実施。
+- 対象取引日: 新規照会なし。終値取得0件、NYSE/Nasdaqの同日網羅率未測定。株価原本・APIキー・APKは公開していない。未解決: キャッシュの実データ完全性、429実測、正規終値・分割、SEC株数、PER/PBR、Android通知。次回は追加テストの実行確認と実同期・市場別日付付き取得率を優先。
+
 ## 2026-11-18 13:13 JST — Dolt 429が3回続く場合のキャッシュ保護テスト追加
 
 - 開始時main: [5196e0d](https://github.com/osawamas/value-hunter-ai/commit/5196e0db4b9324b014a8028f2bde0f2687c741bd)。直近の[Android Actions 44227434927](https://github.com/osawamas/value-hunter-ai/actions/runs/44227434927)は前回ログで成功と記録されているが、今回のActions一覧・新コミットのCI結果は未確認。既存ログ・Dolt同期コード・テストを読み、JP側と重複しない変更を選択。
