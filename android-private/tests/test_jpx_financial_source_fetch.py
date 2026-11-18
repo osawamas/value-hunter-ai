@@ -1,13 +1,15 @@
 """Offline tests for checksum-verified private JP financial PDF acquisition."""
 import hashlib
 import io
+import json
+from unittest.mock import patch
 from pathlib import Path
 import sys
 import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from jpx_financial_source_fetch import fetch, validate
+from jpx_financial_source_fetch import fetch, validate, main
 
 
 class FakeResponse(io.BytesIO):
@@ -50,6 +52,24 @@ class SourceFetchTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fetch(record, Path(directory), {"issuer.example"}, FakeOpener(self.data))
             self.assertEqual(list(Path(directory).iterdir()), [])
+
+    def test_private_audit_report_records_cache_and_invalid_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fetch(self.record, root / 'pdf', {'issuer.example'}, FakeOpener(self.data))
+            manifest = root / 'manifest.json'
+            manifest.write_text(json.dumps([self.record, {'code': 'bad'}]), encoding='utf-8')
+            report = root / 'audit.json'
+            with patch('sys.argv', ['fetch', str(manifest), str(root / 'pdf'),
+                                    '--allowed-host', 'issuer.example', '--report', str(report)]):
+                with self.assertRaises(SystemExit) as result:
+                    main()
+            self.assertEqual(result.exception.code, 1)
+            audit = json.loads(report.read_text(encoding='utf-8'))
+            self.assertEqual(audit['summary']['cached'], 1)
+            self.assertEqual(audit['summary']['failed'], 1)
+            self.assertEqual([r['status'] for r in audit['sources']], ['cached', 'failed'])
+            self.assertEqual(audit['summary']['financial_records_verified'], 0)
 
     def test_reject_non_pdf(self):
         with tempfile.TemporaryDirectory() as directory:
