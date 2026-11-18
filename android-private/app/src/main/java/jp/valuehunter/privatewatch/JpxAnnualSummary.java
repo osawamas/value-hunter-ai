@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.chrono.JapaneseChronology;
 import java.time.chrono.JapaneseEra;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /** Actual full-year EPS and book value per share from a JPX Inline XBRL summary. */
@@ -23,13 +24,28 @@ final class JpxAnnualSummary {
     private static final Pattern NUMBER = Pattern.compile("(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]+)?");
     private static final Pattern FORBIDDEN_XML = Pattern.compile("<!\\s*(?:DOCTYPE|ENTITY)", Pattern.CASE_INSENSITIVE);
 
-    record Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source) {
+    record Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source,
+                  List<JpxShareRights.Adjustment> adjustments) {
+        Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source) {
+            this(end, released, eps, bps, source, List.of());
+        }
+
         boolean usable(LocalDate day) {
             return released.isBefore(day) && !end.isBefore(day.minusMonths(16));
         }
 
         ValueCandidateScreen.Level level(LocalDate day, BigDecimal close) {
-            return usable(day) ? ValueCandidateScreen.assess(close, eps, bps) : ValueCandidateScreen.Level.HELD;
+            return usable(day) ? ValueCandidateScreen.assess(
+                    onShareBasis(day, close, true), onShareBasis(day, eps, false), onShareBasis(day, bps, false))
+                    : ValueCandidateScreen.Level.HELD;
+        }
+
+        BigDecimal onShareBasis(LocalDate day, BigDecimal value, boolean price) {
+            if (value == null) return null;
+            for (var event : adjustments) {
+                if (!event.exDay().isAfter(day)) value = value.multiply(price ? event.newShares() : event.oldShares());
+            }
+            return value;
         }
     }
 

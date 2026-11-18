@@ -3,6 +3,7 @@ package jp.valuehunter.privatewatch;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -13,6 +14,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 
@@ -72,7 +74,8 @@ final class JpxAutomaticFinance {
 
     private JpxAutomaticFinance() {}
 
-    static Batch refresh(Context context, JpxDailyCheck.Comparison comparison, BooleanSupplier stopped) {
+    static Batch refresh(Context context, JpxDailyCheck.Comparison comparison, JpxShareRights rights,
+                         BooleanSupplier stopped) {
         var state = context.getSharedPreferences("jpx-automatic-finance-v1", Context.MODE_PRIVATE);
         var report = comparison.latest();
         var session = new JpxIssuerArchive.Session();
@@ -101,6 +104,29 @@ final class JpxAutomaticFinance {
                 if (date != null && !stopped.getAsBoolean()) state.edit().putString(key, date.toString()).apply();
                 return date;
             }
+
+            @Override public JpxShareRights.Adjustment adjustment(String code, JpxIssuerArchive.Disclosure disclosure)
+                    throws IOException {
+                // The exchange table establishes the ex-day and ratio. The issuer must identify the same event.
+                if (rights.adjustments().stream().noneMatch(action -> action.code().equals(code))) return null;
+                String key = "share-record-v1:" + disclosure.pdfLink();
+                String saved = state.getString(key, "");
+                LocalDate recordDay;
+                try {
+                    recordDay = saved.isEmpty() ? null : LocalDate.parse(saved);
+                } catch (java.time.DateTimeException invalid) {
+                    recordDay = null;
+                }
+                if (recordDay == null) {
+                    var text = JpxCorporateActionDate.readPdf(disclosure.pdfLink(), context.getCacheDir());
+                    recordDay = JpxCorporateActionDate.recordDay(
+                            text, disclosure, JpxCorporateActionDate.effective(text, disclosure));
+                    if (recordDay != null && !stopped.getAsBoolean()) {
+                        state.edit().putString(key, recordDay.toString()).apply();
+                    }
+                }
+                return rights.adjustment(code, disclosure, recordDay);
+            }
         }, stopped);
     }
 
@@ -113,6 +139,8 @@ final class JpxAutomaticFinance {
         JpxIssuerArchive.Page archive(String code) throws IOException;
         String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException;
         default LocalDate effective(JpxIssuerArchive.Disclosure disclosure) throws IOException { return null; }
+        default JpxShareRights.Adjustment adjustment(String code, JpxIssuerArchive.Disclosure disclosure)
+                throws IOException { return null; }
     }
 
     static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
@@ -224,37 +252,39 @@ final class JpxAutomaticFinance {
             if (previous != null && (!previous.released().isBefore(annual.released())
                     || !previous.usable(annual.released()))) previous = null;
         }
-        var examined = new HashMap<java.net.URI, LocalDate>();
-        if (previous != null && !consistentShareBasis(page, previous.end(), sources, examined)) previous = null;
-        boolean clear = consistentShareBasis(page, annual.end(), sources, examined);
-        return new Entry(through, annual, clear ? "" : "株式分割・併合等の開示を確認中", previous);
+        var resolved = withShareBasis(code, page, annual, sources);
+        if (previous != null) previous = withShareBasis(code, page, previous, sources);
+        return resolved == null ? new Entry(through, annual, "株式分割・併合等の開示を確認中", previous)
+                : new Entry(through, resolved, "", previous);
     }
 
-    private static boolean consistentShareBasis(JpxIssuerArchive.Page page, LocalDate periodEnd,
-                                                Sources sources, Map<java.net.URI, LocalDate> examined) {
-        var since = periodEnd.minusYears(1);
+    private static JpxAnnualSummary.Annual withShareBasis(String code, JpxIssuerArchive.Page page,
+                                                        JpxAnnualSummary.Annual annual, Sources sources) {
+        var since = annual.end().minusYears(1);
         var relevant = page.disclosures().stream().filter(d -> !d.day().isBefore(since)
                 && JpxIssuerArchive.shareChange(d.title())).distinct().toList();
-        if (relevant.size() > 6) return false;
+        if (relevant.size() > 6) return null;
         for (var disclosure : relevant) {
-            if (disclosure.day().isAfter(periodEnd) || disclosure.pdfLink() == null
-                    || !JpxCorporateActionDate.supported(disclosure.title())) return false;
+            if (disclosure.pdfLink() == null || !JpxCorporateActionDate.supported(disclosure.title())) return null;
+            if (disclosure.day().isAfter(annual.end()) && !disclosure.day().isAfter(annual.released())) return null;
         }
+        var adjustments = new ArrayList<JpxShareRights.Adjustment>();
         for (var disclosure : relevant) {
-            var url = disclosure.pdfLink();
-            if (!examined.containsKey(url)) {
-                LocalDate date;
-                try {
-                    date = sources.effective(disclosure);
-                } catch (IOException unavailable) {
-                    date = null;
+            try {
+                if (disclosure.day().isAfter(annual.released())) {
+                    var adjustment = sources.adjustment(code, disclosure);
+                    if (adjustment == null || !disclosure.day().isBefore(adjustment.exDay())) return null;
+                    if (!adjustments.contains(adjustment)) adjustments.add(adjustment);
+                } else {
+                    var date = sources.effective(disclosure);
+                    if (date == null || date.isBefore(disclosure.day()) || date.isAfter(annual.end())) return null;
                 }
-                examined.put(url, date);
+            } catch (IOException unavailable) {
+                return null;
             }
-            LocalDate date = examined.get(url);
-            if (date == null || date.isBefore(disclosure.day()) || date.isAfter(periodEnd)) return false;
         }
-        return true;
+        return new JpxAnnualSummary.Annual(annual.end(), annual.released(), annual.eps(), annual.bps(),
+                annual.source(), List.copyOf(adjustments));
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {
@@ -275,9 +305,17 @@ final class JpxAutomaticFinance {
         if (!object.has("source")) return null;
         String source = object.getString("source");
         if (!JpxIssuerArchive.annualSource(source, code)) throw new JSONException("Invalid JPX filing source");
+        var rows = object.optJSONArray("basis");
+        var adjustments = new ArrayList<JpxShareRights.Adjustment>();
+        if (rows != null) for (int i = 0; i < rows.length(); i++) {
+            var row = rows.getJSONArray(i);
+            adjustments.add(new JpxShareRights.Adjustment(code, LocalDate.parse(row.getString(0)),
+                    LocalDate.parse(row.getString(1)), new BigDecimal(row.getString(2)),
+                    new BigDecimal(row.getString(3))));
+        }
         return new JpxAnnualSummary.Annual(LocalDate.parse(object.getString("end")),
                 LocalDate.parse(object.getString("released")), new BigDecimal(object.getString("eps")),
-                new BigDecimal(object.getString("bps")), source);
+                new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments));
     }
 
     private static JSONObject encode(Entry entry) {
@@ -294,6 +332,14 @@ final class JpxAutomaticFinance {
     }
 
     private static JSONObject encodeAnnual(JSONObject destination, JpxAnnualSummary.Annual annual) throws JSONException {
+        if (!annual.adjustments().isEmpty()) {
+            var rows = new JSONArray();
+            for (var action : annual.adjustments()) {
+                rows.put(new JSONArray().put(action.exDay().toString()).put(action.recordDay().toString())
+                        .put(action.oldShares().toPlainString()).put(action.newShares().toPlainString()));
+            }
+            destination.put("basis", rows);
+        }
         return destination.put("end", annual.end().toString()).put("released", annual.released().toString())
                 .put("eps", annual.eps().toPlainString()).put("bps", annual.bps().toPlainString())
                 .put("source", annual.source());

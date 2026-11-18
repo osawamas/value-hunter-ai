@@ -21,12 +21,19 @@ def original(path, provenance):
 def snapshot(audit, directory, codes):
     months = {}
     notices = {}
+    adjustments = []
     for key, provenance in sorted(audit["monthly_report_provenance"].items()):
         body, source = original(directory / f"rights-{key}.pdf", provenance)
         month, by_code = read_monthly_rights(body)
         if month.strftime("%Y-%m") != key:
             raise ValueError("The JPX monthly report does not match the audit month")
         months[key] = source
+        for code, events in sorted(by_code.items()):
+            for event in sorted(events, key=lambda item: (item.ex_on, item.record_on, item.kind,
+                                                           item.ratio_left, item.ratio_right)):
+                if event.kind in ("分割", "併合"):
+                    adjustments.append([code, event.ex_on.isoformat(), event.record_on.isoformat(),
+                                        str(event.ratio_left), str(event.ratio_right)])
         for code in codes:
             for event in by_code.get(code, ()):
                 notices[code, event.ex_on.isoformat()] = source
@@ -39,6 +46,7 @@ def snapshot(audit, directory, codes):
             for event in by_code.get(code, ()):
                 notices.setdefault((code, event.ex_on.isoformat()), source)
     return {
+        "adjustments": adjustments,
         "coveredCodes": sorted(codes),
         "monthlySources": months,
         "notices": [{"code": code, "exDay": day, "source": source}

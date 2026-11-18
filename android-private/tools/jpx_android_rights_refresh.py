@@ -23,6 +23,7 @@ def combine(previous, fresh):
     for entry in fresh["notices"]:
         notices[entry["code"], entry["exDay"]] = entry["source"]
     return {
+        **({"adjustments": fresh["adjustments"]} if "adjustments" in fresh else {}),
         "coveredCodes": fresh["coveredCodes"],
         # Months must pass the current audit. A daily notice cannot certify a month.
         "monthlySources": fresh["monthlySources"],

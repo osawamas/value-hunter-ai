@@ -158,7 +158,7 @@ public final class JpxWatchWorker extends Worker {
             var comparison = comparisons.load(context, processedKey, evidence.revision());
             if (isStopped()) return Result.success();
             var finance = automaticFinance && comparison != null
-                    ? JpxAutomaticFinance.refresh(context, comparison, this::isStopped)
+                    ? JpxAutomaticFinance.refresh(context, comparison, evidence.rights(), this::isStopped)
                     : JpxAutomaticFinance.Batch.empty();
             synchronized (STATE_LOCK) {
                 if (isStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();

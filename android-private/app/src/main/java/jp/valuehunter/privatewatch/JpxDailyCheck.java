@@ -87,10 +87,10 @@ final class JpxDailyCheck {
             if (!automaticCandidates.isEmpty()) message.append("<br><br>自動取得の割安候補");
             for (var candidate : automaticCandidates.subList(0, Math.min(50, automaticCandidates.size()))) {
                 var annual = finance.entries().get(candidate.code()).annualFor(latest.date());
-                var close = latest.close(candidate.code());
+                var close = annual.onShareBasis(latest.date(), latest.close(candidate.code()), true);
                 message.append("<br>").append(candidate.summary())
-                        .append(" · 参考PER ").append(close.divide(annual.eps(), 2, RoundingMode.HALF_UP))
-                        .append(" · 参考PBR ").append(close.divide(annual.bps(), 2, RoundingMode.HALF_UP))
+                        .append(" · 参考PER ").append(close.divide(annual.onShareBasis(latest.date(), annual.eps(), false), 2, RoundingMode.HALF_UP))
+                        .append(" · 参考PBR ").append(close.divide(annual.onShareBasis(latest.date(), annual.bps(), false), 2, RoundingMode.HALF_UP))
                         .append(" · <a href='").append(annual.source()).append("'>通期決算 ")
                         .append(annual.end()).append("</a>");
             }
@@ -233,7 +233,10 @@ final class JpxDailyCheck {
             String reason = entry.failure(code, latest.date(), finance.updates());
             if (!reason.isEmpty()) return new ReferenceChange(held, held, reason);
             var annual = entry.annualFor(latest.date());
-            var notice = rights.firstChange(code, annual.end(), latest.date());
+            if (!rights.adjustments().containsAll(annual.adjustments())) {
+                return new ReferenceChange(held, held, "JPX分割比率の再確認待ち");
+            }
+            var notice = rights.firstUnadjustedChange(code, annual.end(), latest.date(), annual.adjustments());
             if (notice != null) return new ReferenceChange(held, held, notice.description());
             var now = candidate(code, latest.close(code), annual.level(latest.date(), latest.close(code)));
             if (previous == null || !previous.date().isBefore(latest.date())) {
@@ -241,7 +244,11 @@ final class JpxDailyCheck {
             }
             var previousAnnual = entry.annualFor(previous.date());
             if (previousAnnual == null) return new ReferenceChange(held, now, "比較日時点の通期決算なし");
-            var previousNotice = rights.firstChange(code, previousAnnual.end(), previous.date());
+            if (!rights.adjustments().containsAll(previousAnnual.adjustments())) {
+                return new ReferenceChange(held, now, "比較日のJPX分割比率の再確認待ち");
+            }
+            var previousNotice = rights.firstUnadjustedChange(
+                    code, previousAnnual.end(), previous.date(), previousAnnual.adjustments());
             if (previousNotice != null) return new ReferenceChange(held, now, previousNotice.description());
             var before = candidate(code, previous.close(code),
                     previousAnnual.level(previous.date(), previous.close(code)));

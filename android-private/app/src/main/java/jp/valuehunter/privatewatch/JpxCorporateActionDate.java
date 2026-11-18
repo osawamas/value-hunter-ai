@@ -27,7 +27,27 @@ final class JpxCorporateActionDate {
     private static final Pattern EFFECTIVE = Pattern.compile("効力発生日[:：]?(?:[（(]予定[）)])?[:：]?"
             + "((?:20[0-9]{2}|令和(?:元|[0-9]{1,2}))年[0-9]{1,2}月[0-9]{1,2}日)");
 
+    private static final Pattern RECORD = Pattern.compile("基準日[:：]?"
+            + "((?:20[0-9]{2}|令和(?:元|[0-9]{1,2}))年[0-9]{1,2}月[0-9]{1,2}日)");
+
     private JpxCorporateActionDate() {}
+
+    static LocalDate recordDay(String body, JpxIssuerArchive.Disclosure disclosure, LocalDate effective) {
+        if (effective == null) return null;
+        var dates = RECORD.matcher(JpxAnnualSummary.normalized(body));
+        LocalDate found = null;
+        while (dates.find()) {
+            try {
+                var day = JpxAnnualSummary.documentDate(dates.group(1));
+                if (day == null || day.isBefore(disclosure.day()) || !day.isBefore(effective)
+                        || found != null && !found.equals(day)) return null;
+                found = day;
+            } catch (DateTimeException invalid) {
+                return null;
+            }
+        }
+        return found;
+    }
 
     static boolean supported(String title) {
         var action = SINGLE_ACTION.matcher(title);

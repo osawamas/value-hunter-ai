@@ -255,7 +255,7 @@ final class JpxIssuerArchive {
             }
         }
         if (verified.isEmpty()) return selection;
-        var updated = new JpxShareRights(rights.coveredCodes(), rights.months(), rights.notices(), Map.copyOf(verified));
+        var updated = new JpxShareRights(rights.coveredCodes(), rights.months(), rights.notices(), Map.copyOf(verified), rights.adjustments());
         return new JpxShareRights.Selection(updated, selection.status() + " · 東証開示で補完 " + verified.size() + "銘柄",
                 selection.revision() + "/" + String.join(",", audited));
     }

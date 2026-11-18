@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -23,7 +24,13 @@ import java.util.Map;
 import java.util.Set;
 
 record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices,
-                      Map<String, JpxIssuerArchive.Review> issuerReviews) {
+                      Map<String, JpxIssuerArchive.Review> issuerReviews, List<Adjustment> adjustments) {
+    record Adjustment(String code, LocalDate exDay, LocalDate recordDay, BigDecimal oldShares, BigDecimal newShares) {}
+
+    JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices,
+                   Map<String, JpxIssuerArchive.Review> issuerReviews) {
+        this(coveredCodes, months, notices, issuerReviews, List.of());
+    }
     JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices) {
         this(coveredCodes, months, notices, Map.of());
     }
@@ -31,7 +38,7 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
     private static final String ONLINE =
             "https://raw.githubusercontent.com/osawamas/value-hunter-ai/main/android-private/app/src/main/assets/"
                     + ASSET;
-    private static final int MAX_BYTES = 65_536;
+    private static final int MAX_BYTES = 262_144;
     private static final String JPX_MONTHLY =
             "https://www.jpx.co.jp/markets/statistics-equities/monthly/index.html";
 
@@ -157,8 +164,44 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
                     officialSource(entry.getString("source"))));
         }
         if (codes.isEmpty()) throw new JSONException("JPX rights snapshot has no covered codes");
-        var rights = new JpxShareRights(Set.copyOf(codes), Set.copyOf(months), List.copyOf(notices));
+        var adjustments = new ArrayList<Adjustment>();
+        var actions = payload.optJSONArray("adjustments");
+        if (actions != null) for (int index = 0; index < actions.length(); index++) {
+            var row = actions.getJSONArray(index);
+            String code = row.getString(0);
+            var exDay = LocalDate.parse(row.getString(1));
+            var recordDay = LocalDate.parse(row.getString(2));
+            var oldShares = shares(row.getString(3));
+            var newShares = shares(row.getString(4));
+            if (!code.matches("[0-9][0-9A-Z]{3}") || !months.contains(YearMonth.from(exDay))
+                    || exDay.isAfter(recordDay) || oldShares.compareTo(newShares) == 0) {
+                throw new JSONException("Invalid JPX share adjustment");
+            }
+            adjustments.add(new Adjustment(code, exDay, recordDay, oldShares, newShares));
+        }
+        var rights = new JpxShareRights(Set.copyOf(codes), Set.copyOf(months), List.copyOf(notices),
+                Map.of(), List.copyOf(adjustments));
         return new Snapshot(revision, rights, body);
+    }
+
+    private static BigDecimal shares(String value) throws JSONException {
+        if (!value.matches("[0-9]{1,10}(?:\\.[0-9]{1,10})?")) throw new JSONException("Invalid share ratio");
+        var number = new BigDecimal(value);
+        if (number.signum() <= 0) throw new JSONException("Invalid share ratio");
+        return number;
+    }
+
+    Adjustment adjustment(String code, JpxIssuerArchive.Disclosure disclosure, LocalDate recordDay) {
+        Adjustment match = null;
+        boolean split = disclosure.title().contains("分割");
+        for (var action : adjustments) {
+            if (!action.code().equals(code) || !action.recordDay().equals(recordDay)
+                    || !disclosure.day().isBefore(action.exDay())
+                    || split != (action.oldShares().compareTo(action.newShares()) < 0)) continue;
+            if (match != null && !match.equals(action)) return null;
+            match = action;
+        }
+        return match;
     }
 
     private static String officialSource(String url) throws JSONException {
@@ -169,9 +212,24 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
     }
 
     Notice firstChange(String code, LocalDate fromExclusive, LocalDate through) {
+        return firstNotice(code, fromExclusive, through, List.of());
+    }
+
+    Notice firstUnadjustedChange(String code, LocalDate fromExclusive, LocalDate through, List<Adjustment> applied) {
+        for (var action : adjustments) {
+            if (action.code().equals(code) && action.exDay().isAfter(fromExclusive)
+                    && !action.exDay().isAfter(through) && !applied.contains(action)) {
+                return new Notice(code, action.exDay(), JPX_MONTHLY);
+            }
+        }
+        return firstNotice(code, fromExclusive, through, applied);
+    }
+
+    private Notice firstNotice(String code, LocalDate fromExclusive, LocalDate through, List<Adjustment> applied) {
         for (var notice : notices) {
             if (notice.code().equals(code) && notice.exDay().isAfter(fromExclusive)
-                    && !notice.exDay().isAfter(through)) return notice;
+                    && !notice.exDay().isAfter(through)
+                    && applied.stream().noneMatch(action -> action.exDay().equals(notice.exDay()))) return notice;
         }
         return null;
     }

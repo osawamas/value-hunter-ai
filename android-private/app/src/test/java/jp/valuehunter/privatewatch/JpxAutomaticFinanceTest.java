@@ -253,6 +253,51 @@ public class JpxAutomaticFinanceTest {
         assertFalse(JpxAutomaticFinance.acquire(CODE, DAY, null, network).hold().isEmpty());
     }
 
+    @Test public void appliesVerifiedSplitOnlyOnAndAfterTheOfficialExDay() throws Exception {
+        var rights = JpxShareRights.parse("""
+                {"revision":"2026-11-18T18:32:00Z", "coveredCodes":["9999"], "notices":[],
+                 "monthlySources":{"2026-11":"https://www.jpx.co.jp/report.pdf"},
+                 "adjustments":[["1420","2026-11-17","2026-11-18","1","2"]]}
+                """).rights();
+        String html = archive("決算短信〔日本基準〕(連結)", PATH)
+                .replace("自己株式の取得状況", "<a href=\"/disc/14200/140120261112500000.pdf\">株式分割に関するお知らせ</a>");
+        var text = "株式分割　基準日 2026年11月18日　効力発生日 2026年11月19日";
+        var sources = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) {
+                return JpxIssuerArchive.read(html, code);
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure filing) {
+                return JpxAutomaticFinanceTest.filing();
+            }
+
+            @Override public JpxShareRights.Adjustment adjustment(String code, JpxIssuerArchive.Disclosure disclosure) {
+                return rights.adjustment(code, disclosure, JpxCorporateActionDate.recordDay(text, disclosure,
+                        JpxCorporateActionDate.effective(text, disclosure)));
+            }
+        };
+        var prefs = preferences(new HashMap<>());
+        var after = report(DAY, "450");
+        var batch = JpxAutomaticFinance.refresh(prefs, after, DAY, sources, () -> false);
+        var entry = batch.entries().get(CODE);
+        assertEquals("", entry.hold());
+        var annual = entry.annual();
+        assertEquals(1, annual.adjustments().size());
+        assertEquals(ValueCandidateScreen.Level.PRIORITY, annual.level(DAY.minusDays(1), new BigDecimal("900")));
+        assertEquals(ValueCandidateScreen.Level.PRIORITY, annual.level(DAY, new BigDecimal("450")));
+        assertEquals(ValueCandidateScreen.Level.OUTSIDE, annual.level(DAY, new BigDecimal("900")));
+        var comparison = new JpxDailyCheck.Comparison(after, report(DAY.minusDays(1), "900"));
+        assertEquals(1, comparison.screen(rights, batch).assessed());
+        assertTrue(comparison.screen(rights, batch).entered().isEmpty());
+        assertEquals(0, comparison.screen(new JpxShareRights(Set.of(), Set.of(), List.of()), batch).assessed());
+        var reloaded = JpxAutomaticFinance.refresh(prefs, after, DAY, null, () -> true);
+        assertEquals(annual.adjustments(), reloaded.entries().get(CODE).annual().adjustments());
+        assertEquals(0, comparison.screen(rights,
+                new JpxAutomaticFinance.Batch(Map.of(CODE, new JpxAutomaticFinance.Entry(DAY,
+                        new JpxAnnualSummary.Annual(annual.end(), annual.released(), annual.eps(), annual.bps(),
+                                annual.source()), "")), Map.of(), 1, 1)).assessed());
+    }
+
     private static JpxAutomaticFinance.Sources sources(String archive, String filing) {
         return new JpxAutomaticFinance.Sources() {
             @Override public JpxIssuerArchive.Page archive(String code) {
