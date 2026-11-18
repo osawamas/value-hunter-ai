@@ -119,7 +119,17 @@ def main():
             audit.append({"code": code, "sha256": digest, "status": "failed",
                           "error_type": type(exc).__name__})
             print(f"Source rejected: {type(exc).__name__}", file=__import__("sys").stderr)
+    # A source record is not a unique issuer and a downloaded PDF is not verified finance.
+    successful_codes = {item["code"] for item in audit
+                        if item["status"] in ("downloaded", "cached") and isinstance(item["code"], str)}
+    failed_codes = {item["code"] for item in audit
+                    if item["status"] == "failed" and isinstance(item["code"], str)}
+    distinct_codes = {item["code"] for item in audit if isinstance(item["code"], str)}
     summary = {"market": "JP", "source_records": len(records), **counts,
+               "distinct_codes": len(distinct_codes),
+               "codes_with_source": len(successful_codes),
+               "codes_with_failed_source": len(failed_codes),
+               "codes_with_mixed_source_results": len(successful_codes & failed_codes),
                "financial_records_verified": 0}
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
