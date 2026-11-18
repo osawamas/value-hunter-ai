@@ -46,8 +46,9 @@ final class JpxWatchDeliveryProbe {
                 JpxDailyCheck.readReport(new File(directory, "jpx-20261116.pdf"), MONDAY, universe, ""),
                 JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), FRIDAY, universe, ""));
         var months = new HashSet<YearMonth>();
-        for (int month = 4; month <= 11; month++) months.add(YearMonth.of(2026, month));
-        var complete = new JpxShareRights(Set.of("3861"), months, List.of());
+        for (int month = 4; month <= 9; month++) months.add(YearMonth.of(2026, month));
+        var review = new JpxIssuerArchive.Review(LocalDate.of(2026, 10, 1), MONDAY.plusDays(4));
+        var complete = new JpxShareRights(Set.of("3861"), months, List.of(), Map.of("3861", review));
         var inputs = new AtomicReference<>(new Inputs(new JpxDailyCheck.Comparison(
                 sample(FRIDAY, "900.00"), sample(FRIDAY.minusDays(1), "920.00")), complete));
 

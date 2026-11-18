@@ -19,9 +19,14 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
-record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices) {
+record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices,
+                      Map<String, JpxIssuerArchive.Review> issuerReviews) {
+    JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Notice> notices) {
+        this(coveredCodes, months, notices, Map.of());
+    }
     private static final String ASSET = "jpx-share-rights.json";
     private static final String ONLINE =
             "https://raw.githubusercontent.com/osawamas/value-hunter-ai/main/android-private/app/src/main/assets/"
@@ -51,7 +56,7 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
     }
 
     static Selection refresh(Context context) {
-        return refresh(context, () -> UsScanWorker.get(ONLINE, null));
+        return JpxIssuerArchive.extend(context, refresh(context, () -> UsScanWorker.get(ONLINE, null)));
     }
 
     static synchronized Selection refresh(Context context, FetchSnapshot sourceLoader) {
@@ -182,7 +187,11 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
         var missing = new ArrayList<YearMonth>();
         for (var month = YearMonth.from(fromExclusive.plusDays(1));
              !month.isAfter(YearMonth.from(through)); month = month.plusMonths(1)) {
-            if (!months.contains(month)) missing.add(month);
+            if (months.contains(month)) continue;
+            var review = issuerReviews.get(code);
+            LocalDate begin = month.atDay(1).isAfter(fromExclusive) ? month.atDay(1) : fromExclusive.plusDays(1);
+            LocalDate end = month.atEndOfMonth().isBefore(through) ? month.atEndOfMonth() : through;
+            if (review == null || !review.covers(begin, end)) missing.add(month);
         }
         if (missing.isEmpty()) return "";
         return "権利落月報の未確認月 " + missing.stream().map(YearMonth::toString)
