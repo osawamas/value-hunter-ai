@@ -14,6 +14,7 @@ import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -34,6 +35,10 @@ import javax.net.ssl.HttpsURLConnection;
 public final class UsDailyWorker extends Worker {
     private static final String WORK = "us-daily-closes";
     private static final String KEY_FILE = "massive-key.txt";
+    private static final String VALUATION_DATE = "us_pilot_valuation_day";
+    private static final String VALUATION_SOURCE = "us_pilot_valuation_source";
+    private static final String VALUATION_TEXT = "us_pilot_valuation_text";
+    private static final String VALUATION_RETRY = "us_pilot_valuation_retry";
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = "massive-grouped-daily";
@@ -60,8 +65,13 @@ public final class UsDailyWorker extends Worker {
         String day = state.getString(DATE, "");
         if (day.isEmpty()) return status;
         String source = MASSIVE.equals(state.getString(PROVIDER, "")) ? "Massive" : "DoltHub参考値";
-        return status + "\n取得済み " + day + "（米東部） · " + source + " "
+        String result = status + "\n取得済み " + day + "（米東部） · " + source + " "
                 + state.getInt(COUNT, 0) + "件";
+        if (day.equals(state.getString(VALUATION_DATE, ""))
+                && state.getString(PROVIDER, "").equals(state.getString(VALUATION_SOURCE, ""))) {
+            return result + "\n\n" + state.getString(VALUATION_TEXT, "");
+        }
+        return result;
     }
 
     @NonNull @Override public Result doWork() {
@@ -77,6 +87,10 @@ public final class UsDailyWorker extends Worker {
                 if (isStopped()) return Result.retry();
                 LocalDate day = target.minusDays(offset);
                 if (previous != null && !day.isAfter(previous)) {
+                    if (needsValuation(state, previous, provider)) {
+                        var snapshot = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
+                        assess(state, snapshot.getJSONArray("closes"), previous, provider);
+                    }
                     report(state, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち");
                     return Result.success();
                 }
@@ -102,6 +116,7 @@ public final class UsDailyWorker extends Worker {
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
                         .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
+                assess(state, closes, day, provider);
                 return Result.success();
             }
             report(state, "直近7日間の終値を取得できず");
@@ -116,6 +131,40 @@ public final class UsDailyWorker extends Worker {
             report(state, "終値を取得できず（配信形式を要確認）");
             return Result.success();
         }
+    }
+
+    private static boolean needsValuation(SharedPreferences state, LocalDate day, String provider) {
+        return !day.toString().equals(state.getString(VALUATION_DATE, ""))
+                || !provider.equals(state.getString(VALUATION_SOURCE, ""))
+                || state.getBoolean(VALUATION_RETRY, false);
+    }
+
+    private void assess(SharedPreferences state, JSONArray closes, LocalDate day, String provider) {
+        if (isStopped()) return;
+        UsDailyValuation.Report result;
+        try {
+            result = UsDailyValuation.assess(closes, day,
+                    MASSIVE.equals(provider) ? "Massive参考判定" : "DoltHub参考判定", new UsDailyValuation.Fetch() {
+                @Override public JSONObject facts(String address) throws IOException, JSONException {
+                    if (isStopped()) throw new IOException("Worker stopped");
+                    return fetch(address, "");
+                }
+
+                @Override public JSONArray rates(String address) throws IOException, JSONException {
+                    return new JSONArray(UsScanWorker.get(address, null));
+                }
+
+                @Override public java.util.Map<String, LocalDate> splits(LocalDate since, LocalDate session)
+                        throws IOException, JSONException {
+                    return UsDoltCloses.pilotSplits(since, session, address -> fetch(address, ""));
+                }
+            });
+        } catch (IOException | JSONException e) {
+            result = new UsDailyValuation.Report("参考判定は次の更新で再試行（為替または分割情報を取得できず）", true);
+        }
+        if (isStopped()) return;
+        state.edit().putString(VALUATION_DATE, day.toString()).putString(VALUATION_SOURCE, provider)
+                .putString(VALUATION_TEXT, result.text()).putBoolean(VALUATION_RETRY, result.retry()).apply();
     }
 
     private static LocalDate cachedDate(AtomicFile file, SharedPreferences state, String provider) {
@@ -151,6 +200,11 @@ public final class UsDailyWorker extends Worker {
             connection.setReadTimeout(30_000);
             connection.setInstanceFollowRedirects(false);
             if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
+            if ("data.sec.gov".equals(url.getHost())) {
+                connection.setRequestProperty("User-Agent",
+                        "VALUE HUNTER AI https://github.com/osawamas/value-hunter-ai");
+                connection.setRequestProperty("Accept", "application/json");
+            }
             int code = connection.getResponseCode();
             if (code != 200) throw new HttpStatus(code);
             try (var input = connection.getInputStream()) {

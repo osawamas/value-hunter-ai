@@ -8,7 +8,10 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 final class UsDoltCloses {
     static final String SOURCE = "dolthub-post-no-preference-stocks";
@@ -57,6 +60,26 @@ final class UsDoltCloses {
             }
         }
         return closes;
+    }
+
+    static Map<String, LocalDate> pilotSplits(LocalDate from, LocalDate to, Download download)
+            throws IOException, JSONException {
+        var rows = query(download, "SELECT act_symbol AS symbol, CAST(MAX(ex_date) AS CHAR) AS split_date"
+                + " FROM split WHERE ex_date BETWEEN '" + from + "' AND '" + to + "'"
+                + " AND act_symbol IN " + UsDailyValuation.pilotSymbolsSql() + " GROUP BY act_symbol");
+        var dates = new HashMap<String, LocalDate>();
+        for (int i = 0; i < rows.length(); i++) {
+            var row = rows.getJSONObject(i);
+            try {
+                var date = LocalDate.parse(row.getString("split_date"));
+                if (date.isBefore(from) || date.isAfter(to) || dates.put(row.getString("symbol"), date) != null) {
+                    throw new JSONException("Unexpected split records");
+                }
+            } catch (DateTimeParseException e) {
+                throw new JSONException("Invalid split date");
+            }
+        }
+        return dates;
     }
 
     private static JSONArray query(Download download, String sql)

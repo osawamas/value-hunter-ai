@@ -457,3 +457,5 @@ Doltと取引所横断の集計終値がどれだけ一致するかを出す。�
 Massive Stocks Basicは任意の代替経路。無料キーだけを書いたテキストファイルをビルドするPCのリポジトリ外に置き、Android StudioのGradle実行構成に `-PmassiveKeyFile=/絶対パス/massive-key.txt` を設定するか、`android-private` から `gradle -PmassiveKeyFile=/絶対パス/massive-key.txt :app:assembleDebug` を実行する。設定したビルドはMassiveの未調整終値を使う。APK内のキーは取り出せるため、本人の端末用のAPKとして扱う。実配信の検査は、PCのローカル環境変数 `MASSIVE_API_KEY` を設定して `python tools/us_massive_probe.py YYYY-MM-DD` を複数の完了済み取引日について実行する。
 
 終値の財務・株数との照合には、端末の非公開キャッシュ `no_backup/us-daily-closes.json` を手元で取得し、`python tools/us_public_files_probe.py YYYY-MM-DD --dolt-android-file /ローカル/us-daily-closes.json --with-sec` を使う。Massiveのキャッシュは `--massive-android-file` を指定する。財務・株数の内訳を計測する場合は既存の `--sec-quarter` と `--sec-notes` も使える。
+
+Android端末では IBM、AAPL、HPQ、AMD、INTC、GM の6銘柄について、SEC Company Factsの開示とUSD/JPYを自動取得し、最新の終値に対する試験的な時価総額・PER・PBR・円換算額を米国株欄に表示する。株数に発行時点との差があり得るため参考判定とする。決算期末と開示日、株数基準日を区別し、確認できる分割や赤字・負の自己資本は保留にする。
