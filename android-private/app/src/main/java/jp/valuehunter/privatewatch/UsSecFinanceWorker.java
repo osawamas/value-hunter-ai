@@ -22,9 +22,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /** Downloads SEC filings on-device and resumes through WorkManager between batches. */
@@ -79,20 +82,24 @@ public final class UsSecFinanceWorker extends Worker {
             var day = LocalDate.parse(quote.getString("trading_date_et"));
             var provider = quote.getString("source");
             var prices = UsDeviceFinancials.prices(quote.getJSONArray("closes"));
-            var scan = resume(checkpoint, hash);
-            if (scan == null) {
+            var scan = resume(checkpoint);
+            if (scan == null || !hash.equals(scan.optString("hash"))) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
                 var nyse = listings("otherlisted.txt", false);
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
-                scan = new JSONObject().put("hash", hash).put("cursor", 0)
-                        .put("results", new JSONArray())
-                        .put("targets", UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet()));
+                var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
+                var changed = changedIssuers(UsDeviceFinancials.reuseFrom(scan, day), day);
+                scan = UsDeviceFinancials.startScan(hash, day, targets, scan, changed);
+                int reused = scan.getInt("reused");
+                updateProgress(0, scan.getJSONArray("targets").length(), reused, reused);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
             var results = scan.getJSONArray("results");
             int position = scan.getInt("cursor");
-            if (position < 0 || position > targets.length() || results.length() > position) {
+            int reused = scan.optInt("reused", 0);
+            if (reused < 0 || reused > results.length() || position < 0 || position > targets.length()
+                    || results.length() > position + reused) {
                 checkpoint.delete();
                 return Result.retry();
             }
@@ -110,7 +117,7 @@ public final class UsSecFinanceWorker extends Worker {
                     }
                 } finally {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
-                    updateProgress(position, targets.length(), results.length());
+                    updateProgress(position, targets.length(), results.length(), reused);
                 }
                 if (isStopped()) return Result.retry();
                 if (position < targets.length()) {
@@ -157,15 +164,33 @@ public final class UsSecFinanceWorker extends Worker {
         return UsMarketCoverage.directory(download.get(UsMarketCoverage.DIRECTORY + filename), nasdaq);
     }
 
-    private static JSONObject resume(AtomicFile file, String hash) throws IOException {
+    private static JSONObject resume(AtomicFile file) throws IOException {
         try {
             var scan = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
-            if (hash.equals(scan.optString("hash")) && scan.optInt("cursor", -1) >= 0
+            if (scan.optInt("cursor", -1) >= 0
                     && scan.optJSONArray("targets") != null && scan.optJSONArray("results") != null) return scan;
         } catch (FileNotFoundException | JSONException absent) {
             // A missing or damaged local checkpoint starts a fresh scan.
         }
         return null;
+    }
+
+    private Set<Integer> changedIssuers(LocalDate since, LocalDate until) {
+        if (since == null) return null;
+        var changed = new HashSet<Integer>();
+        try {
+            // Check both endpoints: the previous day's filings become eligible, and
+            // the current index may contain corrections with earlier filing dates.
+            for (LocalDate date = since; !date.isAfter(until); date = date.plusDays(1)) {
+                if (isStopped()) return null;
+                if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
+                changed.addAll(UsSecFilingIndex.issuers(download.get(UsSecFilingIndex.address(date)), date));
+            }
+            return changed;
+        } catch (IOException | JSONException unavailable) {
+            // Missing index coverage cannot certify that a cached issuer had no filings.
+            return null;
+        }
     }
 
     private JSONObject facts(JSONObject target, LocalDate day) throws IOException, JSONException {
@@ -176,6 +201,7 @@ public final class UsSecFinanceWorker extends Worker {
             if (figures == null) return null;
             return new JSONObject().put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                     .put("cik", cik).put("share_date", figures.shareDate().toString())
+                    .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
                     .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
                     .put("equity", figures.equity().toPlainString());
         } catch (UsDailyWorker.HttpStatus error) {
@@ -187,8 +213,9 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    private void updateProgress(int position, int total, int verified) {
+    private void updateProgress(int position, int total, int verified, int reused) {
         ScanWorker.prefs(getApplicationContext()).edit().putString(UsDailyWorker.PRIVATE_STATUS,
-                "SEC財務を取得中 " + position + " / " + total + "銘柄 · 財務・株数照合 " + verified + "銘柄").apply();
+                "SEC財務を取得中 " + (position + reused) + " / " + (total + reused)
+                        + "銘柄 · 財務・株数照合 " + verified + "銘柄").apply();
     }
 }

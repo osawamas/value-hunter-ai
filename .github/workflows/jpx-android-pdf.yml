@@ -19,6 +19,7 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDailyWorker.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSecFinanceWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSecFilingIndex.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsFinancialFacts.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDoltCloses.java'

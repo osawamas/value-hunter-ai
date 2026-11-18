@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 final class UsFinancialFacts {
-    record Facts(LocalDate filed, LocalDate shareDate, BigDecimal shares,
+    record Facts(LocalDate filed, LocalDate equityDate, LocalDate shareDate, BigDecimal shares,
                  BigDecimal profit, BigDecimal equity, String accession,
                  String sharesBasis, boolean reconciledParentAmounts) {}
 
@@ -101,7 +101,7 @@ final class UsFinancialFacts {
             profit = annual.value.add(ytd.value).subtract(prior.value);
             reconciled |= annual.reconciled || ytd.reconciled || prior.reconciled;
         }
-        return new Assessment(new Facts(equity.filed, shares.end, shares.value, profit, equity.value,
+        return new Assessment(new Facts(equity.filed, equity.end, shares.end, shares.value, profit, equity.value,
                 equity.accession, sharesBasis, reconciled), "", null);
     }
 

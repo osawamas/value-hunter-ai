@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -82,6 +83,63 @@ final class UsDeviceFinancials {
         }
         if (result.length() == 0 || result.length() > 12_000) throw new JSONException("No eligible SEC issuers");
         return result;
+    }
+
+    static final int FULL_REFRESH_DAYS = 7;
+
+    static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
+                                Set<Integer> changed) throws JSONException {
+        var matching = new HashMap<String, JSONObject>();
+        var fullRefresh = day;
+        if (changed != null) {
+            fullRefresh = LocalDate.parse(previous.getString("full_refresh_day"));
+            var oldResults = previous.getJSONArray("results");
+            for (int index = 0; index < oldResults.length(); index++) {
+                var item = oldResults.getJSONObject(index);
+                if (reusable(item, day) && !changed.contains(item.getInt("cik"))) {
+                    matching.put(item.getString("symbol"), item);
+                }
+            }
+        }
+        var refresh = new JSONArray();
+        var reused = new JSONArray();
+        for (int index = 0; index < targets.length(); index++) {
+            var target = targets.getJSONObject(index);
+            var cached = matching.get(target.getString("symbol"));
+            if (cached != null && cached.getInt("cik") == target.getInt("cik")
+                    && cached.getString("exchange").equals(target.getString("exchange"))) {
+                reused.put(cached);
+            } else {
+                refresh.put(target);
+            }
+        }
+        return new JSONObject().put("hash", hash).put("day", day.toString())
+                .put("full_refresh_day", fullRefresh.toString()).put("cursor", 0)
+                .put("reused", reused.length()).put("results", reused).put("targets", refresh);
+    }
+
+    static LocalDate reuseFrom(JSONObject previous, LocalDate day) {
+        if (previous == null || previous.optJSONArray("targets") == null
+                || previous.optJSONArray("results") == null
+                || previous.optInt("cursor", -1) != previous.optJSONArray("targets").length()) return null;
+        try {
+            var old = LocalDate.parse(previous.getString("day"));
+            var full = LocalDate.parse(previous.getString("full_refresh_day"));
+            return old.isAfter(day) || full.isAfter(old) || !day.isBefore(full.plusDays(FULL_REFRESH_DAYS))
+                    ? null : old;
+        } catch (JSONException | DateTimeParseException invalid) {
+            return null;
+        }
+    }
+
+    private static boolean reusable(JSONObject row, LocalDate day) {
+        try {
+            var period = LocalDate.parse(row.getString("equity_date"));
+            var filed = LocalDate.parse(row.getString("filed"));
+            return !period.isBefore(day.minusDays(150)) && filed.isBefore(day);
+        } catch (JSONException | DateTimeParseException invalid) {
+            return false;
+        }
     }
 
     static JSONObject screen(LocalDate day, String provider, String hash, JSONArray records,

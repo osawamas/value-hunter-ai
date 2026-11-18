@@ -32,10 +32,11 @@ final class UsReferenceDeliveryProbe {
         var close = new AtomicFile(new File(directory, "us-daily-closes.json"));
         var checkpoint = new AtomicFile(new File(directory, "us-sec-financials.json"));
         var factRequests = new AtomicInteger();
+        var indexRequests = new AtomicInteger();
         var factory = new WorkerFactory() {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
                 if (!name.equals(UsSecFinanceWorker.class.getName())) return null;
-                return new UsSecFinanceWorker(app, parameters, url -> payload(url, factRequests));
+                return new UsSecFinanceWorker(app, parameters, url -> payload(url, factRequests, indexRequests));
             }
         };
         notifications.cancelAll();
@@ -54,7 +55,9 @@ final class UsReferenceDeliveryProbe {
             notifications.cancelAll();
             verifyResult(context, factory, ListenableWorker.Result.success());
             expectQuiet(notifications);
-            if (factRequests.get() != 3) throw new AssertionError("Completed day downloaded facts again");
+            if (factRequests.get() != 2 || indexRequests.get() != 2) {
+                throw new AssertionError("Unchanged issuer was not reused after checking the SEC index");
+            }
         } finally {
             notifications.cancelAll();
             close.delete();
@@ -75,7 +78,15 @@ final class UsReferenceDeliveryProbe {
         UsDailyWorker.writeSnapshot(close, prices);
     }
 
-    private static String payload(String url, AtomicInteger factRequests) throws IOException {
+    private static String payload(String url, AtomicInteger factRequests, AtomicInteger indexRequests)
+            throws IOException {
+        if (url.equals(UsSecFilingIndex.address(FIRST)) || url.equals(UsSecFilingIndex.address(SECOND))) {
+            indexRequests.incrementAndGet();
+            int day = url.equals(UsSecFilingIndex.address(FIRST)) ? 16 : 17;
+            return "Last Data Received:    Nov " + day + ", 2026\n"
+                    + "CIK|Company Name|Form Type|Date Filed|File Name\n"
+                    + "------\n67890|Other Corp|10-Q|202611" + day + "|edgar/data/67890/0000067890-26-000001.txt";
+        }
         if (url.endsWith("/otherlisted.txt")) return "ACT Symbol|Security Name|Exchange|ETF|Test Issue\n"
                 + "TEST|Test Corp Common Stock|N|N|N\nFile Creation Time: 1118202612:00||||";
         if (url.endsWith("/nasdaqlisted.txt")) return "Symbol|Security Name|NextShares|ETF|Test Issue\n"
