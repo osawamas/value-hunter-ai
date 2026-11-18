@@ -47,6 +47,24 @@ class SyncTest(unittest.TestCase):
             self.assertEqual((dest / 'marker').read_text(), 'original')
             self.assertTrue(all(c == ['dolt', 'pull', '--ff-only'] for c in calls))
 
+    def test_rate_limit_recovery_on_third_attempt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            (dest / 'marker').write_text('safe')
+            calls, waits = [], []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                return SimpleNamespace(returncode=1 if len(calls) < 3 else 0,
+                                       stderr='HTTP 429' if len(calls) < 3 else '',
+                                       stdout='')
+            self.assertEqual(sync(dest, runner=runner, sleeper=waits.append,
+                                  attempts=3), 'updated')
+            self.assertEqual(waits, [60, 120])
+            self.assertEqual(len(calls), 3)
+            self.assertTrue(all(cmd == ['dolt', 'pull', '--ff-only'] for cmd in calls))
+            self.assertEqual((dest / 'marker').read_text(), 'safe')
+
     def test_unexpected_error_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
