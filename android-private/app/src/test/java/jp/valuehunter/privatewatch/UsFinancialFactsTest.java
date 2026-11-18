@@ -64,6 +64,30 @@ public class UsFinancialFactsTest {
         assertEquals(LocalDate.parse("2026-09-30"), held.filing().periodEnd());
     }
 
+    @Test public void acceptsMatchingDollarFactsFromAForeignAnnualReport() throws Exception {
+        var document = payload();
+        var sections = document.getJSONObject("facts");
+        var gaap = sections.getJSONObject("us-gaap");
+        var equity = row(null, "2026-08-31", "2026-10-20", K, "20-F", 350);
+        var profit = row("2025-09-01", "2026-08-31", "2026-10-20", K, "20-F", 75);
+        var shares = row(null, "2026-10-13", "2026-10-20", K, "20-F", 40);
+        gaap.put("StockholdersEquity", units("USD", new JSONArray().put(equity)));
+        gaap.put("NetIncomeLoss", units("USD", new JSONArray().put(profit)));
+        sections.getJSONObject("dei").put("EntityCommonStockSharesOutstanding", units("shares", new JSONArray().put(shares)));
+        var result = UsFinancialFacts.read(document, 1, SESSION);
+        assertEquals(new BigDecimal("75"), result.profit());
+        assertEquals(new BigDecimal("350"), result.equity());
+        assertEquals(new BigDecimal("40"), result.shares());
+        assertNull(UsFinancialFacts.read(document, 1, LocalDate.parse("2026-10-20")));
+
+        shares.put("form", "6-K");
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+        shares.put("form", "40-F"); equity.put("form", "40-F"); profit.put("form", "40-F");
+        assertEquals(new BigDecimal("40"), UsFinancialFacts.read(document, 1, SESSION).shares());
+        profit.put("start", "2026-01-01");
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
     @Test public void reconcilesParentEquityAndProfitOnlyFromMatchedComponents() throws Exception {
         var document = payload();
         var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");

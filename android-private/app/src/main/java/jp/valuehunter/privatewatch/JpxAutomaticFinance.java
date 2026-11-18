@@ -120,6 +120,8 @@ final class JpxAutomaticFinance {
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
                 .filter(code -> due(entries.get(code), code, through, report.date(), updates))
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
+                        // Finish first-time coverage before routine rechecks so the one-share queue can advance.
+                        .thenComparingInt(code -> entries.containsKey(code) ? 1 : 0)
                         .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
                         .thenComparing(code -> entries.containsKey(code) ? entries.get(code).checkedThrough() : LocalDate.MIN)
                         .thenComparing(Comparator.naturalOrder()))

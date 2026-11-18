@@ -185,6 +185,36 @@ public class JpxAutomaticFinanceTest {
         assertEquals(List.of("1419", CODE), checks);
     }
 
+    @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() {
+        var cache = new HashMap<String, Object>();
+        var prefs = preferences(cache);
+        LocalDate old = DAY.minusDays(21);
+        var initial = sources(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        assertEquals(1, JpxAutomaticFinance.refresh(prefs, report(old, "890"), old, initial, () -> false).fetched());
+        var dates = new org.json.JSONObject();
+        for (LocalDate date = old.plusDays(1); !date.isAfter(DAY); date = date.plusDays(1)) {
+            dates.put(date.toString(), new org.json.JSONObject().put("rights", new org.json.JSONArray())
+                    .put("annual", new org.json.JSONArray()));
+        }
+        cache.put("disclosure-days", dates.toString());
+        var quotes = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/",
+                Map.of(CODE, new JpxCloseTable.Sessions(null, new BigDecimal("890")),
+                        "1421", new JpxCloseTable.Sessions(null, new BigDecimal("1400"))), Set.of());
+        var order = new java.util.ArrayList<String>();
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                order.add(code);
+                return CODE.equals(code) ? initial.archive(code) : null;
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                return initial.financial(disclosure);
+            }
+        };
+        assertEquals(2, JpxAutomaticFinance.refresh(prefs, quotes, DAY, network, () -> false).fetched());
+        assertEquals(List.of("1421", CODE), order);
+    }
+
     private static JpxAutomaticFinance.Sources sources(String archive, String filing) {
         return new JpxAutomaticFinance.Sources() {
             @Override public JpxIssuerArchive.Page archive(String code) {

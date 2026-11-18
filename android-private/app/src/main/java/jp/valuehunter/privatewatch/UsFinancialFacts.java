@@ -40,28 +40,34 @@ final class UsFinancialFacts {
         if (!matchesIssuer(payload, cik)) throw new JSONException("SEC issuer mismatch");
         var document = payload.getJSONObject("facts");
         // Preserve an already complete set of directly reported figures.
-        var primary = assess(document, session, false);
-        return primary.facts() == null ? assess(document, session, true) : primary;
+        var primary = assess(document, session, false, false);
+        if (primary.facts() != null) return primary;
+        var domestic = assess(document, session, true, false);
+        if (!"parent_equity_missing".equals(domestic.hold())) return domestic;
+        // Some foreign issuers list ordinary shares and report annual US-GAAP figures in 20-F/40-F.
+        var foreign = assess(document, session, true, true);
+        return foreign.facts() == null ? domestic : foreign;
     }
 
-    private static Assessment assess(JSONObject document, LocalDate session, boolean supplementary) {
+    private static Assessment assess(JSONObject document, LocalDate session, boolean supplementary,
+                                     boolean foreignAnnual) {
         var gaap = document.optJSONObject("us-gaap");
-        var equities = facts(gaap, "StockholdersEquity", "USD", session);
+        var equities = facts(gaap, "StockholdersEquity", "USD", session, foreignAnnual);
         if (supplementary) reconcileParentAmounts(equities,
-                facts(gaap, "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", "USD", session),
-                facts(gaap, "MinorityInterest", "USD", session));
+                facts(gaap, "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", "USD", session, foreignAnnual),
+                facts(gaap, "MinorityInterest", "USD", session, foreignAnnual));
         var equity = latest(equities, false);
         if (equities.isEmpty()) return held("parent_equity_missing");
         if (equity == null || equity.start != null) return held("parent_equity_ambiguous");
         if (equity.end.isBefore(session.minusDays(150))) return held("parent_equity_stale");
 
-        var shareRows = facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session);
+        var shareRows = facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session, foreignAnnual);
         var cover = shareRows.stream().filter(f -> sameFiling(f, equity)
                 && f.start == null && !f.end.isBefore(equity.end)).collect(Collectors.toList());
         var shares = one(cover);
         String sharesBasis = "cover";
         if (supplementary && cover.isEmpty()) {
-            var balanceSheet = facts(gaap, "CommonStockSharesOutstanding", "shares", session).stream()
+            var balanceSheet = facts(gaap, "CommonStockSharesOutstanding", "shares", session, foreignAnnual).stream()
                     .filter(f -> samePeriod(f, equity)).collect(Collectors.toList());
             if (balanceSheet.isEmpty()) return held("shares_for_filing_missing", equity);
             shares = one(balanceSheet);
@@ -72,18 +78,18 @@ final class UsFinancialFacts {
             return held("shares_for_filing_ambiguous", equity);
         }
 
-        var preferred = facts(gaap, "PreferredStockValue", "USD", session);
+        var preferred = facts(gaap, "PreferredStockValue", "USD", session, foreignAnnual);
         if (preferred.stream().anyMatch(f -> sameFiling(f, equity) && f.end.equals(equity.end)
                 && f.value.signum() != 0)) return held("preferred_equity_present");
 
-        var profits = facts(gaap, "NetIncomeLoss", "USD", session);
-        if (supplementary) reconcileParentAmounts(profits, facts(gaap, "ProfitLoss", "USD", session),
-                facts(gaap, "NetIncomeLossAttributableToNoncontrollingInterest", "USD", session));
+        var profits = facts(gaap, "NetIncomeLoss", "USD", session, foreignAnnual);
+        if (supplementary) reconcileParentAmounts(profits, facts(gaap, "ProfitLoss", "USD", session, foreignAnnual),
+                facts(gaap, "NetIncomeLossAttributableToNoncontrollingInterest", "USD", session, foreignAnnual));
         var profit = calculateProfit(profits, equity);
         String profitBasis = "parent_net_income";
         if (supplementary && profit.value == null) {
             // Keep one numerator definition across all periods.
-            var commonRows = facts(gaap, "NetIncomeLossAvailableToCommonStockholdersBasic", "USD", session);
+            var commonRows = facts(gaap, "NetIncomeLossAvailableToCommonStockholdersBasic", "USD", session, foreignAnnual);
             var common = calculateProfit(commonRows, equity);
             if (common.value != null) {
                 profit = common;
@@ -116,7 +122,7 @@ final class UsFinancialFacts {
     private static Profit calculateProfit(List<Fact> profits, Fact equity) {
         var atEnd = profits.stream().filter(f -> sameFiling(f, equity) && f.end.equals(equity.end))
                 .collect(Collectors.toList());
-        if ("10-K".equals(equity.form)) {
+        if ("10-K".equals(equity.form) || foreignAnnualForm(equity.form)) {
             var annual = one(atEnd.stream().filter(UsFinancialFacts::fullYear).collect(Collectors.toList()));
             return annual == null ? Profit.held("annual_profit_unconfirmed")
                     : new Profit(annual.value, annual.reconciled, "");
@@ -208,7 +214,8 @@ final class UsFinancialFacts {
                 && Objects.equals(first.start, second.start);
     }
 
-    private static List<Fact> facts(JSONObject namespace, String tag, String unit, LocalDate session) {
+    private static List<Fact> facts(JSONObject namespace, String tag, String unit, LocalDate session,
+                                    boolean foreignAnnual) {
         var output = new ArrayList<Fact>();
         var concept = namespace == null ? null : namespace.optJSONObject(tag);
         var units = concept == null ? null : concept.optJSONObject("units");
@@ -219,7 +226,8 @@ final class UsFinancialFacts {
             if (row == null) continue;
             String form = row.optString("form");
             String accession = row.optString("accn");
-            if (!(form.equals("10-K") || form.equals("10-Q")) || !accession.matches("[0-9]{10}-[0-9]{2}-[0-9]{6}")) continue;
+            boolean eligible = foreignAnnual ? foreignAnnualForm(form) : form.equals("10-K") || form.equals("10-Q");
+            if (!eligible || !accession.matches("[0-9]{10}-[0-9]{2}-[0-9]{6}")) continue;
             try {
                 LocalDate filed = LocalDate.parse(row.getString("filed"));
                 LocalDate end = LocalDate.parse(row.getString("end"));
@@ -233,6 +241,10 @@ final class UsFinancialFacts {
             }
         }
         return output;
+    }
+
+    private static boolean foreignAnnualForm(String form) {
+        return "20-F".equals(form) || "40-F".equals(form);
     }
 
     private static Fact latest(List<Fact> facts, boolean allowRepeatedAnnual) {
