@@ -25,6 +25,10 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
             result = runner(command, cwd=str(destination if existing else destination.parent),
                             capture_output=True, text=True, timeout=180)
         except subprocess.TimeoutExpired:
+            if not existing and destination.exists():
+                # Interrupted initial clones can leave partial files or metadata.
+                # Preserve them for manual inspection instead of claiming a clean timeout.
+                return 'partial_clone_requires_manual_cleanup'
             # A timeout can also leave an existing repository unusable.
             # Do not claim that a cache survived without checking its metadata.
             if existing and not (destination / '.dolt').is_dir():
@@ -33,6 +37,8 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
         except FileNotFoundError:
             return 'dolt_not_installed'
         except OSError:
+            if not existing and destination.exists():
+                return 'partial_clone_requires_manual_cleanup'
             # A runner may have removed the metadata before raising an OS error.
             # Never report a usable cache unless its directory still exists.
             if existing and not (destination / '.dolt').is_dir():
