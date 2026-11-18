@@ -133,11 +133,19 @@ def main():
     parser.add_argument("input", type=Path, help="Local JSON observations or JPX daily PDF")
     parser.add_argument("--jpx-universe", type=Path, help="JPX listing workbook")
     parser.add_argument("--annual-financials", type=Path, action="append", default=[], help="Source-checked annual financial JSON; repeat for multiple batches")
+    parser.add_argument("--annual-financials-dir", type=Path, action="append", default=[], help="Local directory of source-checked annual JSON batches; files are sorted and merged")
     parser.add_argument("--rights-pdf", type=Path, action="append", default=[])
     parser.add_argument("--single-share-code", action="append", default=[])
     args = parser.parse_args()
-    if args.jpx_universe or args.annual_financials or args.rights_pdf or args.single_share_code:
-        if not args.jpx_universe or not args.annual_financials:
+    financial_paths = list(args.annual_financials)
+    for directory in args.annual_financials_dir:
+        if not directory.is_dir():
+            parser.error(f"Annual financial directory does not exist: {directory}")
+        financial_paths.extend(sorted(directory.glob("*.json")))
+    if args.annual_financials_dir and not financial_paths:
+        parser.error("No annual financial JSON files found")
+    if args.jpx_universe or financial_paths or args.rights_pdf or args.single_share_code:
+        if not args.jpx_universe or not financial_paths:
             parser.error("JPX PDF mode requires --jpx-universe and --annual-financials")
         stocks = ordinary_stocks(args.jpx_universe)
         single_share = set(args.single_share_code)
@@ -145,7 +153,7 @@ def main():
             parser.error("--single-share-code must identify a code present in the JPX list")
         day = trading_date(args.input)
         prices, duplicates = read_quotes(args.input, stocks)
-        result = screen_report(day, stocks, prices, duplicates, load_financial_batches(args.annual_financials),
+        result = screen_report(day, stocks, prices, duplicates, load_financial_batches(financial_paths),
                                load_rights_reports(args.rights_pdf), single_share)
     else:
         result = screen(json.loads(args.input.read_text(encoding="utf-8")))
