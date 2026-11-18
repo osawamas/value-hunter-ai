@@ -22,6 +22,20 @@ class CacheLimitTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "size limit"):
                     fetch(entry, directory, {"issuer.example"})
 
+    def test_symlink_cache_rejected_even_if_digest_matches(self):
+        with TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            data = b"%PDF-1.4\\nvalid"
+            digest = hashlib.sha256(data).hexdigest()
+            entry = {"code": "1234", "url": "https://issuer.example/report.pdf",
+                     "sha256": digest}
+            original = directory / "other.pdf"
+            original.write_bytes(data)
+            target = directory / ("1234-" + digest[:16] + ".pdf")
+            target.symlink_to(original)
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                fetch(entry, directory, {"issuer.example"})
+
     def test_valid_cache_reused(self):
         with TemporaryDirectory() as tmp:
             directory = Path(tmp)
