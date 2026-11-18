@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 07:15 JST — Dolt同期先の実行中symlink差し替えを拒否
+
+- 開始時main: [680539f](https://github.com/osawamas/value-hunter-ai/commit/680539fcb82d78f616414b217fe1bf24bac6d2af)。直近JPX担当のPDF通信再試行・404回帰テスト変更を確認。US開発ログ・同期本体・テスト・CI定義を読んだ。直近Actions全件のAPI取得は未確認。直近既知[US CI 44377757535](https://github.com/osawamas/value-hunter-ai/actions/runs/44377757535)は以前の成功であり今回の成功ではない。
+- Dolt pullの429待機中、同期先ディレクトリそのものがsymlinkに置き換わると、リンク先に正常な.doltがある場合に再試行が別フォルダへ向かう可能性があった。再試行直前とコマンド後にルートsymlinkを拒否する。[実装 6967473](https://github.com/osawamas/value-hunter-ai/commit/6967473a6d04e0f9719edb29d94bc54d864fe36e)。429待機後と正常終了直後の差し替えを再現する2テストを追加。[テスト 0e4ec5](https://github.com/osawamas/value-hunter-ai/commit/0e4ec528c5dcfddeaf6647dc65689dcc29111585)。GitHubへ保存済み。追加テストのローカル実行・変更後Actions・実Dolt同期は未確認。JPXコードは未変更。
+- 対象取引日2026-11-17（過去基準）。今回新規終値0件、財務再照合0件、割安判定0件、候補0件、通知0件。保留内訳は未測定。11月18日観測の母数を使った過去照合NYSE 1,877/1,896、Nasdaq 3,081/3,189、合計4,958/5,085（97.5%、厳密な同日網羅率ではない）。SEC照合2,746、通知判定可能1,472は過去値で再測定なし。
+- 未解決: 新規CIの完走、実Dolt同期、正規未調整終値・株式分割とSEC株数基準日の照合、PER/PBRの正式判定、Android 15/WorkManager/無音通知。次回は追加テストCIの完走と実同期を優先し、同期不能ならSEC未照合の削減を進める。出典: [DoltHub](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC](https://www.sec.gov/edgar/sec-api-documentation)。株価原本・APIキー・APKは公開していない。
+
 ## 2026-11-19 06:16 JST — Dolt同期先のシンボリックリンクを拒否
 
 - 開始時main: [cfba4fb](https://github.com/osawamas/value-hunter-ai/commit/cfba4fb578c3c013f94162e9c0d4c863fa4421c3)。当ログ、直近JPXのissuer-level集計変更、US同期本体・テスト・CI定義を読んで競合回避。US CI前回確認済み[44377757535](https://github.com/osawamas/value-hunter-ai/actions/runs/44377757535)はsuccess。ただし今回の変更後CIは未確認。pushに対する最新Actions全件の取得はコネクタ制約で未確認。
