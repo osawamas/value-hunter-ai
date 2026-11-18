@@ -54,7 +54,7 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
                 return 'partial_clone_requires_manual_cleanup'
             # A runner may have removed the metadata before raising an OS error.
             # Never report a usable cache unless its directory still exists.
-            if existing and not _valid_metadata(destination):
+            if existing and (destination.is_symlink() or not _valid_metadata(destination)):
                 return 'invalid_repository_after_command'
             return 'cached_after_os_error' if existing else 'os_error'
         if result.returncode == 0:
@@ -63,7 +63,7 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
                 # Do not report a successful refresh or attempt another clone.
                 return 'invalid_repository_after_command'
             return 'updated' if existing else 'cloned'
-        if existing and not _valid_metadata(destination):
+        if existing and (destination.is_symlink() or not _valid_metadata(destination)):
             # A failed pull must not be reported as a usable cached repository.
             return 'invalid_repository_after_command'
         message = ((result.stderr or '') + '\n' + (result.stdout or '')).lower()
