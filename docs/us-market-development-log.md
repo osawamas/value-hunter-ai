@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 05:15 JST — Dolt同期終了直後のキャッシュ差し替えを回帰テスト化
+
+- 開始時main: [e0cc70b](https://github.com/osawamas/value-hunter-ai/commit/e0cc70bbb153d1adab7bad91197f92fed5e7343a)。最新main、当ログ、US CI定義・同期コード・既存テスト、JPX担当の直近修正を確認。JPXコードは変更せず。
+- Dolt pullがHTTP 429で失敗した直後、または終了コード0を返した直後に、.dolt管理情報がシンボリックリンクへ差し替わるケースの回帰テスト2件を追加。[テスト 47033f6](https://github.com/osawamas/value-hunter-ai/commit/47033f6d398042397230bef8955b24cbff7ea42a)。US CIの実行対象と変更パスに追加。[CI定義 bb2627e](https://github.com/osawamas/value-hunter-ai/commit/bb2627e4d8a62dd1ca5bea6ee5d7178fad577e57)。本体実装の変更なし。テストはコード上の既存保護条件を固定するもの。
+- 前回[US CI 44377757535](https://github.com/osawamas/value-hunter-ai/actions/runs/44377757535)のtestジョブはsuccessと確認。**今回追加テストの実行・変更後CIは未確認**。直近確認できた[Android CI 44375275314](https://github.com/osawamas/value-hunter-ai/actions/runs/44375275314)はverify工程でfailure。JPX担当が[例外宣言を修正 e0cc70b](https://github.com/osawamas/value-hunter-ai/commit/e0cc70bbb153d1adab7bad91197f92fed5e7343a)しているためAndroid失敗の再確認が必要。
+- 対象取引日2026-11-17（過去の保存結果）。今回新規終値0件、SEC財務再照合0件、割安判定0件、通知0件。11月18日観測一覧を母数とする過去値はNYSE 1,877/1,896、Nasdaq 3,081/3,189、合計4,958/5,085（97.5%、取引日当日の厳密な網羅率ではない）。SEC照合2,746件、通知判定可能1,472件も過去値。今回の候補・保留内訳は未測定。
+- 未解決: 今回のCI完走、Dolt実同期/429、正規セッション未調整終値・分割前価格、SEC株式クラスと株数基準日、正式PER/PBR、Android 15連続更新・WorkManager・無音通知。次回はCI結果、Dolt実同期とSEC未照合の拡大を優先。原本株価・APIキー・APKは公開していない。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC API](https://www.sec.gov/edgar/sec-api-documentation)。
+
 ## 2026-11-19 04:15 JST — Doltキャッシュのシンボリックリンク拒否を追加
 
 - 開始時main: [eead76b](https://github.com/osawamas/value-hunter-ai/commit/eead76bdf4fef6468a6a835a1ed389896e1f19b1)。最新main・当ログ・JPX担当の直近3コミット・同期実装とテスト・Actionsを読んで重複を回避。
