@@ -119,9 +119,13 @@ final class UsDeviceFinancials {
     }
 
     static LocalDate reuseFrom(JSONObject previous, LocalDate day) {
-        if (previous == null || previous.optJSONArray("targets") == null
-                || previous.optJSONArray("results") == null
-                || previous.optInt("cursor", -1) != previous.optJSONArray("targets").length()) return null;
+        if (previous == null) return null;
+        var targets = previous.optJSONArray("targets");
+        var results = previous.optJSONArray("results");
+        int cursor = previous.optInt("cursor", -1);
+        int reused = previous.optInt("reused", 0);
+        if (targets == null || results == null || cursor < 0 || cursor > targets.length() || reused < 0
+                || reused > results.length() || results.length() > cursor + reused) return null;
         try {
             var old = LocalDate.parse(previous.getString("day"));
             var full = LocalDate.parse(previous.getString("full_refresh_day"));

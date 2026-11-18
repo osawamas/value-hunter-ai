@@ -37,7 +37,9 @@ public class UsFinanceIncrementalTest {
                 .put(cached("EXPIRED", 3, OLD.minusDays(150)))
                 .put(cached("REMAPPED", 4, OLD.minusDays(10)));
         var previous = new JSONObject().put("day", OLD.toString()).put("full_refresh_day", OLD.toString())
-                .put("targets", new JSONArray()).put("cursor", 0).put("results", prior);
+                .put("targets", new JSONArray().put(target("UNCHANGED", 1)).put(target("CHANGED", 2))
+                        .put(target("EXPIRED", 3)).put(target("REMAPPED", 4)))
+                .put("cursor", 4).put("results", prior);
         var targets = new JSONArray().put(target("UNCHANGED", 1)).put(target("CHANGED", 2))
                 .put(target("EXPIRED", 3)).put(target("REMAPPED", 5)).put(target("NEW", 6));
 
@@ -54,6 +56,8 @@ public class UsFinanceIncrementalTest {
         assertEquals(NEXT.toString(), full.getString("full_refresh_day"));
         assertNull(UsDeviceFinancials.reuseFrom(previous, OLD.plusDays(7)));
         previous.put("targets", targets);
+        assertEquals(OLD, UsDeviceFinancials.reuseFrom(previous, NEXT));
+        previous.put("cursor", 3);
         assertNull(UsDeviceFinancials.reuseFrom(previous, NEXT));
     }
 
