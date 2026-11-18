@@ -413,5 +413,37 @@ class SyncTest(unittest.TestCase):
                              'invalid_repository_after_command')
             self.assertTrue((other / '.dolt').is_dir())
 
+    def test_destination_swapped_to_symlink_on_os_error_is_not_cached(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            other = root / 'other'
+            (other / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                dest.rmdir()
+                dest.symlink_to(other, target_is_directory=True)
+                raise PermissionError('cannot execute')
+            self.assertEqual(sync(dest, runner=runner),
+                             'invalid_repository_after_command')
+            self.assertTrue((other / '.dolt').is_dir())
+
+    def test_destination_swapped_to_symlink_on_failed_pull_is_not_cached(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            other = root / 'other'
+            (other / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                dest.rmdir()
+                dest.symlink_to(other, target_is_directory=True)
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            self.assertEqual(sync(dest, runner=runner, sleeper=lambda _: self.fail('no retry')),
+                             'invalid_repository_after_command')
+            self.assertTrue((other / '.dolt').is_dir())
+
 if __name__ == '__main__':
     unittest.main()
