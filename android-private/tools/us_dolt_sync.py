@@ -50,6 +50,10 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
         message = ((result.stderr or '') + '\n' + (result.stdout or '')).lower()
         rate_limited = bool(RATE_LIMIT.search(message))
         # A failed initial clone may leave a partial directory; do not retry it blindly.
+        if not existing and destination.exists():
+            # Failed clones may leave an incomplete directory. Never retry or
+            # treat it as a cache; require explicit inspection before cleanup.
+            return 'partial_clone_requires_manual_cleanup'
         if not rate_limited or attempt == attempts - 1 or not existing:
             return 'cached_after_rate_limit' if rate_limited and existing else ('rate_limited' if rate_limited else 'failed')
         sleeper(60 * (attempt + 1))
@@ -62,7 +66,7 @@ def main():
     args = parser.parse_args()
     result = sync(args.destination)
     print(result)
-    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error', 'invalid_repository_after_command'):
+    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error', 'invalid_repository_after_command', 'partial_clone_requires_manual_cleanup'):
         raise SystemExit(1)
 
 
