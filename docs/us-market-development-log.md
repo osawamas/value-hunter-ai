@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 16:19 JST — Dolt回帰テストを米国株CIに組み込み
+
+- 開始時main: [5dd023d](https://github.com/osawamas/value-hunter-ai/commit/5dd023d551a9e255cad4c5959f0630f1f7252607)。既存米国ログ、Dolt同期コードと19件の既存テスト、[直近Actions 44252477996](https://github.com/osawamas/value-hunter-ai/actions/runs/44252477996)（JPX関連、成功）を確認。並行JPX変更は触らず。
+- 従来の[米国株CI](https://github.com/osawamas/value-hunter-ai/blob/main/.github/workflows/us-daily-coverage-tests.yml)はDolt同期テストを実行せず、429再試行・キャッシュ消失の追加回帰テストがCIで未検証だった。ワークフローに `test_us_dolt_sync` を追加し、Doltコード/テスト変更時にも自動起動するよう[変更 9bdaae2](https://github.com/osawamas/value-hunter-ai/commit/9bdaae23cf23ed7cd55c8e170077f37ea67bec97)。外部DBへのアクセス、株価原本/APIキー/APKの公開はなし。
+- [今回の米国株CI 44257980299](https://github.com/osawamas/value-hunter-ai/actions/runs/44257980299) は確認時点でqueued。**テスト成功は未確認**。対象取引日: 今回の新規株価取得なし（0件）。NYSE/Nasdaqの2026-11-17同日網羅率未測定。参照: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)。
+- 未解決: CIの完走確認、Dolt実同期と429実測、未調整終値・株式分割・SEC株数照合、正式PER/PBR、Android更新・無音通知。次回はCI結果を読み、失敗なら修正し、実同期と市場別網羅率を測定する。
+
 ## 2026-11-18 15:18 JST — Dolt起動OSエラー後のキャッシュ消失を検出
 
 - 開始時main: [12407a5](https://github.com/osawamas/value-hunter-ai/commit/12407a5e7585b229d111ba1922cb6051dc770fb0)。最新main・既存米国ログ・Dolt同期コードとテスト・[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)を確認。前回のtimeout/429とは別のOS例外分岐を修正し、JP並行開発には触れない。
