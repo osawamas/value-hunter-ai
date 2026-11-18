@@ -44,7 +44,8 @@ def screen(payload):
             raise ValueError("Future financial basis date")
         # A financial date alone does not prove price/share-basis comparability.
         # The producer must explicitly attest to independent verification.
-        verified = row.get("financial_verified") is True and row.get("share_basis_verified") is True
+        verified = (financial_date is not None and row.get("financial_verified") is True
+                    and row.get("share_basis_verified") is True)
         close = decimal_or_none(row.get("close"))
         per = decimal_or_none(row.get("per")) if verified else None
         pbr = decimal_or_none(row.get("pbr")) if verified else None
