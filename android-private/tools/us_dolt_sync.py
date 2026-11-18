@@ -15,7 +15,11 @@ def _valid_metadata(destination):
 
 
 def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
-    destination = Path(destination).resolve()
+    # Reject a symlink at the clone root before resolve() can follow it.
+    # A linked destination must never redirect a pull into another directory.
+    destination = Path(destination).absolute()
+    if destination.is_symlink():
+        raise ValueError('destination must not be a symlink')
     if attempts < 1 or attempts > 3:
         raise ValueError('attempts must be 1..3')
     if destination.exists() and not _valid_metadata(destination):
