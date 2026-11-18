@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-18 10:16 JST — MoldUDP64境界検査を最小再現で再検証
+
+- 開始時main: [3e1047e](https://github.com/osawamas/value-hunter-ai/commit/3e1047e9ef2bd281d1146fdf6c1e80c9a2c17690)。[開発ログ](https://github.com/osawamas/value-hunter-ai/blob/main/docs/us-market-development-log.md)と `android-private/tools/us_nasdaq_nls_probe.py`、既存テストを読んだ。直近コミットのPR紐付けActions照会は0件で、pushの実行状況は未確認（[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。JP市場の並行コミットには触れない。
+- 既存 `mold_messages` の境界条件をPython 3の最小再現で実行。正常1メッセージ、長さヘッダー欠落、件数0で余剰バイト、長さ0の4ケースすべて想定どおり（4/4）。これは既存関数を抜粋した再現で、リポジトリ全テストの成功を意味しない。参照: [Nasdaq NLS Plus仕様](https://www.nasdaqtrader.com/content/technicalsupport/specifications/dataproducts/NLSPlusSpecification3.0.pdf)。
+- 変更箇所: この開発ログのみ。新しいコード差分なし（既存の境界検査が再現で期待どおりだったため）。git cloneはDNS解決失敗で、実リポジトリをローカル実行できなかった。対象取引日の新規取得0件、NYSE/Nasdaqの同日網羅率未測定。株価原本・APIキー・APKは公開していない。
+- 未解決: GitHub上のPython全テスト・push Actions、Doltの日次実同期と429キャッシュ、当日未調整終値・分割、SEC株数、Android更新・無音通知。次回は全テストの実行経路を確保し、Doltの実同期または代替公開ファイルの当日件数照合へ進む。
+
 ## 2026-11-18 09:19 JST — NLS Plusの不正なシステム通知長を拒否
 
 - 開始時main: [5cb54ec](https://github.com/osawamas/value-hunter-ai/commit/5cb54ec89fc588d1e0810ca455066058cdc7d533)。直近コミットのActionsを照会したが、コミット紐付けのPR実行は0件（通常pushの実行状況は未確認、[Actions一覧](https://github.com/osawamas/value-hunter-ai/actions)）。既存ログ・NLSコードとテストを読んで、並行JPX更新と重ならない入力検証を選択。
