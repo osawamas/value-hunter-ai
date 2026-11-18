@@ -25,7 +25,10 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
             result = runner(command, cwd=str(destination if existing else destination.parent),
                             capture_output=True, text=True, timeout=180)
         except subprocess.TimeoutExpired:
-            # A timeout may leave a partial clone. Never delete it or retry blindly.
+            # A timeout can also leave an existing repository unusable.
+            # Do not claim that a cache survived without checking its metadata.
+            if existing and not (destination / '.dolt').is_dir():
+                return 'invalid_repository_after_command'
             return 'cached_after_timeout' if existing else 'timed_out'
         except FileNotFoundError:
             return 'dolt_not_installed'
