@@ -139,6 +139,28 @@ class SyncTest(unittest.TestCase):
             self.assertEqual(sync(dest, runner=runner), 'timed_out')
             self.assertEqual(len(calls), 1)
 
+    def test_timeout_initial_clone_partial_directory_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            def runner(cmd, **kwargs):
+                dest.mkdir()
+                (dest / 'partial').write_text('safe')
+                raise subprocess.TimeoutExpired(cmd, 180)
+            self.assertEqual(sync(dest, runner=runner),
+                             'partial_clone_requires_manual_cleanup')
+            self.assertEqual((dest / 'partial').read_text(), 'safe')
+
+    def test_os_error_initial_clone_partial_directory_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            def runner(cmd, **kwargs):
+                dest.mkdir()
+                (dest / 'partial').write_text('safe')
+                raise PermissionError('spawn failed')
+            self.assertEqual(sync(dest, runner=runner),
+                             'partial_clone_requires_manual_cleanup')
+            self.assertEqual((dest / 'partial').read_text(), 'safe')
+
     def test_missing_dolt_explained(self):
         with tempfile.TemporaryDirectory() as tmp:
             def runner(cmd, **kwargs):
