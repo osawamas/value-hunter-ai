@@ -243,6 +243,31 @@ class SyncTest(unittest.TestCase):
                                       sleeper=lambda _: self.fail('unexpected sleep')), 'failed')
                 self.assertEqual(len(calls), 1)
 
+    def test_failed_initial_clone_with_partial_directory_requires_manual_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            calls = []
+            def runner(cmd, **kwargs):
+                calls.append(cmd)
+                dest.mkdir()
+                (dest / 'partial').write_text('preserve')
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            self.assertEqual(sync(dest, runner=runner,
+                                  sleeper=lambda _: self.fail('unexpected sleep')),
+                             'partial_clone_requires_manual_cleanup')
+            self.assertEqual(len(calls), 1)
+            self.assertEqual((dest / 'partial').read_text(), 'preserve')
+
+    def test_failed_initial_clone_without_partial_directory_is_rate_limited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            def runner(cmd, **kwargs):
+                return SimpleNamespace(returncode=1, stderr='HTTP 429', stdout='')
+            self.assertEqual(sync(dest, runner=runner,
+                                  sleeper=lambda _: self.fail('unexpected sleep')),
+                             'rate_limited')
+            self.assertFalse(dest.exists())
+
     def test_initial_rate_limit_not_retried(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
