@@ -18,6 +18,10 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
     if not destination.exists() and not destination.parent.is_dir():
         raise ValueError('destination parent does not exist')
     for attempt in range(attempts):
+        # A previous pull/backoff may have lost its repository metadata.
+        # Never turn the next retry into a clone over an existing directory.
+        if destination.exists() and not (destination / '.dolt').is_dir():
+            return 'invalid_repository_after_command'
         existing = (destination / '.dolt').is_dir()
         command = (['dolt', 'pull', '--ff-only'] if existing else
                    ['dolt', 'clone', '--depth', '1', REMOTE, destination.name])
