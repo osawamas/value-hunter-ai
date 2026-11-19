@@ -5,6 +5,7 @@ ordinary-share class, corporate actions and provenance for both trade dates.
 """
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from collections.abc import Mapping
 
 BUDGET_JPY = Decimal("100000")
 
@@ -35,6 +36,8 @@ def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
         return False, "source_unverified_or_stale"
     if not previous or not current:
         return False, "two_closes_required"
+    if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
+        return False, "invalid_observation"
     try:
         old_date = date.fromisoformat(previous["date"])
         new_date = date.fromisoformat(current["date"])
@@ -61,6 +64,8 @@ def evaluate_budget_entry_for_sessions(previous, current, *, expected_previous_d
     an older cached close. The caller must derive expected dates from an
     exchange trading calendar, not by subtracting a calendar day.
     """
+    if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
+        return False, "invalid_observation"
     try:
         expected_old = date.fromisoformat(expected_previous_date)
         expected_new = date.fromisoformat(expected_current_date)
@@ -87,7 +92,7 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
     if not previous or not current:
         return False, "two_closes_required"
     for item in (previous, current):
-        if not isinstance(item, dict):
+        if not isinstance(item, Mapping):
             return False, "invalid_observation"
         if item.get("price_basis") != "raw_unadjusted_regular_session":
             return False, "raw_close_basis_unverified"
