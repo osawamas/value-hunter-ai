@@ -5,6 +5,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -43,10 +44,17 @@ final class UsDoltCloses {
         String pinnedFilter = " FROM ohlcv AS OF '" + revision + "' WHERE date = '" + day + "' AND close > 0";
         var closes = new JSONArray();
         var seen = new HashSet<String>();
+        String select = "SELECT act_symbol AS symbol, date AS trading_date, close" + pinnedFilter;
         for (int offset = 0; offset < total; offset += PAGE_SIZE) {
-            JSONArray rows = query(download, "SELECT act_symbol AS symbol, date AS trading_date, close"
-                    + pinnedFilter + " ORDER BY act_symbol LIMIT " + PAGE_SIZE + " OFFSET " + offset);
-            if (rows.length() != Math.min(PAGE_SIZE, total - offset)) {
+            int expected = Math.min(PAGE_SIZE, total - offset);
+            JSONArray rows;
+            try {
+                rows = query(download, select + " ORDER BY act_symbol LIMIT " + PAGE_SIZE + " OFFSET " + offset);
+            } catch (SocketTimeoutException timeout) {
+                if (offset == 0 || total - offset > PAGE_SIZE) throw timeout;
+                rows = recoverLastPage(download, select, closes, day, expected);
+            }
+            if (rows.length() != expected) {
                 throw new JSONException("Incomplete Dolt close page");
             }
             for (int i = 0; i < rows.length(); i++) {
@@ -62,6 +70,33 @@ final class UsDoltCloses {
             }
         }
         return closes;
+    }
+
+    private static JSONArray recoverLastPage(Download download, String select, JSONArray previous,
+                                              LocalDate day, int remaining) throws IOException, JSONException {
+        // Read the suffix without a large OFFSET. Match the overlap with the already validated pages.
+        var reverse = query(download, select + " ORDER BY act_symbol DESC LIMIT " + PAGE_SIZE);
+        if (reverse.length() != PAGE_SIZE) throw new JSONException("Incomplete reverse Dolt close page");
+        int overlap = PAGE_SIZE - remaining;
+        for (int i = 0; i < overlap; i++) {
+            var recovered = reverse.getJSONObject(PAGE_SIZE - 1 - i);
+            var original = previous.getJSONObject(previous.length() - overlap + i);
+            if (!day.toString().equals(recovered.getString("trading_date"))
+                    || !original.getString("symbol").equals(recovered.getString("symbol"))
+                    || original.getDouble("close_usd") != recovered.getDouble("close")) {
+                throw new JSONException("Dolt reverse close page does not match the pinned prefix");
+            }
+        }
+        var suffix = new JSONArray();
+        String last = previous.getJSONObject(previous.length() - 1).getString("symbol");
+        for (int i = remaining - 1; i >= 0; i--) {
+            var row = reverse.getJSONObject(i);
+            var symbol = row.getString("symbol");
+            if (symbol.compareTo(last) <= 0) throw new JSONException("Unordered Dolt close suffix");
+            suffix.put(row);
+            last = symbol;
+        }
+        return suffix;
     }
 
     static Map<String, LocalDate> pilotSplits(LocalDate from, LocalDate to, Download download)
@@ -126,7 +161,7 @@ final class UsDoltCloses {
         var data = download.get(URL + "?q=" + URLEncoder.encode(sql, StandardCharsets.UTF_8.name()));
         if (!"Success".equals(data.optString("query_execution_status"))) {
             if ("Timeout".equals(data.optString("query_execution_status"))) {
-                throw new IOException("Dolt close query timed out");
+                throw new SocketTimeoutException("Dolt close query timed out");
             }
             throw new JSONException("Dolt close query did not succeed");
         }

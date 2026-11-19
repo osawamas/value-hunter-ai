@@ -5,6 +5,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Test;
 
+import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -38,6 +39,43 @@ public class UsDoltClosesTest {
         assertEquals(3, calls.get());
         assertEquals(1001, closes.length());
         assertEquals("LAST", closes.getJSONObject(1000).getString("symbol"));
+    }
+
+    @Test public void recoversATimedOutLastPageFromAnOverlappingPinnedSuffix() throws Exception {
+        var calls = new AtomicInteger();
+        var closes = UsDoltCloses.fetch(DAY, address -> recoveryResponse(address, calls, false));
+        assertEquals(4, calls.get());
+        assertEquals(1002, closes.length());
+        assertEquals("T1000", closes.getJSONObject(1000).getString("symbol"));
+        assertEquals("T1001", closes.getJSONObject(1001).getString("symbol"));
+    }
+
+    @Test public void rejectsAReversePageThatDoesNotMatchThePreviouslyReadRows() {
+        var calls = new AtomicInteger();
+        assertThrows(JSONException.class, () ->
+                UsDoltCloses.fetch(DAY, address -> recoveryResponse(address, calls, true)));
+        assertEquals(4, calls.get());
+    }
+
+    private static JSONObject recoveryResponse(String address, AtomicInteger calls, boolean conflicting)
+            throws SocketTimeoutException, JSONException {
+        String query = URLDecoder.decode(address, StandardCharsets.UTF_8);
+        int call = calls.getAndIncrement();
+        if (call == 0) return manifest(1002);
+        assertTrue(query.contains("ohlcv AS OF '" + REVISION + "'"));
+        if (call == 2) {
+            assertTrue(query.endsWith("OFFSET 1000"));
+            throw new SocketTimeoutException("offset timed out");
+        }
+        var rows = new JSONArray();
+        if (call == 1) {
+            for (int i = 0; i < 1000; i++) rows.put(row(String.format(java.util.Locale.ROOT, "T%04d", i), DAY));
+        } else {
+            assertTrue(query.endsWith("ORDER BY act_symbol DESC LIMIT 1000"));
+            for (int i = 1001; i >= 2; i--) rows.put(row(String.format(java.util.Locale.ROOT, "T%04d", i), DAY));
+            if (conflicting) rows.getJSONObject(2).put("close", "0.01");
+        }
+        return response(rows);
     }
 
     @Test public void rejectsTruncatedDuplicateAndMismatchedRows() throws Exception {
