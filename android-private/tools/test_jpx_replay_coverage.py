@@ -27,6 +27,16 @@ class ReplayTests(unittest.TestCase):
         data["dividend_verified_free_codes"] = []
         self.assertEqual(reconcile(data)["rapid_moves_verified"], 0)
 
+    def test_nonrapid_unverified_not_counted_as_held(self):
+        data = self.fixture()
+        data["latest_closes"]["1001"] = "1000"
+        self.assertEqual(reconcile(data)["rapid_moves_held_unverified"], 0)
+
+    def test_rapid_unverified_is_held(self):
+        data = self.fixture()
+        data["latest_closes"]["1001"] = "900"
+        self.assertEqual(reconcile(data)["rapid_moves_held_unverified"], 1)
+
     def test_same_day_rejected(self):
         data = self.fixture()
         data["previous_date"] = data["latest_date"]
