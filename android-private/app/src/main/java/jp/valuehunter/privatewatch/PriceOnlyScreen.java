@@ -38,4 +38,30 @@ final class PriceOnlyScreen {
         entered.sort(Comparator.comparing(BudgetEntry::code));
         return new Result(assessed, List.copyOf(entered));
     }
+    /** Reference-only abrupt move. Caller must establish that the entire comparison
+     * interval has complete corporate-action evidence and no relevant event. */
+    record RapidMove(String code, BigDecimal percent) {}
+
+    static List<RapidMove> rapidMoves(Set<String> codes, Set<String> financialCodes,
+                                     Function<String, BigDecimal> previousClose,
+                                     Function<String, BigDecimal> latestClose,
+                                     java.util.function.Predicate<String> verifiedEventFree,
+                                     BigDecimal minimumAbsolutePercent) {
+        if (minimumAbsolutePercent == null || minimumAbsolutePercent.signum() <= 0)
+            throw new IllegalArgumentException("Positive threshold required");
+        var changes = new ArrayList<RapidMove>();
+        for (String code : codes) {
+            if (financialCodes.contains(code) || !verifiedEventFree.test(code)) continue;
+            BigDecimal before = previousClose.apply(code);
+            BigDecimal after = latestClose.apply(code);
+            if (before == null || after == null || before.signum() <= 0 || after.signum() <= 0) continue;
+            BigDecimal percent = after.subtract(before).multiply(BigDecimal.valueOf(100))
+                    .divide(before, 4, java.math.RoundingMode.HALF_UP);
+            if (percent.abs().compareTo(minimumAbsolutePercent) >= 0)
+                changes.add(new RapidMove(code, percent));
+        }
+        changes.sort(Comparator.comparing(RapidMove::code));
+        return List.copyOf(changes);
+    }
+
 }
