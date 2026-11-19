@@ -1,5 +1,5 @@
 import unittest
-from us_price_only_guard import evaluate_budget_entry as check, evaluate_budget_entry_for_sessions as session_check
+from us_price_only_guard import evaluate_budget_entry as check, evaluate_budget_entry_for_sessions as session_check, evaluate_verified_budget_entry as verified_check
 
 
 class PriceOnlyGuardTests(unittest.TestCase):
@@ -66,6 +66,30 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertFalse(session_check(self.old, self.new,
             expected_previous_date="2026-11-17",
             expected_current_date="2026-11-16", **self.flags)[0])
+
+
+    def test_verified_provenance_gate(self):
+        old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.old["date"], "close_source": "exchange:old",
+               "fx_source": "fixing:old"}
+        new = {**self.new, "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.new["date"], "close_source": "exchange:new",
+               "fx_source": "fixing:new"}
+        args = dict(expected_previous_date=self.old["date"],
+                    expected_current_date=self.new["date"], **self.flags)
+        self.assertTrue(verified_check(old, new, **args)[0])
+        for field, bad, reason in (
+            ("price_basis", "split_adjusted", "raw_close_basis_unverified"),
+            ("price_basis", None, "raw_close_basis_unverified"),
+            ("fx_date", self.old["date"], "fx_session_mismatch"),
+            ("close_source", "", "missing_source_reference"),
+            ("fx_source", None, "missing_source_reference"),
+        ):
+            with self.subTest(field=field, bad=bad):
+                self.assertEqual(verified_check(old, {**new, field: bad}, **args),
+                                 (False, reason))
+        self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
+                         "fx_date": "2026-11-18"}, **args)[0])
 
 if __name__ == "__main__":
     unittest.main()
