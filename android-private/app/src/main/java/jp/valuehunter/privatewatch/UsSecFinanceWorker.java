@@ -23,6 +23,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -37,6 +38,9 @@ public final class UsSecFinanceWorker extends Worker {
     private static final String QUOTES = "us-daily-closes.json";
     private static final String SEC_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK%010d.json";
     private static final String FX = "https://api.frankfurter.dev/v2/rates?base=USD&quotes=JPY";
+    private static final int BUDGET_NOTIFICATION_ID = 8;
+    private static final String BUDGET_SENT_DAY = "us_budget_sent_day";
+    private static final String BUDGET_SENT_SYMBOLS = "us_budget_sent_symbols";
     private static final int BATCH = 40;
     private static final long BATCH_MILLIS = 45_000;
     private static final long BETWEEN_REQUESTS_MILLIS = 350;
@@ -136,12 +140,14 @@ public final class UsSecFinanceWorker extends Worker {
                 scan.put("ledger", ledger);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
+            var budget = prepareBudget(quote, ledger, directory, day, hash);
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 if (!hash.equals(UsReferenceAlerts.sha256(closeFile.readFully()))) {
                     if (!isStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
                 }
                 UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::isStopped);
+                if (!isStopped() && !applyBudget(context, preferences, day, budget)) return Result.retry();
             }
             return Result.success();
         } catch (FileNotFoundException absent) {
@@ -157,6 +163,61 @@ public final class UsSecFinanceWorker extends Worker {
             }
             return Result.retry();
         }
+    }
+
+    private UsPriceOnlyBudget.Result prepareBudget(JSONObject quote, JSONObject ledger, File directory,
+                                                   LocalDate day, String hash) {
+        if (isStopped()) return null;
+        var expected = UsPriceOnlyBudget.onOrBeforeWeekday(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
+        if (!day.equals(expected)) return null;
+        try {
+            var priorFile = new AtomicFile(new File(directory, UsDailyWorker.PREVIOUS_QUOTE_FILE));
+            var previous = new JSONObject(new String(UsDailyWorker.readQuote(priorFile), StandardCharsets.UTF_8));
+            var priorDay = UsPriceOnlyBudget.previousWeekday(day);
+            if (!priorDay.toString().equals(previous.optString("trading_date_et"))
+                    || !quote.getString("source").equals(previous.optString("source"))) return null;
+            var ordinary = UsPriceOnlyBudget.ordinary(listings("otherlisted.txt", false),
+                    listings("nasdaqlisted.txt", true), day);
+            var rates = new JSONArray(download.get(FX + "&from=" + priorDay + "&to=" + day));
+            var financial = UsReferenceAlerts.read(ledger);
+            return hash.equals(financial.hash())
+                    ? UsPriceOnlyBudget.compare(previous, quote, rates, ordinary, financial, expected) : null;
+        } catch (IOException | JSONException | DateTimeParseException unavailable) {
+            return null;
+        }
+    }
+
+    private static boolean applyBudget(Context context, android.content.SharedPreferences state, LocalDate day,
+                                       UsPriceOnlyBudget.Result budget) {
+        var date = day.toString();
+        var status = state.edit().putString(UsDailyWorker.PRICE_ONLY_DAY, date);
+        if (budget == null || budget.screen().assessed() == 0) {
+            status.putString(UsDailyWorker.PRICE_ONLY_STATUS, "株価だけの予算判定は終値・上場一覧・当日為替の照合待ち").apply();
+            return true;
+        }
+        var result = budget.screen();
+        String summary = "株価だけで予算を比較 " + result.assessed() + "銘柄 · 100株10万円以下に入った "
+                + result.entered().size() + "銘柄";
+        if (!budget.verifiedPriceBasis()) {
+            status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary + "（参考集計） · 終値の調整基準確認待ち").apply();
+            return true;
+        }
+        status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary).apply();
+        if (!ScanWorker.alertsEnabled(context)) return true;
+        var sent = date.equals(state.getString(BUDGET_SENT_DAY, ""))
+                ? new HashSet<>(state.getStringSet(BUDGET_SENT_SYMBOLS, Set.of())) : new HashSet<String>();
+        var pending = result.entered().stream().filter(entry -> !sent.contains(entry.code())).toList();
+        if (pending.isEmpty()) return true;
+        var detail = new StringBuilder(day + "の終値と同日の為替で100株の購入額を計算（手数料別）");
+        for (var entry : pending.subList(0, Math.min(12, pending.size()))) {
+            detail.append("\n").append(entry.code()).append(" · ")
+                    .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
+        }
+        if (pending.size() > 12) detail.append("\nほか ").append(pending.size() - 12).append("銘柄");
+        if (!ScanWorker.postNotification(context, BUDGET_NOTIFICATION_ID,
+                "米国株・参考 100株10万円以下に入った " + pending.size() + "銘柄", detail.toString())) return false;
+        for (var entry : pending) sent.add(entry.code());
+        return state.edit().putString(BUDGET_SENT_DAY, date).putStringSet(BUDGET_SENT_SYMBOLS, sent).commit();
     }
 
     private UsMarketCoverage.Directory listings(String filename, boolean nasdaq)

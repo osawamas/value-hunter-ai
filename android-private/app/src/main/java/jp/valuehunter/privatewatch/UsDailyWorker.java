@@ -55,6 +55,9 @@ public final class UsDailyWorker extends Worker {
     private static final String PRIVATE_BASELINE = "us_private_sec_baseline";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final int US_NOTIFICATION_ID = 6;
+    static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
+    static final String PRICE_ONLY_STATUS = "us_price_only_status";
+    static final String PRICE_ONLY_DAY = "us_price_only_day";
     private static final String DATE = "us_massive_daily_close_date";
     private static final String COUNT = "us_massive_daily_close_count";
     private static final String ENDPOINT =
@@ -90,6 +93,9 @@ public final class UsDailyWorker extends Worker {
         }
         String privateStatus = state.getString(PRIVATE_STATUS, "米国株の財務取得はWi-Fi接続時に開始");
         if (!privateStatus.isEmpty()) result += "\n\n" + privateStatus;
+        if (day.equals(state.getString(PRICE_ONLY_DAY, ""))) {
+            result += "\n\n" + state.getString(PRICE_ONLY_STATUS, "");
+        }
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
@@ -141,6 +147,11 @@ public final class UsDailyWorker extends Worker {
                         .put("closes", closes);
                 if (isStopped()) return Result.retry();
                 synchronized (QUOTE_LOCK) {
+                    if (previous != null && day.isAfter(previous)) {
+                        var old = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
+                        var priorFile = new AtomicFile(new File(context.getNoBackupFilesDir(), PREVIOUS_QUOTE_FILE));
+                        writeSnapshot(priorFile, old);
+                    }
                     writeSnapshot(file, snapshot);
                 }
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
