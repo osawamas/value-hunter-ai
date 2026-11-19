@@ -27,9 +27,9 @@ def reconcile_us_coverage(listed_by_market, paired_by_market, financial_by_marke
         if any(not isinstance(values, (set, frozenset)) for values in
                (listed, paired, financial, candidates)):
             raise ValueError("inputs must be actual symbol sets, not counts")
-        if any(not isinstance(s, str) or not s.strip() for values in
-               (listed, paired, financial, candidates) for s in values):
-            raise ValueError("empty or invalid symbol")
+        if any(not isinstance(s, str) or not s.strip() or s != s.strip()
+               for values in (listed, paired, financial, candidates) for s in values):
+            raise ValueError("empty, invalid or noncanonical symbol")
         if not paired <= listed or not financial <= listed or not candidates <= paired:
             raise ValueError("inconsistent listing/paired/candidate membership")
         eligible_price_only = paired - financial
