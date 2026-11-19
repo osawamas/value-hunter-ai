@@ -1,5 +1,14 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-20 00:16 JST — 19候補のSEC重複照合結果を引継ぎ、CI失敗を調査
+
+- 開始時main: d09f0eecc4459b202d5632cdb4026f0016b38281。JPXファイルは変更せず、US価格のみ判定の回帰テストを追加: [437f144](https://github.com/osawamas/value-hunter-ai/commit/437f1445d4e3dc56ee96e1290a423e56b1abaa0c)。欠落した取引日（invalid_trade_dates）と不正な行形式（invalid_observation）の違いを明示的に検査する。
+- GitHub Actions [44541936208](https://github.com/osawamas/value-hunter-ai/actions/runs/44541936208) は失敗。android-private/toolsの113件は成功、scriptsの14件中1件が失敗。原因は None の日次観測に対する期待理由 invalid_trade_dates と実際の invalid_observation の不一致。現在mainの scripts/us_price_only_guard.py は None を先に検査し invalid_trade_dates を返すコードになっているため、過去の失敗SHAと現在mainを区別する。今回の追加テストと変更後Actionsの完走は未確認。
+- 最新の11月19日付実データ照合記録では、11月16・17日の2日分NYSE 1,868/1,896（98.5%）、Nasdaq 3,041/3,190（95.3%）、合計4,909/5,086（96.5%）。照合前予算入り19（NYSE 7、Nasdaq 12）。SEC単一クラス照合でEVCM・RWAYの2銘柄は従来財務判定へ移行、残17は財務符号条件保留5、クラス・財務等の照合待ち12。分割表で対象2日内のイベント行なし、Nasdaq履歴と価格一致だが、独立した未調整正規終値の市場全体保証にはならない。価格のみ確定通知対象0、実端末通知未検証。
+- 今回の新規取得0、財務再照合0、Android通知実測なし。財務4,194銘柄の市場別実集合と全4,909銘柄の正味簡易判定可能数は依然未測定。2日分不足177（NYSE28、Nasdaq149）。過去単日4,958/5,085と通知判定可能1,472は別基準。
+- 次回: 新規US CIを確認し、失敗時修正。17保留候補の公式企業イベント・未調整終値・日別FX原本・SECクラス照合、全市場の財務集合突合、PriceOnlyScreen/WorkManager無音通知とAndroid 15検証。APIキー・手動CSV・追加費用・Mac不要、APK/株価原本は公開しない。
+
+
 ## 2026-11-19 — 予算入り19候補の終値・SEC財務を実データで照合
 
 - 11月16・17日のDoltHub終値を同じ固定版から再取得。普通株候補4,909銘柄に日別USD/JPYを適用し、100株の購入額が10万円超から10万円以下へ移った候補19銘柄（NYSE 7、Nasdaq 12）を再現した。Nasdaq公開履歴と比較し、19銘柄で両日の終値が一致した。
