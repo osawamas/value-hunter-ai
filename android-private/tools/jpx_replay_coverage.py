@@ -70,6 +70,13 @@ def reconcile(snapshot):
         "paired_unlisted": 0,
         "financial_registered_total": len(financial),
         "paired_financial_overlap": len(paired & financial),
+        "paired_financial_and_price_only_union": len(paired),
+        "paired_financial_coverage_percent":
+            str((Decimal(len(paired & financial)) * 100 / len(listed)).quantize(Decimal("0.01")))
+            if listed else "0.00",
+        "paired_total_market_coverage_percent":
+            str((Decimal(len(paired)) * 100 / len(listed)).quantize(Decimal("0.01")))
+            if listed else "0.00",
         "price_only_assessable": len(eligible),
         "price_only_market_coverage_percent":
             str((Decimal(len(eligible)) * 100 / len(listed)).quantize(Decimal("0.01")))
