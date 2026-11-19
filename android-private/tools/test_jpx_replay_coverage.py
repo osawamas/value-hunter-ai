@@ -14,6 +14,25 @@ class ReplayTests(unittest.TestCase):
             dividend_verified_free_codes=["1002"],
         )
 
+    def test_distinct_candidates_do_not_double_count_reasons(self):
+        data = self.fixture()
+        data["previous_closes"]["1002"] = "1001"
+        data["latest_closes"]["1002"] = "900"
+        result = reconcile(data)
+        self.assertEqual(result["budget_entries"], 2)
+        self.assertEqual(result["rapid_moves_verified"], 1)
+        self.assertEqual(result["budget_and_rapid_overlap"], 1)
+        self.assertEqual(result["distinct_reference_candidate_codes"], 2)
+        self.assertEqual(result["distinct_reference_candidate_market_percent"], "50.00")
+        self.assertIsNone(result["new_notifications"])
+
+    def test_unverified_rapid_is_not_counted_as_candidate(self):
+        data = self.fixture()
+        data["latest_closes"]["1001"] = "900"
+        result = reconcile(data)
+        self.assertEqual(result["rapid_moves_held_unverified"], 1)
+        self.assertEqual(result["distinct_reference_candidate_codes"], 2)
+
     def test_overlap_and_event_gates(self):
         result = reconcile(self.fixture())
         self.assertEqual(result["price_only_assessable"], 2)
