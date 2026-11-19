@@ -91,7 +91,7 @@ def main():
     args = parser.parse_args()
     result = sync(args.destination)
     print(result)
-    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error', 'invalid_repository_after_command', 'partial_clone_requires_manual_cleanup'):
+    # A retained cache is not evidence of a fresh daily update. Fail closed.\n    if result in ('failed', 'rate_limited', 'timed_out', 'dolt_not_installed', 'os_error',\n                  'invalid_repository_after_command', 'partial_clone_requires_manual_cleanup',\n                  'cached_after_rate_limit', 'cached_after_timeout', 'cached_after_os_error'):
         raise SystemExit(1)
 
 
