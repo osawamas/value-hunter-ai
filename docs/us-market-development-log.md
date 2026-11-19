@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 09:15 JST — 429判定の独立再現
+
+- 開始時main: 62f15ba6e7e70f78ea42cff2a5c70bad5c07b725。最新USログ、Dolt同期コードとテスト、US Actions定義、直近JPXのissuer-source監査コミットを確認。JPX側は変更なし。
+- Python 3標準reで同期コードの429判定正規表現を独立再現。HTTP 429 / Too Many Requestsを検出、1429 / 4290 / 429A / X429を除外する計6件すべて成功。既存テストと重複するため今回は本体コードを変更しない。リポジトリ内unittestは未実行。
+- [US Actions定義](https://github.com/osawamas/value-hunter-ai/blob/main/.github/workflows/us-daily-coverage-tests.yml)を確認。最新mainのcommit statusは個別0件。push Actions一覧を取得できず成功未確認。[US CI一覧](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)。実Dolt同期・実429・Androidエミュレータは未実施。
+- 対象取引日2026-11-17、11月18日観測の母数による過去値: NYSE 1,877/1,896、Nasdaq 3,081/3,189、合計4,958/5,085（97.5%、厳密な同日網羅率ではない）。SEC財務照合2,746、通知判定可能1,472も過去値。今回新規終値0、財務再照合0、割安判定0、候補0、通知0、保留内訳未測定。
+- 未解決: 実Dolt日次同期、正規未調整終値と分割、SEC株数・クラス・基準日、正式PER/PBR、WorkManager・無音通知。次回は実同期・CI完走、不可ならSEC未照合削減。出典: [DoltHub](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC](https://www.sec.gov/edgar/sec-api-documentation)。株価原本・APIキー・APKは公開していない。
+
 ## 2026-11-19 08:19 JST — Dolt同期のOS例外・失敗終了後のリンク差し替えを拒否
 
 - 開始時main: [3be9337](https://github.com/osawamas/value-hunter-ai/commit/3be9337ae3f196b73b4ff3ed73d667f242cafd99)。最新US開発ログ、同期本体、既存回帰テスト、US Actions定義、直近JPXのPDFリダイレクト拒否2コミットを確認。JPXコードには触れず。
