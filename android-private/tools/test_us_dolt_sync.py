@@ -496,5 +496,38 @@ class SyncTest(unittest.TestCase):
                              'invalid_repository_after_command')
             self.assertTrue((other / '.dolt').is_dir())
 
+class CliFreshnessTest(unittest.TestCase):
+    def test_cached_fallback_is_not_reported_as_fresh_success(self):
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        import us_dolt_sync
+
+        for status in ('cached_after_rate_limit', 'cached_after_timeout',
+                       'cached_after_os_error'):
+            with self.subTest(status=status):
+                output = io.StringIO()
+                with patch('sys.argv', ['us_dolt_sync.py', '/tmp/unused-stocks']), \
+                     patch.object(us_dolt_sync, 'sync', return_value=status), \
+                     redirect_stdout(output):
+                    with self.assertRaises(SystemExit) as raised:
+                        us_dolt_sync.main()
+                self.assertEqual(raised.exception.code, 1)
+                self.assertEqual(output.getvalue().strip(), status)
+
+    def test_updated_cache_still_exits_successfully(self):
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        import us_dolt_sync
+
+        output = io.StringIO()
+        with patch('sys.argv', ['us_dolt_sync.py', '/tmp/unused-stocks']), \
+             patch.object(us_dolt_sync, 'sync', return_value='updated'), \
+             redirect_stdout(output):
+            us_dolt_sync.main()
+        self.assertEqual(output.getvalue().strip(), 'updated')
+
+
 if __name__ == '__main__':
     unittest.main()
