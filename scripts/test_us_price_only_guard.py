@@ -19,6 +19,23 @@ class PriceOnlyGuardTests(unittest.TestCase):
     def test_financials_block(self):
         self.assertFalse(check(self.old, self.new, **{**self.flags, "financials_verified": True})[0])
 
+    def test_unknown_financials_fail_closed(self):
+        for status in (None, 0, "", "false"):
+            with self.subTest(status=status):
+                result = check(self.old, self.new,
+                    **{**self.flags, "financials_verified": status})
+                self.assertEqual(result, (False, "financials_status_unverified"))
+
+    def test_unverified_flags_fail_closed(self):
+        for field in ("ordinary_share_verified", "corporate_actions_verified",
+                      "source_verified"):
+            for value in (None, 1, "yes"):
+                with self.subTest(field=field, value=value):
+                    self.assertFalse(check(self.old, self.new,
+                        **{**self.flags, field: value})[0])
+        self.assertFalse(check(self.old, self.new,
+            **{**self.flags, "stale_cache": None})[0])
+
     def test_fx_day_matters(self):
         old = {**self.old, "close_usd": "6", "usd_jpy": "140"}
         self.assertFalse(check(old, self.new, **self.flags)[0])
