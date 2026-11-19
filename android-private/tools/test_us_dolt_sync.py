@@ -189,6 +189,27 @@ class SyncTest(unittest.TestCase):
                 raise FileNotFoundError('dolt')
             self.assertEqual(sync(Path(tmp) / 'stocks', runner=runner), 'dolt_not_installed')
 
+    def test_missing_executable_after_cache_removed_is_not_misclassified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            (dest / '.dolt').mkdir(parents=True)
+            def runner(cmd, **kwargs):
+                (dest / '.dolt').rmdir()
+                raise FileNotFoundError('dolt')
+            self.assertEqual(sync(dest, runner=runner),
+                             'invalid_repository_after_command')
+
+    def test_missing_executable_during_partial_clone_preserves_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / 'stocks'
+            def runner(cmd, **kwargs):
+                dest.mkdir()
+                (dest / 'partial').write_text('preserve')
+                raise FileNotFoundError('dolt')
+            self.assertEqual(sync(dest, runner=runner),
+                             'partial_clone_requires_manual_cleanup')
+            self.assertEqual((dest / 'partial').read_text(), 'preserve')
+
     def test_os_error_keeps_existing_cache(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
