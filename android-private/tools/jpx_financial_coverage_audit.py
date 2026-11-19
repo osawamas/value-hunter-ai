@@ -40,6 +40,7 @@ def audit(universe, manifest, report=None):
         raise ValueError("Manifest must contain source SHA256")
     acquired = set()
     failed = set()
+    attempted_sources = set()
     if report is not None:
         sources = report.get("sources") if isinstance(report, dict) else None
         if not isinstance(sources, list):
@@ -48,6 +49,10 @@ def audit(universe, manifest, report=None):
             if (not isinstance(item, dict) or
                     (item.get("code"), item.get("sha256")) not in manifest_sources):
                 raise ValueError("Report contains a source not in manifest")
+            source_identity = (item["code"], item["sha256"])
+            if source_identity in attempted_sources:
+                raise ValueError("Duplicate acquisition result for the same original PDF")
+            attempted_sources.add(source_identity)
             status = item.get("status")
             if status in ("cached", "downloaded"):
                 acquired.add(item["code"])
@@ -55,6 +60,7 @@ def audit(universe, manifest, report=None):
                 failed.add(item["code"])
             else:
                 raise ValueError("Unknown acquisition status")
+    attempted_codes = acquired | failed
     return {
         "market": "JP",
         "universe_count": len(universe),
@@ -63,6 +69,9 @@ def audit(universe, manifest, report=None):
         "missing_manifest_codes": sorted(universe - sourced),
         "manifest_codes_outside_universe": sorted(sourced - universe),
         "acquired_codes_in_universe": len(acquired & universe),
+        "unattempted_manifest_codes_in_universe": sorted((sourced & universe) - attempted_codes),
+        "unattempted_manifest_code_count": len((sourced & universe) - attempted_codes),
+        "acquisition_attempted_source_count": len(attempted_sources),
         "failed_codes_in_universe": len(failed & universe),
         "mixed_acquisition_codes_in_universe": len(acquired & failed & universe),
         "financial_verified_count": 0,
