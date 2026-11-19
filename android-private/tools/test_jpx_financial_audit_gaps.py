@@ -31,6 +31,9 @@ class AuditGapTests(unittest.TestCase):
         self.assertEqual(result["unattempted_manifest_codes_in_universe"], ["9012"])
         self.assertEqual(result["missing_manifest_codes"], ["3456"])
         self.assertEqual(result["unattempted_manifest_source_count"], 1)
+        self.assertEqual(result["acquired_source_count"], 1)
+        self.assertEqual(result["failed_source_count"], 2)
+        self.assertEqual(result["unattempted_source_counts_by_code"], {"9012": 1})
         self.assertEqual(result["financial_verified_count"], 0)
         self.assertEqual(result["notification_eligible_count"], 0)
         self.assertEqual(result["hold_reasons_by_code"], {
@@ -54,6 +57,8 @@ class AuditGapTests(unittest.TestCase):
         self.assertEqual(result["hold_reasons_by_code"]["5678"],
                          "financial_and_corporate_actions_unverified")
         self.assertEqual(result["notification_eligible_count"], 0)
+        self.assertEqual(result["unattempted_source_counts_by_code"], {"1234": 1})
+        self.assertEqual(result["acquired_source_count"], 2)
 
     def test_duplicate_original_identity_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Duplicate source identity"):
