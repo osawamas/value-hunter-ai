@@ -242,6 +242,23 @@ final class JpxDailyCheck {
             return PriceOnlyScreen.budgetEntries(codes, financialCodes, previous::close, latest::close);
         }
 
+        // Do not infer a clean corporate-action interval from missing evidence.
+        // Callers must supply independently verified split/consolidation and ex-dividend
+        // coverage for the exact previous/latest trading-day interval.
+        List<PriceOnlyScreen.RapidMove> verifiedRapidMoves(
+                Screening financial, JpxAutomaticFinance.Batch finance,
+                java.util.function.Predicate<String> splitIntervalVerifiedFree,
+                java.util.function.Predicate<String> dividendIntervalVerifiedFree,
+                BigDecimal minimumAbsolutePercent) {
+            if (previous == null || !previous.date().isBefore(latest.date())) return List.of();
+            var codes = latest.universe() == null ? latest.quotes().keySet() : latest.universe().codes();
+            var registeredFinancial = new HashSet<>(screenCodes(finance));
+            registeredFinancial.addAll(financial.assessedCodes());
+            return PriceOnlyScreen.rapidMoves(codes, registeredFinancial,
+                    previous::close, latest::close, splitIntervalVerifiedFree,
+                    dividendIntervalVerifiedFree, minimumAbsolutePercent);
+        }
+
         private ReferenceChange automaticChange(String code, JpxShareRights rights,
                                                 JpxAutomaticFinance.Batch finance, JpxAutomaticFinance.Entry entry) {
             var held = new Candidate(code, 0, Level.HELD);
