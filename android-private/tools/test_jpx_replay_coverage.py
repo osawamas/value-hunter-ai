@@ -37,6 +37,30 @@ class ReplayTests(unittest.TestCase):
         data["latest_closes"]["1001"] = "900"
         self.assertEqual(reconcile(data)["rapid_moves_held_unverified"], 1)
 
+    def test_missing_session_counted_separately(self):
+        data = self.fixture()
+        del data["latest_closes"]["1001"]
+        result = reconcile(data)
+        self.assertEqual(result["missing_latest_close"], 1)
+        self.assertEqual(result["paired_closes"], 2)
+        self.assertEqual(result["price_only_assessable"], 1)
+        self.assertEqual(result["budget_entries"], 0)
+
+    def test_event_hold_reasons_are_not_double_counted_in_total(self):
+        data = self.fixture()
+        data["latest_closes"]["1001"] = "900"
+        result = reconcile(data)
+        self.assertEqual(result["rapid_moves_held_unverified"], 1)
+        self.assertEqual(result["rapid_moves_held_split_unverified"], 1)
+        self.assertEqual(result["rapid_moves_held_dividend_unverified"], 1)
+        self.assertEqual(result["rapid_moves_held_both_unverified"], 1)
+
+    def test_malformed_decimal_fails_closed(self):
+        data = self.fixture()
+        data["latest_closes"]["1001"] = "not-a-price"
+        with self.assertRaises(ValueError):
+            reconcile(data)
+
     def test_same_day_rejected(self):
         data = self.fixture()
         data["previous_date"] = data["latest_date"]
