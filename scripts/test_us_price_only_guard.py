@@ -1,5 +1,5 @@
 import unittest
-from us_price_only_guard import evaluate_budget_entry as check
+from us_price_only_guard import evaluate_budget_entry as check, evaluate_budget_entry_for_sessions as session_check
 
 
 class PriceOnlyGuardTests(unittest.TestCase):
@@ -29,6 +29,26 @@ class PriceOnlyGuardTests(unittest.TestCase):
     def test_bad_prices(self):
         self.assertFalse(check(self.old, {**self.new, "close_usd": "NaN"}, **self.flags)[0])
 
+
+    def test_session_boundaries_reject_stale_fallback(self):
+        args = dict(expected_previous_date="2026-11-16",
+                    expected_current_date="2026-11-17", **self.flags)
+        self.assertEqual(session_check(self.old, self.new, **args),
+                         (True, "entered_100_share_budget"))
+        stale = {**self.old, "date": "2026-11-13"}
+        self.assertEqual(session_check(stale, self.new, **args),
+                         (False, "session_close_missing_or_stale"))
+        self.assertEqual(session_check(self.old, None, **args),
+                         (False, "invalid_trade_dates"))
+
+    def test_session_calendar_not_assumed_consecutive(self):
+        friday = {**self.old, "date": "2026-11-13"}
+        self.assertTrue(session_check(friday, self.new,
+            expected_previous_date="2026-11-13",
+            expected_current_date="2026-11-17", **self.flags)[0])
+        self.assertFalse(session_check(self.old, self.new,
+            expected_previous_date="2026-11-17",
+            expected_current_date="2026-11-16", **self.flags)[0])
 
 if __name__ == "__main__":
     unittest.main()
