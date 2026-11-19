@@ -64,6 +64,8 @@ def evaluate_budget_entry_for_sessions(previous, current, *, expected_previous_d
     an older cached close. The caller must derive expected dates from an
     exchange trading calendar, not by subtracting a calendar day.
     """
+    if previous is None or current is None:
+        return False, "invalid_trade_dates"
     if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
         return False, "invalid_observation"
     try:
