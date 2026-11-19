@@ -15,6 +15,12 @@ import jpx_rights_sources as sources
 
 
 class SourceProvenanceTests(TestCase):
+    def test_rapid_exclusions_require_both_dated_editions(self):
+        with TemporaryDirectory() as temp, patch.object(sources, "page_links", return_value=[]), \
+             patch.object(sources, "daily_sources", return_value=({"2026-11-18": {}}, {}, {})):
+            with self.assertRaisesRegex(ValueError, "Both official JPX rights editions"):
+                sources.verified_rapid_exclusions(date(2026, 11, 18), date(2026, 11, 19), Path(temp))
+
     def test_current_and_archived_monthly_links_stay_on_the_official_origin(self):
         index = """
         <option value="/markets/statistics-equities/monthly/index.html">2026年</option>

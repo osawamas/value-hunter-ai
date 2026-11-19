@@ -125,6 +125,14 @@ public class UsPriceOnlyBudgetTest {
         assertEquals(1, screened.result().screen().entered().size());
         assertEquals(Set.of("ABC"), UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY));
         assertThrows(org.json.JSONException.class, () -> UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY.plusDays(1)));
+        response.getJSONObject("data").getJSONArray("rows").getJSONObject(0).put("symbol", "ABC ");
+        assertThrows(org.json.JSONException.class, () -> UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY));
+    }
+
+    @Test public void recognizesAlternateClassSeparatorButDoesNotMixShareClasses() {
+        assertTrue(UsNasdaqCloseCheck.hasSplit(Set.of("BRK-A"), "BRK.A"));
+        assertTrue(UsNasdaqCloseCheck.hasSplit(Set.of("BRK.A"), "BRK-A"));
+        assertFalse(UsNasdaqCloseCheck.hasSplit(Set.of("BRK-B", "BRK"), "BRK.A"));
     }
 
     @Test public void retriesRotatePastAnInterruptedBatchAndSkipAlreadySentSymbols() throws Exception {

@@ -14,7 +14,7 @@ import pymupdf
 import xlrd
 
 from jpx_share_basis import read_monthly_rights
-from jpx_daily_rights import read_daily_rights
+from jpx_daily_rights import rapid_exclusions, read_daily_rights
 
 MONTHLY_INDEX = "https://www.jpx.co.jp/markets/statistics-equities/monthly/index.html"
 PREVIOUS_YEAR_INDEX = urljoin(MONTHLY_INDEX, "00-archives-01.html")
@@ -156,6 +156,25 @@ def daily_sources(urls, output):
         "event_keys_with_conflicting_ex_dates": sum(len(days) > 1 for days in dates_by_event.values()),
     }
     return results, notes_by_release, comparison
+
+
+def verified_rapid_exclusions(previous_day, latest_day, output):
+    days = (previous_day, latest_day)
+    filenames = {f"{day:%Y%m%d}.xls" for day in days}
+    links = [url for url in page_links(DAILY_INDEX) if Path(urlsplit(url).path).name in filenames]
+    releases, _, _ = daily_sources(links, output)
+    if releases.keys() != {day.isoformat() for day in days}:
+        raise ValueError("Both official JPX rights editions are required")
+    bodies = [(output / f"{day:%Y%m%d}.xls").read_bytes() for day in days]
+    if any(sha256(body).hexdigest() != releases[day.isoformat()]["sha256"] for day, body in zip(days, bodies)):
+        raise ValueError("JPX workbooks changed after the original download")
+    return {
+        "previousDay": previous_day.isoformat(),
+        "latestDay": latest_day.isoformat(),
+        "excludedCodes": sorted(rapid_exclusions(previous_day, latest_day, *bodies)),
+        "sources": {day: {"url": value["official_url"], "sha256": value["sha256"]}
+                    for day, value in releases.items()},
+    }
 
 
 def monthly_sources(first_month, last_month, output):

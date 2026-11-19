@@ -225,7 +225,8 @@ public final class UsSecFinanceWorker extends Worker {
         var matched = new HashSet<>(sent);
         var queue = new ArrayList<>(budget.screen().entered().stream()
                 .map(PriceOnlyScreen.BudgetEntry::code)
-                .filter(symbol -> !sent.contains(symbol) && !splits.containsKey(symbol) && !nasdaqSplits.contains(symbol)
+                .filter(symbol -> !sent.contains(symbol) && !UsNasdaqCloseCheck.hasSplit(splits.keySet(), symbol)
+                        && !UsNasdaqCloseCheck.hasSplit(nasdaqSplits, symbol)
                         && UsNasdaqCloseCheck.url(symbol, priorDay, day) != null)
                 .toList());
         queue.sort(Comparator.comparing((String symbol) -> symbol.compareTo(cursor) <= 0)

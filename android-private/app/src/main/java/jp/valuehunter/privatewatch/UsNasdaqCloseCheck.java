@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
 /** Checks candidate closes against Nasdaq's public history, which can be split-adjusted. */
 final class UsNasdaqCloseCheck {
     private static final Pattern SYMBOL = Pattern.compile("[A-Z0-9.-]{1,24}");
+    private static final Pattern EVENT_SYMBOL = Pattern.compile("[A-Z0-9.$+^=/_-]{1,24}");
+    private static final Pattern SHARE_CLASS = Pattern.compile("([A-Z0-9]+)[.-]([A-Z])");
     private static final Pattern PRICE = Pattern.compile("\\$([0-9]{1,12}(?:\\.[0-9]{1,8})?)");
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MM/dd/uuuu", Locale.ROOT)
             .withResolverStyle(ResolverStyle.STRICT);
@@ -32,7 +34,7 @@ final class UsNasdaqCloseCheck {
     static Set<String> splits(JSONObject response, LocalDate from, LocalDate through) throws JSONException {
         var status = response.optJSONObject("status");
         var data = response.optJSONObject("data");
-        if (status == null || status.optInt("rCode") != 200 || data == null) {
+        if (status == null || status.optInt("rCode") != 200 || data == null || from.isAfter(through)) {
             throw new JSONException("Nasdaq split calendar unavailable");
         }
         var rows = data.optJSONArray("rows");
@@ -50,7 +52,7 @@ final class UsNasdaqCloseCheck {
                 var row = rows.getJSONObject(i);
                 var day = LocalDate.parse(row.getString("executionDate"), DATE);
                 String symbol = row.getString("symbol");
-                if (day.isBefore(from) || symbol.isBlank()) {
+                if (day.isBefore(from) || !EVENT_SYMBOL.matcher(symbol).matches()) {
                     throw new JSONException("Invalid Nasdaq split calendar row");
                 }
                 if (!day.isAfter(through)) symbols.add(symbol);
@@ -59,6 +61,14 @@ final class UsNasdaqCloseCheck {
             throw new JSONException("Invalid Nasdaq split calendar date");
         }
         return symbols;
+    }
+
+    static boolean hasSplit(Set<String> symbols, String ticker) {
+        if (symbols.contains(ticker)) return true;
+        var shareClass = SHARE_CLASS.matcher(ticker);
+        if (!shareClass.matches()) return false;
+        String separator = ticker.contains(".") ? "-" : ".";
+        return symbols.contains(shareClass.group(1) + separator + shareClass.group(2));
     }
 
     static String url(String symbol, LocalDate previousDay, LocalDate day) {
