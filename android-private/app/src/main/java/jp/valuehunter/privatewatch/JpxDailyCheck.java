@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.LinkedHashSet;
@@ -212,19 +213,25 @@ final class JpxDailyCheck {
             var candidates = new ArrayList<Candidate>();
             var entered = new ArrayList<Candidate>();
             var held = new ArrayList<Held>();
-            int assessed = 0;
+            var assessed = new HashSet<String>();
             for (String code : screenCodes(finance)) {
                 var automatic = finance.entries().get(code);
                 var change = automatic != null && automatic.annual() != null
                         ? automaticChange(code, rights, finance, automatic) : referenceChange(code, rights);
-                if (change.now().level() != Level.HELD) assessed++;
+                if (change.now().level() != Level.HELD) assessed.add(code);
                 if (change.now().qualifies()) candidates.add(change.now());
                 if (!change.hold().isEmpty()) held.add(new Held(code, change.hold()));
                 if (change.entered()) entered.add(change.now());
             }
             candidates.sort(CANDIDATE_ORDER);
             entered.sort(CANDIDATE_ORDER);
-            return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held), assessed);
+            return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held), Set.copyOf(assessed));
+        }
+
+        PriceOnlyScreen.Result priceOnly(Screening financial) {
+            if (previous == null || !previous.date().isBefore(latest.date())) return PriceOnlyScreen.Result.empty();
+            var codes = latest.universe() == null ? latest.quotes().keySet() : latest.universe().codes();
+            return PriceOnlyScreen.budgetEntries(codes, financial.assessedCodes(), previous::close, latest::close);
         }
 
         private ReferenceChange automaticChange(String code, JpxShareRights rights,
@@ -318,7 +325,9 @@ final class JpxDailyCheck {
 
     record Held(String code, String reason) {}
 
-    record Screening(List<Candidate> candidates, List<Candidate> entered, List<Held> holds, int assessed) {
+    record Screening(List<Candidate> candidates, List<Candidate> entered, List<Held> holds,
+                     Set<String> assessedCodes) {
+        int assessed() { return assessedCodes.size(); }
         int held() { return holds.size(); }
     }
 
@@ -410,7 +419,7 @@ final class JpxDailyCheck {
     private static String editionKey(LocalDate latest, String latestEdition, LocalDate previous,
                                      String previousEdition, String rightsRevision) {
         if (latestEdition.isEmpty() || previousEdition.isEmpty() || rightsRevision.isEmpty()) return "";
-        String identity = "bulk-quotes-v1|" + latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
+        String identity = "bulk-quotes-v2|" + latest + "|" + latestEdition + "|" + previous + "|" + previousEdition + "|" + rightsRevision;
         try {
             var digest = MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);

@@ -50,6 +50,8 @@ public final class JpxWatchWorker extends Worker {
             .withZone(ZoneId.of("Asia/Tokyo"));
     static final String STATUS = "jpx_watch_status";
     private static final int NOTIFICATION_ID = 5;
+    private static final int PRICE_NOTIFICATION_ID = 7;
+    private static final String PRICE_ALERT_PREFIX = "price-budget:";
     private static final Object STATE_LOCK = new Object();
     private static final Object CHECK_LOCK = new Object();
 
@@ -114,7 +116,9 @@ public final class JpxWatchWorker extends Worker {
                 work.cancelUniqueWork(WORK);
                 work.cancelUniqueWork(MANUAL);
                 work.cancelUniqueWork(FINANCE);
-                context.getSystemService(NotificationManager.class).cancel(NOTIFICATION_ID);
+                var notifications = context.getSystemService(NotificationManager.class);
+                notifications.cancel(NOTIFICATION_ID);
+                notifications.cancel(PRICE_NOTIFICATION_ID);
             }
         }
     }
@@ -186,11 +190,17 @@ public final class JpxWatchWorker extends Worker {
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
                         : List.<JpxDailyCheck.Candidate>of();
+                var priceOnly = comparison.priceOnly(screen);
+                var budgetAdded = notifyEnabled && automaticFinance
+                        ? pendingBudget(baseline, last, date, priceOnly.entered(), alerted)
+                        : List.<PriceOnlyScreen.BudgetEntry>of();
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
                 appendCandidates(summary, screen);
                 appendHolds(summary, screen);
+                summary.append("\n株価だけで予算判定 ").append(priceOnly.assessed())
+                        .append("銘柄 · 100株10万円以下に入った ").append(priceOnly.entered().size()).append("銘柄");
                 if (!notifyEnabled) summary.append("\n通知設定を確認");
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
                 var update = recordCheck(state.edit(), "日報を取得して再判定")
@@ -199,7 +209,7 @@ public final class JpxWatchWorker extends Worker {
                         .putString(STATUS, summary.toString());
                 String processed = notifyEnabled ? comparison.processedKey(evidence.revision()) : "";
                 // Leave the inputs eligible for another check until the notification is submitted.
-                update.putString(PROCESSED, added.isEmpty() ? processed : "");
+                update.putString(PROCESSED, added.isEmpty() && budgetAdded.isEmpty() ? processed : "");
                 if (!update.commit()) return Result.retry();
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
@@ -215,6 +225,23 @@ public final class JpxWatchWorker extends Worker {
                         return retryReport(state, "無音通知を送信できなかった");
                     }
                     for (var entry : added) alerted.add(entry.code());
+                    if (!state.edit().putStringSet(ALERTED, new HashSet<>(alerted))
+                            .putString(PROCESSED, budgetAdded.isEmpty() ? processed : "").commit()) {
+                        return Result.retry();
+                    }
+                }
+                if (!budgetAdded.isEmpty()) {
+                    var detail = new StringBuilder(date + "の終値で100株の購入額を計算（手数料別）");
+                    for (var entry : budgetAdded.subList(0, Math.min(12, budgetAdded.size()))) {
+                        detail.append("\n").append(entry.code()).append(" · ")
+                                .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
+                    }
+                    if (budgetAdded.size() > 12) detail.append("\nほか ").append(budgetAdded.size() - 12).append("銘柄");
+                    if (!alerts.post(context, PRICE_NOTIFICATION_ID,
+                            "東証・参考 100株10万円以下に入った " + budgetAdded.size() + "銘柄", detail.toString())) {
+                        return retryReport(state, "予算入りの無音通知を送信できなかった");
+                    }
+                    for (var entry : budgetAdded) alerted.add(PRICE_ALERT_PREFIX + entry.code());
                     if (!state.edit().putStringSet(ALERTED, alerted).putString(PROCESSED, processed).commit()) {
                         return Result.retry();
                     }
@@ -277,6 +304,14 @@ public final class JpxWatchWorker extends Worker {
         if (baseline == null || last == null || !date.isAfter(baseline) || date.isBefore(last)) return List.of();
         if (!date.equals(last)) return entered;
         return entered.stream().filter(entry -> !alerted.contains(entry.code())).toList();
+    }
+
+    static List<PriceOnlyScreen.BudgetEntry> pendingBudget(LocalDate baseline, LocalDate last, LocalDate date,
+                                                             List<PriceOnlyScreen.BudgetEntry> entered,
+                                                             Set<String> alerted) {
+        if (baseline == null || last == null || !date.isAfter(baseline) || date.isBefore(last)) return List.of();
+        if (!date.equals(last)) return entered;
+        return entered.stream().filter(entry -> !alerted.contains(PRICE_ALERT_PREFIX + entry.code())).toList();
     }
 
     private static LocalDate dateOrNull(String text) {
