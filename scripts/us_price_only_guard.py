@@ -73,3 +73,31 @@ def evaluate_budget_entry_for_sessions(previous, current, *, expected_previous_d
     if observed_old != expected_old or observed_new != expected_new:
         return False, "session_close_missing_or_stale"
     return evaluate_budget_entry(previous, current, **verification)
+
+
+def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
+                                   expected_current_date, **verification):
+    """Notification gate requiring per-session price and FX provenance.
+
+    A generic source_verified flag alone cannot distinguish adjusted history
+    from the raw regular-session closing price. No alert is emitted unless
+    both observations explicitly carry independently checked price bases,
+    matching FX fixing dates, and nonempty source references.
+    """
+    if not previous or not current:
+        return False, "two_closes_required"
+    for item in (previous, current):
+        if not isinstance(item, dict):
+            return False, "invalid_observation"
+        if item.get("price_basis") != "raw_unadjusted_regular_session":
+            return False, "raw_close_basis_unverified"
+        if item.get("fx_date") != item.get("date"):
+            return False, "fx_session_mismatch"
+        for key in ("close_source", "fx_source"):
+            source = item.get(key)
+            if not isinstance(source, str) or not source.strip():
+                return False, "missing_source_reference"
+    return evaluate_budget_entry_for_sessions(
+        previous, current,
+        expected_previous_date=expected_previous_date,
+        expected_current_date=expected_current_date, **verification)
