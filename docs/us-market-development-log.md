@@ -1,5 +1,14 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 20:15 JST — US価格のみ通知の未照合財務状態を安全側に固定
+
+- 開始時の最新main: 773ab70a652c93346888ea207d75963995388049。JPX担当の同日急変重複排除テストと予算通知理由の分離を確認。US独立モジュール以外は変更なし。
+- US予算入り判定で financials_verified=None/0/空文字などが従来の false 扱いで通過し得る条件を修正。財務未照合が明示的に False の場合だけ価格のみ通知の候補に進める。ordinary_share_verified/corporate_actions_verified/source_verified は厳密に True、stale_cache は厳密に False を要求。[本体 9f5dbbf](https://github.com/osawamas/value-hunter-ai/commit/9f5dbbf10a67660034c088a4f2ef47dbe8d48994)。
+- 未照合状態と曖昧な証跡フラグの回帰テストを2件追加。[テスト 54675b0](https://github.com/osawamas/value-hunter-ai/commit/54675b0838659384bb2a46447a4decc1e7190f0c)。実行と変更後Actions成功は未確認。Android無音通知の実機検証は未実施。
+- 2026-11-16・17保存ログの過去実測: NYSE 1,868/1,896 (98.5%)、Nasdaq 3,041/3,190 (95.3%)、合計4,909/5,086 (96.5%)。未取得177 (NYSE28/Nasdaq149)。照合前予算入り19。今回新規取得0、財務照合0、正味簡易判定可能数未測定、確定候補未測定、実通知未検証（確認できた新規0）。財務4,194集合との重複排除、独立正規終値と企業イベント照合、保留理由別集計は未実施。
+- 次回起点: CI完走確認、財務集合と保存原本の突合、19候補の正規未調整終値・企業イベント・日別FX・普通株クラスの原本確認、PriceOnlyScreen/WorkManager接続とAndroid 15での無音・重複なし検証。APK・株価原本は公開しない。
+
+
 ## 2026-11-19 19:17 JST — US価格のみ判定テストをCIに組み込み
 
 - 作業前の最新mainは [b4f670a](https://github.com/osawamas/value-hunter-ai/commit/b4f670a7474e7b474964e5c1209b2c7f3426a443)。JPX担当の配当落ち証跡不足時の急変保留テストを確認し、JPXコードは変更なし。USログ、既存US CI、US価格のみ判定テストのコミットを確認。
