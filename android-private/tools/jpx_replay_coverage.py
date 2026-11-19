@@ -7,7 +7,7 @@ dividend_verified_free_codes. Prices are strings, code sets are arrays.
 import json
 import sys
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 def _codes(value):
@@ -25,7 +25,10 @@ def _prices(value):
     for code, raw in value.items():
         if not isinstance(code, str) or not code or not isinstance(raw, str):
             raise ValueError("invalid code or price")
-        price = Decimal(raw)
+        try:
+            price = Decimal(raw)
+        except InvalidOperation as exc:
+            raise ValueError("invalid price") from exc
         if not price.is_finite() or price <= 0:
             raise ValueError("invalid price")
         result[code] = price
@@ -46,6 +49,8 @@ def reconcile(snapshot):
     if not (set(previous) | set(latest) | financial | splits | dividends) <= listed:
         raise ValueError("codes outside dated listing universe")
     paired = set(previous) & set(latest)
+    previous_only = set(previous) - set(latest)
+    latest_only = set(latest) - set(previous)
     eligible = paired - financial
     budget = {code for code in eligible
               if previous[code] * 100 > 100000 >= latest[code] * 100}
@@ -58,6 +63,11 @@ def reconcile(snapshot):
         "latest_date": str(latest_date),
         "listed_denominator": len(listed),
         "paired_closes": len(paired),
+        "previous_close_count": len(previous),
+        "latest_close_count": len(latest),
+        "missing_latest_close": len(previous_only),
+        "missing_previous_close": len(latest_only),
+        "paired_unlisted": 0,
         "financial_registered_total": len(financial),
         "paired_financial_overlap": len(paired & financial),
         "price_only_assessable": len(eligible),
@@ -68,6 +78,9 @@ def reconcile(snapshot):
         "event_verified_intervals": len(event_safe),
         "rapid_moves_verified": len(rapid),
         "rapid_moves_held_unverified": len(rapid_candidates - event_safe),
+        "rapid_moves_held_split_unverified": len(rapid_candidates - splits),
+        "rapid_moves_held_dividend_unverified": len(rapid_candidates - dividends),
+        "rapid_moves_held_both_unverified": len(rapid_candidates - (splits | dividends)),
         "new_notifications": None,
         "new_notifications_reason": "requires persisted per-code/day/reason delivery ledger",
     }
