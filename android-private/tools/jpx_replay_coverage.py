@@ -59,6 +59,7 @@ def reconcile(snapshot):
     rapid_candidates = {code for code in eligible
                         if abs((latest[code] / previous[code] - 1) * 100) >= 8}
     rapid = rapid_candidates & event_safe
+    distinct_candidates = budget | rapid
     return {
         "previous_date": str(previous_date),
         "latest_date": str(latest_date),
@@ -89,6 +90,11 @@ def reconcile(snapshot):
         "budget_entries": len(budget),
         "event_verified_intervals": len(event_safe),
         "rapid_moves_verified": len(rapid),
+        "budget_and_rapid_overlap": len(budget & rapid),
+        "distinct_reference_candidate_codes": len(distinct_candidates),
+        "distinct_reference_candidate_market_percent":
+            str((Decimal(len(distinct_candidates)) * 100 / len(listed)).quantize(Decimal("0.01")))
+            if listed else "0.00",
         "rapid_moves_held_unverified": len(rapid_candidates - event_safe),
         "rapid_moves_held_split_unverified": len(rapid_candidates - splits),
         "rapid_moves_held_dividend_unverified": len(rapid_candidates - dividends),
