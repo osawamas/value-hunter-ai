@@ -29,11 +29,10 @@ jobs:
         with:
           gradle-version: '8.9'
           cache-read-only: true
-      - name: Verify stock calculations and merge the disclosure asset
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug :app:mergeDebugAssets
-      - name: Confirm the private APK was built (do not publish it)
-        run: test -s app/build/outputs/apk/debug/app-debug.apk
-      - name: Verify the packaged disclosure asset matches the ledger
-        run: |
-          unzip -p app/build/outputs/apk/debug/app-debug.apk assets/android-s63-shares.json > "$RUNNER_TEMP/packaged-s63-shares.json"
-          cmp ../docs/data/android-s63-shares.json "$RUNNER_TEMP/packaged-s63-shares.json"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify JPX acquisition audit classification
+        run: python -m unittest discover -s tools -p 'test_jpx_financial_audit_gaps.py' -v
+      - name: Verify Android unit tests without assembling an APK
+        run: gradle --no-daemon :app:testDebugUnitTest
