@@ -36,4 +36,14 @@ public class PriceOnlyScreenTest {
         assertEquals(entrants, JpxWatchWorker.pendingBudget(previous, today, today, entrants, Set.of("1001")));
         assertTrue(JpxWatchWorker.pendingBudget(previous, today, today, entrants, Set.of("price-budget:1001")).isEmpty());
     }
+    @Test public void rapidThresholdUsesExactMoveNotRoundedDisplayPercent() {
+        Map<String, BigDecimal> before = Map.of("below", new BigDecimal("100"),
+                "exact", new BigDecimal("100"), "above", new BigDecimal("100"));
+        Map<String, BigDecimal> after = Map.of("below", new BigDecimal("107.99996"),
+                "exact", new BigDecimal("108"), "above", new BigDecimal("108.00001"));
+        var found = PriceOnlyScreen.rapidMoves(before.keySet(), Set.of(), before::get, after::get,
+                code -> true, code -> true, new BigDecimal("8"));
+        assertEquals(List.of("above", "exact"),
+                found.stream().map(PriceOnlyScreen.RapidMove::code).toList());
+    }
 }
