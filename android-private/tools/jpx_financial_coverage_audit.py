@@ -63,8 +63,32 @@ def audit(universe, manifest, report=None):
             else:
                 raise ValueError("Unknown acquisition status")
     attempted_codes = acquired | failed
+    # One exclusive reason per issuer. Acquiring a PDF never grants notification
+    # eligibility; financial and corporate-action checks happen downstream.
+    hold_reasons = {}
+    for code in sorted(universe):
+        if code not in sourced:
+            reason = "manifest_missing"
+        elif code in acquired and code in failed:
+            reason = "partial_acquisition_failure"
+        elif code in failed:
+            reason = "acquisition_failed"
+        elif code not in attempted_codes:
+            reason = "acquisition_not_attempted"
+        elif code in acquired and any((item["code"] == code and
+                (item["code"], item["sha256"]) not in attempted_sources)
+                for item in manifest):
+            reason = "source_acquisition_incomplete"
+        else:
+            reason = "financial_and_corporate_actions_unverified"
+        hold_reasons[code] = reason
+    hold_reason_counts = {reason: sum(value == reason for value in hold_reasons.values())
+                          for reason in sorted(set(hold_reasons.values()))}
+    assert sum(hold_reason_counts.values()) == len(universe)
     return {
         "market": "JP",
+        "hold_reasons_by_code": hold_reasons,
+        "hold_reason_counts": hold_reason_counts,
         "universe_count": len(universe),
         "manifest_source_records": len(manifest),
         "manifest_codes_in_universe": len(sourced & universe),
