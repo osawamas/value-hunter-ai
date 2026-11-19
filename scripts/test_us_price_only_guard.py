@@ -13,6 +13,25 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertEqual(check(self.old, self.new, **self.flags),
                          (True, "entered_100_share_budget"))
 
+    def test_reverse_crossing_and_exact_budget_boundary(self):
+        # Crossing into budget is directional; leaving it must never notify.
+        args = dict(expected_previous_date=self.old["date"],
+                    expected_current_date=self.new["date"], **self.flags)
+        old = {**self.old, "close_usd": "6"}
+        new = {**self.new, "close_usd": "8"}
+        self.assertEqual(session_check(old, new, **args),
+                         (False, "no_budget_crossing"))
+        # Exactly 100,000 JPY yesterday is not a newly entered budget.
+        old = {**self.old, "close_usd": "6.6666666666666666666666666666666666666667"}
+        self.assertEqual(session_check(old, self.new, **args),
+                         (True, "entered_100_share_budget"))
+        exact = {**self.old, "close_usd": "10", "usd_jpy": "100"}
+        self.assertEqual(session_check(exact, self.new, **args),
+                         (False, "no_budget_crossing"))
+        just_over = {**exact, "close_usd": "10.0001"}
+        self.assertEqual(session_check(just_over, self.new, **args),
+                         (True, "entered_100_share_budget"))
+
     def test_stale_blocks(self):
         self.assertFalse(check(self.old, self.new, stale_cache=True, **self.flags)[0])
 
