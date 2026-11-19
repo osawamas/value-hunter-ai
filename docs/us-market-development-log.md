@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-20 01:15 JST — 変更後US CIの成功を確認
+
+- 確認時main: de696467397867bb6d91f34074a607289596d6ca。JPX担当のコードは変更しない。
+- [US daily market coverage probe tests #44553023487](https://github.com/osawamas/value-hunter-ai/actions/runs/44553023487) は2026-11-20 00:16 JSTごろ完了、結論 success。対象SHA 437f1445d4e3dc56ee96e1290a423e56b1abaa0c。前回の失敗 #44541936208 に対して、欠落取引日と不正形式を区別する回帰テスト追加後のCI成功を確認した。ログ保存コミット de69646 は skip ci であり、同コミット自体のCI結果ではない。
+- 11月16・17日の保存済み観測値: NYSE 1,868/1,896、Nasdaq 3,041/3,190、計4,909/5,086 (96.5%)。今回新規取得0、財務再照合0。予算入り19候補中、財務判定済み2を除き17候補は未確定。市場全体の財務4,194銘柄との集合突合・未調整正規終値・公式企業行動検証は未完了。追加簡易判定可能数と確定通知対象は未測定、実機通知の検証済み件数0（実際の通知がゼロだった証明ではない）。
+- 次回起点: 保存原本の市場別集合突合、17候補の独立価格原本と分割・併合照合、PriceOnlyScreen/WorkManager接続とAndroid 15での無音通知検証。APKと株価原本は公開しない。
+
+
 ## 2026-11-20 00:16 JST — 19候補のSEC重複照合結果を引継ぎ、CI失敗を調査
 
 - 開始時main: d09f0eecc4459b202d5632cdb4026f0016b38281。JPXファイルは変更せず、US価格のみ判定の回帰テストを追加: [437f144](https://github.com/osawamas/value-hunter-ai/commit/437f1445d4e3dc56ee96e1290a423e56b1abaa0c)。欠落した取引日（invalid_trade_dates）と不正な行形式（invalid_observation）の違いを明示的に検査する。
