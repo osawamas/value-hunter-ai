@@ -385,6 +385,13 @@ public final class UsDailyWorker extends Worker {
                         "VALUE HUNTER AI https://github.com/osawamas/value-hunter-ai");
                 connection.setRequestProperty("Accept", "application/json");
             }
+            if ("api.nasdaq.com".equals(url.getHost())) {
+                connection.setConnectTimeout(7_000);
+                connection.setReadTimeout(7_000);
+                connection.setRequestProperty("User-Agent",
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/135.0.0.0 Safari/537.36");
+                connection.setRequestProperty("Accept", "application/json, text/plain, */*");
+            }
             int code = connection.getResponseCode();
             if (code != 200) throw new HttpStatus(code);
             try (var input = connection.getInputStream()) {

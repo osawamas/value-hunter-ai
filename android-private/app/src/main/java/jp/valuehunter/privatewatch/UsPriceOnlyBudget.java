@@ -8,10 +8,21 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 final class UsPriceOnlyBudget {
-    record Result(PriceOnlyScreen.Result screen, boolean verifiedPriceBasis) {}
+    record Result(PriceOnlyScreen.Result screen, boolean verifiedPriceBasis,
+                  List<PriceOnlyScreen.BudgetEntry> notificationEntries) {
+        Result(PriceOnlyScreen.Result screen, boolean verifiedPriceBasis) {
+            this(screen, verifiedPriceBasis, verifiedPriceBasis ? screen.entered() : List.of());
+        }
+
+        Result corroborated(Set<String> matched) {
+            return new Result(screen, verifiedPriceBasis,
+                    screen.entered().stream().filter(entry -> matched.contains(entry.code())).toList());
+        }
+    }
 
     private UsPriceOnlyBudget() {}
 
@@ -39,6 +50,13 @@ final class UsPriceOnlyBudget {
         boolean unadjusted = UsDailyCloses.MASSIVE_SOURCE.equals(provider)
                 && Boolean.FALSE.equals(previous.opt("adjusted")) && Boolean.FALSE.equals(latest.opt("adjusted"));
         return new Result(calculated, unadjusted);
+    }
+
+    static boolean canCorroborateDolt(JSONObject previous, JSONObject latest) {
+        return UsDoltCloses.SOURCE.equals(previous.optString("source"))
+                && UsDoltCloses.SOURCE.equals(latest.optString("source"))
+                && previous.has("adjusted") && previous.isNull("adjusted")
+                && latest.has("adjusted") && latest.isNull("adjusted");
     }
 
     static Set<String> ordinary(UsMarketCoverage.Directory nyse, UsMarketCoverage.Directory nasdaq,

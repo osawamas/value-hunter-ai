@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 /** Downloads SEC filings on-device and resumes through WorkManager between batches. */
 public final class UsSecFinanceWorker extends Worker {
@@ -39,6 +40,7 @@ public final class UsSecFinanceWorker extends Worker {
     private static final String SEC_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK%010d.json";
     private static final String FX = "https://api.frankfurter.dev/v2/rates?base=USD&quotes=JPY";
     private static final int BUDGET_NOTIFICATION_ID = 8;
+    private static final int MAX_NASDAQ_CHECKS = 24;
     private static final String BUDGET_SENT_DAY = "us_budget_sent_day";
     private static final String BUDGET_SENT_SYMBOLS = "us_budget_sent_symbols";
     private static final int BATCH = 40;
@@ -180,11 +182,47 @@ public final class UsSecFinanceWorker extends Worker {
                     listings("nasdaqlisted.txt", true), day);
             var rates = new JSONArray(download.get(FX + "&from=" + priorDay + "&to=" + day));
             var financial = UsReferenceAlerts.read(ledger);
-            return hash.equals(financial.hash())
-                    ? UsPriceOnlyBudget.compare(previous, quote, rates, ordinary, financial, expected) : null;
+            if (!hash.equals(financial.hash())) return null;
+            var budget = UsPriceOnlyBudget.compare(previous, quote, rates, ordinary, financial, expected);
+            if (!UsPriceOnlyBudget.canCorroborateDolt(previous, quote) || budget.screen().entered().isEmpty()) return budget;
+            try {
+                return corroborateBudget(previous, quote, priorDay, day, LocalDate.now(UsDailyCloses.NEW_YORK),
+                        budget, download, this::isStopped);
+            } catch (IOException | JSONException unavailable) {
+                return budget;
+            }
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             return null;
         }
+    }
+
+    static UsPriceOnlyBudget.Result corroborateBudget(JSONObject previous, JSONObject quote, LocalDate priorDay,
+                                                       LocalDate day, LocalDate asOf, UsPriceOnlyBudget.Result budget,
+                                                       Download download, BooleanSupplier stopped)
+            throws IOException, JSONException {
+        var splits = UsDoltCloses.allSplits(priorDay, asOf, url -> new JSONObject(download.get(url)));
+        var nasdaqSplits = UsNasdaqCloseCheck.splits(
+                new JSONObject(download.get(UsNasdaqCloseCheck.splitCalendarUrl(priorDay))), priorDay, asOf);
+        var before = UsDeviceFinancials.prices(previous.getJSONArray("closes"));
+        var latest = UsDeviceFinancials.prices(quote.getJSONArray("closes"));
+        var matched = new HashSet<String>();
+        int checked = 0;
+        for (var candidate : budget.screen().entered()) {
+            if (stopped.getAsBoolean() || checked >= MAX_NASDAQ_CHECKS) break;
+            String symbol = candidate.code();
+            String url = UsNasdaqCloseCheck.url(symbol, priorDay, day);
+            if (url == null || splits.containsKey(symbol) || nasdaqSplits.contains(symbol)) continue;
+            checked++;
+            try {
+                if (UsNasdaqCloseCheck.matches(new JSONObject(download.get(url)), symbol, priorDay, before.get(symbol),
+                        day, latest.get(symbol))) matched.add(symbol);
+            } catch (UsDailyWorker.HttpStatus unavailable) {
+                if (unavailable.code == 429) break;
+            } catch (IOException | JSONException unavailable) {
+                // An unavailable second quote cannot confirm this symbol.
+            }
+        }
+        return budget.corroborated(matched);
     }
 
     private static boolean applyBudget(Context context, android.content.SharedPreferences state, LocalDate day,
@@ -199,16 +237,17 @@ public final class UsSecFinanceWorker extends Worker {
         String summary = "株価だけで予算を比較 " + result.assessed() + "銘柄 · 100株10万円以下に入った "
                 + result.entered().size() + "銘柄";
         if (!budget.verifiedPriceBasis()) {
-            status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary + "（参考集計） · 終値の調整基準確認待ち").apply();
-            return true;
+            summary += " · 2つの取得元で終値一致 " + budget.notificationEntries().size()
+                    + "銘柄 · 照合待ち " + (result.entered().size() - budget.notificationEntries().size()) + "銘柄";
         }
         status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary).apply();
         if (!ScanWorker.alertsEnabled(context)) return true;
         var sent = date.equals(state.getString(BUDGET_SENT_DAY, ""))
                 ? new HashSet<>(state.getStringSet(BUDGET_SENT_SYMBOLS, Set.of())) : new HashSet<String>();
-        var pending = result.entered().stream().filter(entry -> !sent.contains(entry.code())).toList();
+        var pending = budget.notificationEntries().stream().filter(entry -> !sent.contains(entry.code())).toList();
         if (pending.isEmpty()) return true;
         var detail = new StringBuilder(day + "の終値と同日の為替で100株の購入額を計算（手数料別）");
+        if (!budget.verifiedPriceBasis()) detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
         for (var entry : pending.subList(0, Math.min(12, pending.size()))) {
             detail.append("\n").append(entry.code()).append(" · ")
                     .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");

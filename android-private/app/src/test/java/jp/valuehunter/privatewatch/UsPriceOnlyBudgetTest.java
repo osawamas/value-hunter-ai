@@ -65,6 +65,65 @@ public class UsPriceOnlyBudgetTest {
                 finance(VERIFIED), MONDAY).verifiedPriceBasis());
     }
 
+    @Test public void onlyIndividuallyCorroboratedDoltCandidatesCanReachNotification() throws Exception {
+        var source = UsDoltCloses.SOURCE;
+        var previous = closes(FRIDAY, source);
+        var latest = closes(MONDAY, source);
+        assertTrue(UsPriceOnlyBudget.canCorroborateDolt(previous, latest));
+        assertFalse(UsPriceOnlyBudget.canCorroborateDolt(previous, closes(MONDAY, source).put("adjusted", true)));
+        var budget = UsPriceOnlyBudget.compare(previous, latest, rates(),
+                LISTED, finance(source), MONDAY);
+        assertTrue(budget.notificationEntries().isEmpty());
+        assertEquals(budget.screen().entered(), budget.corroborated(Set.of("ABC")).notificationEntries());
+        assertTrue(budget.corroborated(Set.of("FIN")).notificationEntries().isEmpty());
+        assertFalse(budget.corroborated(Set.of("ABC")).verifiedPriceBasis());
+    }
+
+    @Test public void secondSourceRequiresTheSameSymbolDatesAndExactCloses() throws Exception {
+        var data = new JSONObject().put("status", new JSONObject().put("rCode", 200))
+                .put("data", new JSONObject().put("symbol", "ABC").put("totalRecords", 2)
+                        .put("tradesTable", new JSONObject().put("rows", new JSONArray()
+                                .put(new JSONObject().put("date", "11/16/2026").put("close", "$7.00"))
+                                .put(new JSONObject().put("date", "11/13/2026").put("close", "$7")))));
+        assertTrue(UsNasdaqCloseCheck.matches(data, "ABC", FRIDAY, new BigDecimal("7.0000"),
+                MONDAY, new BigDecimal("7")));
+        assertFalse(UsNasdaqCloseCheck.matches(data, "ABC", FRIDAY, new BigDecimal("0.7"),
+                MONDAY, new BigDecimal("7")));
+        assertFalse(UsNasdaqCloseCheck.matches(data, "OTHER", FRIDAY, new BigDecimal("7"),
+                MONDAY, new BigDecimal("7")));
+        data.getJSONObject("data").getJSONObject("tradesTable").getJSONArray("rows")
+                .getJSONObject(1).put("date", "11/16/2026");
+        assertFalse(UsNasdaqCloseCheck.matches(data, "ABC", FRIDAY, new BigDecimal("7"),
+                MONDAY, new BigDecimal("7")));
+    }
+
+    @Test public void workerHoldsSplitListedOnlyByNasdaqAndRejectsAnOldCalendar() throws Exception {
+        var source = UsDoltCloses.SOURCE;
+        var before = closes(FRIDAY, source);
+        var after = closes(MONDAY, source);
+        var budget = UsPriceOnlyBudget.compare(before, after, rates(), LISTED, finance(source), MONDAY);
+        var response = new JSONObject().put("status", new JSONObject().put("rCode", 200))
+                .put("data", new JSONObject().put("asOf", "Mon, Nov 16, 2026")
+                        .put("headers", new JSONObject().put("symbol", "SYMBOL").put("executionDate", "EFFECTIVE DATE"))
+                        .put("rows", new JSONArray()
+                                .put(new JSONObject().put("symbol", "ABC").put("executionDate", "11/16/2026"))));
+        var screened = UsSecFinanceWorker.corroborateBudget(before, after, FRIDAY, MONDAY, MONDAY, budget, url -> {
+            if (url.contains("DOLT_HASHOF")) {
+                return new JSONObject().put("query_execution_status", "Success").put("rows",
+                        new JSONArray().put(new JSONObject().put("revision", "a".repeat(32)))).toString();
+            }
+            if (url.contains("FROM+split")) {
+                return new JSONObject().put("query_execution_status", "Success").put("rows", new JSONArray()).toString();
+            }
+            if (url.contains("/calendar/splits")) return response.toString();
+            throw new AssertionError("A split candidate should not be sent for price corroboration");
+        }, () -> false);
+        assertTrue(screened.notificationEntries().isEmpty());
+        assertEquals(1, screened.screen().entered().size());
+        assertEquals(Set.of("ABC"), UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY));
+        assertThrows(org.json.JSONException.class, () -> UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY.plusDays(1)));
+    }
+
     private static JSONObject closes(LocalDate day, String provider) throws Exception {
         return new JSONObject().put("trading_date_et", day.toString()).put("source", provider)
                 .put("adjusted", VERIFIED.equals(provider) ? Boolean.FALSE : JSONObject.NULL)
