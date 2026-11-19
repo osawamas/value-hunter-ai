@@ -51,3 +51,25 @@ def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
     if old_cost > BUDGET_JPY >= new_cost:
         return True, "entered_100_share_budget"
     return False, "no_budget_crossing"
+
+
+def evaluate_budget_entry_for_sessions(previous, current, *, expected_previous_date,
+                                       expected_current_date, **verification):
+    """Fail closed unless both observations belong to the requested sessions.
+
+    This prevents a missing same-session close from being silently replaced by
+    an older cached close. The caller must derive expected dates from an
+    exchange trading calendar, not by subtracting a calendar day.
+    """
+    try:
+        expected_old = date.fromisoformat(expected_previous_date)
+        expected_new = date.fromisoformat(expected_current_date)
+        observed_old = date.fromisoformat(previous["date"])
+        observed_new = date.fromisoformat(current["date"])
+    except (KeyError, TypeError, ValueError):
+        return False, "invalid_trade_dates"
+    if expected_old >= expected_new:
+        return False, "invalid_expected_sessions"
+    if observed_old != expected_old or observed_new != expected_new:
+        return False, "session_close_missing_or_stale"
+    return evaluate_budget_entry(previous, current, **verification)
