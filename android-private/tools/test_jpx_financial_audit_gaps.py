@@ -33,6 +33,27 @@ class AuditGapTests(unittest.TestCase):
         self.assertEqual(result["unattempted_manifest_source_count"], 1)
         self.assertEqual(result["financial_verified_count"], 0)
         self.assertEqual(result["notification_eligible_count"], 0)
+        self.assertEqual(result["hold_reasons_by_code"], {
+            "1234": "partial_acquisition_failure",
+            "3456": "manifest_missing",
+            "5678": "acquisition_failed",
+            "9012": "acquisition_not_attempted",
+        })
+        self.assertEqual(sum(result["hold_reason_counts"].values()), len(universe))
+
+    def test_partial_acquisition_is_not_treated_as_financially_ready(self):
+        manifest = [{"code": "1234", "sha256": A},
+                    {"code": "1234", "sha256": B},
+                    {"code": "5678", "sha256": C}]
+        report = {"sources": [
+            {"code": "1234", "sha256": A, "status": "cached"},
+            {"code": "5678", "sha256": C, "status": "downloaded"}]}
+        result = audit({"1234", "5678"}, manifest, report)
+        self.assertEqual(result["hold_reasons_by_code"]["1234"],
+                         "source_acquisition_incomplete")
+        self.assertEqual(result["hold_reasons_by_code"]["5678"],
+                         "financial_and_corporate_actions_unverified")
+        self.assertEqual(result["notification_eligible_count"], 0)
 
     def test_duplicate_original_identity_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Duplicate source identity"):
