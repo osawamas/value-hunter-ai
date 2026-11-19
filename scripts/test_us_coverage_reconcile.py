@@ -24,6 +24,14 @@ class ReconcileTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "noncanonical"):
             reconcile_us_coverage(listed, paired, financial, candidates)
 
+    def test_rejects_duplicate_listing_symbol_across_exchanges(self):
+        listed = {"NYSE": {"SHARED", "A"}, "Nasdaq": {"SHARED", "B"}}
+        paired = {"NYSE": {"SHARED"}, "Nasdaq": {"SHARED"}}
+        financial = {"NYSE": set(), "Nasdaq": set()}
+        candidates = {"NYSE": set(), "Nasdaq": set()}
+        with self.assertRaisesRegex(ValueError, "duplicate symbol"):
+            reconcile_us_coverage(listed, paired, financial, candidates)
+
     def test_rejects_aggregated_counts_and_wrong_market(self):
         good = {"NYSE": {"A"}, "Nasdaq": {"B"}}
         with self.assertRaises(ValueError):
