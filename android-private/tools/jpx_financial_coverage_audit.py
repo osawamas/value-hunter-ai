@@ -31,6 +31,13 @@ def audit(universe, manifest, report=None):
                                              not CODE.fullmatch(x["code"]) for x in manifest):
         raise ValueError("Invalid source manifest")
     sourced = {x["code"] for x in manifest}
+    # Reports must correspond to the exact original in the manifest, not just
+    # another PDF from the same issuer. This prevents stale or unrelated
+    # acquisition records from inflating coverage.
+    manifest_sources = {(x["code"], x.get("sha256")) for x in manifest}
+    if any(not isinstance(x.get("sha256"), str) or
+           not re.fullmatch(r"[0-9a-f]{64}", x["sha256"]) for x in manifest):
+        raise ValueError("Manifest must contain source SHA256")
     acquired = set()
     failed = set()
     if report is not None:
@@ -38,8 +45,9 @@ def audit(universe, manifest, report=None):
         if not isinstance(sources, list):
             raise ValueError("Invalid acquisition report")
         for item in sources:
-            if not isinstance(item, dict) or item.get("code") not in sourced:
-                raise ValueError("Report contains an unknown source code")
+            if (not isinstance(item, dict) or
+                    (item.get("code"), item.get("sha256")) not in manifest_sources):
+                raise ValueError("Report contains a source not in manifest")
             status = item.get("status")
             if status in ("cached", "downloaded"):
                 acquired.add(item["code"])
