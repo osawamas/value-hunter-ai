@@ -88,14 +88,18 @@ def reconcile(snapshot):
             str((Decimal(len(eligible)) * 100 / len(listed)).quantize(Decimal("0.01")))
             if listed else "0.00",
         "budget_entries": len(budget),
+        "budget_entry_codes": sorted(budget),
         "event_verified_intervals": len(event_safe),
         "rapid_moves_verified": len(rapid),
+        "rapid_move_verified_codes": sorted(rapid),
         "budget_and_rapid_overlap": len(budget & rapid),
         "distinct_reference_candidate_codes": len(distinct_candidates),
+        "distinct_reference_candidate_code_list": sorted(distinct_candidates),
         "distinct_reference_candidate_market_percent":
             str((Decimal(len(distinct_candidates)) * 100 / len(listed)).quantize(Decimal("0.01")))
             if listed else "0.00",
         "rapid_moves_held_unverified": len(rapid_candidates - event_safe),
+        "rapid_move_held_codes": sorted(rapid_candidates - event_safe),
         "rapid_moves_held_split_unverified": len(rapid_candidates - splits),
         "rapid_moves_held_dividend_unverified": len(rapid_candidates - dividends),
         "rapid_moves_held_both_unverified": len(rapid_candidates - (splits | dividends)),
