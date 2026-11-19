@@ -1,5 +1,12 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 12:17 JST — 429判定とメタデータ消失の独立再現（実同期未実施）
+
+- 開始時main: [77878ba](https://github.com/osawamas/value-hunter-ai/commit/77878baec4f9937fafdb389da13810e81fbb5a4d)。最新コミット、当ログ、US CI定義、Dolt同期本体・既存テストを確認。直近JPX担当はPDF取得監査・Android単体テストの変更で、競合するコードは変更せず。
+- Python 3で現行 `RATE_LIMIT` 正規表現を独立実行。HTTP 429・Too Many Requests・status=429の検出、4290・X429・1429・429A・無関係なretry文字列の非検出、計8ケース成功。tempfileで既存 `.dolt` 消失の再現1件成功。これは**同期コードのunittest実行やDolt実同期の成功ではない**。GitHubへのローカルcloneはDNS名前解決失敗で不可。コード変更なし（既存テストと重複するため）。
+- 直近mainのcombined commit statusは0件。push後のActions完走は取得できず未確認。[US CI](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)。対象取引日は過去の2026-11-17、11月18日観測一覧基準: NYSE 1,877/1,896、Nasdaq 3,081/3,189、合計4,958/5,085（97.5%、同日厳密網羅率ではない）。過去のSEC財務照合2,746、通知判定可能1,472。**今回の実測**: 新規終値0、財務再照合0、割安判定0、候補0、通知0、保留内訳未測定。
+- 未解決: Dolt実同期、正規未調整終値・分割、SEC株数/クラス/基準日、正式PER/PBR、Android 15/WorkManager/無音通知。次回はUS CI完走と実同期を再試行、不可ならSEC未照合の具体的原因を分類。出典: [DoltHub](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC API](https://www.sec.gov/edgar/sec-api-documentation)。APK・株価原本・APIキーは公開しない。
+
 ## 2026-11-19 11:15 JST — 初回Dolt cloneの不正メタデータを回帰テスト化
 
 - 開始時main: [56540d8](https://github.com/osawamas/value-hunter-ai/commit/56540d80e12d248b4cac819ec2c893b44ccd2e83)。最新コミット・US開発ログ・US CI定義・Dolt同期本体とテストを読んだ。JPX担当の直近[04df09a](https://github.com/osawamas/value-hunter-ai/commit/04df09a4ec60a10a42df1a9eeda68461c74607f1)と[56540d8](https://github.com/osawamas/value-hunter-ai/commit/56540d80e12d248b4cac819ec2c893b44ccd2e83)を確認し、JPXファイルは変更なし。
