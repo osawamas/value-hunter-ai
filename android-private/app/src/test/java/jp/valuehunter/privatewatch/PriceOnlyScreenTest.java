@@ -36,4 +36,24 @@ public class PriceOnlyScreenTest {
         assertEquals(entrants, JpxWatchWorker.pendingBudget(previous, today, today, entrants, Set.of("1001")));
         assertTrue(JpxWatchWorker.pendingBudget(previous, today, today, entrants, Set.of("price-budget:1001")).isEmpty());
     }
+
+    @Test public void rapidMoveRequiresBothIndependentEventChecksAndSkipsFinancialStocks() {
+        Map<String, BigDecimal> before = Map.of(
+                "2001", new BigDecimal("100"), "2002", new BigDecimal("100"),
+                "2003", new BigDecimal("100"), "2004", new BigDecimal("100"),
+                "2005", new BigDecimal("100"), "2006", new BigDecimal("100"));
+        Map<String, BigDecimal> after = Map.of(
+                "2001", new BigDecimal("108"), "2002", new BigDecimal("92"),
+                "2003", new BigDecimal("115"), "2004", new BigDecimal("115"),
+                "2005", new BigDecimal("115"), "2006", new BigDecimal("107.99"));
+        var result = PriceOnlyScreen.rapidMoves(before.keySet(), Set.of("2005"),
+                before::get, after::get,
+                code -> !code.equals("2003"),
+                code -> !code.equals("2004"),
+                new BigDecimal("8"));
+        assertEquals(List.of("2001", "2002"),
+                result.stream().map(PriceOnlyScreen.RapidMove::code).toList());
+        assertEquals(0, result.get(0).percent().compareTo(new BigDecimal("8")));
+        assertEquals(0, result.get(1).percent().compareTo(new BigDecimal("-8")));
+    }
 }
