@@ -57,10 +57,13 @@ final class PriceOnlyScreen {
             BigDecimal before = previousClose.apply(code);
             BigDecimal after = latestClose.apply(code);
             if (before == null || after == null || before.signum() <= 0 || after.signum() <= 0) continue;
-            BigDecimal percent = after.subtract(before).multiply(BigDecimal.valueOf(100))
-                    .divide(before, 4, java.math.RoundingMode.HALF_UP);
-            if (percent.abs().compareTo(minimumAbsolutePercent) >= 0)
+            // Compare exact products: rounding the displayed percent before the gate
+            // could incorrectly admit a move just below the threshold.
+            BigDecimal deltaTimes100 = after.subtract(before).multiply(BigDecimal.valueOf(100));
+            if (deltaTimes100.abs().compareTo(before.multiply(minimumAbsolutePercent)) >= 0) {
+                BigDecimal percent = deltaTimes100.divide(before, 4, java.math.RoundingMode.HALF_UP);
                 changes.add(new RapidMove(code, percent));
+            }
         }
         changes.sort(Comparator.comparing(RapidMove::code));
         return List.copyOf(changes);
