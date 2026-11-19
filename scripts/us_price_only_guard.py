@@ -25,13 +25,13 @@ def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
     Never infer missing data, split adjustments, a single-share brokerage
     entitlement or an alert from a one-day snapshot.
     """
-    if financials_verified:
-        return False, "financials_use_full_valuation"
-    if not ordinary_share_verified:
+    if financials_verified is not False:
+        return False, "financials_status_unverified" if financials_verified is not True else "financials_use_full_valuation"
+    if ordinary_share_verified is not True:
         return False, "ordinary_share_unverified"
-    if not corporate_actions_verified:
+    if corporate_actions_verified is not True:
         return False, "corporate_actions_unverified"
-    if not source_verified or stale_cache:
+    if source_verified is not True or stale_cache is not False:
         return False, "source_unverified_or_stale"
     if not previous or not current:
         return False, "two_closes_required"
