@@ -15,6 +15,8 @@ on:
       - 'android-private/tools/*us_sec_share_coverage.py'
       - 'android-private/tools/*us_sec_filing_followup.py'
       - 'android-private/tools/*us_sec_original_cover.py'
+      - 'scripts/us_price_only_guard.py'
+      - 'scripts/test_us_price_only_guard.py'
       - '.github/workflows/us-daily-coverage-tests.yml'
   pull_request:
     paths:
@@ -31,6 +33,8 @@ on:
       - 'android-private/tools/*us_sec_share_coverage.py'
       - 'android-private/tools/*us_sec_filing_followup.py'
       - 'android-private/tools/*us_sec_original_cover.py'
+      - 'scripts/us_price_only_guard.py'
+      - 'scripts/test_us_price_only_guard.py'
       - '.github/workflows/us-daily-coverage-tests.yml'
 permissions:
   contents: read
@@ -43,3 +47,6 @@ jobs:
       - name: Test Dolt sync, price, issuer and statement coverage
         working-directory: android-private/tools
         run: python3 -m unittest -v test_us_dolt_sync test_us_dolt_cache_integrity test_us_massive_probe test_us_daily_coverage test_us_nyse_taq_probe test_us_nasdaq_nls_probe test_us_public_files_probe test_us_sec_statement_coverage test_us_sec_share_coverage test_us_sec_filing_followup test_us_sec_original_cover test_us_monitor_sync
+      - name: Test US price-only notification eligibility
+        working-directory: scripts
+        run: python3 -m unittest -v test_us_price_only_guard
