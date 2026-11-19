@@ -159,6 +159,8 @@ def daily_sources(urls, output):
 
 
 def verified_rapid_exclusions(previous_day, latest_day, output):
+    if not isinstance(previous_day, date) or not isinstance(latest_day, date) or previous_day >= latest_day:
+        raise ValueError("Rapid-move comparison requires two ordered, distinct trading dates")
     days = (previous_day, latest_day)
     filenames = {f"{day:%Y%m%d}.xls" for day in days}
     links = [url for url in page_links(DAILY_INDEX) if Path(urlsplit(url).path).name in filenames]
