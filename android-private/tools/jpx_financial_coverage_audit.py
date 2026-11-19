@@ -42,6 +42,8 @@ def audit(universe, manifest, report=None):
         raise ValueError("Manifest must contain source SHA256")
     acquired = set()
     failed = set()
+    acquired_sources = set()
+    failed_sources = set()
     attempted_sources = set()
     if report is not None:
         sources = report.get("sources") if isinstance(report, dict) else None
@@ -58,11 +60,20 @@ def audit(universe, manifest, report=None):
             status = item.get("status")
             if status in ("cached", "downloaded"):
                 acquired.add(item["code"])
+                acquired_sources.add(source_identity)
             elif status == "failed":
                 failed.add(item["code"])
+                failed_sources.add(source_identity)
             else:
                 raise ValueError("Unknown acquisition status")
     attempted_codes = acquired | failed
+    unattempted_sources = manifest_sources - attempted_sources
+    # Count missing originals per issuer, without exporting private PDF URLs or prices.
+    unattempted_source_counts_by_code = {
+        code: sum(source_code == code for source_code, _ in unattempted_sources)
+        for code in sorted(universe)
+        if any(source_code == code for source_code, _ in unattempted_sources)
+    }
     # One exclusive reason per issuer. Acquiring a PDF never grants notification
     # eligibility; financial and corporate-action checks happen downstream.
     hold_reasons = {}
@@ -98,6 +109,9 @@ def audit(universe, manifest, report=None):
         "unattempted_manifest_codes_in_universe": sorted((sourced & universe) - attempted_codes),
         "unattempted_manifest_code_count": len((sourced & universe) - attempted_codes),
         "acquisition_attempted_source_count": len(attempted_sources),
+        "acquired_source_count": len(acquired_sources),
+        "failed_source_count": len(failed_sources),
+        "unattempted_source_counts_by_code": unattempted_source_counts_by_code,
         "failed_codes_in_universe": len(failed & universe),
         "failed_only_codes": sorted((failed - acquired) & universe),
         "mixed_acquisition_codes": sorted((acquired & failed) & universe),
