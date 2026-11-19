@@ -314,6 +314,19 @@ public final class JpxWatchWorker extends Worker {
         return entered.stream().filter(entry -> !alerted.contains(PRICE_ALERT_PREFIX + entry.code())).toList();
     }
 
+    // Rapid-move alerts remain gated by independently verified split and dividend evidence.
+    // This helper only enforces day/reason deduplication; it does not certify event coverage.
+    private static final String RAPID_ALERT_PREFIX = "price-rapid:";
+
+    static List<PriceOnlyScreen.RapidMove> pendingRapid(LocalDate baseline, LocalDate last,
+            LocalDate date, List<PriceOnlyScreen.RapidMove> entered, Set<String> alerted) {
+        if (baseline == null || last == null || date == null || !date.isAfter(baseline)
+                || date.isBefore(last)) return List.of();
+        if (!date.equals(last)) return entered;
+        return entered.stream().filter(entry ->
+                !alerted.contains(RAPID_ALERT_PREFIX + entry.code())).toList();
+    }
+
     private static LocalDate dateOrNull(String text) {
         try {
             return LocalDate.parse(text);
