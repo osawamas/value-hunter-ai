@@ -120,11 +120,57 @@ public class UsPriceOnlyBudgetTest {
             }
             if (url.contains("/calendar/splits")) return response.toString();
             throw new AssertionError("A split candidate should not be sent for price corroboration");
-        }, () -> false);
-        assertTrue(screened.notificationEntries().isEmpty());
-        assertEquals(1, screened.screen().entered().size());
+        }, () -> false, Set.of(), "");
+        assertTrue(screened.result().notificationEntries().isEmpty());
+        assertEquals(1, screened.result().screen().entered().size());
         assertEquals(Set.of("ABC"), UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY));
         assertThrows(org.json.JSONException.class, () -> UsNasdaqCloseCheck.splits(response, FRIDAY, MONDAY.plusDays(1)));
+    }
+
+    @Test public void retriesRotatePastAnInterruptedBatchAndSkipAlreadySentSymbols() throws Exception {
+        var source = UsDoltCloses.SOURCE;
+        var before = closes(FRIDAY, source);
+        var after = closes(MONDAY, source);
+        var listed = new java.util.HashSet<String>();
+        for (int i = 0; i < 30; i++) {
+            String symbol = String.format(java.util.Locale.ROOT, "T%02d", i);
+            listed.add(symbol);
+            before.getJSONArray("closes").put(row(symbol, 7));
+            after.getJSONArray("closes").put(row(symbol, 7));
+        }
+        var budget = UsPriceOnlyBudget.compare(before, after, rates(), listed, finance(source), MONDAY);
+        var calls = new java.util.ArrayList<String>();
+        UsSecFinanceWorker.Download download = url -> {
+            if (url.contains("DOLT_HASHOF")) return """
+                    {"query_execution_status":"Success","rows":[{"revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
+                    """;
+            if (url.contains("FROM+split")) return "{\"query_execution_status\":\"Success\",\"rows\":[]}";
+            if (url.contains("/calendar/splits")) return """
+                    {"status":{"rCode":200},"data":{"asOf":"Mon, Nov 16, 2026",
+                    "headers":{"symbol":"SYMBOL","executionDate":"EFFECTIVE DATE"},"rows":[]}}
+                    """;
+            String symbol = java.net.URI.create(url).getPath().split("/")[3];
+            calls.add(symbol);
+            if (calls.size() == 3) throw new UsDailyWorker.HttpStatus(429);
+            return """
+                    {"status":{"rCode":200},"data":{"symbol":"%s","totalRecords":2,"tradesTable":{"rows":[
+                    {"date":"11/16/2026","close":"$7"},{"date":"11/13/2026","close":"$7"}]}}}
+                    """.formatted(symbol);
+        };
+        var sent = new java.util.HashSet<String>();
+        String cursor = "";
+        for (int attempt = 0; attempt < 3; attempt++) {
+            var checked = UsSecFinanceWorker.corroborateBudget(before, after, FRIDAY, MONDAY, MONDAY,
+                    budget, download, () -> false, sent, cursor);
+            assertEquals(attempt < 2, checked.retry());
+            checked.result().notificationEntries().forEach(entry -> sent.add(entry.code()));
+            cursor = checked.cursor();
+        }
+        assertEquals(listed, sent);
+        assertEquals(List.of("T00", "T01", "T02", "T03"), calls.subList(0, 4));
+        assertEquals(31, calls.size());
+        assertEquals(1, java.util.Collections.frequency(calls, "T00"));
+        assertEquals(2, java.util.Collections.frequency(calls, "T02"));
     }
 
     private static JSONObject closes(LocalDate day, String provider) throws Exception {
