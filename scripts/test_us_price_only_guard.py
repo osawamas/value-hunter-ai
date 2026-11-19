@@ -68,6 +68,15 @@ class PriceOnlyGuardTests(unittest.TestCase):
             expected_current_date="2026-11-16", **self.flags)[0])
 
 
+    def test_malformed_observations_fail_closed(self):
+        args = dict(expected_previous_date="2026-11-16",
+                    expected_current_date="2026-11-17", **self.flags)
+        for bad in ("not-a-row", ["2026-11-16"], 42, {"date": None}):
+            with self.subTest(bad=bad):
+                self.assertFalse(check(bad, self.new, **self.flags)[0])
+                self.assertFalse(session_check(bad, self.new, **args)[0])
+                self.assertFalse(verified_check(bad, self.new, **args)[0])
+
     def test_verified_provenance_gate(self):
         old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.old["date"], "close_source": "exchange:old",
