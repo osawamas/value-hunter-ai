@@ -50,8 +50,9 @@ def reconcile(snapshot):
     budget = {code for code in eligible
               if previous[code] * 100 > 100000 >= latest[code] * 100}
     event_safe = eligible & splits & dividends
-    rapid = {code for code in event_safe
-             if abs((latest[code] / previous[code] - 1) * 100) >= 8}
+    rapid_candidates = {code for code in eligible
+                        if abs((latest[code] / previous[code] - 1) * 100) >= 8}
+    rapid = rapid_candidates & event_safe
     return {
         "previous_date": str(previous_date),
         "latest_date": str(latest_date),
@@ -66,7 +67,7 @@ def reconcile(snapshot):
         "budget_entries": len(budget),
         "event_verified_intervals": len(event_safe),
         "rapid_moves_verified": len(rapid),
-        "rapid_moves_held_unverified": len(eligible - event_safe),
+        "rapid_moves_held_unverified": len(rapid_candidates - event_safe),
         "new_notifications": None,
         "new_notifications_reason": "requires persisted per-code/day/reason delivery ledger",
     }
