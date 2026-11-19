@@ -14,7 +14,7 @@ public class PriceOnlyRapidMoveTest {
                 "1003", new BigDecimal("140"), "1004", new BigDecimal("101"));
         var result = PriceOnlyScreen.rapidMoves(before.keySet(), Set.of("1003"),
                 before::get, after::get, code -> code.equals("1001") || code.equals("1004"),
-                new BigDecimal("8"));
+                code -> code.equals("1001") || code.equals("1002"), new BigDecimal("8"));
         assertEquals(1, result.size());
         assertEquals("1001", result.get(0).code());
         assertEquals(0, result.get(0).percent().compareTo(new BigDecimal("10")));
@@ -30,13 +30,20 @@ public class PriceOnlyRapidMoveTest {
         assertEquals("1002", result.entered().get(0).code());
     }
 
+    @Test public void unknownDividendCoverageMustHoldEvenWhenSplitsAreCleared() {
+        var before = Map.of("1001", new BigDecimal("100"));
+        var after = Map.of("1001", new BigDecimal("130"));
+        assertTrue(PriceOnlyScreen.rapidMoves(before.keySet(), Set.of(), before::get, after::get,
+                code -> true, code -> false, new BigDecimal("8")).isEmpty());
+    }
+
     @Test public void missingOrNonpositivePricesAndUnknownEventsAreHeld() {
         var before = Map.of("1001", new BigDecimal("100"), "1002", BigDecimal.ZERO);
         var after = Map.of("1001", new BigDecimal("200"), "1002", new BigDecimal("50"));
         assertTrue(PriceOnlyScreen.rapidMoves(before.keySet(), Set.of(),
-                before::get, after::get, code -> false, new BigDecimal("8")).isEmpty());
+                before::get, after::get, code -> false, code -> true, new BigDecimal("8")).isEmpty());
         assertTrue(PriceOnlyScreen.rapidMoves(before.keySet(), Set.of(),
-                before::get, after::get, code -> true, new BigDecimal("8"))
+                before::get, after::get, code -> true, code -> true, new BigDecimal("8"))
                 .stream().noneMatch(x -> x.code().equals("1002")));
     }
 }
