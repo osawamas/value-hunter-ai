@@ -30,6 +30,14 @@ class ReplayTests(unittest.TestCase):
         self.assertEqual(result["paired_financial_coverage_percent"], "25.00")
         self.assertEqual(result["paired_total_market_coverage_percent"], "75.00")
 
+    def test_financial_registration_outside_paired_closes_counts_in_union(self):
+        data = self.fixture()
+        data["financial_codes"] = ["1003", "1004"]
+        result = reconcile(data)
+        self.assertEqual(result["paired_financial_and_price_only_union"], 3)
+        self.assertEqual(result["registered_financial_or_price_only_union"], 4)
+        self.assertEqual(result["registered_financial_or_price_only_market_percent"], "100.00")
+
     def test_unverified_dividend_holds_rapid(self):
         data = self.fixture()
         data["dividend_verified_free_codes"] = []
