@@ -5,7 +5,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -13,14 +12,17 @@ import java.util.Set;
 
 final class UsPriceOnlyBudget {
     record Result(PriceOnlyScreen.Result screen, boolean verifiedPriceBasis,
-                  List<PriceOnlyScreen.BudgetEntry> notificationEntries) {
-        Result(PriceOnlyScreen.Result screen, boolean verifiedPriceBasis) {
-            this(screen, verifiedPriceBasis, verifiedPriceBasis ? screen.entered() : List.of());
+                  List<PriceOnlyScreen.BudgetEntry> notificationEntries, int listed, int financialAssessed) {
+        Result(PriceOnlyScreen.Result screen, boolean verifiedPriceBasis, int listed, int financialAssessed) {
+            this(screen, verifiedPriceBasis, verifiedPriceBasis ? screen.entered() : List.of(), listed, financialAssessed);
         }
+
+        int combinedAssessed() { return financialAssessed + screen.assessed(); }
 
         Result corroborated(Set<String> matched) {
             return new Result(screen, verifiedPriceBasis,
-                    screen.entered().stream().filter(entry -> matched.contains(entry.code())).toList());
+                    screen.entered().stream().filter(entry -> matched.contains(entry.code())).toList(),
+                    listed, financialAssessed);
         }
     }
 
@@ -32,14 +34,14 @@ final class UsPriceOnlyBudget {
         var priorDay = LocalDate.parse(previous.getString("trading_date_et"));
         var provider = latest.getString("source");
         if (!day.equals(expectedDay) || !day.equals(financial.day()) || !provider.equals(financial.provider())
-                || !provider.equals(previous.getString("source")) || !priorDay.equals(previousWeekday(day))) {
-            return new Result(PriceOnlyScreen.Result.empty(), false);
+                || !provider.equals(previous.getString("source")) || !priorDay.equals(previousSession(day))) {
+            return new Result(PriceOnlyScreen.Result.empty(), false, ordinary.size(), 0);
         }
 
         var oldFx = UsScreen.readFx(rates, priorDay);
         var newFx = UsScreen.readFx(rates, day);
         if (!oldFx.date().equals(priorDay) || !newFx.date().equals(day)) {
-            return new Result(PriceOnlyScreen.Result.empty(), false);
+            return new Result(PriceOnlyScreen.Result.empty(), false, ordinary.size(), 0);
         }
         var oldPrices = UsDeviceFinancials.prices(previous.getJSONArray("closes"));
         var newPrices = UsDeviceFinancials.prices(latest.getJSONArray("closes"));
@@ -49,7 +51,9 @@ final class UsPriceOnlyBudget {
                 symbol -> yen(oldPrices.get(symbol), oldRate), symbol -> yen(newPrices.get(symbol), newRate));
         boolean unadjusted = UsDailyCloses.MASSIVE_SOURCE.equals(provider)
                 && Boolean.FALSE.equals(previous.opt("adjusted")) && Boolean.FALSE.equals(latest.opt("adjusted"));
-        return new Result(calculated, unadjusted);
+        int financialAssessed = (int) financial.rows().keySet().stream()
+                .filter(ordinary::contains).filter(newPrices::containsKey).count();
+        return new Result(calculated, unadjusted, ordinary.size(), financialAssessed);
     }
 
     static boolean canCorroborateDolt(JSONObject previous, JSONObject latest) {
@@ -71,14 +75,8 @@ final class UsPriceOnlyBudget {
         return symbols;
     }
 
-    static LocalDate previousWeekday(LocalDate day) {
-        return onOrBeforeWeekday(day.minusDays(1));
-    }
-
-    static LocalDate onOrBeforeWeekday(LocalDate day) {
-        if (day.getDayOfWeek() == DayOfWeek.SUNDAY) return day.minusDays(2);
-        if (day.getDayOfWeek() == DayOfWeek.SATURDAY) return day.minusDays(1);
-        return day;
+    static LocalDate previousSession(LocalDate day) {
+        return UsDailyCloses.onOrBeforeTradingDay(day.minusDays(1));
     }
 
     private static BigDecimal yen(BigDecimal usd, BigDecimal rate) {

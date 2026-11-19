@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertThrows;
 
 public class UsDailyClosesTest {
@@ -22,6 +24,25 @@ public class UsDailyClosesTest {
                 UsDailyCloses.mostRecentEligibleDay(Instant.parse("2026-11-17T05:00:00Z")));
         assertEquals(LocalDate.of(2026, 7, 13),
                 UsDailyCloses.mostRecentEligibleDay(Instant.parse("2026-07-14T04:00:00Z")));
+    }
+
+    @Test public void thanksgivingIsSkippedButTheEarlyCloseIsStillASession() {
+        var thanksgiving = LocalDate.of(2026, 11, 26);
+        var friday = thanksgiving.plusDays(1);
+        assertFalse(UsDailyCloses.tradingDay(thanksgiving));
+        assertTrue(UsDailyCloses.tradingDay(friday));
+        assertEquals(thanksgiving.minusDays(1), UsPriceOnlyBudget.previousSession(friday));
+        assertEquals(friday, UsDailyCloses.onOrBeforeTradingDay(friday.plusDays(2)));
+    }
+
+    @Test public void backfillDoesNotReuseADifferentDateProviderOrEmptySnapshot() throws Exception {
+        var source = UsDoltCloses.SOURCE;
+        var quote = new JSONObject().put("source", source).put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject().put("symbol", "XYZ")));
+        assertTrue(UsDailyWorker.matchesPriorSnapshot(quote, DAY, source));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(quote, DAY.minusDays(1), source));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(quote, DAY, UsDailyCloses.MASSIVE_SOURCE));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(quote.put("closes", new JSONArray()), DAY, source));
     }
 
     @Test public void keepsUnadjustedCloseAndDropsOtcAndMissingPrices() throws JSONException {

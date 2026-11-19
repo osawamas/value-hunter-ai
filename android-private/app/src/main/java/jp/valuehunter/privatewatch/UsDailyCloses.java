@@ -4,16 +4,37 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 final class UsDailyCloses {
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
     static final String MASSIVE_SOURCE = "massive-grouped-daily";
     static final int MAX_BYTES = 16 * 1024 * 1024;
+
+    // Scheduled full-day closures for NYSE and Nasdaq. Early closes are trading days.
+    // https://www.nyse.com/trade/hours-calendars
+    // https://www.nasdaqtrader.com/Trader.aspx?id=Calendar
+    private static final Set<LocalDate> HOLIDAYS_2026 = Set.of(
+            LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 19), LocalDate.of(2026, 2, 16),
+            LocalDate.of(2026, 4, 3), LocalDate.of(2026, 5, 25), LocalDate.of(2026, 6, 19),
+            LocalDate.of(2026, 7, 3), LocalDate.of(2026, 9, 7), LocalDate.of(2026, 11, 26),
+            LocalDate.of(2026, 12, 25));
+
+    static boolean tradingDay(LocalDate day) {
+        return day.getDayOfWeek() != DayOfWeek.SATURDAY && day.getDayOfWeek() != DayOfWeek.SUNDAY
+                && !HOLIDAYS_2026.contains(day);
+    }
+
+    static LocalDate onOrBeforeTradingDay(LocalDate day) {
+        while (!tradingDay(day)) day = day.minusDays(1);
+        return day;
+    }
 
     static LocalDate mostRecentEligibleDay(Instant now) {
         return now.atZone(NEW_YORK).toLocalDate().minusDays(1);

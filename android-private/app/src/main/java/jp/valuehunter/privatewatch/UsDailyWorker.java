@@ -24,7 +24,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -110,8 +109,7 @@ public final class UsDailyWorker extends Worker {
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
             LocalDate previous = cachedDate(file, state, provider);
-            if (previous != null) UsSecFinanceWorker.ensureScheduled(context);
-            LocalDate target = UsDailyCloses.mostRecentEligibleDay(Instant.now());
+            LocalDate target = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
             for (int offset = 0; offset < 7; offset++) {
                 if (isStopped()) return Result.retry();
                 LocalDate day = target.minusDays(offset);
@@ -124,30 +122,20 @@ public final class UsDailyWorker extends Worker {
                         if (count) updateCoverage(state, closes, previous, provider);
                         if (assess) assess(state, closes, previous, provider);
                     }
+                    if (previous.equals(target)) backfillPrevious(context, previous, provider, key);
+                    UsSecFinanceWorker.ensureScheduled(context);
                     updateHistory(state, previous);
                     report(state, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち");
                     return Result.success();
                 }
-                if (day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY) {
-                    continue;
-                }
+                if (!UsDailyCloses.tradingDay(day)) continue;
 
-                var closes = key.isEmpty()
-                        ? UsDoltCloses.fetch(day, address -> {
-                            if (isStopped()) throw new IOException("Worker stopped");
-                            return fetch(address, "");
-                        })
-                        : UsDailyCloses.parse(fetch(ENDPOINT + day + "?adjusted=false&include_otc=false", key), day);
+                var closes = fetchCloses(day, key);
                 if (closes.length() == 0) continue;
-                var snapshot = new JSONObject()
-                        .put("source", provider)
-                        .put("adjusted", key.isEmpty() ? JSONObject.NULL : Boolean.FALSE)
-                        .put("trading_date_et", day.toString())
-                        .put("fetched_at_utc", Instant.now().toString())
-                        .put("closes", closes);
+                var snapshot = quoteSnapshot(day, provider, key, closes);
                 if (isStopped()) return Result.retry();
                 synchronized (QUOTE_LOCK) {
-                    if (previous != null && day.isAfter(previous)) {
+                    if (UsPriceOnlyBudget.previousSession(day).equals(previous)) {
                         var old = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
                         var priorFile = new AtomicFile(new File(context.getNoBackupFilesDir(), PREVIOUS_QUOTE_FILE));
                         writeSnapshot(priorFile, old);
@@ -157,6 +145,7 @@ public final class UsDailyWorker extends Worker {
                 state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
                         .putString(PROVIDER, provider)
                         .putString(STATUS, "終値の自動取得に成功").apply();
+                if (day.equals(target)) backfillPrevious(context, day, provider, key);
                 UsSecFinanceWorker.ensureScheduled(context);
                 updateCoverage(state, closes, day, provider);
                 assess(state, closes, day, provider);
@@ -175,6 +164,52 @@ public final class UsDailyWorker extends Worker {
             report(state, "終値を取得できず（配信形式を要確認）");
             return Result.success();
         }
+    }
+
+    private JSONArray fetchCloses(LocalDate day, String key) throws IOException, JSONException {
+        if (!key.isEmpty()) {
+            return UsDailyCloses.parse(fetch(ENDPOINT + day + "?adjusted=false&include_otc=false", key), day);
+        }
+        return UsDoltCloses.fetch(day, address -> {
+            if (isStopped()) throw new IOException("Worker stopped");
+            return fetch(address, "");
+        });
+    }
+
+    private static JSONObject quoteSnapshot(LocalDate day, String provider, String key, JSONArray closes)
+            throws JSONException {
+        return new JSONObject().put("source", provider)
+                .put("adjusted", key.isEmpty() ? JSONObject.NULL : Boolean.FALSE)
+                .put("trading_date_et", day.toString()).put("fetched_at_utc", Instant.now().toString())
+                .put("closes", closes);
+    }
+
+    private void backfillPrevious(Context context, LocalDate day, String provider, String key) {
+        if (isStopped()) return;
+        var priorDay = UsPriceOnlyBudget.previousSession(day);
+        var priorFile = new AtomicFile(new File(context.getNoBackupFilesDir(), PREVIOUS_QUOTE_FILE));
+        try {
+            var saved = new JSONObject(new String(readQuote(priorFile), StandardCharsets.UTF_8));
+            if (matchesPriorSnapshot(saved, priorDay, provider)) return;
+        } catch (IOException | JSONException unavailable) {
+            // A missing prior close can be filled independently of the current close.
+        }
+        try {
+            var closes = fetchCloses(priorDay, key);
+            if (closes.length() == 0 || isStopped()) return;
+            var snapshot = quoteSnapshot(priorDay, provider, key, closes);
+            synchronized (QUOTE_LOCK) {
+                writeSnapshot(priorFile, snapshot);
+            }
+        } catch (IOException | JSONException unavailable) {
+            // Keep the current session available for financial screening and retry the prior close next run.
+        }
+    }
+
+    static boolean matchesPriorSnapshot(JSONObject snapshot, LocalDate expected, String provider) {
+        var closes = snapshot.optJSONArray("closes");
+        return expected.toString().equals(snapshot.optString("trading_date_et"))
+                && provider.equals(snapshot.optString("source")) && closes != null && closes.length() > 0;
     }
 
     static void applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,

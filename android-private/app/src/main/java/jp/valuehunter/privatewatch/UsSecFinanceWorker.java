@@ -170,12 +170,12 @@ public final class UsSecFinanceWorker extends Worker {
     private UsPriceOnlyBudget.Result prepareBudget(JSONObject quote, JSONObject ledger, File directory,
                                                    LocalDate day, String hash) {
         if (isStopped()) return null;
-        var expected = UsPriceOnlyBudget.onOrBeforeWeekday(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
+        var expected = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
         if (!day.equals(expected)) return null;
         try {
             var priorFile = new AtomicFile(new File(directory, UsDailyWorker.PREVIOUS_QUOTE_FILE));
             var previous = new JSONObject(new String(UsDailyWorker.readQuote(priorFile), StandardCharsets.UTF_8));
-            var priorDay = UsPriceOnlyBudget.previousWeekday(day);
+            var priorDay = UsPriceOnlyBudget.previousSession(day);
             if (!priorDay.toString().equals(previous.optString("trading_date_et"))
                     || !quote.getString("source").equals(previous.optString("source"))) return null;
             var ordinary = UsPriceOnlyBudget.ordinary(listings("otherlisted.txt", false),
@@ -234,8 +234,9 @@ public final class UsSecFinanceWorker extends Worker {
             return true;
         }
         var result = budget.screen();
-        String summary = "株価だけで予算を比較 " + result.assessed() + "銘柄 · 100株10万円以下に入った "
-                + result.entered().size() + "銘柄";
+        String summary = "財務または株価で一次判定 " + budget.combinedAssessed() + " / " + budget.listed()
+                + "銘柄 · うち株価だけ " + result.assessed() + "銘柄"
+                + "\n株価だけで100株10万円以下に入った " + result.entered().size() + "銘柄";
         if (!budget.verifiedPriceBasis()) {
             summary += " · 2つの取得元で終値一致 " + budget.notificationEntries().size()
                     + "銘柄 · 照合待ち " + (result.entered().size() - budget.notificationEntries().size()) + "銘柄";

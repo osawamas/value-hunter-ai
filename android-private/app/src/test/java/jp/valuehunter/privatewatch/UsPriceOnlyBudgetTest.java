@@ -23,6 +23,9 @@ public class UsPriceOnlyBudgetTest {
                 LISTED, finance(VERIFIED), MONDAY);
         assertTrue(result.verifiedPriceBasis());
         assertEquals(2, result.screen().assessed());
+        assertEquals(1, result.financialAssessed());
+        assertEquals(3, result.combinedAssessed());
+        assertEquals(3, result.listed());
         assertEquals(List.of("ABC"), result.screen().entered().stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
         assertEquals(0, new BigDecimal("98000").compareTo(result.screen().entered().get(0).yen()));
     }
