@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 11:15 JST — 初回Dolt cloneの不正メタデータを回帰テスト化
+
+- 開始時main: [56540d8](https://github.com/osawamas/value-hunter-ai/commit/56540d80e12d248b4cac819ec2c893b44ccd2e83)。最新コミット・US開発ログ・US CI定義・Dolt同期本体とテストを読んだ。JPX担当の直近[04df09a](https://github.com/osawamas/value-hunter-ai/commit/04df09a4ec60a10a42df1a9eeda68461c74607f1)と[56540d8](https://github.com/osawamas/value-hunter-ai/commit/56540d80e12d248b4cac819ec2c893b44ccd2e83)を確認し、JPXファイルは変更なし。
+- 初回cloneが終了コード0を返しても、作成された `.dolt` が外部ディレクトリへのsymlinkなら正常なリポジトリと判定しない回帰テストを追加。[テストコミット 565e064](https://github.com/osawamas/value-hunter-ai/commit/565e064d9b6fe6adb77f67fc3e7f2c78260d0d85)。同期本体は既存の拒否条件を維持。独立Python再現でsymlinkを拒否する条件1件成功。ただし追加unittest自体と変更後Actionsは未確認。[US CI](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)。
+- ローカルGit接続はgithub.comのDNS名前解決失敗。実Dolt同期・実HTTP 429・SEC再照合・Android 15エミュレータ未実施。出典: [DoltHub stocks](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC API](https://www.sec.gov/edgar/sec-api-documentation)。
+- 対象取引日2026-11-17、11月18日観測一覧を母数とする**過去値**: NYSE 1,877/1,896、Nasdaq 3,081/3,189、合計4,958/5,085（97.5%、厳密な同日網羅率ではない）。SEC財務照合2,746、通知判定可能1,472も過去値。今回新規終値0、財務再照合0、割安判定0、候補0、通知0、保留内訳未測定。
+- 次回: 追加テストのCI完走、Dolt実同期、SEC未照合の削減と株数・株式クラス・企業イベントの検証。APK・株価原本・APIキーは公開しない。
+
 ## 2026-11-19 10:10 JST — FileNotFoundError時のDoltキャッシュ破損を区別
 
 - 開始時main: [0c25ab6](https://github.com/osawamas/value-hunter-ai/commit/0c25ab6e849627e57d4957cbc647b052413a130c)。直近JPX担当の原本PDF SHA256同一性監査2コミット、US開発ログ・Dolt同期コードとテスト・US Actions定義を確認。JPXファイルは変更なし。
