@@ -48,6 +48,12 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
                 return 'invalid_repository_after_command'
             return 'cached_after_timeout' if existing else 'timed_out'
         except FileNotFoundError:
+            # A missing executable is different from a cache removed during pull.
+            # Recheck the cache before reporting a dependency failure.
+            if existing and (destination.is_symlink() or not _valid_metadata(destination)):
+                return 'invalid_repository_after_command'
+            if not existing and destination.exists():
+                return 'partial_clone_requires_manual_cleanup'
             return 'dolt_not_installed'
         except OSError:
             if not existing and destination.exists():
