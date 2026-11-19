@@ -16,6 +16,14 @@ class ReconcileTests(unittest.TestCase):
         self.assertEqual(out["Nasdaq"]["paired_coverage_pct"], 50.0)
         self.assertIsNone(out["NYSE"]["notification_verified"])
 
+    def test_rejects_noncanonical_whitespace_symbols(self):
+        listed = {"NYSE": {"ABC "}, "Nasdaq": {"XYZ"}}
+        paired = {"NYSE": {"ABC "}, "Nasdaq": {"XYZ"}}
+        financial = {"NYSE": set(), "Nasdaq": set()}
+        candidates = {"NYSE": set(), "Nasdaq": set()}
+        with self.assertRaisesRegex(ValueError, "noncanonical"):
+            reconcile_us_coverage(listed, paired, financial, candidates)
+
     def test_rejects_aggregated_counts_and_wrong_market(self):
         good = {"NYSE": {"A"}, "Nasdaq": {"B"}}
         with self.assertRaises(ValueError):
