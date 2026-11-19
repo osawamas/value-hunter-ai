@@ -21,6 +21,29 @@ class SourceProvenanceTests(TestCase):
             with self.assertRaisesRegex(ValueError, "Both official JPX rights editions"):
                 sources.verified_rapid_exclusions(date(2026, 11, 18), date(2026, 11, 19), Path(temp))
 
+    def test_rapid_exclusions_reject_modified_download_before_event_check(self):
+        previous = date(2026, 11, 18)
+        latest = date(2026, 11, 19)
+        bodies = {previous: b"official-previous", latest: b"official-latest"}
+        releases = {
+            day.isoformat(): {"sha256": hashlib.sha256(body).hexdigest(),
+                              "official_url": f"https://www.jpx.co.jp/listing/others/ex-rights/{day:%Y%m%d}.xls"}
+            for day, body in bodies.items()
+        }
+        def tamper(_urls, output):
+            for day, body in bodies.items():
+                (output / f"{day:%Y%m%d}.xls").write_bytes(
+                    b"modified" if day == latest else body)
+            return releases, {}, {}
+        with TemporaryDirectory() as temp, \
+             patch.object(sources, "page_links", return_value=[
+                 value["official_url"] for value in releases.values()]), \
+             patch.object(sources, "daily_sources", side_effect=tamper), \
+             patch.object(sources, "rapid_exclusions") as classify:
+            with self.assertRaisesRegex(ValueError, "changed after the original download"):
+                sources.verified_rapid_exclusions(previous, latest, Path(temp))
+            classify.assert_not_called()
+
     def test_current_and_archived_monthly_links_stay_on_the_official_origin(self):
         index = """
         <option value="/markets/statistics-equities/monthly/index.html">2026年</option>
