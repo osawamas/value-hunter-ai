@@ -52,6 +52,7 @@ def reconcile(snapshot):
     previous_only = set(previous) - set(latest)
     latest_only = set(latest) - set(previous)
     eligible = paired - financial
+    registered_or_price_only = (financial & listed) | eligible
     budget = {code for code in eligible
               if previous[code] * 100 > 100000 >= latest[code] * 100}
     event_safe = eligible & splits & dividends
@@ -71,6 +72,10 @@ def reconcile(snapshot):
         "financial_registered_total": len(financial),
         "paired_financial_overlap": len(paired & financial),
         "paired_financial_and_price_only_union": len(paired),
+        "registered_financial_or_price_only_union": len(registered_or_price_only),
+        "registered_financial_or_price_only_market_percent":
+            str((Decimal(len(registered_or_price_only)) * 100 / len(listed)).quantize(Decimal("0.01")))
+            if listed else "0.00",
         "paired_financial_coverage_percent":
             str((Decimal(len(paired & financial)) * 100 / len(listed)).quantize(Decimal("0.01")))
             if listed else "0.00",
