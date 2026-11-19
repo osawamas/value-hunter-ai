@@ -77,6 +77,16 @@ class PriceOnlyGuardTests(unittest.TestCase):
                 self.assertFalse(session_check(bad, self.new, **args)[0])
                 self.assertFalse(verified_check(bad, self.new, **args)[0])
 
+    def test_missing_session_is_distinct_from_malformed_row(self):
+        args = dict(expected_previous_date="2026-11-16",
+                    expected_current_date="2026-11-17", **self.flags)
+        for missing_previous, missing_current in ((None, self.new), (self.old, None)):
+            self.assertEqual(session_check(missing_previous, missing_current, **args),
+                             (False, "invalid_trade_dates"))
+        for malformed in ("invalid", 42, ["2026-11-17"]):
+            self.assertEqual(session_check(self.old, malformed, **args),
+                             (False, "invalid_observation"))
+
     def test_verified_provenance_gate(self):
         old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.old["date"], "close_source": "exchange:old",
