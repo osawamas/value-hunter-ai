@@ -74,6 +74,27 @@ public class JpxAutomaticFinanceTest {
                 new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1));
         assertEquals(List.of(new JpxDailyCheck.Candidate(CODE, 100, ValueCandidateScreen.Level.PRIORITY)),
                 results.entered());
+        assertEquals(0, comparison.priceOnly(results).assessed());
+    }
+
+    @Test public void heldFinancialRecordStillAllowsAnIndependentBudgetAlertAfterRetry() throws Exception {
+        var entry = acquire(archive("決算短信〔日本基準〕(連結)", PATH),
+                filing().replace(">60.00<", ">0.00<"));
+        assertNotNull(entry.annual());
+        var before = DAY.minusDays(1);
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "1000"), report(before, "1001"));
+        var screen = comparison.screen(new JpxShareRights(Set.of(), Set.of(), List.of()),
+                new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1));
+        assertEquals(0, screen.assessed());
+        assertTrue(screen.entered().isEmpty());
+
+        var budget = comparison.priceOnly(screen);
+        assertEquals(1, budget.assessed());
+        assertEquals(List.of(new PriceOnlyScreen.BudgetEntry(CODE, new BigDecimal("100000"))), budget.entered());
+        assertEquals(budget.entered(), JpxWatchWorker.pendingBudget(before, before, DAY, budget.entered(), Set.of()));
+        assertEquals(budget.entered(), JpxWatchWorker.pendingBudget(before, DAY, DAY, budget.entered(), Set.of()));
+        assertTrue(JpxWatchWorker.pendingBudget(before, DAY, DAY, budget.entered(),
+                Set.of("price-budget:" + CODE)).isEmpty());
     }
 
     @Test public void rejectsExternalXmlEntitiesInPublicAnnualFilings() throws Exception {

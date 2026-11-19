@@ -152,6 +152,7 @@ public class UsPriceOnlyBudgetTest {
             String symbol = java.net.URI.create(url).getPath().split("/")[3];
             calls.add(symbol);
             if (calls.size() == 3) throw new UsDailyWorker.HttpStatus(429);
+            if (calls.size() == 4) throw new java.net.SocketTimeoutException("temporary timeout");
             return """
                     {"status":{"rCode":200},"data":{"symbol":"%s","totalRecords":2,"tradesTable":{"rows":[
                     {"date":"11/16/2026","close":"$7"},{"date":"11/13/2026","close":"$7"}]}}}
@@ -168,9 +169,10 @@ public class UsPriceOnlyBudgetTest {
         }
         assertEquals(listed, sent);
         assertEquals(List.of("T00", "T01", "T02", "T03"), calls.subList(0, 4));
-        assertEquals(31, calls.size());
+        assertEquals(32, calls.size());
         assertEquals(1, java.util.Collections.frequency(calls, "T00"));
         assertEquals(2, java.util.Collections.frequency(calls, "T02"));
+        assertEquals(2, java.util.Collections.frequency(calls, "T03"));
     }
 
     private static JSONObject closes(LocalDate day, String provider) throws Exception {

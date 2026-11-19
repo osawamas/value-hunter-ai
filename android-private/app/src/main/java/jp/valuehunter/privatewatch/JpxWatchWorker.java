@@ -190,7 +190,7 @@ public final class JpxWatchWorker extends Worker {
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
                         : List.<JpxDailyCheck.Candidate>of();
-                var priceOnly = comparison.priceOnly(screen, finance);
+                var priceOnly = comparison.priceOnly(screen);
                 var budgetAdded = notifyEnabled && automaticFinance
                         ? pendingBudget(baseline, last, date, priceOnly.entered(), alerted)
                         : List.<PriceOnlyScreen.BudgetEntry>of();
@@ -199,8 +199,18 @@ public final class JpxWatchWorker extends Worker {
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
                 appendCandidates(summary, screen);
                 appendHolds(summary, screen);
+                summary.append("\n財務または株価で一次判定 ")
+                        .append(screen.assessed() + priceOnly.assessed());
+                if (comparison.latest().universe() != null) {
+                    summary.append(" / ").append(comparison.latest().universe().codes().size());
+                }
+                summary.append("銘柄");
                 summary.append("\n株価だけで予算判定 ").append(priceOnly.assessed())
                         .append("銘柄 · 100株10万円以下に入った ").append(priceOnly.entered().size()).append("銘柄");
+                if (!priceOnly.entered().isEmpty()) {
+                    summary.append("\n予算入り ").append(String.join("、",
+                            priceOnly.entered().stream().map(PriceOnlyScreen.BudgetEntry::code).toList()));
+                }
                 if (!notifyEnabled) summary.append("\n通知設定を確認");
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
                 var update = recordCheck(state.edit(), "日報を取得して再判定")
