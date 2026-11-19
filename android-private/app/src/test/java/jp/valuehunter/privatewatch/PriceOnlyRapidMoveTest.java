@@ -37,6 +37,24 @@ public class PriceOnlyRapidMoveTest {
                 code -> true, code -> false, new BigDecimal("8")).isEmpty());
     }
 
+    @Test public void bothCorporateActionSourcesMustCertifySameCandidate() {
+        var before = Map.of("1001", new BigDecimal("100"), "1002", new BigDecimal("100"));
+        var after = Map.of("1001", new BigDecimal("90"), "1002", new BigDecimal("120"));
+        var result = PriceOnlyScreen.rapidMoves(before.keySet(), Set.of(),
+                before::get, after::get, code -> code.equals("1001"),
+                code -> code.equals("1002"), new BigDecimal("8"));
+        assertTrue(result.isEmpty());
+    }
+
+    @Test public void exactlyEightPercentCountsOnlyWithBothEventChecks() {
+        var before = Map.of("1001", new BigDecimal("100"));
+        var after = Map.of("1001", new BigDecimal("92"));
+        var result = PriceOnlyScreen.rapidMoves(before.keySet(), Set.of(),
+                before::get, after::get, code -> true, code -> true, new BigDecimal("8"));
+        assertEquals(1, result.size());
+        assertEquals(0, result.get(0).percent().compareTo(new BigDecimal("-8")));
+    }
+
     @Test public void missingOrNonpositivePricesAndUnknownEventsAreHeld() {
         var before = Map.of("1001", new BigDecimal("100"), "1002", BigDecimal.ZERO);
         var after = Map.of("1001", new BigDecimal("200"), "1002", new BigDecimal("50"));
