@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-19 10:10 JST — FileNotFoundError時のDoltキャッシュ破損を区別
+
+- 開始時main: [0c25ab6](https://github.com/osawamas/value-hunter-ai/commit/0c25ab6e849627e57d4957cbc647b052413a130c)。直近JPX担当の原本PDF SHA256同一性監査2コミット、US開発ログ・Dolt同期コードとテスト・US Actions定義を確認。JPXファイルは変更なし。
+- Dolt runnerがFileNotFoundErrorを出したとき、既存キャッシュの.doltが同時に消えたケースを単なるdolt_not_installedと誤分類していた。既存キャッシュ破損ならinvalid_repository_after_command、初回cloneの部分ファイルが残ればpartial_clone_requires_manual_cleanupへ修正。[本体 a739a54](https://github.com/osawamas/value-hunter-ai/commit/a739a548e29988df0b71c6badcf37d38bab898fb)。2件の回帰テスト追加。[テスト 6fc1847](https://github.com/osawamas/value-hunter-ai/commit/6fc18476526192a456553d4548c0509e26d6fa7d)。
+- GitHubへの2コミット保存と最新mainへの反映は確認。リポジトリ内unittestは未実行。コミットに紐づくActions取得は0件（コネクタはPRトリガーのみ返す制限あり）で、push後CI成功は未確認。[US CI一覧](https://github.com/osawamas/value-hunter-ai/actions/workflows/us-daily-coverage-tests.yml)。Dolt実同期・実429・Androidエミュレータ未実施。
+- 対象取引日2026-11-17、11月18日観測の母数による**過去値**: NYSE 1,877/1,896、Nasdaq 3,081/3,189、合計4,958/5,085（97.5%、同日厳密網羅率ではない）。SEC財務照合2,746、通知判定可能1,472も過去値。今回新規終値0、財務再照合0、割安判定0、候補0、通知0、保留内訳未測定。
+- 未解決: CI完走と実Dolt同期、未調整終値・分割、SEC株数/株式クラス/基準日、正式PER/PBR、Android 15・WorkManager・無音通知。次回はCI完走とDolt実同期、不可ならSEC未照合銘柄を調査。出典: [DoltHub](https://www.dolthub.com/repositories/post-no-preference/stocks)、[SEC](https://www.sec.gov/edgar/sec-api-documentation)。株価原本・APIキー・APKは公開していない。
+
 ## 2026-11-19 09:15 JST — 429判定の独立再現
 
 - 開始時main: 62f15ba6e7e70f78ea42cff2a5c70bad5c07b725。最新USログ、Dolt同期コードとテスト、US Actions定義、直近JPXのissuer-source監査コミットを確認。JPX側は変更なし。
