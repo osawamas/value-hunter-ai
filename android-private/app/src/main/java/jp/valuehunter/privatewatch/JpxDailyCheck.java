@@ -229,9 +229,17 @@ final class JpxDailyCheck {
         }
 
         PriceOnlyScreen.Result priceOnly(Screening financial) {
+            return priceOnly(financial, JpxAutomaticFinance.Batch.empty());
+        }
+
+        PriceOnlyScreen.Result priceOnly(Screening financial, JpxAutomaticFinance.Batch finance) {
             if (previous == null || !previous.date().isBefore(latest.date())) return PriceOnlyScreen.Result.empty();
             var codes = latest.universe() == null ? latest.quotes().keySet() : latest.universe().codes();
-            return PriceOnlyScreen.budgetEntries(codes, financial.assessedCodes(), previous::close, latest::close);
+            // A financial record on hold is NOT an unresearched price-only security.
+            // Exclude all registered financial codes, even if their valuation is held.
+            var financialCodes = new HashSet<>(screenCodes(finance));
+            financialCodes.addAll(financial.assessedCodes());
+            return PriceOnlyScreen.budgetEntries(codes, financialCodes, previous::close, latest::close);
         }
 
         private ReferenceChange automaticChange(String code, JpxShareRights rights,
