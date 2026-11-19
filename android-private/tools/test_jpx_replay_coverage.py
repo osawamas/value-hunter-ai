@@ -14,6 +14,15 @@ class ReplayTests(unittest.TestCase):
             dividend_verified_free_codes=["1002"],
         )
 
+    def test_replay_exposes_exact_reason_scoped_codes_without_prices(self):
+        result = reconcile(self.fixture())
+        self.assertEqual(result["budget_entry_codes"], ["1001"])
+        self.assertEqual(result["rapid_move_verified_codes"], ["1002"])
+        self.assertEqual(result["distinct_reference_candidate_code_list"], ["1001", "1002"])
+        self.assertEqual(result["rapid_move_held_codes"], [])
+        self.assertNotIn("previous_closes", result)
+        self.assertNotIn("latest_closes", result)
+
     def test_distinct_candidates_do_not_double_count_reasons(self):
         data = self.fixture()
         data["previous_closes"]["1002"] = "1001"
