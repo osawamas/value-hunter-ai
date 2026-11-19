@@ -54,6 +54,21 @@ class SyncTest(unittest.TestCase):
                 return SimpleNamespace(returncode=0, stderr='', stdout='')
             self.assertEqual(sync(dest, runner=runner), 'cloned')
 
+    def test_initial_clone_symlinked_metadata_is_not_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            dest = root / 'stocks'
+            external = root / 'external-metadata'
+            external.mkdir()
+            def runner(cmd, **kwargs):
+                dest.mkdir()
+                (dest / '.dolt').symlink_to(external, target_is_directory=True)
+                return SimpleNamespace(returncode=0, stderr='', stdout='')
+            self.assertEqual(sync(dest, runner=runner),
+                             'invalid_repository_after_command')
+            self.assertTrue(external.is_dir())
+            self.assertTrue((dest / '.dolt').is_symlink())
+
     def test_existing_clone_survives_429(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / 'stocks'
