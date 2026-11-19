@@ -35,6 +35,8 @@ def audit(universe, manifest, report=None):
     # another PDF from the same issuer. This prevents stale or unrelated
     # acquisition records from inflating coverage.
     manifest_sources = {(x["code"], x.get("sha256")) for x in manifest}
+    if len(manifest_sources) != len(manifest):
+        raise ValueError("Duplicate source identity in manifest")
     if any(not isinstance(x.get("sha256"), str) or
            not re.fullmatch(r"[0-9a-f]{64}", x["sha256"]) for x in manifest):
         raise ValueError("Manifest must contain source SHA256")
@@ -73,6 +75,10 @@ def audit(universe, manifest, report=None):
         "unattempted_manifest_code_count": len((sourced & universe) - attempted_codes),
         "acquisition_attempted_source_count": len(attempted_sources),
         "failed_codes_in_universe": len(failed & universe),
+        "failed_only_codes": sorted((failed - acquired) & universe),
+        "mixed_acquisition_codes": sorted((acquired & failed) & universe),
+        "acquired_only_codes": sorted((acquired - failed) & universe),
+        "unattempted_manifest_source_count": len(manifest_sources - attempted_sources),
         "mixed_acquisition_codes_in_universe": len(acquired & failed & universe),
         "financial_verified_count": 0,
         "notification_eligible_count": 0,
