@@ -11,6 +11,9 @@ BUDGET_JPY = Decimal("100000")
 
 
 def _positive(value):
+    # bool is a subclass of int; never accept True as a USD close or FX rate.
+    if isinstance(value, bool):
+        return None
     try:
         number = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
