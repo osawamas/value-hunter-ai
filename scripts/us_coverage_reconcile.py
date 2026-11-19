@@ -20,6 +20,12 @@ def reconcile_us_coverage(listed_by_market, paired_by_market, financial_by_marke
     if any(not isinstance(source, dict) or set(source) != set(markets)
            for source in sources):
         raise ValueError("NYSE and Nasdaq symbol sets required for all inputs")
+    # A symbol assigned to both exchanges is ambiguous without a stable listing ID.
+    # Fail closed rather than counting it twice or misclassifying financial overlap.
+    if (isinstance(listed_by_market["NYSE"], (set, frozenset))
+            and isinstance(listed_by_market["Nasdaq"], (set, frozenset))
+            and listed_by_market["NYSE"] & listed_by_market["Nasdaq"]):
+        raise ValueError("duplicate symbol across NYSE and Nasdaq listings")
     result = {}
     for market in markets:
         listed, paired, financial, candidates = (
