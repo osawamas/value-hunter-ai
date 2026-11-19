@@ -49,6 +49,22 @@ public class UsPriceOnlyBudgetTest {
                 new JSONArray().put(rate(FRIDAY, 150)), LISTED, financial, MONDAY).screen().assessed());
     }
 
+    @Test public void rejectsAdjustedOrUnspecifiedPriceBasisForNotification() throws Exception {
+        var prior = closes(FRIDAY, VERIFIED);
+        var latest = closes(MONDAY, VERIFIED);
+        assertTrue(UsPriceOnlyBudget.compare(prior, latest, rates(), LISTED,
+                finance(VERIFIED), MONDAY).verifiedPriceBasis());
+
+        prior.put("adjusted", true);
+        assertFalse(UsPriceOnlyBudget.compare(prior, latest, rates(), LISTED,
+                finance(VERIFIED), MONDAY).verifiedPriceBasis());
+
+        prior.put("adjusted", false);
+        latest.remove("adjusted");
+        assertFalse(UsPriceOnlyBudget.compare(prior, latest, rates(), LISTED,
+                finance(VERIFIED), MONDAY).verifiedPriceBasis());
+    }
+
     private static JSONObject closes(LocalDate day, String provider) throws Exception {
         return new JSONObject().put("trading_date_et", day.toString()).put("source", provider)
                 .put("adjusted", VERIFIED.equals(provider) ? Boolean.FALSE : JSONObject.NULL)
