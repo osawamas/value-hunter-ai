@@ -1,5 +1,13 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+## 2026-11-20 03:15 JST — US市場別集合突合の二重計上防止
+
+- 開始時main: 6f10055217700d6f8ce4543813f9616a97253ac8。USログ、最新Actions、JPXとの分離を確認。直近US CI #44574722120 は SHA 93d3b40 で success（2026-11-20 02:13 JST頃）。今回の変更後CIとは別。
+- NYSEとNasdaqの上場集合に同一銘柄コードが現れた場合、財務集合と価格集合の二重計上・誤った除外を避けるため、集合突合を保留するガードを追加。[本体 15c5656](https://github.com/osawamas/value-hunter-ai/commit/15c565655a36ad1316465c0c4f254d77e7e1c71e)、[回帰テスト b42c8d6](https://github.com/osawamas/value-hunter-ai/commit/b42c8d63957ccf021c3d9bbf3c13a09cef80c81b)。JPX・Android・APK・原本には変更なし。**追加テストの成功・変更後Actions完走は未確認**。
+- 11月16・17日の保存済み過去実測: NYSE 1,868/1,896 (98.5%)、Nasdaq 3,041/3,190 (95.3%)、合計4,909/5,086 (96.5%)。2日欠落177。予算入り候補19、財務判定済み重複2、残17は正規未調整終値・企業イベント等の証跡待ち。今回の新規取得0、財務再照合0、全4,194銘柄との集合突合後の正味簡易判定可能数未測定、確定通知候補未測定、Android端末の通知実測なし（確認済み0）。過去単日4,958・判定可能1,472とは基準が異なる。
+- 次回: 最新Actions完走確認、保存原本の市場別実集合と財務4,194銘柄を突合、17候補の正規終値・公式イベント・日別FXを検証。PriceOnlyScreen/WorkManager接続とAndroid 15無音通知を検証。APIキー・追加費用・手動CSV・Mac不要、APKと株価原本は公開しない。
+
+
 ## 2026-11-20 02:15 JST — US集合突合で非正規銘柄キーを拒否
 
 - 開始時main: 7456fe4b38b54a119b82f43376de1f00a34665d7（別担当の「US financial and price monitoring coverage replay」記録）。最新USログ・US CI #44553023487 success・JPX担当との競合を確認。JPX側は変更なし。
