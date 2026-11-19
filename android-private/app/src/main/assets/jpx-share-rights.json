@@ -1,4 +1,5 @@
 {
+  "revision": "2026-11-19T06:32:28.348145Z",
   "adjustments": [
     [
       "2323",
@@ -1459,8 +1460,7 @@
     {
       "code": "6861",
       "exDay": "2026-11-19",
-      "source": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261112.xls"
+      "source": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261113.xls"
     }
-  ],
-  "revision": "2026-11-18T18:32:37.727377Z"
+  ]
 }
