@@ -190,7 +190,7 @@ public final class JpxWatchWorker extends Worker {
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
                         : List.<JpxDailyCheck.Candidate>of();
-                var priceOnly = comparison.priceOnly(screen);
+                var priceOnly = comparison.priceOnly(screen, finance);
                 var budgetAdded = notifyEnabled && automaticFinance
                         ? pendingBudget(baseline, last, date, priceOnly.entered(), alerted)
                         : List.<PriceOnlyScreen.BudgetEntry>of();
