@@ -1,5 +1,7 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+- 2026-11-20 09:15 JST | mainのUS価格のみ判定でboolがDecimal(1/0)扱いになる経路を修正し、前後2日×終値/FX×True/Falseの8ケースを追加。ローカルで数値変換の3簡易チェック成功、リポジトリ全体のunittest/Actions未実行。新規取得0・一次判定追加0・通知候補未測定・実配信未検証。欠損171銘柄は独立未調整終値と企業行動の検証待ち。専用ブランチ main未統合、起点は同ブランチ 87c1919。 [本体 a05d92a](https://github.com/osawamas/value-hunter-ai/commit/a05d92aebf1a83afa0b397a07e5676a528940529) / [テスト 87c1919](https://github.com/osawamas/value-hunter-ai/commit/87c19197584f6cc3880927049f6d9e9555becde0)。
+
 - 2026-11-20 05時台 JST | 分割・併合の銘柄コードがドットとハイフンで異なっても同じ株式クラスを照合対象から除外。不正な銘柄コードのカレンダーは保留。JVM106件に合格。Nasdaq原本を再生すると39銘柄を除外。欠損補完171銘柄は未調整終値の追加照合待ち。 [実装 0001a95](https://github.com/osawamas/value-hunter-ai/commit/0001a951d9930ac44f8b8c3e1193bb73778cdbef)
 
 ## 2026-11-20 03:15 JST — US市場別集合突合の二重計上防止
