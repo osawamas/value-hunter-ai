@@ -38,6 +38,18 @@ public class NotificationHistoryTest {
                 NotificationHistory.recent(history(), NOW + 1000));
     }
 
+    @Test public void wakeFailureAfterSuccessfulPostStillPersistsReceipt() throws Exception {
+        var file = history();
+        var posts = new AtomicInteger();
+        assertTrue(NotificationHistory.deliver(file, "5-wake", "東証候補", "1001", NOW,
+                () -> 0, posts::incrementAndGet, () -> { throw new IllegalStateException("wake denied"); }));
+        assertEquals(1, posts.get());
+        assertEquals(1, NotificationHistory.recent(file, NOW).size());
+        assertTrue(NotificationHistory.deliver(file, "5-wake", "東証候補", "1001", NOW + 1000,
+                () -> 0, UNEXPECTED, UNEXPECTED));
+        assertEquals(1, posts.get());
+    }
+
     @Test public void recoversActiveOrDismissedNotificationAfterInterruption() throws Exception {
         var file = history();
         assertTrue(NotificationHistory.deliver(file, "5-foo", "東証候補", "1001", NOW,
