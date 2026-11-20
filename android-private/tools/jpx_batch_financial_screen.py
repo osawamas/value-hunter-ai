@@ -133,8 +133,15 @@ def load_financial_batches(paths):
     # Repeated --annual-financials paths (including directory overlap) must not
     # trigger duplicate disk reads; retain the first occurrence's ordering.
     seen_paths = set()
+    seen_inputs = set()
     for path in paths:
-        canonical = Path(path).resolve()
+        # Avoid repeated filesystem resolution for identical queue entries.
+        # Resolve distinct spellings so aliases and symlinks still deduplicate.
+        raw = Path(path)
+        if raw in seen_inputs:
+            continue
+        seen_inputs.add(raw)
+        canonical = raw.resolve()
         if canonical in seen_paths:
             continue
         seen_paths.add(canonical)
