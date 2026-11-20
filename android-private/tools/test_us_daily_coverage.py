@@ -102,6 +102,13 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
             path.write_text(json.dumps(dict(observed, directory_sha256={"otherlisted.txt": "different"})))
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
+            # A legacy report without hashes must not claim a recovered ticker
+            # against a newly hashed listing directory, even at the same timestamp.
+            hashed = dict(observed, directory_sha256={"otherlisted.txt": "current"})
+            path.write_text(json.dumps(observed))
+            self.assertEqual("different_report_basis", compare_previous_report(path, hashed)["status"])
+            path.write_text(json.dumps(hashed))
+            self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
             path.write_text("{")
             self.assertEqual("previous_report_unreadable", compare_previous_report(path, observed)["status"])
 
