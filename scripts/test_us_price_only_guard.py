@@ -110,5 +110,33 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
                          "fx_date": "2026-11-18"}, **args)[0])
 
+    def test_verified_fallback_rejects_wrong_ticker_or_exchange(self):
+        old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq",
+               "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.old["date"], "close_source": "source:old",
+               "fx_source": "fx:old"}
+        new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq",
+               "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.new["date"], "close_source": "source:new",
+               "fx_source": "fx:new"}
+        args = dict(expected_previous_date=self.old["date"],
+                    expected_current_date=self.new["date"],
+                    expected_symbol="ABC", expected_exchange="Nasdaq", **self.flags)
+        self.assertEqual(verified_check(old, new, **args),
+                         (True, "entered_100_share_budget"))
+        for changed in ({"symbol": "XYZ"}, {"exchange": "NYSE"},
+                        {"symbol": None}, {"exchange": None}):
+            with self.subTest(changed=changed):
+                self.assertEqual(verified_check(old, {**new, **changed}, **args),
+                                 (False, "fallback_identity_mismatch"))
+                self.assertEqual(verified_check({**old, **changed}, new, **args),
+                                 (False, "fallback_identity_mismatch"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_exchange": "AMEX"}),
+                         (False, "invalid_expected_identity"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_symbol": None}),
+                         (False, "missing_expected_identity"))
+
 if __name__ == "__main__":
     unittest.main()
