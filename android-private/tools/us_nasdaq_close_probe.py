@@ -64,6 +64,40 @@ def fetch(symbol, days):
     return parse(json.loads(data), symbol, days)
 
 
+
+def probe_symbols(symbols, days, requested, fetch_fn=fetch):
+    """Count attempted symbols separately from rate-limited, unattempted symbols.
+
+    A 429 stops further requests; later tickers must not appear as investigated
+    or as missing exchange closes. No historical close is published in output.
+    """
+    results = {}
+    complete = 0
+    attempted = 0
+    rate_limited = False
+    for symbol in symbols:
+        if rate_limited:
+            results[symbol] = {"status": "not_attempted_rate_limited"}
+            continue
+        attempted += 1
+        try:
+            rows = fetch_fn(symbol, days)
+            found = len(rows.keys() & requested)
+            results[symbol] = {"status": "checked", "dates_found": found}
+            if found == 2:
+                complete += 1
+        except HTTPError as error:
+            results[symbol] = {"status": "request_failed", "error": f"HTTP {error.code}"}
+            if error.code == 429:
+                rate_limited = True
+        except (ValueError, URLError, TimeoutError) as error:
+            results[symbol] = {"status": "request_failed", "error": str(error)}
+    return {"requested": len(symbols), "attempted": attempted,
+            "not_attempted": len(symbols) - attempted,
+            "two_session_closes": complete,
+            "unadjusted_basis_verified": False, "symbols": results}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("previous", type=date.fromisoformat)
@@ -76,24 +110,9 @@ def main():
     requested = {args.previous, args.latest}
     # Allow intervening sessions in the response, while only scoring the requested dates.
     days = {date.fromordinal(n) for n in range(args.previous.toordinal(), args.latest.toordinal() + 1)}
-    complete = 0
-    results = {}
-    for symbol in args.symbols:
-        try:
-            rows = fetch(symbol, days)
-            found = len(rows.keys() & requested)
-            results[symbol] = {"dates_found": found}
-            if found == 2:
-                complete += 1
-        except HTTPError as error:
-            results[symbol] = {"dates_found": 0, "error": f"HTTP {error.code}"}
-            if error.code == 429:
-                break
-        except (ValueError, URLError, TimeoutError) as error:
-            results[symbol] = {"dates_found": 0, "error": str(error)}
-    print(json.dumps({"requested": len(args.symbols), "two_session_closes": complete,
-                      "unadjusted_basis_verified": False, "symbols": results}, indent=2))
-    return 0 if complete == len(args.symbols) else 1
+    summary = probe_symbols(args.symbols, days, requested)
+    print(json.dumps(summary, indent=2))
+    return 0 if summary["two_session_closes"] == summary["requested"] else 1
 
 
 if __name__ == "__main__":
