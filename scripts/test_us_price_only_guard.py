@@ -19,6 +19,16 @@ class PriceOnlyGuardTests(unittest.TestCase):
                         self.assertEqual(check(old, new, **self.flags),
                                          (False, 'invalid_close_or_fx'))
 
+    def test_noncanonical_numeric_strings_rejected(self):
+        for side in ("old", "new"):
+            for field in ("close_usd", "usd_jpy"):
+                for bad in ("1_0", " 10", "10 ", "+10", "1e1", "１０"):
+                    with self.subTest(side=side, field=field, bad=bad):
+                        old, new = dict(self.old), dict(self.new)
+                        (old if side == "old" else new)[field] = bad
+                        self.assertEqual(check(old, new, **self.flags),
+                                         (False, "invalid_close_or_fx"))
+
     def test_noncanonical_dates_rejected(self):
         args = dict(expected_previous_date='2026-11-16', expected_current_date='2026-11-17', **self.flags)
         for bad in ('2026-11-7', '2026-W47-2', '2026-11-17T00:00:00', '20261117'):
