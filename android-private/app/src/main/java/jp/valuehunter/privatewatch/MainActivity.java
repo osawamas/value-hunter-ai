@@ -48,6 +48,8 @@ public final class MainActivity extends Activity {
     private TextView monitorStatus;
     private TextView notificationStatus;
     private TextView communicationStatus;
+    private Switch networkSwitch;
+    private AlertDialog communicationNotice;
     private TextView lastCheck;
     private TextView detail;
     private TextView usDailyStatus;
@@ -97,21 +99,10 @@ public final class MainActivity extends Activity {
         label(hero, "新しく条件に入った銘柄を無音で通知", 13, LIGHT_TEXT, false, 5);
 
         var communication = section(content, SURFACE, true);
-        var networkSwitch = optionSwitch(communication, "相場データの通信", MarketNetwork.allowed());
+        networkSwitch = optionSwitch(communication, "相場データの通信", MarketNetwork.allowed());
         communicationStatus = label(communication, "", 13, MUTED, false, 5);
-        networkSwitch.setOnCheckedChangeListener((view, checked) -> {
-            communicationPreferenceSaved = MarketNetwork.setAllowed(this, checked);
-            if (checked) {
-                scheduleMarketChecks();
-            } else {
-                androidx.work.WorkManager.getInstance(this).cancelAllWork();
-                if (detailThread != null) {
-                    detailThread.interrupt();
-                    detail.setText("通信を停止した");
-                }
-            }
-            render();
-        });
+        networkSwitch.setOnClickListener(view -> applyMarketNetworkPreference(networkSwitch.isChecked()));
+        button(communication, "通信量について", PAGE, 5).setOnClickListener(view -> showCommunicationNotice(false));
 
         var notifications = section(content, SURFACE, true);
         label(notifications, "通知", 19, INK, true, 0);
@@ -188,7 +179,38 @@ public final class MainActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         state.registerOnSharedPreferenceChangeListener(onChange);
+        if (MarketNetwork.noticeRequired(this)) showCommunicationNotice(true);
         scheduleMarketChecks();
+    }
+
+    private void applyMarketNetworkPreference(boolean allowed) {
+        communicationPreferenceSaved = MarketNetwork.setAllowed(this, allowed);
+        if (MarketNetwork.allowed()) {
+            scheduleMarketChecks();
+        } else {
+            androidx.work.WorkManager.getInstance(this).cancelAllWork();
+            if (detailThread != null) {
+                detailThread.interrupt();
+                detail.setText("通信を停止した");
+            }
+        }
+        render();
+    }
+
+    private void showCommunicationNotice(boolean firstLaunch) {
+        if (communicationNotice != null && communicationNotice.isShowing()) return;
+        var notice = new AlertDialog.Builder(this).setTitle("通信量について").setMessage(
+                "通信量に上限がある回線や従量制のモバイル回線では、インストールや相場監視はおすすめしません。"
+                        + "\n\nWi-Fiやデータ無制限の回線での利用をおすすめします。"
+                        + "\n\n相場監視は株価や財務データを繰り返し取得します。通信設定はあとから変更できます。");
+        if (firstLaunch) {
+            notice.setCancelable(false)
+                    .setNegativeButton("通信オフで使う", (dialog, which) -> applyMarketNetworkPreference(false))
+                    .setPositiveButton("相場通信をオン", (dialog, which) -> applyMarketNetworkPreference(true));
+        } else {
+            notice.setPositiveButton("閉じる", null);
+        }
+        communicationNotice = notice.show();
     }
 
     private void scheduleMarketChecks() {
@@ -211,6 +233,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         if (detailThread != null) detailThread.interrupt();
+        if (communicationNotice != null) communicationNotice.dismiss();
         testNotificationButton.removeCallbacks(sendTestNotification);
         super.onDestroy();
     }
@@ -224,6 +247,8 @@ public final class MainActivity extends Activity {
     private void render() {
         usDailyStatus.setText(UsDailyWorker.displayStatus(state));
         boolean connected = MarketNetwork.allowed();
+        networkSwitch.setChecked(connected);
+        networkSwitch.setEnabled(!MarketNetwork.noticeRequired(this));
         boolean active = monitorSwitch.isChecked();
         String status = connected ? "相場データの取得を許可" : "通信オフ · 自動更新・手動更新を停止中";
         communicationStatus.setText(communicationPreferenceSaved ? status : status + "\n設定を保存できなかった");

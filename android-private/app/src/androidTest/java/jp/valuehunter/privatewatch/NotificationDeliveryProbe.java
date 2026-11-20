@@ -9,6 +9,7 @@ import android.os.PowerManager;
 import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.Switch;
 import android.widget.Button;
 import android.widget.TextView;
@@ -61,6 +62,7 @@ final class NotificationDeliveryProbe {
             return "ALERT_HISTORY_AFTER_REBOOT_OK";
         }
         if (!"post".equals(phase)) throw new IllegalArgumentException("Unknown alert probe phase");
+        exerciseCommunicationNotice(instrumentation, power);
         manager.cancelAll();
         if (history.exists() && !history.delete()) throw new IOException("Cannot clear alert probe state");
         require(prefs.edit().putBoolean(NotificationScreenWake.ENABLED, true).commit(), "Cannot enable wake");
@@ -122,6 +124,63 @@ final class NotificationDeliveryProbe {
         require(NotificationHistory.recent(history, System.currentTimeMillis()).size() == 2,
                 "A suppressed notification changed history");
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK";
+    }
+
+    private static void exerciseCommunicationNotice(Instrumentation instrumentation, PowerManager power)
+            throws IOException {
+        var context = instrumentation.getTargetContext();
+        require(MarketNetwork.noticeRequired(context) && !MarketNetwork.allowed(),
+                "Fresh install should require a choice before allowing communication");
+        requireBlocked();
+        require(ScanWorker.prefs(context).edit().putBoolean("public_jpx_watch_paused", true).commit(),
+                "Cannot pause JPX in notice probe");
+        shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
+        shell(instrumentation, "wm dismiss-keyguard");
+        require(await(power::isInteractive), "Screen could not turn on to show the communication notice");
+
+        chooseCommunication(instrumentation, "通信オフで使う");
+        require(!MarketNetwork.noticeRequired(context) && !MarketNetwork.allowed(),
+                "Offline choice did not acknowledge the warning");
+        requireBlocked();
+
+        var oldSettings = context.getSharedPreferences("market-network", android.content.Context.MODE_PRIVATE);
+        require(oldSettings.edit().putBoolean(MarketNetwork.ALLOWED, true).remove(MarketNetwork.NOTICE).commit(),
+                "Cannot prepare a pre-warning upgrade fixture");
+        MarketNetwork.initialize(context);
+        require(MarketNetwork.noticeRequired(context) && !MarketNetwork.allowed(),
+                "Pre-warning ON preference bypassed the updated notice");
+        requireBlocked();
+
+        chooseCommunication(instrumentation, "相場通信をオン");
+        require(MarketNetwork.allowed() && !MarketNetwork.noticeRequired(context),
+                "Explicit approval did not enable communication");
+    }
+
+    private static void chooseCommunication(Instrumentation instrumentation, String choice) {
+        var context = instrumentation.getTargetContext();
+        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try {
+            require(await(() -> findDialogText(instrumentation, "通信量について") != null),
+                    "First-open communication notice was not visible");
+            require(await(() -> findDialogText(instrumentation, "従量制のモバイル回線") != null
+                    && findDialogText(instrumentation, "データ無制限") != null),
+                    "The warning did not describe affected plans and recommended networks");
+            var button = findDialogText(instrumentation, choice);
+            require(button != null && button.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+                    "Could not select " + choice);
+            require(await(() -> !MarketNetwork.noticeRequired(context)), "Communication choice was not saved");
+        } finally {
+            instrumentation.runOnMainSync(activity::finish);
+            instrumentation.waitForIdleSync();
+        }
+    }
+
+    private static AccessibilityNodeInfo findDialogText(Instrumentation instrumentation, String text) {
+        var root = instrumentation.getUiAutomation().getRootInActiveWindow();
+        if (root == null) return null;
+        var matches = root.findAccessibilityNodeInfosByText(text);
+        return matches.isEmpty() ? null : matches.get(0);
     }
 
     private static void exerciseSettings(Instrumentation instrumentation, PowerManager power) throws IOException {

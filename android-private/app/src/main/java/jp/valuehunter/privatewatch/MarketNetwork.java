@@ -20,13 +20,26 @@ import javax.net.ssl.HttpsURLConnection;
 
 /** Controls the lifetime of all connections used by market data requests. */
 final class MarketNetwork {
+    private static final String PREFERENCES = "market-network";
     static final String ALLOWED = "market_network_allowed";
+    static final String NOTICE = "data_usage_notice";
+    private static final int NOTICE_VERSION = 1;
     private static final Gate GATE = new Gate();
 
     private MarketNetwork() {}
 
     static void initialize(Context context) {
-        GATE.setAllowed(context.getSharedPreferences("market-network", Context.MODE_PRIVATE).getBoolean(ALLOWED, true));
+        var settings = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+        apply(atStartup(settings.getInt(NOTICE, 0), settings.getBoolean(ALLOWED, false)));
+    }
+
+    static boolean atStartup(int noticeVersion, boolean allowed) {
+        return noticeVersion >= NOTICE_VERSION && allowed;
+    }
+
+    static boolean noticeRequired(Context context) {
+        return context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .getInt(NOTICE, 0) < NOTICE_VERSION;
     }
 
     static boolean allowed() {
@@ -34,8 +47,15 @@ final class MarketNetwork {
     }
 
     static boolean setAllowed(Context context, boolean allowed) {
-        var active = GATE.setAllowed(allowed);
-        for (var connection : active) {
+        if (!allowed) apply(false);
+        boolean saved = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
+                .putBoolean(ALLOWED, allowed).putInt(NOTICE, NOTICE_VERSION).commit();
+        if (allowed && saved) apply(true);
+        return saved;
+    }
+
+    private static void apply(boolean allowed) {
+        for (var connection : GATE.setAllowed(allowed)) {
             // A provider's disconnect can block. Do not make the switch wait on socket I/O.
             ExecutorsHolder.ABORT.execute(() -> {
                 try {
@@ -45,8 +65,6 @@ final class MarketNetwork {
                 }
             });
         }
-        return context.getSharedPreferences("market-network", Context.MODE_PRIVATE)
-                .edit().putBoolean(ALLOWED, allowed).commit();
     }
 
     private static final class ExecutorsHolder {
