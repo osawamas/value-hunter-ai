@@ -58,7 +58,10 @@ final class JpxAutomaticFinance {
     }
 
     record Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates,
-                 int budget, int fetched) {
+                 int budget, int fetched, boolean continueInitial) {
+        Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates, int budget, int fetched) {
+            this(entries, updates, budget, fetched, false);
+        }
         static Batch empty() { return new Batch(Map.of(), Map.of(), 0, 0); }
 
         String status() {
@@ -195,6 +198,7 @@ final class JpxAutomaticFinance {
         int checked = 0;
         int attempted = 0;
         int consecutiveFailures = 0;
+        boolean limited = false;
         int initial = (int) pending.stream().filter(code -> !entries.containsKey(code)).count();
         int limit = Math.min(INITIAL_BATCH_SIZE, Math.max(BATCH_SIZE, initial));
         long started = nanoTime.getAsLong();
@@ -212,7 +216,8 @@ final class JpxAutomaticFinance {
             } catch (IOException unavailable) {
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
                         && (http.status == 429 || http.status == 503)) {
-                    state.edit().putLong(ARCHIVE_RETRY, clock.getAsLong() + TimeUnit.HOURS.toMillis(1)).commit();
+                    state.edit().putLong(ARCHIVE_RETRY, archiveRetryAt(clock.getAsLong(), http.retryAfter)).commit();
+                    limited = true;
                     break;
                 }
                 // Keep verified data and move on when an individual issuer stalls.
@@ -226,7 +231,26 @@ final class JpxAutomaticFinance {
                 checked++;
             }
         }
-        return new Batch(Map.copyOf(entries), updates, eligible.size(), checked);
+        boolean continueInitial = checked > 0 && !limited && consecutiveFailures < 3 && !stopped.getAsBoolean()
+                && pending.subList(attempted, pending.size()).stream().anyMatch(code -> !entries.containsKey(code))
+                // Flush this batch's async writes before advancing the scheduled run.
+                && state.edit().commit();
+        return new Batch(Map.copyOf(entries), updates, eligible.size(), checked, continueInitial);
+    }
+
+    static long archiveRetryAt(long now, String retryAfter) {
+        long fallback = now + TimeUnit.HOURS.toMillis(1);
+        if (retryAfter == null || retryAfter.isBlank()) return fallback;
+        String value = retryAfter.strip();
+        try {
+            long requested = value.matches("[0-9]+")
+                    ? Math.addExact(now, Math.multiplyExact(Long.parseLong(value), 1000))
+                    : java.time.ZonedDateTime.parse(value, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+                            .toInstant().toEpochMilli();
+            return Math.max(fallback, requested);
+        } catch (java.time.DateTimeException | IllegalArgumentException | ArithmeticException invalid) {
+            return fallback;
+        }
     }
 
     private static boolean urgent(Entry entry, String code, LocalDate day,

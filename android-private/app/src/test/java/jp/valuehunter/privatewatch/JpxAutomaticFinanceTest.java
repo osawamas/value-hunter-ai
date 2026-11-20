@@ -280,14 +280,19 @@ public class JpxAutomaticFinanceTest {
         var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(9, first.fetched());
         assertTrue(first.status().contains("初回確認待ち 3677銘柄"));
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, first));
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
-        assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,
-                () -> false, clock::get).fetched());
+        var pause = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
+        assertEquals(0, pause.fetched());
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, pause));
         assertEquals(10, calls.get());
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         int passes = 1;
         while (scanned.size() < quotes.size() && passes < 165) {
-            JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
+            var batch = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
+            long expected = scanned.size() < quotes.size() ? clock.get() + 900_000 : 0;
+            assertEquals(expected, JpxWatchWorker.nextFinanceStart(clock.get(), true, batch));
+            assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), false, batch));
             passes++;
         }
         assertEquals(40, passes);
@@ -317,8 +322,21 @@ public class JpxAutomaticFinanceTest {
             var run = JpxAutomaticFinance.refresh(preferences(saved), report, DAY, source, () -> false, () -> 1,
                     elapsed::get, uri -> { throw new AssertionError(uri); }, null);
             assertEquals(3, run.fetched());
+            assertEquals(pass == 0 ? 901_000 : 0, JpxWatchWorker.nextFinanceStart(1_000, true, run));
         }
         assertEquals(List.of("1400", "1401", "1402", "1403", "1404", "1405"), calls);
+        var unwritten = JpxAutomaticFinance.refresh(preferences(new HashMap<>(), () -> false), report, DAY, source,
+                () -> false, () -> 1, elapsed::get, uri -> { throw new AssertionError(uri); }, null);
+        assertEquals(3, unwritten.fetched());
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(1_000, true, unwritten));
+    }
+
+    @Test public void archiveRateLimitHonorsAProviderDelayLongerThanAnHour() {
+        long now = java.time.Instant.parse("2026-11-19T00:00:00Z").toEpochMilli();
+        assertEquals(now + 7_200_000, JpxAutomaticFinance.archiveRetryAt(now, "7200"));
+        assertEquals(now + 7_200_000, JpxAutomaticFinance.archiveRetryAt(now, "Thu, 19 Nov 2026 02:00:00 GMT"));
+        assertEquals(now + 3_600_000, JpxAutomaticFinance.archiveRetryAt(now, "30"));
+        assertEquals(now + 3_600_000, JpxAutomaticFinance.archiveRetryAt(now, "invalid"));
     }
 
     @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() throws Exception {
@@ -470,6 +488,10 @@ public class JpxAutomaticFinanceTest {
     }
 
     private static SharedPreferences preferences(Map<String, Object> data) {
+        return preferences(data, () -> true);
+    }
+
+    private static SharedPreferences preferences(Map<String, Object> data, java.util.function.BooleanSupplier commit) {
         return (SharedPreferences) Proxy.newProxyInstance(SharedPreferences.class.getClassLoader(),
                 new Class<?>[]{SharedPreferences.class}, (instance, method, args) -> switch (method.getName()) {
                     case "getString", "getLong" -> data.getOrDefault(args[0].toString(), args[1]);
@@ -479,7 +501,7 @@ public class JpxAutomaticFinanceTest {
                                     case "putString", "putLong" -> data.put(values[0].toString(), values[1]);
                                     case "remove" -> data.remove(values[0].toString());
                                     case "apply" -> { return null; }
-                                    case "commit" -> { return true; }
+                                    case "commit" -> { return commit.getAsBoolean(); }
                                     default -> throw new IllegalStateException(change.getName());
                                 }
                                 return editor;

@@ -262,9 +262,14 @@ final class JpxIssuerArchive {
 
     static final class HttpFailure extends IOException {
         final int status;
+        final String retryAfter;
         HttpFailure(int status) {
+            this(status, null);
+        }
+        HttpFailure(int status, String retryAfter) {
             super("JPX disclosure HTTP " + status);
             this.status = status;
+            this.retryAfter = retryAfter;
         }
     }
 
@@ -298,7 +303,7 @@ final class JpxIssuerArchive {
                 }
             }
             int status = connection.getResponseCode();
-            if (status != 200) throw new HttpFailure(status);
+            if (status != 200) throw new HttpFailure(status, connection.getHeaderField("Retry-After"));
             session.put(uri, connection.getHeaderFields());
             try (var input = connection.getInputStream(); var bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];

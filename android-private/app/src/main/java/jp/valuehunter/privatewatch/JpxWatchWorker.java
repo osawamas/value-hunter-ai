@@ -40,6 +40,7 @@ public final class JpxWatchWorker extends Worker {
     static final String MANUAL = "jpx-daily-check-now";
     private static final String FINANCE = "jpx-annual-finance";
     private static final String FINANCE_PASS = "jpx_finance_pass";
+    private static final String PERIODIC_FINANCE = "jpx_periodic_finance";
     private static final String TOKEN = "jpx_watch_token";
     private static final String BASELINE = "jpx_watch_baseline";
     private static final String LATEST = "jpx_watch_latest";
@@ -109,10 +110,7 @@ public final class JpxWatchWorker extends Worker {
                 var request = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 6, TimeUnit.HOURS)
                         .setConstraints(connected()).build();
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
-                var finance = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 30, TimeUnit.MINUTES)
-                        .setConstraints(connected()).setInitialDelay(30, TimeUnit.MINUTES)
-                        .setInputData(financePass()).build();
-                work.enqueueUniquePeriodicWork(FINANCE, ExistingPeriodicWorkPolicy.KEEP, finance);
+                scheduleFinance(work, 0);
             } else {
                 state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
                         .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).apply();
@@ -141,6 +139,19 @@ public final class JpxWatchWorker extends Worker {
         return new Data.Builder().putBoolean(FINANCE_PASS, true).build();
     }
 
+    private static void scheduleFinance(WorkManager work, long nextStart) {
+        var request = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 30, TimeUnit.MINUTES)
+                .setConstraints(connected()).setInitialDelay(30, TimeUnit.MINUTES)
+                .setInputData(new Data.Builder().putBoolean(FINANCE_PASS, true)
+                        .putBoolean(PERIODIC_FINANCE, true).build());
+        if (nextStart > 0) request.setNextScheduleTimeOverride(nextStart);
+        work.enqueueUniquePeriodicWork(FINANCE, ExistingPeriodicWorkPolicy.UPDATE, request.build());
+    }
+
+    static long nextFinanceStart(long completed, boolean periodic, JpxAutomaticFinance.Batch batch) {
+        return periodic && batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
+    }
+
     private static Constraints connected() {
         return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
     }
@@ -167,6 +178,16 @@ public final class JpxWatchWorker extends Worker {
             if (automaticFinance && getInputData().getBoolean(FINANCE_PASS, false)) processedKey = "";
             var comparison = comparisons.load(context, processedKey, revision);
             if (isStopped()) return Result.success();
+            if (comparison != null) {
+                synchronized (STATE_LOCK) {
+                    if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
+                    var recorded = dateOrNull(state.getString(LATEST, ""));
+                    if (recorded != null && comparison.latest().date().isBefore(recorded)) {
+                        recordCheck(state.edit(), "取得した日報が保存済みより古いため、前回の判定を保持").apply();
+                        return Result.success();
+                    }
+                }
+            }
             var finance = automaticFinance && comparison != null
                     ? JpxAutomaticFinance.refresh(context, comparison, evidence.rights(), this::isStopped)
                     : JpxAutomaticFinance.Batch.empty();
@@ -180,10 +201,6 @@ public final class JpxWatchWorker extends Worker {
                 LocalDate date = comparison.latest().date();
                 var baseline = dateOrNull(state.getString(BASELINE, ""));
                 var last = dateOrNull(state.getString(LATEST, ""));
-                if (last != null && date.isBefore(last)) {
-                    recordCheck(state.edit(), "取得した日報が保存済みより古いため、前回の判定を保持").apply();
-                    return Result.success();
-                }
                 if (comparison.previous() == null) {
                     var partial = new StringBuilder("比較用の日報を取得できなかった");
                     partial.append("\n").append(date).append("の当日判定");
@@ -285,6 +302,9 @@ public final class JpxWatchWorker extends Worker {
                         return Result.retry();
                     }
                 }
+                long nextFinance = nextFinanceStart(System.currentTimeMillis(),
+                        getInputData().getBoolean(PERIODIC_FINANCE, false), finance);
+                if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
             }
             return Result.success();
         } catch (IOException error) {
