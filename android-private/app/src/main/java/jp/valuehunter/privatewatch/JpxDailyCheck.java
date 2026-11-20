@@ -2,6 +2,7 @@ package jp.valuehunter.privatewatch;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.util.AtomicFile;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -19,6 +20,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
@@ -27,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.net.ssl.HttpsURLConnection;
+
+import org.json.JSONObject;
 
 import jp.valuehunter.privatewatch.ValueCandidateScreen.Level;
 
@@ -378,30 +382,62 @@ final class JpxDailyCheck {
     }
 
     static Comparison check(Context context) throws IOException {
+        return check(context, JpxDailyCheck::head);
+    }
+
+    private static Comparison check(Context context, EditionLoader editions) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
         var universe = JpxStockUniverse.load(context);
         var listings = JpxStockUniverse.listings();
         var delistings = JpxStockUniverse.delistings();
-        var pdf = File.createTempFile("jpx-daily-", ".pdf", context.getCacheDir());
-        try {
-            return checkRecent(today, day -> {
-                var response = download(reportUrl(day), pdf);
-                if (!response.exists()) return null;
-                return readReport(pdf, day, universe.forTradingDay(day, listings, delistings), response.version());
+        var cache = new AtomicFile(new File(context.getNoBackupFilesDir(), "jpx-report-quotes-v1.json"));
+        var saved = JpxQuoteCache.read(cache);
+        return checkRecent(today, day -> {
+            var listed = universe.forTradingDay(day, listings, delistings);
+            return cachedReport(day, listed, saved.optJSONObject(day.toString()), editions, requested -> {
+                var pdf = File.createTempFile("jpx-daily-", ".pdf", context.getCacheDir());
+                try {
+                    var response = download(reportUrl(requested), pdf);
+                    if (!response.exists()) return null;
+                    var report = readReport(pdf, requested, listed, response.version());
+                    JpxQuoteCache.save(cache, report);
+                    return report;
+                } finally {
+                    pdf.delete();
+                }
             });
-        } finally {
-            pdf.delete();
+        });
+    }
+
+    static Report cachedReport(LocalDate day, JpxStockUniverse universe, JSONObject saved,
+                               EditionLoader editions, ReportLoader download) throws IOException {
+        if (saved != null) {
+            try {
+                var cached = JpxQuoteCache.restore(saved, day, reportUrl(day), universe, editions.load(day));
+                if (cached != null) return cached;
+            } catch (IOException unavailable) {
+                // Retry through the normal GET when HEAD cannot validate a cached report.
+            }
         }
+        return download.load(day);
     }
 
     static Comparison checkWatch(Context context, String processedKey, String rightsRevision) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
-        if (unchanged(today, processedKey, rightsRevision, JpxDailyCheck::head)) return null;
+        var observed = new HashMap<LocalDate, Edition>();
+        EditionLoader editions = day -> {
+            var saved = observed.get(day);
+            if (saved != null) return saved;
+            var fresh = head(day);
+            observed.put(day, fresh);
+            return fresh;
+        };
+        if (unchanged(today, processedKey, rightsRevision, editions)) return null;
         var saved = cachedComparison;
-        if (saved != null && unchanged(today, saved.processedKey("quotes"), "quotes", JpxDailyCheck::head)) {
+        if (saved != null && unchanged(today, saved.processedKey("quotes"), "quotes", editions)) {
             return saved;
         }
-        var comparison = check(context);
+        var comparison = check(context, editions);
         cachedComparison = comparison;
         return comparison;
     }

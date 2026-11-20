@@ -336,8 +336,10 @@ final class JpxAutomaticFinance {
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {
+        String saved = state.getString(PREFIX + code, null);
+        if (saved == null || saved.isEmpty()) return null;
         try {
-            var json = new JSONObject(state.getString(PREFIX + code, "{}"));
+            var json = new JSONObject(saved);
             LocalDate checked = LocalDate.parse(json.getString("checked"));
             if (checked.isAfter(through)) return null;
             String hold = json.getString("hold");
