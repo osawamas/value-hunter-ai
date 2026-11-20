@@ -162,7 +162,9 @@ def verified_rapid_exclusions(previous_day, latest_day, output):
     days = (previous_day, latest_day)
     filenames = {f"{day:%Y%m%d}.xls" for day in days}
     links = [url for url in page_links(DAILY_INDEX) if Path(urlsplit(url).path).name in filenames]
-    releases, _, _ = daily_sources(links, output)
+    releases, _, comparison = daily_sources(links, output)
+    if comparison["event_keys_with_conflicting_ex_dates"]:
+        raise ValueError("Conflicting JPX ex-rights dates across official editions")
     if releases.keys() != {day.isoformat() for day in days}:
         raise ValueError("Both official JPX rights editions are required")
     bodies = [(output / f"{day:%Y%m%d}.xls").read_bytes() for day in days]
