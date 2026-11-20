@@ -130,7 +130,14 @@ def screen_report(day, stocks, prices, duplicates, financials, rights, single_sh
 def load_financial_batches(paths):
     """Merge source-checked batches; reject conflicting records."""
     merged = {}
+    # Repeated --annual-financials paths (including directory overlap) must not
+    # trigger duplicate disk reads; retain the first occurrence's ordering.
+    seen_paths = set()
     for path in paths:
+        canonical = Path(path).resolve()
+        if canonical in seen_paths:
+            continue
+        seen_paths.add(canonical)
         for code, period_end, disclosed_on, row in load_financials(path):
             key = (code, period_end, disclosed_on)
             if key in merged and merged[key] != row:
