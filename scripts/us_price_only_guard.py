@@ -117,6 +117,8 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
         if expected_symbol is not None and (item.get("symbol") != expected_symbol
                                             or item.get("exchange") != expected_exchange):
             return False, "fallback_identity_mismatch"
+        if expected_exchange is not None and item.get("close_venue") != expected_exchange:
+            return False, "close_venue_mismatch"
         if item.get("price_basis") != "raw_unadjusted_regular_session":
             return False, "raw_close_basis_unverified"
         if item.get("fx_date") != item.get("date"):
