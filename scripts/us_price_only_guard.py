@@ -119,6 +119,10 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
             return False, "fallback_identity_mismatch"
         if item.get("price_basis") != "raw_unadjusted_regular_session":
             return False, "raw_close_basis_unverified"
+        # A price-basis label and a source URL are not independent verification.
+        # Require an explicit per-session reconciliation result before alerts.
+        if item.get("independent_raw_close_verified") is not True:
+            return False, "independent_raw_close_unverified"
         if item.get("fx_date") != item.get("date"):
             return False, "fx_session_mismatch"
         for key in ("close_source", "fx_source"):
