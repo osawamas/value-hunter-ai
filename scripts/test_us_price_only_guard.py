@@ -110,5 +110,25 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
                          "fx_date": "2026-11-18"}, **args)[0])
 
+    def test_fx_only_crossing_and_reverse_direction(self):
+        """Each session must use its own USD/JPY; reverse crossing is not entry."""
+        args = dict(expected_previous_date="2026-11-16",
+                    expected_current_date="2026-11-17", **self.flags)
+        old = {**self.old, "close_usd": "7", "usd_jpy": "150"}
+        entered = {**self.new, "close_usd": "7", "usd_jpy": "140"}
+        self.assertEqual(session_check(old, entered, **args),
+                         (True, "entered_100_share_budget"))
+        self.assertEqual(session_check(entered | {"date": old["date"]},
+                                       old | {"date": entered["date"]}, **args),
+                         (False, "no_budget_crossing"))
+        self.assertEqual(session_check(old, {**entered, "usd_jpy": "150"}, **args),
+                         (False, "no_budget_crossing"))
+
+    def test_price_only_rise_cannot_be_budget_entry(self):
+        old = {**self.old, "close_usd": "6", "usd_jpy": "150"}
+        new = {**self.new, "close_usd": "8", "usd_jpy": "150"}
+        self.assertEqual(check(old, new, **self.flags),
+                         (False, "no_budget_crossing"))
+
 if __name__ == "__main__":
     unittest.main()
