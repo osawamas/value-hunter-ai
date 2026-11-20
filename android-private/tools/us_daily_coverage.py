@@ -135,7 +135,9 @@ def compare_previous_report(path, current):
         current[key] != previous.get(key) for key in ("trading_date", "directory_observed_at", "sample_price_basis")
     ):
         return {"status": "different_report_basis"}
-    if "directory_sha256" in previous and previous["directory_sha256"] != current.get("directory_sha256"):
+    # Never compare legacy reports without content hashes to a hashed snapshot:
+    # matching observation timestamps do not prove that the listing set is unchanged.
+    if previous.get("directory_sha256") != current.get("directory_sha256"):
         return {"status": "different_report_basis"}
     previous_markets = previous.get(MARKET_COUNTS)
     if not isinstance(previous_markets, dict):
