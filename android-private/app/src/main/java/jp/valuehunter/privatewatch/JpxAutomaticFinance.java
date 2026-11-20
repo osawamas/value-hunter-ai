@@ -168,9 +168,14 @@ final class JpxAutomaticFinance {
                          LongSupplier nanoTime, JpxDisclosureCalendar.PageLoader disclosureLoader, LocalDate recheckFrom) {
         var entries = new HashMap<String, Entry>();
         var eligible = new ArrayList<String>();
+        // Cache the budget decision once per issuer: the pending sort compares each
+        // candidate repeatedly and must not redo quote arithmetic for each comparison.
+        var budgetQuantities = new HashMap<String, Integer>();
         LocalDate earliest = report.date().isAfter(through) ? through.plusDays(1) : report.date().plusDays(1);
         for (String code : report.quotes().keySet()) {
-            if (JpxDailyCheck.budgetQuantity(report.close(code)) == 0) continue;
+            int quantity = JpxDailyCheck.budgetQuantity(report.close(code));
+            if (quantity == 0) continue;
+            budgetQuantities.put(code, quantity);
             eligible.add(code);
             var entry = read(state, code, through);
             if (entry == null) continue;
@@ -190,7 +195,7 @@ final class JpxAutomaticFinance {
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
                         // Finish first-time coverage before routine rechecks so the one-share queue can advance.
                         .thenComparingInt(code -> entries.containsKey(code) ? 1 : 0)
-                        .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
+                        .thenComparingInt(code -> -budgetQuantities.get(code))
                         .thenComparing(code -> entries.containsKey(code) ? entries.get(code).checkedThrough() : LocalDate.MIN)
                         .thenComparing(Comparator.naturalOrder()))
                 .toList();
