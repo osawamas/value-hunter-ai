@@ -9,6 +9,25 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.flags = dict(ordinary_share_verified=True, financials_verified=False,
                           corporate_actions_verified=True, source_verified=True)
 
+    def test_boolean_close_or_fx_never_counts_as_number(self):
+        for side in ('old', 'new'):
+            for field in ('close_usd', 'usd_jpy'):
+                for bad in (True, False):
+                    with self.subTest(side=side, field=field, bad=bad):
+                        old, new = dict(self.old), dict(self.new)
+                        (old if side == 'old' else new)[field] = bad
+                        self.assertEqual(check(old, new, **self.flags),
+                                         (False, 'invalid_close_or_fx'))
+
+    def test_noncanonical_dates_rejected(self):
+        args = dict(expected_previous_date='2026-11-16', expected_current_date='2026-11-17', **self.flags)
+        for bad in ('2026-11-7', '2026-W47-2', '2026-11-17T00:00:00', '20261117'):
+            with self.subTest(bad=bad):
+                self.assertEqual(session_check(self.old, {**self.new, 'date': bad}, **args),
+                                 (False, 'invalid_trade_dates'))
+                self.assertEqual(session_check(self.old, self.new,
+                    **{**args, 'expected_current_date': bad}), (False, 'invalid_trade_dates'))
+
     def test_crossing(self):
         self.assertEqual(check(self.old, self.new, **self.flags),
                          (True, "entered_100_share_budget"))
