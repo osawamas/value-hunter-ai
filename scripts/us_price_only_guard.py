@@ -104,7 +104,8 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
         return False, "two_closes_required"
     expected_symbol = verification.pop("expected_symbol", None)
     expected_exchange = verification.pop("expected_exchange", None)
-    if (expected_symbol is None) != (expected_exchange is None):
+    # Notification eligibility must never depend on optional identity checks.
+    if expected_symbol is None or expected_exchange is None:
         return False, "missing_expected_identity"
     if expected_symbol is not None:
         if (not isinstance(expected_symbol, str) or not expected_symbol.strip()
