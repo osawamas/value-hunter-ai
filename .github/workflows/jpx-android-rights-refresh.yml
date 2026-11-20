@@ -40,6 +40,9 @@ jobs:
       - name: Verify a refresh against official JPX sources
         working-directory: android-private
         run: python tools/jpx_android_rights_refresh.py app/src/main/assets/jpx-share-rights.json --start-month 2026-01 --dry-run
+      - name: Verify rapid intervals against both official editions
+        working-directory: android-private
+        run: python tools/jpx_rapid_feed.py "$RUNNER_TEMP/jpx-rapid-rights.json"
 
   refresh:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -86,4 +89,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'Refresh verified JPX rights data'
-          git push origin HEAD:refs/heads/main
+          if ! git push origin HEAD:refs/heads/main; then
+            git fetch origin main
+            git rebase FETCH_HEAD
+            git push origin HEAD:refs/heads/main
+          fi

@@ -138,10 +138,10 @@ public final class UsSecFinanceWorker extends Worker {
             }
 
             var ledger = scan.optJSONObject("ledger");
-            if (ledger == null) {
+            if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)) {
                 var rates = new JSONArray(download.get(
                         FX + "&from=" + day.minusDays(UsScreen.FX_LOOKBACK_DAYS) + "&to=" + day));
-                var fx = UsScreen.readFx(rates, day);
+                var fx = tradeDateFx(rates, day);
                 var splits = UsDoltCloses.allSplits(day.minusDays(150), day, url -> new JSONObject(download.get(url)));
                 ledger = UsDeviceFinancials.screen(day, provider, hash, results, prices, fx, splits);
                 scan.put("ledger", ledger);
@@ -178,6 +178,12 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     record BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry) {}
+
+    static UsScreen.Fx tradeDateFx(JSONArray rates, LocalDate day) throws JSONException {
+        var fx = UsScreen.readFx(rates, day);
+        if (!day.equals(fx.date())) throw new JSONException("US financial screen is waiting for trade-date FX");
+        return fx;
+    }
 
     private BudgetCheck prepareBudget(JSONObject quote, JSONObject ledger, File directory,
                                       LocalDate day, String hash, android.content.SharedPreferences state) {

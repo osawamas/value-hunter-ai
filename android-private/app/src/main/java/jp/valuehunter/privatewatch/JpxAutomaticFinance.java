@@ -259,7 +259,7 @@ final class JpxAutomaticFinance {
     }
 
     private static JpxAnnualSummary.Annual withShareBasis(String code, JpxIssuerArchive.Page page,
-                                                        JpxAnnualSummary.Annual annual, Sources sources) {
+                                                        JpxAnnualSummary.Annual annual, Sources sources) throws IOException {
         var since = annual.end().minusYears(1);
         var relevant = page.disclosures().stream().filter(d -> !d.day().isBefore(since)
                 && JpxIssuerArchive.shareChange(d.title())).distinct().toList();
@@ -270,17 +270,13 @@ final class JpxAutomaticFinance {
         }
         var adjustments = new ArrayList<JpxShareRights.Adjustment>();
         for (var disclosure : relevant) {
-            try {
-                if (disclosure.day().isAfter(annual.released())) {
-                    var adjustment = sources.adjustment(code, disclosure);
-                    if (adjustment == null || !disclosure.day().isBefore(adjustment.exDay())) return null;
-                    if (!adjustments.contains(adjustment)) adjustments.add(adjustment);
-                } else {
-                    var date = sources.effective(disclosure);
-                    if (date == null || date.isBefore(disclosure.day()) || date.isAfter(annual.end())) return null;
-                }
-            } catch (IOException unavailable) {
-                return null;
+            if (disclosure.day().isAfter(annual.released())) {
+                var adjustment = sources.adjustment(code, disclosure);
+                if (adjustment == null || !disclosure.day().isBefore(adjustment.exDay())) return null;
+                if (!adjustments.contains(adjustment)) adjustments.add(adjustment);
+            } else {
+                var date = sources.effective(disclosure);
+                if (date == null || date.isBefore(disclosure.day()) || date.isAfter(annual.end())) return null;
             }
         }
         return new JpxAnnualSummary.Annual(annual.end(), annual.released(), annual.eps(), annual.bps(),

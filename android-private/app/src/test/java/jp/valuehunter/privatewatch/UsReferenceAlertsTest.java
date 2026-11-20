@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 import org.junit.Test;
 
 import java.time.LocalDate;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 
 public final class UsReferenceAlertsTest {
@@ -52,11 +54,23 @@ public final class UsReferenceAlertsTest {
                 """);
         assertEquals(row(1, "priority", 100), UsReferenceAlerts.read(ledger).rows().get("ABC"));
         var screen = ledger.getJSONObject("reference_screen");
-        screen.put("fx_date", "2026-11-10");
+        screen.put("fx_date", "2026-11-16");
+        assertFalse(UsReferenceAlerts.hasTradeDateFx(ledger, DAY));
         assertThrows(org.json.JSONException.class, () -> UsReferenceAlerts.read(ledger));
         screen.put("fx_date", "2026-11-17");
         var rows = screen.getJSONArray("observations");
         rows.put(rows.getJSONObject(0));
         assertThrows(org.json.JSONException.class, () -> UsReferenceAlerts.read(ledger));
+    }
+
+    @Test public void screenCanBeRebuiltWhenTheMatchingFxArrivesAfterAnOutage() throws Exception {
+        var rates = new JSONArray("""
+                [{"date":"2026-11-16","base":"USD","quote":"JPY","rate":159.77}]
+                """);
+        assertThrows(org.json.JSONException.class, () -> UsSecFinanceWorker.tradeDateFx(rates, DAY));
+        rates.put(new JSONObject("""
+                {"date":"2026-11-17","base":"USD","quote":"JPY","rate":159.46}
+                """));
+        assertEquals(DAY, UsSecFinanceWorker.tradeDateFx(rates, DAY).date());
     }
 }

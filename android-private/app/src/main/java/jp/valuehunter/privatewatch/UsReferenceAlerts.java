@@ -31,15 +31,19 @@ final class UsReferenceAlerts {
 
     private UsReferenceAlerts() {}
 
+    static boolean hasTradeDateFx(JSONObject ledger, LocalDate day) {
+        var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");
+        return screen != null && day.toString().equals(screen.optString("fx_date"));
+    }
+
     static Screen read(JSONObject ledger) throws JSONException {
         try {
             var day = LocalDate.parse(ledger.getString("trading_date_et"));
             var screen = ledger.getJSONObject("reference_screen");
-            var fxDay = LocalDate.parse(screen.getString("fx_date"));
             var provider = screen.getString("provider");
             var hash = screen.getString("close_sha256");
             var observations = screen.getJSONArray("observations");
-            if (fxDay.isAfter(day) || fxDay.isBefore(day.minusDays(4)) || !hash.matches("[a-f0-9]{64}")
+            if (!hasTradeDateFx(ledger, day) || !hash.matches("[a-f0-9]{64}")
                     || !Set.of(UsDoltCloses.SOURCE, UsDailyCloses.MASSIVE_SOURCE).contains(provider)
                     || observations.length() > 12_000) throw new JSONException("Invalid US reference screen");
             var rows = new HashMap<String, Observation>();

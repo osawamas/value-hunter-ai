@@ -274,6 +274,36 @@ public class JpxAutomaticFinanceTest {
         assertFalse(JpxAutomaticFinance.acquire(CODE, DAY, null, network).hold().isEmpty());
     }
 
+    @Test public void transientShareActionFailureDoesNotFinalizeTheFinancialCheckpoint() throws Exception {
+        String link = "/disc/14200/140120251112000000.pdf";
+        String html = archive("決算短信〔日本基準〕(連結)", PATH).replace("2026/11/12", "2025/11/12")
+                .replace("自己株式の取得状況", "<a href=\"" + link + "\">株式分割に関するお知らせ</a>");
+        var filingSources = sources(html, filing());
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                return filingSources.archive(code);
+            }
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                return filingSources.financial(disclosure);
+            }
+            @Override public LocalDate effective(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                if (calls.getAndIncrement() == 0) throw new JpxIssuerArchive.HttpFailure(503);
+                return LocalDate.of(2025, 12, 1);
+            }
+        };
+        var cache = new HashMap<String, Object>();
+        var report = report(DAY, "890");
+        var stopped = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        assertEquals(0, stopped.fetched());
+        assertFalse(cache.containsKey("annual-" + CODE));
+
+        var resumed = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        assertEquals(1, resumed.fetched());
+        assertEquals("", resumed.entries().get(CODE).hold());
+        assertEquals(1, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, null, () -> true).entries().size());
+    }
+
     @Test public void appliesVerifiedSplitOnlyOnAndAfterTheOfficialExDay() throws Exception {
         var rights = JpxShareRights.parse("""
                 {"revision":"2026-11-18T18:32:00Z", "coveredCodes":["9999"], "notices":[],
