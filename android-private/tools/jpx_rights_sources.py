@@ -125,6 +125,7 @@ def daily_sources(urls, output):
     results = {}
     notes_by_release = {}
     dates_by_event = defaultdict(set)
+    pending_files = {}
     for url in urls:
         path = urlsplit(url).path
         if "/listing/others/ex-rights/" not in path or not re.search(r"/\d{8}\.xls$", path):
@@ -150,6 +151,9 @@ def daily_sources(urls, output):
             "sha256": digest,
         }
         notes_by_release[published_on.isoformat()] = workbook_notes(body)
+        pending_files[filename] = body
+    # Never publish a partial batch when a later edition is invalid or conflicting.
+    for filename, body in pending_files.items():
         (output / filename).write_bytes(body)
     comparison = {
         "distinct_event_keys": len(dates_by_event),
