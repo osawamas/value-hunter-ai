@@ -6,6 +6,18 @@
   },
   "covered": 4997,
   "listed": 5082,
+  "listing_follow_up": {
+    "GUER": {
+      "first_session": "2026-11-18",
+      "source": "https://www.sec.gov/Archives/edgar/data/1832487/000143774926037477/ex_1047287.htm",
+      "venue": "Nasdaq"
+    },
+    "TXR": {
+      "first_session": "2026-11-17",
+      "source": "https://www.sec.gov/Archives/edgar/data/1561540/000106299326006170/exhibit99-1.htm",
+      "venue": "NYSE"
+    }
+  },
   "listing_market_counts": {
     "NYSE": {
       "covered": 1866,
