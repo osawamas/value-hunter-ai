@@ -6,10 +6,22 @@ import unittest
 from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
-from us_daily_coverage import archive_dia_holdings, compare_previous_report, compare_session, dia_for_session, run_cycle
+from us_daily_coverage import archive_dia_holdings, compare_missing_symbols, compare_previous_report, compare_session, dia_for_session, run_cycle
 
 
 class DailyCoverageTest(unittest.TestCase):
+    def test_current_missing_symbols_must_be_unique_and_canonical(self):
+        previous = {"missing_close_symbols_by_exchange": {"NYSE": ["AAA", "BBB"]}}
+        current = {"missing_close_symbols_by_exchange": {"NYSE": ["AAA", "AAA"]}}
+        self.assertEqual({}, compare_missing_symbols(previous, current, "NYSE", 2, 2))
+        current["missing_close_symbols_by_exchange"]["NYSE"] = ["AAA", "bad symbol"]
+        self.assertEqual({}, compare_missing_symbols(previous, current, "NYSE", 2, 2))
+        current["missing_close_symbols_by_exchange"]["NYSE"] = ["AAA", "CCC"]
+        self.assertEqual(
+            {"recovered_symbols": ["BBB"], "newly_missing_symbols": ["CCC"]},
+            compare_missing_symbols(previous, current, "NYSE", 2, 2),
+        )
+
     @patch("us_daily_coverage.sync")
     @patch("us_daily_coverage.dolt_rows")
     def test_rechecks_saved_reports_and_retains_them_when_dolt_has_no_data(self, prices, sync):
