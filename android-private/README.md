@@ -228,6 +228,8 @@ SEC原本を全市場普通株候補5,084銘柄の一覧に適用し、11月16�
 
 `tools/JpxFinancialBatch.java` は公式日報から抽出して日付を照合済みのTSVを使い、Androidと同じ決算取得・判定を小分けに再生する。引数は取引日、銘柄コードと終値のTSV（終値がない行は第2列を空欄）、JPX権利落ちJSON、開始コード、実行件数。実データの検証時は既存のAndroid JVMクラスパスと `pdftotext` を使う。原本URLと受信バイト列のSHA-256、判定区分、保留理由を出力する。出力されたJSONを `scripts/audit_jpx_financial_evidence.py` で集計する。値付き原本は公開しない。NYSE・Nasdaqの予算入り通知は、価格の取得経路が切り替わった後も、同日・同一銘柄の送信済み履歴を使う。
 
+JPXが429または503を返したときは、バッチが残りの取得を見送り、`paused: true` を出力する。時間を置いて `source_unavailable` と `rate_limited_before_request` の銘柄を再照合できる。
+
 ### 無料・APIキーなしの公開ファイル検証
 
 `python3 tools/us_public_files_probe.py` は、Nasdaq Traderの公式ディレクトリ

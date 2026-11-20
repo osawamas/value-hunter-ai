@@ -98,7 +98,7 @@ public final class JpxFinancialBatch {
             executor.shutdownNow();
         }
         System.out.println(new JSONObject().put("date", day.toString()).put("universe", closes.keySet())
-                .put("records", records));
+                .put("paused", limited.get()).put("records", records));
     }
 
     private static JSONObject inspect(String code, BigDecimal price, LocalDate day, JpxShareRights rights,
@@ -121,9 +121,13 @@ public final class JpxFinancialBatch {
                         : reason.isEmpty() ? "財務条件の確認待ち" : reason);
             }
         } catch (IOException unavailable) {
-            if (unavailable instanceof JpxIssuerArchive.HttpFailure failure
-                    && (failure.status == 429 || failure.status == 503)) limited.set(true);
+            if (unavailable instanceof JpxIssuerArchive.HttpFailure failure) {
+                row.put("http_status", failure.status);
+                if (failure.status == 429 || failure.status == 503) limited.set(true);
+            }
             row.put("on_hold", true).put("reason", "source_unavailable");
+        } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+            row.put("on_hold", true).put("reason", "東証の決算開示を確認できなかった");
         }
         if (sources.original != null) row.put("source_url", sources.original.url()).put("source_sha256", sources.original.sha256());
         return row;
