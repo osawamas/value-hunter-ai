@@ -258,10 +258,9 @@ public final class JpxWatchWorker extends Worker {
                 if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
-                    for (var entry : added.subList(0, Math.min(12, added.size()))) {
+                    for (var entry : added) {
                         detail.append("\n").append(entry.summary());
                     }
-                    if (added.size() > 12) detail.append("\nほか ").append(added.size() - 12).append("銘柄");
                     if (!alerts.post(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
                             detail.toString())) {
                         state.edit().putString(STATUS, summary + "\n無音通知を送信できなかった · 通知設定を確認").apply();
@@ -277,11 +276,10 @@ public final class JpxWatchWorker extends Worker {
                 }
                 if (!budgetAdded.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値で100株の購入額を計算（手数料別）");
-                    for (var entry : budgetAdded.subList(0, Math.min(12, budgetAdded.size()))) {
+                    for (var entry : budgetAdded) {
                         detail.append("\n").append(entry.code()).append(" · ")
                                 .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
                     }
-                    if (budgetAdded.size() > 12) detail.append("\nほか ").append(budgetAdded.size() - 12).append("銘柄");
                     if (!alerts.post(context, PRICE_NOTIFICATION_ID,
                             "東証・参考 100株10万円以下に入った " + budgetAdded.size() + "銘柄", detail.toString())) {
                         return retryReport(state, "予算入りの無音通知を送信できなかった");
@@ -294,11 +292,10 @@ public final class JpxWatchWorker extends Worker {
                 }
                 if (!rapidAdded.isEmpty()) {
                     var detail = new StringBuilder(date + "の東証終値 · 分割・併合・配当落ち等を除外");
-                    for (var entry : rapidAdded.subList(0, Math.min(12, rapidAdded.size()))) {
+                    for (var entry : rapidAdded) {
                         detail.append("\n").append(entry.code()).append(" · ")
                                 .append(entry.percent().stripTrailingZeros().toPlainString()).append("%");
                     }
-                    if (rapidAdded.size() > 12) detail.append("\nほか ").append(rapidAdded.size() - 12).append("銘柄");
                     if (!alerts.post(context, RAPID_NOTIFICATION_ID,
                             "東証・参考 株価急変 " + rapidAdded.size() + "銘柄", detail.toString())) {
                         return retryReport(state, "急変の無音通知を送信できなかった");

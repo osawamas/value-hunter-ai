@@ -2,6 +2,7 @@ package jp.valuehunter.privatewatch;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,6 +25,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private static final String PAUSED = "public_jpx_watch_paused";
@@ -130,6 +135,17 @@ public final class MainActivity extends Activity {
             }
         });
 
+        var wakeScreen = new Switch(this);
+        wakeScreen.setText("通知時に画面を点灯");
+        wakeScreen.setTextColor(INK);
+        wakeScreen.setMinHeight(dp(48));
+        wakeScreen.setChecked(state.getBoolean(NotificationScreenWake.ENABLED, true));
+        place(notifications, wakeScreen, 5);
+        wakeScreen.setOnCheckedChangeListener((view, checked) ->
+                state.edit().putBoolean(NotificationScreenWake.ENABLED, checked).apply());
+        button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
+                .setOnClickListener(view -> showNotificationHistory());
+
         var result = section(content, SURFACE, true);
         label(result, "最新の確認", 19, INK, true, 0);
         lastCheck = label(result, "", 14, MUTED, false, 5);
@@ -213,6 +229,32 @@ public final class MainActivity extends Activity {
             });
         }, "jpx-daily-detail");
         detailThread.start();
+    }
+
+    private void showNotificationHistory() {
+        var dialog = new AlertDialog.Builder(this).setTitle("通知履歴").setNegativeButton("閉じる", null);
+        try {
+            var entries = NotificationHistory.recent(NotificationHistory.file(this), System.currentTimeMillis());
+            if (entries.isEmpty()) {
+                dialog.setMessage("過去" + NotificationHistory.DAYS + "日間の通知はまだない").show();
+                return;
+            }
+            var clock = DateTimeFormatter.ofPattern("M月d日 HH:mm", Locale.JAPAN)
+                    .withZone(ZoneId.of("Asia/Tokyo"));
+            var labels = new String[entries.size()];
+            for (int i = 0; i < entries.size(); i++) {
+                var entry = entries.get(i);
+                labels[i] = clock.format(Instant.ofEpochMilli(entry.postedAt())) + "\n" + entry.title();
+            }
+            dialog.setItems(labels, (list, index) -> new AlertDialog.Builder(this)
+                    .setTitle(entries.get(index).title())
+                    .setMessage(clock.format(Instant.ofEpochMilli(entries.get(index).postedAt())) + " JST\n\n"
+                            + entries.get(index).detail())
+                    .setNeutralButton("履歴に戻る", (detailDialog, which) -> showNotificationHistory())
+                    .setPositiveButton("閉じる", null).show()).show();
+        } catch (IOException unavailable) {
+            dialog.setMessage("通知履歴を読み込めなかった").show();
+        }
     }
 
     private void openAlertSettings() {

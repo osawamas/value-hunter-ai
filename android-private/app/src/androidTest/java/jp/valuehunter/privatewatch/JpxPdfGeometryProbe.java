@@ -23,9 +23,11 @@ import java.util.TreeSet;
 import org.json.JSONObject;
 
 public final class JpxPdfGeometryProbe extends Instrumentation {
+    private String alertPhase;
     @Override
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
+        alertPhase = arguments == null ? null : arguments.getString("alert_phase");
         start();
     }
 
@@ -33,6 +35,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
     public void onStart() {
         var result = new Bundle();
         try {
+            if (alertPhase != null) {
+                result.putString("stream", "\n" + NotificationDeliveryProbe.run(this, alertPhase) + "\n");
+                finish(Activity.RESULT_OK, result);
+                return;
+            }
             var directory = getTargetContext().getDataDir();
             var codes = new HashSet<String>();
             try (var input = new BufferedReader(new FileReader(new File(directory, "jpx-codes.txt")))) {
