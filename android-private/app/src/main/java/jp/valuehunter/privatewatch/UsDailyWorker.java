@@ -248,7 +248,7 @@ public final class UsDailyWorker extends Worker {
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", ledger.getJSONObject("reference_screen"));
             if (previous != null && day.equals(previous.day()) && !closeHash.equals(previous.hash())) pending = "";
-            if (!pending.contains("\n")) pending = "";
+            if (!ScanWorker.notificationsRequested(context) || !pending.contains("\n")) pending = "";
             if (stopped.getAsBoolean() || !state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status).commit()) return;
             if (!pending.isEmpty() && !stopped.getAsBoolean()) {
@@ -256,6 +256,8 @@ public final class UsDailyWorker extends Worker {
                 if (ScanWorker.postNotification(context, US_NOTIFICATION_ID,
                         pending.substring(0, separator), pending.substring(separator + 1))) {
                     state.edit().remove(PRIVATE_PENDING).commit();
+                } else if (!ScanWorker.notificationsRequested(context)) {
+                    state.edit().remove(PRIVATE_PENDING).apply();
                 } else {
                     state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
                 }

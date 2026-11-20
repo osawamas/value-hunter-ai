@@ -38,7 +38,8 @@ public final class ScanWorker extends Worker {
     private static final String MANUAL = "japan-check-now";
     static final String LEGACY_API_REQUEST = "explicit_legacy_api_request";
     static final String CHANNEL = "value-alerts";
-    private static final int TEST_NOTIFICATION_ID = 2;
+    static final String NOTIFICATIONS_ENABLED = "notification_posts_enabled";
+    static final int TEST_NOTIFICATION_ID = 2;
     private static final int SCREEN_VERSION = 2;
     private static final Object SCAN_LOCK = new Object();
 
@@ -192,20 +193,30 @@ public final class ScanWorker extends Worker {
         postNotification(getApplicationContext(), 1, "新しい割安候補 " + count + "銘柄", detail);
     }
 
-    static void testNotification(Context context) {
-        postNotification(context, TEST_NOTIFICATION_ID, "VALUE HUNTER AI 無音通知テスト", "新しい候補が見つかると、この通知欄に表示される");
+    static boolean testNotification(Context context) {
+        return postNotification(context, TEST_NOTIFICATION_ID, "VALUE HUNTER AI 無音通知テスト", "無音通知と画面点灯のテスト");
+    }
+
+    static boolean notificationsRequested(Context context) {
+        return prefs(context).getBoolean(NOTIFICATIONS_ENABLED, true);
     }
 
     static boolean alertsEnabled(Context context) {
+        return notificationsRequested(context) && systemAllowsAlerts(context);
+    }
+
+    static boolean systemAllowsAlerts(Context context) {
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) return false;
         var manager = context.getSystemService(NotificationManager.class);
+        if (manager == null || !manager.areNotificationsEnabled()) return false;
         var channel = manager.getNotificationChannel(CHANNEL);
-        return manager.areNotificationsEnabled()
-                && (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE);
+        return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
     }
 
     static Intent alertSettings(Context context) {
         var manager = context.getSystemService(NotificationManager.class);
-        if (!manager.areNotificationsEnabled()) {
+        if (manager == null || !manager.areNotificationsEnabled()) {
             return new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName());
         }
@@ -223,11 +234,9 @@ public final class ScanWorker extends Worker {
     }
 
     static boolean postNotification(Context context, int id, String title, String detail) {
-        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) return false;
+        if (!alertsEnabled(context)) return false;
         var manager = context.getSystemService(NotificationManager.class);
         createAlertChannel(manager);
-        if (!alertsEnabled(context)) return false;
         String receipt = notificationReceipt(title, detail);
         String receiptKey = id + "-" + receipt;
         boolean trackInteraction = id != TEST_NOTIFICATION_ID;
@@ -238,18 +247,22 @@ public final class ScanWorker extends Worker {
         extras.putString(NOTIFICATION_RECEIPT, receipt);
         String preview = notificationPreview(detail);
         try {
-            Runnable post = () -> manager.notify(id, new Notification.Builder(context, CHANNEL)
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
-                    .setContentTitle(title)
-                    .setContentText(preview.replace('\n', ' '))
-                    .setStyle(new Notification.BigTextStyle().bigText(preview))
-                    .setDeleteIntent(trackInteraction ? NotificationDismissal.intent(context, receiptKey) : null)
-                    .setGroup(CHANNEL)
-                    .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
-                    .setVisibility(Notification.VISIBILITY_PRIVATE)
-                    .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+            Runnable post = () -> {
+                if (!alertsEnabled(context)) throw new SecurityException("Notifications disabled before submission");
+                manager.notify(id, new Notification.Builder(context, CHANNEL)
+                        .setSmallIcon(android.R.drawable.ic_dialog_info)
+                        .setContentTitle(title)
+                        .setContentText(preview.replace('\n', ' '))
+                        .setStyle(new Notification.BigTextStyle().bigText(preview))
+                        .setDeleteIntent(trackInteraction ? NotificationDismissal.intent(context, receiptKey) : null)
+                        .setGroup(CHANNEL)
+                        .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
+                        .setVisibility(Notification.VISIBILITY_PRIVATE)
+                        .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+            };
             if (!trackInteraction) {
                 post.run();
+                NotificationScreenWake.afterPost(context);
                 return true;
             }
             long now = System.currentTimeMillis();

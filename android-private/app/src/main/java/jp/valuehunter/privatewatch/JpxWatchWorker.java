@@ -242,7 +242,8 @@ public final class JpxWatchWorker extends Worker {
                 }
                 if (automaticFinance) summary.append("\n株価急変（前日比±8%以上） ")
                         .append(exclusions == null ? "権利落ち資料の確認待ち" : rapid.size() + "銘柄");
-                if (!notifyEnabled) summary.append("\n通知設定を確認");
+                if (!ScanWorker.notificationsRequested(context)) summary.append("\n無音通知はオフ");
+                else if (!notifyEnabled) summary.append("\n通知設定を確認");
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
                 var update = recordCheck(state.edit(), "日報を取得して再判定")
                         .putString(BASELINE, savedBaseline.toString())

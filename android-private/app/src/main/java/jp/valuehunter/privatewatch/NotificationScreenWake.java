@@ -13,7 +13,7 @@ final class NotificationScreenWake {
     @SuppressWarnings("deprecation")
     static void afterPost(Context context) {
         try {
-            if (!ScanWorker.prefs(context).getBoolean(ENABLED, true)) return;
+            if (!ScanWorker.alertsEnabled(context) || !ScanWorker.prefs(context).getBoolean(ENABLED, true)) return;
             var power = context.getSystemService(PowerManager.class);
             if (power == null || power.isInteractive()
                     || !power.isWakeLockLevelSupported(PowerManager.SCREEN_DIM_WAKE_LOCK)) return;
