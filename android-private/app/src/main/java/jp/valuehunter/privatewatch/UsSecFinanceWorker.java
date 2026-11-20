@@ -48,6 +48,8 @@ public final class UsSecFinanceWorker extends Worker {
     private static final String BUDGET_CURSOR = "us_budget_cursor";
     private static final String BUDGET_SENT_DAY = "us_budget_sent_day";
     private static final String BUDGET_SENT_SYMBOLS = "us_budget_sent_symbols";
+    private static final String NOCP_PAIR_KEY = "us_nocp_quote_pair";
+    private static final String NOCP_RECEIPTS = "us_nocp_receipts";
     private static final int BATCH = 40;
     private static final long BATCH_MILLIS = 45_000;
     private static final long BETWEEN_REQUESTS_MILLIS = 350;
@@ -159,6 +161,8 @@ public final class UsSecFinanceWorker extends Worker {
                     if (budget != null && budget.retry() && getRunAttemptCount() < MAX_BUDGET_RETRIES) {
                         return Result.retry();
                     }
+                    if (budget != null && budget.official().more() && !budget.official().retry())
+                        enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                 }
             }
             return Result.success();
@@ -177,7 +181,11 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    record BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry) {}
+    record BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry, UsNasdaqRecovery.Result official) {
+        BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry) {
+            this(result, cursor, retry, UsNasdaqRecovery.Result.empty());
+        }
+    }
 
     static UsScreen.Fx tradeDateFx(JSONArray rates, LocalDate day) throws JSONException {
         var fx = UsScreen.readFx(rates, day);
@@ -192,31 +200,75 @@ public final class UsSecFinanceWorker extends Worker {
         if (!day.equals(expected)) return null;
         try {
             var priorFile = new AtomicFile(new File(directory, UsDailyWorker.PREVIOUS_QUOTE_FILE));
-            var previous = new JSONObject(new String(UsDailyWorker.readQuote(priorFile), StandardCharsets.UTF_8));
+            byte[] previousBytes = UsDailyWorker.readQuote(priorFile);
+            var previous = new JSONObject(new String(previousBytes, StandardCharsets.UTF_8));
             var priorDay = UsPriceOnlyBudget.previousSession(day);
             if (!priorDay.toString().equals(previous.optString("trading_date_et"))
                     || !quote.getString("source").equals(previous.optString("source"))) return null;
-            var ordinary = UsPriceOnlyBudget.ordinary(listings("otherlisted.txt", false),
-                    listings("nasdaqlisted.txt", true), day);
+            var nasdaq = listings("nasdaqlisted.txt", true);
+            var ordinary = UsPriceOnlyBudget.ordinary(listings("otherlisted.txt", false), nasdaq, day);
             var rates = new JSONArray(download.get(FX + "&from=" + priorDay + "&to=" + day));
             var financial = UsReferenceAlerts.read(ledger);
             if (!hash.equals(financial.hash())) return null;
             var budget = UsPriceOnlyBudget.compare(previous, quote, rates, ordinary, financial, expected);
-            if (!UsPriceOnlyBudget.canCorroborateDolt(previous, quote) || budget.screen().entered().isEmpty()) {
+            if (!UsPriceOnlyBudget.canCorroborateDolt(previous, quote)) {
                 return new BudgetCheck(budget, "", false);
             }
             Set<String> sent = sentBudgetSymbols(state, day);
             String cursor = day.toString().equals(state.getString(BUDGET_CURSOR_DAY, ""))
                     ? state.getString(BUDGET_CURSOR, "") : "";
-            try {
-                return corroborateBudget(previous, quote, priorDay, day, LocalDate.now(UsDailyCloses.NEW_YORK),
-                        budget, download, this::isStopped, sent, cursor);
-            } catch (IOException | JSONException unavailable) {
-                return new BudgetCheck(budget, cursor, unavailable instanceof IOException);
+            BudgetCheck primary = new BudgetCheck(budget, cursor, false);
+            LocalDate asOf = LocalDate.now(UsDailyCloses.NEW_YORK);
+            if (!budget.screen().entered().isEmpty()) {
+                try {
+                    primary = corroborateBudget(previous, quote, priorDay, day, asOf, budget, download,
+                            this::isStopped, sent, cursor);
+                } catch (IOException | JSONException unavailable) {
+                    primary = new BudgetCheck(budget, cursor, unavailable instanceof IOException);
+                }
             }
+            UsNasdaqRecovery.Result official = UsNasdaqRecovery.Result.empty();
+            try {
+                if (!primary.retry()) {
+                    String key = hash + ":" + UsReferenceAlerts.sha256(previousBytes);
+                    official = recoverOfficial(previous, quote, nasdaq, financial, priorDay, day, asOf, rates, state, key);
+                }
+            } catch (IOException unavailable) {
+                official = new UsNasdaqRecovery.Result(PriceOnlyScreen.Result.empty(), true, false);
+            } catch (JSONException invalid) {
+                // Keep normal alerts when the supplementary dates or market evidence cannot be validated.
+            }
+            return new BudgetCheck(primary.result(), primary.cursor(), primary.retry() || official.retry(), official);
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             return null;
         }
+    }
+
+    private UsNasdaqRecovery.Result recoverOfficial(JSONObject previous, JSONObject latest,
+            UsMarketCoverage.Directory nasdaq, UsReferenceAlerts.Screen financial, LocalDate priorDay,
+            LocalDate day, LocalDate asOf, JSONArray rates, android.content.SharedPreferences state, String key)
+            throws IOException, JSONException {
+        var before = UsDeviceFinancials.prices(previous.getJSONArray("closes"));
+        var after = UsDeviceFinancials.prices(latest.getJSONArray("closes"));
+        var missing = UsNasdaqRecovery.missing(nasdaq.symbols(), financial.rows().keySet(), before.keySet(), after.keySet());
+        if (missing.isEmpty()) return UsNasdaqRecovery.Result.empty();
+        var oldFx = tradeDateFx(rates, priorDay);
+        var newFx = tradeDateFx(rates, day);
+        var splits = UsDoltCloses.allSplits(priorDay, asOf, url -> new JSONObject(download.get(url)));
+        var nasdaqSplits = UsNasdaqCloseCheck.splits(
+                new JSONObject(download.get(UsNasdaqCloseCheck.splitCalendarUrl(priorDay))), priorDay, asOf);
+        JSONObject receipts = new JSONObject();
+        if (key.equals(state.getString(NOCP_PAIR_KEY, ""))) {
+            try {
+                receipts = new JSONObject(state.getString(NOCP_RECEIPTS, "{}"));
+            } catch (JSONException invalid) {
+                // A corrupt local cache can be revalidated from Nasdaq.
+            }
+        }
+        var result = UsNasdaqRecovery.check(missing, priorDay, day, oldFx, newFx, splits.keySet(), nasdaqSplits,
+                receipts, download, this::isStopped);
+        state.edit().putString(NOCP_PAIR_KEY, key).putString(NOCP_RECEIPTS, receipts.toString()).apply();
+        return result;
     }
 
     static BudgetCheck corroborateBudget(JSONObject previous, JSONObject quote, LocalDate priorDay,
@@ -271,33 +323,41 @@ public final class UsSecFinanceWorker extends Worker {
         var budget = check == null ? null : check.result();
         var date = day.toString();
         var status = state.edit().putString(UsDailyWorker.PRICE_ONLY_DAY, date);
-        if (budget == null || budget.screen().assessed() == 0) {
+        if (budget == null || (budget.screen().assessed() == 0 && check.official().screen().assessed() == 0)) {
             status.putString(UsDailyWorker.PRICE_ONLY_STATUS, "株価だけの予算判定は終値・上場一覧・当日為替の照合待ち").apply();
             return true;
         }
         var result = budget.screen();
-        String summary = "財務または株価で一次判定 " + budget.combinedAssessed() + " / " + budget.listed()
-                + "銘柄 · うち株価だけ " + result.assessed() + "銘柄"
+        var official = check.official().screen();
+        var entries = new ArrayList<>(budget.notificationEntries());
+        entries.addAll(official.entered());
+        String summary = "財務または株価で一次判定 " + (budget.combinedAssessed() + official.assessed()) + " / " + budget.listed()
+                + "銘柄 · うち株価だけ " + (result.assessed() + official.assessed()) + "銘柄"
                 + "\n株価だけで100株10万円以下に入った " + result.entered().size() + "銘柄";
         if (!budget.verifiedPriceBasis()) {
             summary += " · 2つの取得元で終値一致 " + budget.notificationEntries().size()
                     + "銘柄 · 照合待ち " + (result.entered().size() - budget.notificationEntries().size()) + "銘柄";
         }
-        if (!budget.notificationEntries().isEmpty()) {
+        if (official.assessed() > 0) summary += "\nNasdaq公式終値2日分で追加判定 " + official.assessed()
+                + "銘柄 · 予算入り " + official.entered().size() + "銘柄";
+        if (!entries.isEmpty()) {
             summary += "\n予算入り "
-                    + String.join("、", budget.notificationEntries().stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
+                    + String.join("、", entries.stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
         }
         status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary).apply();
         if (!ScanWorker.alertsEnabled(context)) return true;
         var sent = sentBudgetSymbols(state, day);
         var progress = state.edit().putString(BUDGET_CURSOR_DAY, date).putString(BUDGET_CURSOR, check.cursor());
-        var pending = budget.notificationEntries().stream().filter(entry -> !sent.contains(entry.code())).toList();
+        var pending = entries.stream().filter(entry -> !sent.contains(entry.code())).toList();
         if (pending.isEmpty()) return progress.commit();
         var detail = new StringBuilder(day + "の終値と同日の為替で100株の購入額を計算（手数料別）");
-        if (!budget.verifiedPriceBasis()) detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
+        var officialCodes = new HashSet<>(official.entered().stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
+        if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialCodes.contains(entry.code())))
+            detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
         for (var entry : pending.subList(0, Math.min(12, pending.size()))) {
             detail.append("\n").append(entry.code()).append(" · ")
                     .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
+            if (officialCodes.contains(entry.code())) detail.append("（Nasdaq公式終値）");
         }
         if (pending.size() > 12) detail.append("\nほか ").append(pending.size() - 12).append("銘柄");
         if (!ScanWorker.postNotification(context, BUDGET_NOTIFICATION_ID,

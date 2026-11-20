@@ -21,6 +21,21 @@ public class JpxAutomaticFinanceTest {
     private static final LocalDate RELEASED = LocalDate.of(2026, 5, 11);
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
 
+    @Test public void correctedTdnetRowsUseTheCurrentTitleAndKeepTheWholePage() throws Exception {
+        String day = """
+                <div id="kaiji-date-1">2026年11月17日</div>
+                <div class="kaijiSum">1～2件&nbsp;/&nbsp;全2件</div>
+                <tr class="hyodaiUpd"><td class="oddnew-L kjTime">10:00</td><td class="oddnew-M kjCode">55790</td>
+                <td class="oddnew-M kjName">ＧＳＩ</td><td class="oddnew-M kjTitle">
+                <a>第２四半期決算説明資料</a><BR><s>2026年3月期決算短信〔日本基準〕(連結)</s></td></tr>
+                <tr><td class="evennew-L kjTime">10:01</td><td class="evennew-M kjCode">14200</td>
+                <td class="evennew-M kjName">会社</td><td class="evennew-M kjTitle">
+                <a>2026年3月期決算短信〔日本基準〕(連結)</a></td></tr>
+                """;
+        var result = JpxDisclosureCalendar.read(DAY, ignored -> day, () -> false);
+        assertEquals(Set.of(CODE), result.annual());
+    }
+
     @Test public void publicFinancialStatementEntersAutomaticScreenWithoutManualRegistration() throws Exception {
         var entry = acquire(archive("決算短信〔日本基準〕(連結)", PATH), filing());
         assertNotNull(entry.annual());
@@ -212,6 +227,33 @@ public class JpxAutomaticFinanceTest {
         assertEquals(1, JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false).fetched());
         assertEquals(0, JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false).fetched());
         assertEquals(List.of("1419", CODE), checks);
+    }
+
+    @Test public void fullListingQueueContinuesFromSavedEntriesAfterRateLimit() {
+        var quotes = new HashMap<String, JpxCloseTable.Sessions>();
+        for (int code = 1000; code < 4686; code++)
+            quotes.put(Integer.toString(code), new JpxCloseTable.Sessions(null, new BigDecimal("890")));
+        var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/", Map.copyOf(quotes), Set.of());
+        var cache = new HashMap<String, Object>();
+        var scanned = new java.util.HashSet<String>();
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                if (calls.incrementAndGet() == 10) throw new JpxIssuerArchive.HttpFailure(429);
+                assertTrue(scanned.add(code));
+                return new JpxIssuerArchive.Page(List.of());
+            }
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) {
+                throw new AssertionError("This replay exercises the queue without requesting filings");
+            }
+        };
+        var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        assertEquals(9, first.fetched());
+        for (int pass = 0; scanned.size() < quotes.size() && pass < 165; pass++)
+            JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        assertEquals(quotes.keySet(), scanned);
+        assertEquals(quotes.size() + 1, calls.get());
+        assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false).fetched());
     }
 
     @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() throws Exception {

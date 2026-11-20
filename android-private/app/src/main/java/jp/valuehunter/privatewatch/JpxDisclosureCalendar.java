@@ -33,9 +33,11 @@ final class JpxDisclosureCalendar {
     private static final Pattern TOTAL = Pattern.compile(
             "class=\"kaijiSum\">(\\d+)～(\\d+)件(?:&nbsp;|\\s)*/(?:&nbsp;|\\s)*全(\\d+)件</div>");
     private static final Pattern ROW = Pattern.compile(
-            "<tr>\\s*<td[^>]*kjTime\"[^>]*>[^<]*</td>\\s*"
+            "<tr(?:\\s[^>]*)?>\\s*<td[^>]*kjTime\"[^>]*>[^<]*</td>\\s*"
             + "<td[^>]*kjCode\"[^>]*>\\s*([0-9A-Z]{5})\\s*</td>\\s*"
             + "<td[^>]*kjName\"[^>]*>[^<]*</td>\\s*<td[^>]*kjTitle\"[^>]*>(.*?)</td>", Pattern.DOTALL);
+    private static final Pattern RETRACTED_TITLE =
+            Pattern.compile("<s(?:\\s[^>]*)?>.*?</s\\s*>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     @FunctionalInterface
     interface PageLoader { String fetch(URI uri) throws IOException; }
@@ -94,7 +96,7 @@ final class JpxDisclosureCalendar {
         while (rows.find()) {
             seen++;
             String code = rows.group(1).substring(0, 4);
-            String title = JpxIssuerArchive.visibleText(rows.group(2));
+            String title = JpxIssuerArchive.visibleText(RETRACTED_TITLE.matcher(rows.group(2)).replaceAll(""));
             if (title.isEmpty()) return null;
             if (JpxIssuerArchive.shareChange(title)) rights.add(code);
             if (JpxIssuerArchive.annualTitle(title)) annual.add(code);
