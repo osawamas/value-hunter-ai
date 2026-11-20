@@ -109,6 +109,16 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual("different_report_basis", compare_previous_report(path, hashed)["status"])
             path.write_text(json.dumps(hashed))
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
+            # Two legacy reports without hashes are also not a verified pair.
+            legacy_with_counts = dict(observed, common_or_ordinary_label_by_exchange={
+                "NYSE": {"listed": 1, "with_close": 1, "without_close": 0}})
+            path.write_text(json.dumps(legacy_with_counts))
+            self.assertEqual("different_report_basis",
+                             compare_previous_report(path, legacy_with_counts)["status"])
+            empty_hash = dict(legacy_with_counts, directory_sha256={})
+            path.write_text(json.dumps(empty_hash))
+            self.assertEqual("different_report_basis",
+                             compare_previous_report(path, empty_hash)["status"])
             path.write_text("{")
             self.assertEqual("previous_report_unreadable", compare_previous_report(path, observed)["status"])
 
