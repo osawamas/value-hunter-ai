@@ -243,7 +243,7 @@ public final class UsDailyWorker extends Worker {
                 var entrants = UsReferenceAlerts.entrants(previous, screen);
                 pending = entrants.isEmpty() ? "" : "米国株の参考条件入り " + entrants.size() + "銘柄"
                         + "\n" + day + "の終値（参考）\n"
-                        + String.join("\n", entrants.subList(0, Math.min(12, entrants.size())));
+                        + String.join("\n", entrants);
             }
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", ledger.getJSONObject("reference_screen"));

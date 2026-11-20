@@ -28,9 +28,10 @@ public final class NotificationDismissal extends BroadcastReceiver {
         return PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_IMMUTABLE);
     }
 
-    static boolean recorded(Context context, String receipt) {
+    static long recordedAt(Context context, String receipt, long now) {
         var state = context.getSharedPreferences(STORE, Context.MODE_PRIVATE);
-        return isRecent(state.getLong(receipt, 0), System.currentTimeMillis());
+        long at = state.getLong(receipt, 0);
+        return isRecent(at, now) ? at : 0;
     }
 
     static boolean isRecent(long at, long now) {

@@ -13,36 +13,6 @@ public class PriceOnlyReplaySafetyTest {
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
     private static final LocalDate PREVIOUS = DAY.minusDays(1);
 
-    @Test public void crashAfterPostingBeforeSavingDoesNotPostAnAlreadyActiveNoticeAgain() {
-        var active = new java.util.concurrent.atomic.AtomicReference<String>();
-        var posts = new java.util.concurrent.atomic.AtomicInteger();
-        var receipt = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
-        ScanWorker.submitNotification(receipt, () -> false, active::get, () -> {
-            posts.incrementAndGet();
-            active.set(receipt);
-        });
-        // Recreate the receipt exactly as a restarting Worker would, with the Android notification still active.
-        ScanWorker.submitNotification(ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC"),
-                () -> false, active::get, () -> { throw new AssertionError("Duplicate post"); });
-        assertEquals(1, posts.get());
-        var newDay = ScanWorker.notificationReceipt("予算入り", "2026-11-18 ABC");
-        ScanWorker.submitNotification(newDay, () -> false, active::get, posts::incrementAndGet);
-        assertEquals(2, posts.get());
-    }
-
-    @Test public void recordedDismissalSurvivesRestartButAbsentEvidenceAllowsRetry() {
-        long dismissed = 1000L;
-        var receipt = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
-        ScanWorker.submitNotification(receipt, () -> NotificationDismissal.isRecent(dismissed, dismissed + 1),
-                () -> null, () -> { throw new AssertionError("Displayed alert was already dismissed"); });
-        var posts = new java.util.concurrent.atomic.AtomicInteger();
-        ScanWorker.submitNotification(receipt, () -> NotificationDismissal.isRecent(0, dismissed + 1),
-                () -> null, posts::incrementAndGet);
-        assertEquals(1, posts.get());
-        assertFalse(NotificationDismissal.isRecent(dismissed, dismissed + java.util.concurrent.TimeUnit.DAYS.toMillis(7)));
-        assertFalse(NotificationDismissal.isRecent(dismissed, dismissed - 1));
-    }
-
     @Test public void recordedTapIsAvailableAfterRestartAndScopedToTheExactAlert() {
         String exact = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
         String other = ScanWorker.notificationReceipt("予算入り", "2026-11-17 DEF");
@@ -68,13 +38,10 @@ public class PriceOnlyReplaySafetyTest {
         NotificationDismissal.remember(state, "8-" + exact, now);
         var restored = Map.copyOf(disk);
         assertFalse(restored.containsKey("expired"));
-        ScanWorker.submitNotification(exact, () -> NotificationDismissal.isRecent(
-                restored.getOrDefault("8-" + exact, 0L), now + 1), () -> null,
-                () -> { throw new AssertionError("Tapped alert is already acknowledged"); });
-        var delivered = new java.util.concurrent.atomic.AtomicBoolean();
-        ScanWorker.submitNotification(other, () -> NotificationDismissal.isRecent(
-                restored.getOrDefault("8-" + other, 0L), now + 1), () -> null, () -> delivered.set(true));
-        assertTrue(delivered.get());
+        assertTrue(NotificationDismissal.isRecent(restored.getOrDefault("8-" + exact, 0L), now + 1));
+        assertFalse(NotificationDismissal.isRecent(restored.getOrDefault("8-" + other, 0L), now + 1));
+        assertFalse(NotificationDismissal.isRecent(now, now + java.util.concurrent.TimeUnit.DAYS.toMillis(7)));
+        assertFalse(NotificationDismissal.isRecent(now, now - 1));
     }
 
     @Test public void rapidAndBudgetReasonsAreIndependentOnSameTradingDay() {

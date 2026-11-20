@@ -363,12 +363,11 @@ public final class UsSecFinanceWorker extends Worker {
         var officialEntries = new HashSet<>(official.entered());
         if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialEntries.contains(entry)))
             detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
-        for (var entry : pending.subList(0, Math.min(12, pending.size()))) {
+        for (var entry : pending) {
             detail.append("\n").append(entry.code()).append(" · ")
                     .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
             if (officialEntries.contains(entry)) detail.append("（Nasdaq公式終値）");
         }
-        if (pending.size() > 12) detail.append("\nほか ").append(pending.size() - 12).append("銘柄");
         if (!ScanWorker.postNotification(context, BUDGET_NOTIFICATION_ID,
                 "米国株・参考 100株10万円以下に入った " + pending.size() + "銘柄", detail.toString())) return false;
         for (var entry : pending) sent.add(entry.code());

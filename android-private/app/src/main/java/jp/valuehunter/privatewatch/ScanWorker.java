@@ -236,36 +236,51 @@ public final class ScanWorker extends Worker {
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         var extras = new android.os.Bundle();
         extras.putString(NOTIFICATION_RECEIPT, receipt);
+        String preview = notificationPreview(detail);
         try {
-            submitNotification(receipt, () -> trackInteraction && NotificationDismissal.recorded(context, receiptKey), () -> {
-                for (var active : manager.getActiveNotifications()) {
-                    if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null) {
-                        return active.getNotification().extras.getString(NOTIFICATION_RECEIPT);
-                    }
-                }
-                return null;
-            }, () -> manager.notify(id, new Notification.Builder(context, CHANNEL)
+            Runnable post = () -> manager.notify(id, new Notification.Builder(context, CHANNEL)
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentTitle(title)
-                    .setContentText(detail.replace('\n', ' '))
-                    .setStyle(new Notification.BigTextStyle().bigText(detail))
+                    .setContentText(preview.replace('\n', ' '))
+                    .setStyle(new Notification.BigTextStyle().bigText(preview))
                     .setDeleteIntent(trackInteraction ? NotificationDismissal.intent(context, receiptKey) : null)
-                    .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build()));
-            return true;
-        } catch (SecurityException denied) {
+                    .setGroup(CHANNEL)
+                    .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
+                    .setVisibility(Notification.VISIBILITY_PRIVATE)
+                    .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+            if (!trackInteraction) {
+                post.run();
+                return true;
+            }
+            long now = System.currentTimeMillis();
+            return NotificationHistory.deliver(NotificationHistory.file(context), receiptKey, title, detail, now, () -> {
+                for (var active : manager.getActiveNotifications()) {
+                    if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null
+                            && receipt.equals(active.getNotification().extras.getString(NOTIFICATION_RECEIPT))) {
+                        return active.getPostTime();
+                    }
+                }
+                return NotificationDismissal.recordedAt(context, receiptKey, now);
+            }, post, () -> NotificationScreenWake.afterPost(context));
+        } catch (SecurityException | java.io.IOException unavailable) {
             return false;
         }
     }
 
     private static final String NOTIFICATION_RECEIPT = "jp.valuehunter.privatewatch.delivery";
 
+    static String notificationPreview(String detail) {
+        int end = -1;
+        for (int line = 0; line < 13; line++) {
+            end = detail.indexOf('\n', end + 1);
+            if (end < 0) return detail;
+        }
+        return detail.substring(0, end) + "\n続きは通知履歴";
+    }
+
     static String notificationReceipt(String title, String detail) {
         return UsReferenceAlerts.sha256((title.length() + ":" + title + detail)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    static void submitNotification(String receipt, java.util.function.BooleanSupplier acknowledged,
-                                   java.util.function.Supplier<String> active, Runnable post) {
-        if (!acknowledged.getAsBoolean() && !receipt.equals(active.get())) post.run();
-    }
 }
