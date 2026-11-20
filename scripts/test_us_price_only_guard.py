@@ -65,6 +65,20 @@ class PriceOnlyGuardTests(unittest.TestCase):
     def test_bad_prices(self):
         self.assertFalse(check(self.old, {**self.new, "close_usd": "NaN"}, **self.flags)[0])
 
+    def test_malformed_numeric_strings_do_not_create_candidates(self):
+        for field in ("close_usd", "usd_jpy"):
+            for value in ("1_50", " 150", "150 ", "1e2", "+150", "１５０"):
+                with self.subTest(field=field, value=value):
+                    self.assertEqual(check(self.old, {**self.new, field: value}, **self.flags),
+                                     (False, "invalid_close_or_fx"))
+
+    def test_exact_budget_boundary(self):
+        previous = {**self.old, "close_usd": "10.0001", "usd_jpy": "100"}
+        for value, crossed in (("9.9999", True), ("10.0000", True), ("10.0001", False)):
+            observation = {**self.new, "close_usd": value, "usd_jpy": "100"}
+            self.assertEqual(check(previous, observation, **self.flags)[0], crossed)
+            self.assertFalse(check({**previous, "close_usd": value},
+                                   {**observation, "close_usd": "10.0001"}, **self.flags)[0])
 
     def test_session_boundaries_reject_stale_fallback(self):
         args = dict(expected_previous_date="2026-11-16",
@@ -107,34 +121,43 @@ class PriceOnlyGuardTests(unittest.TestCase):
                              (False, "invalid_observation"))
 
     def test_verified_provenance_gate(self):
-        old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
+        evidence = {"symbol": "ABC", "exchange": "Nasdaq", "close_venue": "Nasdaq",
+                    "independent_raw_close_verified": True}
+        old = {**self.old, **evidence, "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.old["date"], "close_source": "exchange:old",
                "fx_source": "fixing:old"}
-        new = {**self.new, "price_basis": "raw_unadjusted_regular_session",
+        new = {**self.new, **evidence, "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.new["date"], "close_source": "exchange:new",
                "fx_source": "fixing:new"}
         args = dict(expected_previous_date=self.old["date"],
-                    expected_current_date=self.new["date"], **self.flags)
+                    expected_current_date=self.new["date"], expected_symbol="ABC",
+                    expected_exchange="Nasdaq", **self.flags)
         self.assertTrue(verified_check(old, new, **args)[0])
         for field, bad, reason in (
             ("price_basis", "split_adjusted", "raw_close_basis_unverified"),
             ("price_basis", None, "raw_close_basis_unverified"),
+            ("close_venue", "NYSE", "close_venue_mismatch"),
+            ("independent_raw_close_verified", None, "independent_raw_close_unverified"),
+            ("independent_raw_close_verified", "true", "independent_raw_close_unverified"),
             ("fx_date", self.old["date"], "fx_session_mismatch"),
             ("close_source", "", "missing_source_reference"),
             ("fx_source", None, "missing_source_reference"),
         ):
             with self.subTest(field=field, bad=bad):
-                self.assertEqual(verified_check(old, {**new, field: bad}, **args),
-                                 (False, reason))
+                self.assertEqual(verified_check(old, {**new, field: bad}, **args), (False, reason))
+                if field != "fx_date":
+                    self.assertEqual(verified_check({**old, field: bad}, new, **args), (False, reason))
         self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
                          "fx_date": "2026-11-18"}, **args)[0])
 
     def test_verified_fallback_rejects_wrong_ticker_or_exchange(self):
-        old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq",
+        evidence = {"symbol": "ABC", "exchange": "Nasdaq", "close_venue": "Nasdaq",
+                    "independent_raw_close_verified": True}
+        old = {**self.old, **evidence,
                "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.old["date"], "close_source": "source:old",
                "fx_source": "fx:old"}
-        new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq",
+        new = {**self.new, **evidence,
                "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.new["date"], "close_source": "source:new",
                "fx_source": "fx:new"}
@@ -155,6 +178,9 @@ class PriceOnlyGuardTests(unittest.TestCase):
                          (False, "invalid_expected_identity"))
         self.assertEqual(verified_check(old, new,
                          **{**args, "expected_symbol": None}),
+                         (False, "missing_expected_identity"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_symbol": None, "expected_exchange": None}),
                          (False, "missing_expected_identity"))
 
     def test_fx_only_crossing_and_reverse_direction(self):

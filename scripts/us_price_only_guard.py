@@ -14,6 +14,8 @@ BUDGET_JPY = Decimal("100000")
 def _positive(value):
     if isinstance(value, bool):
         return None
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value) is None:
+        return None
     try:
         number = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
@@ -104,21 +106,22 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
         return False, "two_closes_required"
     expected_symbol = verification.pop("expected_symbol", None)
     expected_exchange = verification.pop("expected_exchange", None)
-    if (expected_symbol is None) != (expected_exchange is None):
+    if expected_symbol is None or expected_exchange is None:
         return False, "missing_expected_identity"
-    if expected_symbol is not None:
-        if (not isinstance(expected_symbol, str) or not expected_symbol.strip()
-                or expected_symbol != expected_symbol.strip()
-                or expected_exchange not in ("NYSE", "Nasdaq")):
-            return False, "invalid_expected_identity"
+    if (not isinstance(expected_symbol, str) or re.fullmatch(r"[A-Z0-9.$+^=/_-]{1,24}", expected_symbol) is None
+            or expected_exchange not in ("NYSE", "Nasdaq")):
+        return False, "invalid_expected_identity"
     for item in (previous, current):
         if not isinstance(item, Mapping):
             return False, "invalid_observation"
-        if expected_symbol is not None and (item.get("symbol") != expected_symbol
-                                            or item.get("exchange") != expected_exchange):
+        if item.get("symbol") != expected_symbol or item.get("exchange") != expected_exchange:
             return False, "fallback_identity_mismatch"
+        if item.get("close_venue") != expected_exchange:
+            return False, "close_venue_mismatch"
         if item.get("price_basis") != "raw_unadjusted_regular_session":
             return False, "raw_close_basis_unverified"
+        if item.get("independent_raw_close_verified") is not True:
+            return False, "independent_raw_close_unverified"
         if item.get("fx_date") != item.get("date"):
             return False, "fx_session_mismatch"
         for key in ("close_source", "fx_source"):

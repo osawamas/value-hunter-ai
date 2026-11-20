@@ -29,6 +29,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -348,22 +349,32 @@ public final class UsSecFinanceWorker extends Worker {
         if (!ScanWorker.alertsEnabled(context)) return true;
         var sent = sentBudgetSymbols(state, day);
         var progress = state.edit().putString(BUDGET_CURSOR_DAY, date).putString(BUDGET_CURSOR, check.cursor());
-        var pending = entries.stream().filter(entry -> !sent.contains(entry.code())).toList();
+        var pending = pendingBudgetEntries(entries, sent);
         if (pending.isEmpty()) return progress.commit();
         var detail = new StringBuilder(day + "の終値と同日の為替で100株の購入額を計算（手数料別）");
-        var officialCodes = new HashSet<>(official.entered().stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
-        if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialCodes.contains(entry.code())))
+        var officialEntries = new HashSet<>(official.entered());
+        if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialEntries.contains(entry)))
             detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
         for (var entry : pending.subList(0, Math.min(12, pending.size()))) {
             detail.append("\n").append(entry.code()).append(" · ")
                     .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
-            if (officialCodes.contains(entry.code())) detail.append("（Nasdaq公式終値）");
+            if (officialEntries.contains(entry)) detail.append("（Nasdaq公式終値）");
         }
         if (pending.size() > 12) detail.append("\nほか ").append(pending.size() - 12).append("銘柄");
         if (!ScanWorker.postNotification(context, BUDGET_NOTIFICATION_ID,
                 "米国株・参考 100株10万円以下に入った " + pending.size() + "銘柄", detail.toString())) return false;
         for (var entry : pending) sent.add(entry.code());
         return progress.putString(BUDGET_SENT_DAY, date).putStringSet(BUDGET_SENT_SYMBOLS, sent).commit();
+    }
+
+    static List<PriceOnlyScreen.BudgetEntry> pendingBudgetEntries(
+            List<PriceOnlyScreen.BudgetEntry> entries, Set<String> sent) {
+        var accounted = new HashSet<>(sent);
+        var pending = new ArrayList<PriceOnlyScreen.BudgetEntry>();
+        for (var entry : entries) {
+            if (accounted.add(entry.code())) pending.add(entry);
+        }
+        return List.copyOf(pending);
     }
 
     private UsMarketCoverage.Directory listings(String filename, boolean nasdaq)

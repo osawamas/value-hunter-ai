@@ -68,6 +68,16 @@ public class UsNasdaqRecoveryTest {
         assertEquals(31, calls.size());
     }
 
+    @Test public void restoredDeliveryHistoryAlsoDeduplicatesAChangeOfPriceSource() {
+        var fromPrimary = new PriceOnlyScreen.BudgetEntry("ABC", new BigDecimal("99000"));
+        var fromOfficial = new PriceOnlyScreen.BudgetEntry("ABC", new BigDecimal("98000"));
+        var next = new PriceOnlyScreen.BudgetEntry("XYZ", new BigDecimal("97000"));
+        assertEquals(java.util.List.of(fromPrimary, next), UsSecFinanceWorker.pendingBudgetEntries(
+                java.util.List.of(fromPrimary, fromOfficial, next), Set.of()));
+        assertEquals(java.util.List.of(next), UsSecFinanceWorker.pendingBudgetEntries(
+                java.util.List.of(fromOfficial, next), Set.of("ABC")));
+    }
+
     private static JSONObject response(String symbol) {
         var table = new JSONArray();
         var chart = new JSONArray();
