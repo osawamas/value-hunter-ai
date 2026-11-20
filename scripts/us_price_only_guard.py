@@ -93,9 +93,21 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
     """
     if not previous or not current:
         return False, "two_closes_required"
+    expected_symbol = verification.pop("expected_symbol", None)
+    expected_exchange = verification.pop("expected_exchange", None)
+    if (expected_symbol is None) != (expected_exchange is None):
+        return False, "missing_expected_identity"
+    if expected_symbol is not None:
+        if (not isinstance(expected_symbol, str) or not expected_symbol.strip()
+                or expected_symbol != expected_symbol.strip()
+                or expected_exchange not in ("NYSE", "Nasdaq")):
+            return False, "invalid_expected_identity"
     for item in (previous, current):
         if not isinstance(item, Mapping):
             return False, "invalid_observation"
+        if expected_symbol is not None and (item.get("symbol") != expected_symbol
+                                            or item.get("exchange") != expected_exchange):
+            return False, "fallback_identity_mismatch"
         if item.get("price_basis") != "raw_unadjusted_regular_session":
             return False, "raw_close_basis_unverified"
         if item.get("fx_date") != item.get("date"):
