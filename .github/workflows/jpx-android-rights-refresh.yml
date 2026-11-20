@@ -75,8 +75,8 @@ jobs:
         run: python tools/jpx_rapid_feed.py app/src/main/assets/jpx-rapid-rights.json
       - name: Commit the verified rights snapshot if it changed
         run: |
-          if [[ "${{ steps.rights_snapshot.outcome }}" == failure && "${{ steps.rapid_snapshot.outcome }}" == failure ]]; then
-            echo 'Neither JPX snapshot could be refreshed.'
+          if [[ "${{ steps.rights_snapshot.outcome }}" != success || "${{ steps.rapid_snapshot.outcome }}" != success ]]; then
+            echo "JPX publication held: rights=${{ steps.rights_snapshot.outcome }}, rapid=${{ steps.rapid_snapshot.outcome }}; both official-source checks must succeed."
             exit 1
           fi
           snapshot=android-private/app/src/main/assets/jpx-share-rights.json
