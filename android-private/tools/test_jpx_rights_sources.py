@@ -61,6 +61,7 @@ class SourceProvenanceTests(TestCase):
              patch.object(sources, "workbook_notes", return_value=[]):
             with self.assertRaisesRegex(ValueError, "Conflicting JPX daily workbook editions"):
                 sources.daily_sources(urls, Path(temp))
+            self.assertEqual(list(Path(temp).iterdir()), [], "Conflicting editions must not leave partial cache files")
 
 
 class LatestDailyReportTests(TestCase):
