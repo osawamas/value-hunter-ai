@@ -26,8 +26,11 @@ final class JpxAutomaticFinance {
     private static final int BATCH_SIZE = 24;
     private static final int INITIAL_BATCH_SIZE = 96;
     private static final int EXTENDED_INITIAL_BATCH_SIZE = 144;
+    private static final int MAX_INITIAL_BATCH_SIZE = 192;
     private static final long BATCH_NANOS = TimeUnit.SECONDS.toNanos(75);
     private static final long EXTENDED_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(120);
+    private static final long FINAL_EXTENSION_GATE_NANOS = TimeUnit.SECONDS.toNanos(110);
+    private static final long MAX_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(165);
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
@@ -206,16 +209,25 @@ final class JpxAutomaticFinance {
         int initial = (int) pending.stream().filter(code -> !entries.containsKey(code)).count();
         int limit = Math.min(INITIAL_BATCH_SIZE, Math.max(BATCH_SIZE, initial));
         boolean canExtendInitial = initial > INITIAL_BATCH_SIZE;
+        long budget = BATCH_NANOS;
         long started = nanoTime.getAsLong();
         for (String code : pending) {
             if (stopped.getAsBoolean()) break;
             long elapsed = nanoTime.getAsLong() - started;
-            if (attempted < limit) {
-                if (elapsed >= BATCH_NANOS) break;
-            } else {
-                // Only extend a healthy first pass that reached the normal limit within its time budget.
-                if (!canExtendInitial || attempted >= EXTENDED_INITIAL_BATCH_SIZE || entries.containsKey(code)
-                        || (attempted == limit && elapsed >= BATCH_NANOS) || elapsed >= EXTENDED_INITIAL_NANOS) break;
+            if (elapsed >= budget) break;
+            if (attempted >= INITIAL_BATCH_SIZE && (!canExtendInitial || entries.containsKey(code))) break;
+            if (attempted == limit) {
+                // Keep 144 as the last limit if the first extension was slow.
+                if (limit == INITIAL_BATCH_SIZE && canExtendInitial) {
+                    limit = EXTENDED_INITIAL_BATCH_SIZE;
+                    budget = EXTENDED_INITIAL_NANOS;
+                } else if (limit == EXTENDED_INITIAL_BATCH_SIZE && initial > limit
+                        && elapsed < FINAL_EXTENSION_GATE_NANOS) {
+                    limit = MAX_INITIAL_BATCH_SIZE;
+                    budget = MAX_INITIAL_NANOS;
+                } else {
+                    break;
+                }
             }
             attempted++;
             try {
