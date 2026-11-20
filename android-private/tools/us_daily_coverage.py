@@ -119,7 +119,10 @@ def compare_missing_symbols(previous, current, market, previous_count, current_c
     old_list = previous_lists.get(market) if isinstance(previous_lists, dict) else None
     if (not isinstance(old_list, list) or len(old_list) != previous_count
             or any(not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) for symbol in old_list)
-            or len(set(old_list)) != len(old_list) or len(current_list) != current_count):
+            or len(set(old_list)) != len(old_list) or not isinstance(current_list, list)
+            or len(current_list) != current_count
+            or any(not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) for symbol in current_list)
+            or len(set(current_list)) != len(current_list)):
         return {}
     old, new = set(old_list), set(current_list)
     return {"recovered_symbols": sorted(old - new), "newly_missing_symbols": sorted(new - old)}
