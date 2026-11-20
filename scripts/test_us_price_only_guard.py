@@ -43,6 +43,16 @@ class PriceOnlyGuardTests(unittest.TestCase):
     def test_missing_second_day(self):
         self.assertFalse(check(self.old, None, **self.flags)[0])
 
+    def test_boolean_closes_and_fx_fail_closed_on_both_sessions(self):
+        for field in ("close_usd", "usd_jpy"):
+            for value in (True, False):
+                for side in ("previous", "current"):
+                    with self.subTest(field=field, value=value, side=side):
+                        old = {**self.old, field: value} if side == "previous" else self.old
+                        new = {**self.new, field: value} if side == "current" else self.new
+                        self.assertEqual(check(old, new, **self.flags),
+                                         (False, "invalid_close_or_fx"))
+
     def test_bad_prices(self):
         self.assertFalse(check(self.old, {**self.new, "close_usd": "NaN"}, **self.flags)[0])
 
