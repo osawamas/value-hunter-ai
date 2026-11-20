@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
 final class JpxAutomaticFinance {
     private static final int BATCH_SIZE = 24;
     private static final int INITIAL_BATCH_SIZE = 96;
+    private static final int EXTENDED_INITIAL_BATCH_SIZE = 144;
+    private static final long BATCH_NANOS = TimeUnit.SECONDS.toNanos(75);
+    private static final long EXTENDED_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(120);
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
@@ -202,10 +205,18 @@ final class JpxAutomaticFinance {
         boolean limited = false;
         int initial = (int) pending.stream().filter(code -> !entries.containsKey(code)).count();
         int limit = Math.min(INITIAL_BATCH_SIZE, Math.max(BATCH_SIZE, initial));
+        boolean canExtendInitial = initial > INITIAL_BATCH_SIZE;
         long started = nanoTime.getAsLong();
         for (String code : pending) {
-            if (attempted >= limit || stopped.getAsBoolean()
-                    || nanoTime.getAsLong() - started >= TimeUnit.SECONDS.toNanos(75)) break;
+            if (stopped.getAsBoolean()) break;
+            long elapsed = nanoTime.getAsLong() - started;
+            if (attempted < limit) {
+                if (elapsed >= BATCH_NANOS) break;
+            } else {
+                // Only extend a healthy first pass that reached the normal limit within its time budget.
+                if (!canExtendInitial || attempted >= EXTENDED_INITIAL_BATCH_SIZE || entries.containsKey(code)
+                        || (attempted == limit && elapsed >= BATCH_NANOS) || elapsed >= EXTENDED_INITIAL_NANOS) break;
+            }
             attempted++;
             try {
                 var entry = acquire(code, through, entries.get(code), sources);
@@ -215,6 +226,7 @@ final class JpxAutomaticFinance {
                 checked++;
                 consecutiveFailures = 0;
             } catch (IOException unavailable) {
+                canExtendInitial = false;
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
                         && (http.status == 429 || http.status == 503)) {
                     state.edit().putLong(ARCHIVE_RETRY, archiveRetryAt(clock.getAsLong(), http.retryAfter)).commit();
@@ -226,6 +238,7 @@ final class JpxAutomaticFinance {
                         clock.getAsLong() + TimeUnit.HOURS.toMillis(1)).apply();
                 if (++consecutiveFailures >= 3) break;
             } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+                canExtendInitial = false;
                 var entry = new Entry(through, null, "東証の決算開示を確認できなかった");
                 state.edit().putString(PREFIX + code, encode(entry).toString()).apply();
                 entries.put(code, entry);

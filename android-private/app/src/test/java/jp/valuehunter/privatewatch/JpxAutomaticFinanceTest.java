@@ -296,11 +296,55 @@ public class JpxAutomaticFinanceTest {
             assertEquals(expected, JpxWatchWorker.nextFinanceStart(clock.get(), false, false, batch));
             passes++;
         }
-        assertEquals(40, passes);
+        assertEquals(27, passes);
         assertEquals(quotes.keySet(), scanned);
         assertEquals(quotes.size() + 1, calls.get());
         assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,
                 () -> false, clock::get).fetched());
+    }
+
+    @Test public void extendsHealthyInitialBatchesButKeepsTimeAndFailureGuards() {
+        var quotes = new HashMap<String, JpxCloseTable.Sessions>();
+        for (int code = 1400; code < 1600; code++)
+            quotes.put(Integer.toString(code), new JpxCloseTable.Sessions(null, new BigDecimal("890")));
+        var report = new JpxDailyCheck.Report(DAY, "", Map.copyOf(quotes), Set.of());
+        record Replay(String name, long baseMillis, long extraMillis,
+                      int failingRequest, IOException failure, int expectedCalls) {}
+        var replays = List.of(
+                new Replay("extended time cap", 700, 1700, -1, null, 128),
+                new Replay("original time cap", 800, 800, -1, null, 94),
+                new Replay("original deadline crossed after request 96", 785, 785, -1, null, 96),
+                new Replay("early timeout", 0, 0, 1, new IOException("Issuer timed out"), 96),
+                new Replay("503 during extension", 0, 0, 105, new JpxIssuerArchive.HttpFailure(503, "7200"), 105));
+        for (var replay : replays) {
+            var elapsed = new java.util.concurrent.atomic.AtomicLong();
+            var calls = new java.util.concurrent.atomic.AtomicInteger();
+            var cache = new HashMap<String, Object>();
+            var source = new JpxAutomaticFinance.Sources() {
+                @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                    int call = calls.incrementAndGet();
+                    long millis = call <= 96 ? replay.baseMillis() : replay.extraMillis();
+                    elapsed.addAndGet(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(millis));
+                    if (call == replay.failingRequest()) throw replay.failure();
+                    return new JpxIssuerArchive.Page(List.of());
+                }
+                @Override public String financial(JpxIssuerArchive.Disclosure disclosure) {
+                    throw new AssertionError();
+                }
+            };
+            var result = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, source, () -> false, () -> 1,
+                    elapsed::get, uri -> { throw new AssertionError(uri); }, null);
+            assertEquals(replay.name(), replay.expectedCalls(), calls.get());
+            assertEquals(replay.name(), replay.expectedCalls() - (replay.failure() == null ? 0 : 1), result.fetched());
+            boolean limited = replay.failure() instanceof JpxIssuerArchive.HttpFailure;
+            assertEquals(replay.name(), !limited, result.continueInitial());
+            if (limited) {
+                var cooled = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, source, () -> false,
+                        () -> 7_200_000, elapsed::get, uri -> { throw new AssertionError(uri); }, null);
+                assertEquals(0, cooled.fetched());
+                assertEquals(replay.expectedCalls(), calls.get());
+            }
+        }
     }
 
     @Test public void slowSourcesStopNewRequestsAtTheTimeBudgetAndResumeTheRest() {

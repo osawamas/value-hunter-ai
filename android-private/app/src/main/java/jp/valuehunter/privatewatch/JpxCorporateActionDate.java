@@ -92,7 +92,9 @@ final class JpxCorporateActionDate {
             connection.setReadTimeout(10_000);
             try {
                 int status = connection.getResponseCode();
-                if (status == 429 || status >= 500) throw new JpxIssuerArchive.HttpFailure(status);
+                if (status == 429 || status >= 500) {
+                    throw new JpxIssuerArchive.HttpFailure(status, connection.getHeaderField("Retry-After"));
+                }
                 if (status != 200 || connection.getContentLength() > MAX_PDF_BYTES) return "";
                 try (var input = connection.getInputStream(); var output = new FileOutputStream(file)) {
                     var buffer = new byte[8192];
