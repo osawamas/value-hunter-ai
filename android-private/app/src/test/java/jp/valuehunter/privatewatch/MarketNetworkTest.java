@@ -39,6 +39,13 @@ public class MarketNetworkTest {
         });
     }
 
+    @Test public void appStartupRequiresAReviewedNoticeAndAnExplicitOnSetting() {
+        assertFalse(MarketNetwork.atStartup(0, false));
+        assertFalse(MarketNetwork.atStartup(0, true));
+        assertFalse(MarketNetwork.atStartup(1, false));
+        assertTrue(MarketNetwork.atStartup(1, true));
+    }
+
     @Test public void disablePreventsNewRequestsAndInvalidatesOldConnectionsAfterResume() throws Exception {
         var gate = new MarketNetwork.Gate();
         var opened = new AtomicInteger();
