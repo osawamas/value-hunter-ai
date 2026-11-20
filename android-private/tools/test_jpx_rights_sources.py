@@ -21,6 +21,22 @@ class SourceProvenanceTests(TestCase):
             with self.assertRaisesRegex(ValueError, "Both official JPX rights editions"):
                 sources.verified_rapid_exclusions(date(2026, 11, 18), date(2026, 11, 19), Path(temp))
 
+    def test_rapid_exclusions_reject_conflicting_official_ex_dates(self):
+        first, last = date(2026, 11, 18), date(2026, 11, 19)
+        links = [
+            "https://www.jpx.co.jp/listing/others/ex-rights/20261118.xls",
+            "https://www.jpx.co.jp/listing/others/ex-rights/20261119.xls",
+        ]
+        verified = {day.isoformat(): {"sha256": hashlib.sha256(b"valid").hexdigest(),
+                                      "official_url": link}
+                    for day, link in zip((first, last), links)}
+        with TemporaryDirectory() as temp, \
+             patch.object(sources, "page_links", return_value=links), \
+             patch.object(sources, "daily_sources", return_value=(
+                 verified, {}, {"event_keys_with_conflicting_ex_dates": 1})):
+            with self.assertRaisesRegex(ValueError, "Conflicting JPX ex-rights dates"):
+                sources.verified_rapid_exclusions(first, last, Path(temp))
+
     def test_current_and_archived_monthly_links_stay_on_the_official_origin(self):
         index = """
         <option value="/markets/statistics-equities/monthly/index.html">2026年</option>
