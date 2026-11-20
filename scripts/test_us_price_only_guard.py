@@ -177,5 +177,20 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertEqual(check(old, new, **self.flags),
                          (False, "no_budget_crossing"))
 
+    def test_exact_100k_boundary_and_reverse_crossing(self):
+        """Do not round costs before testing the strict old > 100000 >= new rule."""
+        old = {**self.old, "close_usd": "6.666666666666666667", "usd_jpy": "150"}
+        exact = {**self.new, "close_usd": "6.666666666666666666666666666667", "usd_jpy": "150"}
+        below = {**self.new, "close_usd": "6.666666666666666666", "usd_jpy": "150"}
+        self.assertEqual(check(old, below, **self.flags),
+                         (True, "entered_100_share_budget"))
+        self.assertEqual(check(old, exact, **self.flags),
+                         (True, "entered_100_share_budget"))
+        self.assertEqual(check({**old, "close_usd": "6.666666666666666666"}, exact,
+                               **self.flags), (False, "no_budget_crossing"))
+        self.assertEqual(check(exact | {"date": self.old["date"]},
+                               old | {"date": self.new["date"]}, **self.flags),
+                         (False, "no_budget_crossing"))
+
 if __name__ == "__main__":
     unittest.main()
