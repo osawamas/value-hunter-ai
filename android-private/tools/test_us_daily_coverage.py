@@ -86,7 +86,7 @@ class DailyCoverageTest(unittest.TestCase):
     def test_reports_symbol_changes_even_with_unchanged_market_totals(self):
         report = {"trading_date": "2026-11-16", "sample_price_basis": "Dolt",
                   "directory_observed_at": {"otherlisted.txt": "2026-11-16T11:00:00"},
-                  "directory_sha256": {"otherlisted.txt": "same"},
+                  "directory_sha256": {"otherlisted.txt": "a" * 64, "nasdaqlisted.txt": "b" * 64},
                   "common_or_ordinary_label_by_exchange": {
                       "NYSE": {"listed": 2, "with_close": 1, "without_close": 1},
                   },
@@ -112,11 +112,11 @@ class DailyCoverageTest(unittest.TestCase):
             path = Path(directory) / "coverage.json"
             path.write_text(json.dumps(dict(observed, directory_observed_at={})))
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
-            path.write_text(json.dumps(dict(observed, directory_sha256={"otherlisted.txt": "different"})))
+            path.write_text(json.dumps(dict(observed, directory_sha256={"otherlisted.txt": "c" * 64, "nasdaqlisted.txt": "b" * 64})))
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
             # A legacy report without hashes must not claim a recovered ticker
             # against a newly hashed listing directory, even at the same timestamp.
-            hashed = dict(observed, directory_sha256={"otherlisted.txt": "current"})
+            hashed = dict(observed, directory_sha256={"otherlisted.txt": "a" * 64, "nasdaqlisted.txt": "b" * 64})
             path.write_text(json.dumps(observed))
             self.assertEqual("different_report_basis", compare_previous_report(path, hashed)["status"])
             path.write_text(json.dumps(hashed))
@@ -131,6 +131,14 @@ class DailyCoverageTest(unittest.TestCase):
             path.write_text(json.dumps(empty_hash))
             self.assertEqual("different_report_basis",
                              compare_previous_report(path, empty_hash)["status"])
+            # Incomplete or placeholder digests cannot prove a matching universe.
+            for bad_hashes in ({"otherlisted.txt": "a" * 64},
+                               {"otherlisted.txt": "not-a-digest", "nasdaqlisted.txt": "b" * 64},
+                               {"otherlisted.txt": "A" * 64, "nasdaqlisted.txt": "b" * 64}):
+                broken = dict(legacy_with_counts, directory_sha256=bad_hashes)
+                path.write_text(json.dumps(broken))
+                self.assertEqual("different_report_basis",
+                                 compare_previous_report(path, broken)["status"])
             path.write_text("{")
             self.assertEqual("previous_report_unreadable", compare_previous_report(path, observed)["status"])
 
