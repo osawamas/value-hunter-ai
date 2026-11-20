@@ -154,6 +154,9 @@ def daily_sources(urls, output):
         }
         notes_by_release[published_on.isoformat()] = workbook_notes(body)
         pending_files[filename] = body
+    conflicting = {key: days for key, days in dates_by_event.items() if len(days) > 1}
+    if conflicting:
+        raise ValueError("Conflicting JPX ex-rights dates for the same code, kind and record date")
     # Publish only after every edition has passed provenance and conflict checks.
     # A later conflicting edition must not leave a partially refreshed cache.
     for filename, body in pending_files.items():
