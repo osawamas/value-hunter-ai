@@ -7,6 +7,11 @@
   "covered": 4997,
   "listed": 5082,
   "listing_follow_up": {
+    "ANT": {
+      "first_session": "2026-11-19",
+      "source": "https://www.nasdaqtrader.com/TraderNews.aspx?id=DTN2026-28",
+      "venue": "Nasdaq"
+    },
     "GUER": {
       "first_session": "2026-11-18",
       "source": "https://www.sec.gov/Archives/edgar/data/1832487/000143774926037477/ex_1047287.htm",

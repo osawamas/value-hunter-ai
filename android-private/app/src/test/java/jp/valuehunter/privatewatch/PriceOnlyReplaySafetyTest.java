@@ -17,17 +17,30 @@ public class PriceOnlyReplaySafetyTest {
         var active = new java.util.concurrent.atomic.AtomicReference<String>();
         var posts = new java.util.concurrent.atomic.AtomicInteger();
         var receipt = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
-        ScanWorker.submitNotification(receipt, active::get, () -> {
+        ScanWorker.submitNotification(receipt, () -> false, active::get, () -> {
             posts.incrementAndGet();
             active.set(receipt);
         });
         // Recreate the receipt exactly as a restarting Worker would, with the Android notification still active.
         ScanWorker.submitNotification(ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC"),
-                active::get, () -> { throw new AssertionError("Duplicate post"); });
+                () -> false, active::get, () -> { throw new AssertionError("Duplicate post"); });
         assertEquals(1, posts.get());
         var newDay = ScanWorker.notificationReceipt("予算入り", "2026-11-18 ABC");
-        ScanWorker.submitNotification(newDay, active::get, posts::incrementAndGet);
+        ScanWorker.submitNotification(newDay, () -> false, active::get, posts::incrementAndGet);
         assertEquals(2, posts.get());
+    }
+
+    @Test public void recordedDismissalSurvivesRestartButAbsentEvidenceAllowsRetry() {
+        long dismissed = 1000L;
+        var receipt = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
+        ScanWorker.submitNotification(receipt, () -> NotificationDismissal.isRecent(dismissed, dismissed + 1),
+                () -> null, () -> { throw new AssertionError("Displayed alert was already dismissed"); });
+        var posts = new java.util.concurrent.atomic.AtomicInteger();
+        ScanWorker.submitNotification(receipt, () -> NotificationDismissal.isRecent(0, dismissed + 1),
+                () -> null, posts::incrementAndGet);
+        assertEquals(1, posts.get());
+        assertFalse(NotificationDismissal.isRecent(dismissed, dismissed + java.util.concurrent.TimeUnit.DAYS.toMillis(7)));
+        assertFalse(NotificationDismissal.isRecent(dismissed, dismissed - 1));
     }
 
     @Test public void rapidAndBudgetReasonsAreIndependentOnSameTradingDay() {

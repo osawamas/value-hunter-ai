@@ -107,6 +107,58 @@ class BatchScreenTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Conflicting"):
                 load_financial_batches(sorted(folder.rglob("*.json")))
 
+    def test_repeated_financial_batch_path_is_read_once(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(json.dumps([{
+                "code": "1301", "period_end": "2026-03-31",
+                "disclosed_on": "2026-05-15",
+                "source": "https://example.org/filing",
+                "basis": "annual_reported_unadjusted",
+                "eps_jpy": "50", "bps_jpy": "500"
+            }]), encoding="utf-8")
+            from jpx_batch_financial_screen import load_financials
+            with patch("jpx_batch_financial_screen.load_financials", wraps=load_financials) as reader:
+                result = load_financial_batches([path, path, path.parent / "." / path.name])
+                self.assertEqual(len(result), 1)
+                self.assertEqual(reader.call_count, 1)
+
+    def test_symlink_alias_and_repeated_queue_paths_read_once(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            alias = Path(directory) / "alias.json"
+            path.write_text(json.dumps([{
+                "code": "1301", "period_end": "2026-03-31",
+                "disclosed_on": "2026-05-15",
+                "source": "https://example.org/filing",
+                "basis": "annual_reported_unadjusted",
+                "eps_jpy": "50", "bps_jpy": "500"
+            }]), encoding="utf-8")
+            alias.symlink_to(path)
+            from jpx_batch_financial_screen import load_financials
+            with patch("jpx_batch_financial_screen.load_financials", wraps=load_financials) as reader:
+                records = load_financial_batches([path] * 3656 + [alias])
+                self.assertEqual(len(records), 1)
+                self.assertEqual(reader.call_count, 1)
+
+    def test_large_repeated_input_queue_does_not_repeat_disk_reads(self):
+        # Synthetic 3,656-entry queue: validates I/O deduplication, not 3,656
+        # distinct issuers or a real network-acquisition speedup.
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(json.dumps([{
+                "code": "1301", "period_end": "2026-03-31",
+                "disclosed_on": "2026-05-15",
+                "source": "https://example.org/filing",
+                "basis": "annual_reported_unadjusted",
+                "eps_jpy": "50", "bps_jpy": "500"
+            }]), encoding="utf-8")
+            from jpx_batch_financial_screen import load_financials
+            with patch("jpx_batch_financial_screen.load_financials", wraps=load_financials) as reader:
+                result = load_financial_batches([path, path.parent / "." / path.name] * 1828)
+                self.assertEqual(len(result), 1)
+                self.assertEqual(reader.call_count, 1)
+
     def test_verified_financials_without_disclosure_date_rejected(self):
         with self.assertRaisesRegex(ValueError, "disclosure date"):
             screen({"trade_date": "2026-11-16", "observations": [

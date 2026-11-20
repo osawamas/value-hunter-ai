@@ -68,7 +68,9 @@ public final class JpxFinancialBatch {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 5) throw new IllegalArgumentException("Expected date, closes TSV, rights JSON, starting code and limit");
+        boolean serial = args.length == 6 && args[5].equals("--serial");
+        if (args.length != 5 && !serial)
+            throw new IllegalArgumentException("Expected date, closes TSV, rights JSON, starting code, limit and optional --serial");
         var day = LocalDate.parse(args[0]);
         var rights = JpxShareRights.parse(Files.readString(Path.of(args[2]))).rights();
         var closes = new TreeMap<String, BigDecimal>();
@@ -86,14 +88,20 @@ public final class JpxFinancialBatch {
             throw new IllegalArgumentException("Invalid batch parameters");
         var eligible = closes.tailMap(args[3], true).entrySet().stream()
                 .limit(limit).toList();
-        var executor = Executors.newFixedThreadPool(4);
+        var executor = Executors.newFixedThreadPool(serial ? 1 : 4);
         var sessions = ThreadLocal.withInitial(JpxIssuerArchive.Session::new);
         var limited = new AtomicBoolean();
         var records = new JSONArray();
+        long started = System.nanoTime();
         try {
             var jobs = eligible.stream().map(row -> executor.submit(() ->
                     inspect(row.getKey(), row.getValue(), day, rights, limited, sessions.get()))).toList();
-            for (var job : jobs) records.put(job.get());
+            for (var job : jobs) {
+                records.put(job.get());
+                if (serial && !limited.get() && (records.length() % 12 == 0 || records.length() == jobs.size()))
+                    System.err.printf(java.util.Locale.ROOT, "%d rows in %.3f seconds%n", records.length(),
+                            (System.nanoTime() - started) / 1_000_000_000.0);
+            }
         } finally {
             executor.shutdownNow();
         }

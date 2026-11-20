@@ -23,7 +23,7 @@ import java.util.function.LongSupplier;
 /** Incrementally acquires public annual summaries for affordable JPX ordinary shares. */
 final class JpxAutomaticFinance {
     private static final int BATCH_SIZE = 24;
-    private static final int INITIAL_BATCH_SIZE = 48;
+    private static final int INITIAL_BATCH_SIZE = 72;
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");

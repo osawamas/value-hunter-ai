@@ -119,7 +119,10 @@ def compare_missing_symbols(previous, current, market, previous_count, current_c
     old_list = previous_lists.get(market) if isinstance(previous_lists, dict) else None
     if (not isinstance(old_list, list) or len(old_list) != previous_count
             or any(not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) for symbol in old_list)
-            or len(set(old_list)) != len(old_list) or len(current_list) != current_count):
+            or len(set(old_list)) != len(old_list) or not isinstance(current_list, list)
+            or len(current_list) != current_count
+            or any(not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) for symbol in current_list)
+            or len(set(current_list)) != len(current_list)):
         return {}
     old, new = set(old_list), set(current_list)
     return {"recovered_symbols": sorted(old - new), "newly_missing_symbols": sorted(new - old)}
@@ -135,7 +138,11 @@ def compare_previous_report(path, current):
         current[key] != previous.get(key) for key in ("trading_date", "directory_observed_at", "sample_price_basis")
     ):
         return {"status": "different_report_basis"}
-    if "directory_sha256" in previous and previous["directory_sha256"] != current.get("directory_sha256"):
+    # Never compare legacy reports without content hashes to a hashed snapshot:
+    # matching observation timestamps do not prove that the listing set is unchanged.
+    if (not isinstance(previous.get("directory_sha256"), dict)
+            or not previous["directory_sha256"]
+            or previous["directory_sha256"] != current.get("directory_sha256")):
         return {"status": "different_report_basis"}
     previous_markets = previous.get(MARKET_COUNTS)
     if not isinstance(previous_markets, dict):
