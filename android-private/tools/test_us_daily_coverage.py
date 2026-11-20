@@ -6,10 +6,22 @@ import unittest
 from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
-from us_daily_coverage import archive_dia_holdings, compare_previous_report, compare_session, dia_for_session, run_cycle
+from us_daily_coverage import archive_dia_holdings, compare_missing_symbols, compare_previous_report, compare_session, dia_for_session, run_cycle
 
 
 class DailyCoverageTest(unittest.TestCase):
+    def test_current_missing_symbols_must_be_unique_and_canonical(self):
+        previous = {"missing_close_symbols_by_exchange": {"NYSE": ["AAA", "BBB"]}}
+        current = {"missing_close_symbols_by_exchange": {"NYSE": ["AAA", "AAA"]}}
+        self.assertEqual({}, compare_missing_symbols(previous, current, "NYSE", 2, 2))
+        current["missing_close_symbols_by_exchange"]["NYSE"] = ["AAA", "bad symbol"]
+        self.assertEqual({}, compare_missing_symbols(previous, current, "NYSE", 2, 2))
+        current["missing_close_symbols_by_exchange"]["NYSE"] = ["AAA", "CCC"]
+        self.assertEqual(
+            {"recovered_symbols": ["BBB"], "newly_missing_symbols": ["CCC"]},
+            compare_missing_symbols(previous, current, "NYSE", 2, 2),
+        )
+
     @patch("us_daily_coverage.sync")
     @patch("us_daily_coverage.dolt_rows")
     def test_rechecks_saved_reports_and_retains_them_when_dolt_has_no_data(self, prices, sync):
@@ -102,6 +114,23 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
             path.write_text(json.dumps(dict(observed, directory_sha256={"otherlisted.txt": "different"})))
             self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
+            # A legacy report without hashes must not claim a recovered ticker
+            # against a newly hashed listing directory, even at the same timestamp.
+            hashed = dict(observed, directory_sha256={"otherlisted.txt": "current"})
+            path.write_text(json.dumps(observed))
+            self.assertEqual("different_report_basis", compare_previous_report(path, hashed)["status"])
+            path.write_text(json.dumps(hashed))
+            self.assertEqual("different_report_basis", compare_previous_report(path, observed)["status"])
+            # Two legacy reports without hashes are also not a verified pair.
+            legacy_with_counts = dict(observed, common_or_ordinary_label_by_exchange={
+                "NYSE": {"listed": 1, "with_close": 1, "without_close": 0}})
+            path.write_text(json.dumps(legacy_with_counts))
+            self.assertEqual("different_report_basis",
+                             compare_previous_report(path, legacy_with_counts)["status"])
+            empty_hash = dict(legacy_with_counts, directory_sha256={})
+            path.write_text(json.dumps(empty_hash))
+            self.assertEqual("different_report_basis",
+                             compare_previous_report(path, empty_hash)["status"])
             path.write_text("{")
             self.assertEqual("previous_report_unreadable", compare_previous_report(path, observed)["status"])
 
