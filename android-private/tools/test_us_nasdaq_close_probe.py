@@ -1,8 +1,9 @@
 from datetime import date
 from decimal import Decimal
+from urllib.error import HTTPError
 import unittest
 
-from us_nasdaq_close_probe import parse
+from us_nasdaq_close_probe import parse, probe_symbols
 
 
 class NasdaqHistoricalCloseTest(unittest.TestCase):
@@ -12,6 +13,30 @@ class NasdaqHistoricalCloseTest(unittest.TestCase):
                      {"date": "11/16/2026", "close": "$12.5000"}]
         self.data = {"symbol": "TEST", "totalRecords": 2, "tradesTable": {"rows": self.rows}}
         self.payload = {"status": {"rCode": 200}, "data": self.data}
+
+
+    def test_429_marks_remaining_symbols_unattempted(self):
+        calls = []
+        def fake_fetch(symbol, days):
+            calls.append(symbol)
+            if symbol == "BBB":
+                raise HTTPError("https://example.invalid", 429, "rate limit", {}, None)
+            return {date(2026, 11, 16): Decimal("2"),
+                    date(2026, 11, 17): Decimal("3")}
+        report = probe_symbols(["AAA", "BBB", "CCC"], self.days, self.days, fake_fetch)
+        self.assertEqual(calls, ["AAA", "BBB"])
+        self.assertEqual((report["requested"], report["attempted"],
+                          report["not_attempted"], report["two_session_closes"]),
+                         (3, 2, 1, 1))
+        self.assertEqual(report["symbols"]["CCC"]["status"], "not_attempted_rate_limited")
+        self.assertFalse(report["unadjusted_basis_verified"])
+
+    def test_missing_day_is_checked_but_not_verified(self):
+        report = probe_symbols(["AAA"], self.days, self.days,
+                               lambda symbol, days: {date(2026, 11, 17): Decimal("3")})
+        self.assertEqual((report["attempted"], report["two_session_closes"]), (1, 0))
+        self.assertEqual(report["symbols"]["AAA"]["dates_found"], 1)
+        self.assertFalse(report["unadjusted_basis_verified"])
 
     def test_reads_only_the_requested_symbol_and_dates(self):
         closes = parse(self.payload, "TEST", self.days)
