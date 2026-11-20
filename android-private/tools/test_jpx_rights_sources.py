@@ -50,6 +50,17 @@ class SourceProvenanceTests(TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[day.isoformat()]["sha256"], hashlib.sha256(b"same").hexdigest())
 
+    def test_daily_workbook_wrong_publication_date_is_rejected_without_writing(self):
+        filename = "20261118.xls"
+        url = "https://www.jpx.co.jp/listing/others/ex-rights/a/" + filename
+        with TemporaryDirectory() as temp, patch.object(sources, "download", return_value=b"misdated"), \
+             patch.object(sources, "read_daily_rights", return_value=(date(2026, 11, 17), {}, set())), \
+             patch.object(sources, "workbook_notes") as notes:
+            with self.assertRaisesRegex(ValueError, "publication date disagrees"):
+                sources.daily_sources([url], Path(temp))
+            self.assertEqual(list(Path(temp).iterdir()), [])
+            notes.assert_not_called()
+
     def test_conflicting_daily_editions_fail_closed(self):
         day = date(2026, 11, 16)
         urls = [

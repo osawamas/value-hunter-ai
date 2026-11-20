@@ -132,6 +132,8 @@ def daily_sources(urls, output):
         filename = Path(path).name
         body = download(url)
         published_on, notices, flags = read_daily_rights(body, filename)
+        if published_on.strftime("%Y%m%d") != filename[:-4]:
+            raise ValueError(f"JPX daily workbook publication date disagrees with filename: {filename}")
         counts = Counter(entry.kind for entries in notices.values() for entry in entries)
         for code, entries in notices.items():
             for entry in entries:
