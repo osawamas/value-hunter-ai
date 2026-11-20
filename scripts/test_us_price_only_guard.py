@@ -110,5 +110,29 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
                          "fx_date": "2026-11-18"}, **args)[0])
 
+    def test_noncanonical_session_dates_fail_closed(self):
+        args = dict(expected_previous_date="2026-11-16",
+                    expected_current_date="2026-11-17", **self.flags)
+        for invalid in ("20261116", "2026-W47-1", "2026-11-16T00:00:00",
+                        "２０２６-11-16", "2026-11-6", 20261116):
+            with self.subTest(invalid=invalid):
+                old = {**self.old, "date": invalid}
+                self.assertEqual(check(old, self.new, **self.flags),
+                                 (False, "invalid_trade_dates"))
+                self.assertEqual(session_check(old, self.new, **args),
+                                 (False, "invalid_trade_dates"))
+                self.assertEqual(session_check(self.old, self.new,
+                    **{**args, "expected_previous_date": invalid}),
+                    (False, "invalid_trade_dates"))
+        verified_old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
+                        "fx_date": self.old["date"], "close_source": "source:old",
+                        "fx_source": "fx:old"}
+        verified_new = {**self.new, "price_basis": "raw_unadjusted_regular_session",
+                        "fx_date": self.new["date"], "close_source": "source:new",
+                        "fx_source": "fx:new"}
+        self.assertEqual(verified_check(verified_old, verified_new,
+            **{**args, "expected_current_date": "20261117"}),
+            (False, "invalid_trade_dates"))
+
 if __name__ == "__main__":
     unittest.main()
