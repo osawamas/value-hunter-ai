@@ -15,6 +15,18 @@ import jpx_rights_sources as sources
 
 
 class SourceProvenanceTests(TestCase):
+    def test_rapid_exclusions_reject_non_date_and_reversed_days_before_network(self):
+        with TemporaryDirectory() as temp, patch.object(sources, "page_links") as fetch:
+            for previous, latest in (
+                ("2026-11-18", date(2026, 11, 19)),
+                (date(2026, 11, 19), date(2026, 11, 18)),
+                (date(2026, 11, 18), date(2026, 11, 18)),
+            ):
+                with self.subTest(previous=previous, latest=latest):
+                    with self.assertRaisesRegex(ValueError, "JPX rapid comparison"):
+                        sources.verified_rapid_exclusions(previous, latest, Path(temp))
+            fetch.assert_not_called()
+
     def test_rapid_exclusions_require_both_dated_editions(self):
         with TemporaryDirectory() as temp, patch.object(sources, "page_links", return_value=[]), \
              patch.object(sources, "daily_sources", return_value=({"2026-11-18": {}}, {}, {})):
