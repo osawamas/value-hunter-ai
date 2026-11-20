@@ -19,6 +19,7 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -51,6 +52,8 @@ public final class JpxWatchWorker extends Worker {
     static final String STATUS = "jpx_watch_status";
     private static final int NOTIFICATION_ID = 5;
     private static final int PRICE_NOTIFICATION_ID = 7;
+    private static final int RAPID_NOTIFICATION_ID = 9;
+    private static final BigDecimal RAPID_THRESHOLD = BigDecimal.valueOf(8);
     private static final String PRICE_ALERT_PREFIX = "price-budget:";
     private static final Object STATE_LOCK = new Object();
     private static final Object CHECK_LOCK = new Object();
@@ -119,6 +122,7 @@ public final class JpxWatchWorker extends Worker {
                 var notifications = context.getSystemService(NotificationManager.class);
                 notifications.cancel(NOTIFICATION_ID);
                 notifications.cancel(PRICE_NOTIFICATION_ID);
+                notifications.cancel(RAPID_NOTIFICATION_ID);
             }
         }
     }
@@ -156,10 +160,12 @@ public final class JpxWatchWorker extends Worker {
 
         try {
             var evidence = rights.apply(context);
+            var rapidEvidence = automaticFinance ? JpxRapidEvidence.refresh() : JpxRapidEvidence.unavailable();
+            String revision = automaticFinance ? evidence.revision() + "|" + rapidEvidence.revision() : evidence.revision();
             if (isStopped()) return Result.success();
             String processedKey = ScanWorker.alertsEnabled(context) ? state.getString(PROCESSED, "") : "";
             if (automaticFinance && getInputData().getBoolean(FINANCE_PASS, false)) processedKey = "";
-            var comparison = comparisons.load(context, processedKey, evidence.revision());
+            var comparison = comparisons.load(context, processedKey, revision);
             if (isStopped()) return Result.success();
             var finance = automaticFinance && comparison != null
                     ? JpxAutomaticFinance.refresh(context, comparison, evidence.rights(), this::isStopped)
@@ -194,6 +200,10 @@ public final class JpxWatchWorker extends Worker {
                 var budgetAdded = notifyEnabled && automaticFinance
                         ? pendingBudget(baseline, last, date, priceOnly.entered(), alerted)
                         : List.<PriceOnlyScreen.BudgetEntry>of();
+                var exclusions = rapidEvidence.excluded(comparison.previous().date(), date);
+                var rapid = rapidCandidates(comparison, screen, finance, exclusions);
+                var rapidAdded = notifyEnabled ? pendingRapid(baseline, last, date, rapid, alerted)
+                        : List.<PriceOnlyScreen.RapidMove>of();
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
@@ -211,15 +221,17 @@ public final class JpxWatchWorker extends Worker {
                     summary.append("\n予算入り ").append(String.join("、",
                             priceOnly.entered().stream().map(PriceOnlyScreen.BudgetEntry::code).toList()));
                 }
+                if (automaticFinance) summary.append("\n株価急変（前日比±8%以上） ")
+                        .append(exclusions == null ? "権利落ち資料の確認待ち" : rapid.size() + "銘柄");
                 if (!notifyEnabled) summary.append("\n通知設定を確認");
                 LocalDate savedBaseline = baseline == null || last == null ? date : baseline;
                 var update = recordCheck(state.edit(), "日報を取得して再判定")
                         .putString(BASELINE, savedBaseline.toString())
                         .putString(LATEST, date.toString()).putStringSet(ALERTED, alerted)
                         .putString(STATUS, summary.toString());
-                String processed = notifyEnabled ? comparison.processedKey(evidence.revision()) : "";
+                String processed = notifyEnabled ? comparison.processedKey(revision) : "";
                 // Leave the inputs eligible for another check until the notification is submitted.
-                update.putString(PROCESSED, added.isEmpty() && budgetAdded.isEmpty() ? processed : "");
+                update.putString(PROCESSED, added.isEmpty() && budgetAdded.isEmpty() && rapidAdded.isEmpty() ? processed : "");
                 if (!update.commit()) return Result.retry();
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
@@ -236,7 +248,7 @@ public final class JpxWatchWorker extends Worker {
                     }
                     for (var entry : added) alerted.add(entry.code());
                     if (!state.edit().putStringSet(ALERTED, new HashSet<>(alerted))
-                            .putString(PROCESSED, budgetAdded.isEmpty() ? processed : "").commit()) {
+                            .putString(PROCESSED, budgetAdded.isEmpty() && rapidAdded.isEmpty() ? processed : "").commit()) {
                         return Result.retry();
                     }
                 }
@@ -252,6 +264,23 @@ public final class JpxWatchWorker extends Worker {
                         return retryReport(state, "予算入りの無音通知を送信できなかった");
                     }
                     for (var entry : budgetAdded) alerted.add(PRICE_ALERT_PREFIX + entry.code());
+                    if (!state.edit().putStringSet(ALERTED, new HashSet<>(alerted))
+                            .putString(PROCESSED, rapidAdded.isEmpty() ? processed : "").commit()) {
+                        return Result.retry();
+                    }
+                }
+                if (!rapidAdded.isEmpty()) {
+                    var detail = new StringBuilder(date + "の東証終値 · 分割・併合・配当落ち等を除外");
+                    for (var entry : rapidAdded.subList(0, Math.min(12, rapidAdded.size()))) {
+                        detail.append("\n").append(entry.code()).append(" · ")
+                                .append(entry.percent().stripTrailingZeros().toPlainString()).append("%");
+                    }
+                    if (rapidAdded.size() > 12) detail.append("\nほか ").append(rapidAdded.size() - 12).append("銘柄");
+                    if (!alerts.post(context, RAPID_NOTIFICATION_ID,
+                            "東証・参考 株価急変 " + rapidAdded.size() + "銘柄", detail.toString())) {
+                        return retryReport(state, "急変の無音通知を送信できなかった");
+                    }
+                    for (var entry : rapidAdded) alerted.add(RAPID_ALERT_PREFIX + entry.code());
                     if (!state.edit().putStringSet(ALERTED, alerted).putString(PROCESSED, processed).commit()) {
                         return Result.retry();
                     }
@@ -324,9 +353,14 @@ public final class JpxWatchWorker extends Worker {
         return entered.stream().filter(entry -> !alerted.contains(PRICE_ALERT_PREFIX + entry.code())).toList();
     }
 
-    // Rapid-move alerts remain gated by independently verified split and dividend evidence.
-    // This helper only enforces day/reason deduplication; it does not certify event coverage.
     private static final String RAPID_ALERT_PREFIX = "price-rapid:";
+
+    static List<PriceOnlyScreen.RapidMove> rapidCandidates(JpxDailyCheck.Comparison comparison,
+            JpxDailyCheck.Screening screen, JpxAutomaticFinance.Batch finance, Set<String> exclusions) {
+        if (exclusions == null) return List.of();
+        return comparison.verifiedRapidMoves(screen, finance,
+                code -> !exclusions.contains(code), code -> !exclusions.contains(code), RAPID_THRESHOLD);
+    }
 
     static List<PriceOnlyScreen.RapidMove> pendingRapid(LocalDate baseline, LocalDate last,
             LocalDate date, List<PriceOnlyScreen.RapidMove> entered, Set<String> alerted) {

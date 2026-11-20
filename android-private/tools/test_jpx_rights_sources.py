@@ -15,11 +15,46 @@ import jpx_rights_sources as sources
 
 
 class SourceProvenanceTests(TestCase):
+    def test_rapid_exclusions_reject_non_date_and_reversed_days_before_network(self):
+        with TemporaryDirectory() as temp, patch.object(sources, "page_links") as fetch:
+            for previous, latest in (
+                ("2026-11-18", date(2026, 11, 19)),
+                (date(2026, 11, 19), date(2026, 11, 18)),
+                (date(2026, 11, 18), date(2026, 11, 18)),
+            ):
+                with self.subTest(previous=previous, latest=latest):
+                    with self.assertRaisesRegex(ValueError, "JPX rapid comparison"):
+                        sources.verified_rapid_exclusions(previous, latest, Path(temp))
+            fetch.assert_not_called()
+
     def test_rapid_exclusions_require_both_dated_editions(self):
         with TemporaryDirectory() as temp, patch.object(sources, "page_links", return_value=[]), \
              patch.object(sources, "daily_sources", return_value=({"2026-11-18": {}}, {}, {})):
             with self.assertRaisesRegex(ValueError, "Both official JPX rights editions"):
                 sources.verified_rapid_exclusions(date(2026, 11, 18), date(2026, 11, 19), Path(temp))
+
+    def test_rapid_exclusions_reject_modified_download_before_event_check(self):
+        previous = date(2026, 11, 18)
+        latest = date(2026, 11, 19)
+        bodies = {previous: b"official-previous", latest: b"official-latest"}
+        releases = {
+            day.isoformat(): {"sha256": hashlib.sha256(body).hexdigest(),
+                              "official_url": f"https://www.jpx.co.jp/listing/others/ex-rights/{day:%Y%m%d}.xls"}
+            for day, body in bodies.items()
+        }
+        def tamper(_urls, output):
+            for day, body in bodies.items():
+                (output / f"{day:%Y%m%d}.xls").write_bytes(
+                    b"modified" if day == latest else body)
+            return releases, {}, {}
+        with TemporaryDirectory() as temp, \
+             patch.object(sources, "page_links", return_value=[
+                 value["official_url"] for value in releases.values()]), \
+             patch.object(sources, "daily_sources", side_effect=tamper), \
+             patch.object(sources, "rapid_exclusions") as classify:
+            with self.assertRaisesRegex(ValueError, "changed after the original download"):
+                sources.verified_rapid_exclusions(previous, latest, Path(temp))
+            classify.assert_not_called()
 
     def test_current_and_archived_monthly_links_stay_on_the_official_origin(self):
         index = """
@@ -50,6 +85,17 @@ class SourceProvenanceTests(TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[day.isoformat()]["sha256"], hashlib.sha256(b"same").hexdigest())
 
+    def test_daily_workbook_wrong_publication_date_is_rejected_without_writing(self):
+        filename = "20261118.xls"
+        url = "https://www.jpx.co.jp/listing/others/ex-rights/a/" + filename
+        with TemporaryDirectory() as temp, patch.object(sources, "download", return_value=b"misdated"), \
+             patch.object(sources, "read_daily_rights", return_value=(date(2026, 11, 17), {}, set())), \
+             patch.object(sources, "workbook_notes") as notes:
+            with self.assertRaisesRegex(ValueError, "publication date disagrees"):
+                sources.daily_sources([url], Path(temp))
+            self.assertEqual(list(Path(temp).iterdir()), [])
+            notes.assert_not_called()
+
     def test_conflicting_daily_editions_fail_closed(self):
         day = date(2026, 11, 16)
         urls = [
@@ -61,6 +107,7 @@ class SourceProvenanceTests(TestCase):
              patch.object(sources, "workbook_notes", return_value=[]):
             with self.assertRaisesRegex(ValueError, "Conflicting JPX daily workbook editions"):
                 sources.daily_sources(urls, Path(temp))
+            self.assertEqual(list(Path(temp).iterdir()), [], "Conflicting editions must not leave partial cache files")
 
 
 class LatestDailyReportTests(TestCase):

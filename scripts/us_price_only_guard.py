@@ -3,6 +3,7 @@
 Only call after independently verifying raw regular-session closes, FX fixings,
 ordinary-share class, corporate actions and provenance for both trade dates.
 """
+import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from collections.abc import Mapping
@@ -11,11 +12,19 @@ BUDGET_JPY = Decimal("100000")
 
 
 def _positive(value):
+    if isinstance(value, bool):
+        return None
     try:
         number = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         return None
     return number if number.is_finite() and number > 0 else None
+
+
+def _strict_date(value):
+    if not isinstance(value, str) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) is None:
+        raise ValueError("date must be YYYY-MM-DD")
+    return date.fromisoformat(value)
 
 
 def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
@@ -39,8 +48,8 @@ def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
     if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
         return False, "invalid_observation"
     try:
-        old_date = date.fromisoformat(previous["date"])
-        new_date = date.fromisoformat(current["date"])
+        old_date = _strict_date(previous["date"])
+        new_date = _strict_date(current["date"])
     except (KeyError, TypeError, ValueError):
         return False, "invalid_trade_dates"
     if old_date >= new_date:
@@ -69,10 +78,10 @@ def evaluate_budget_entry_for_sessions(previous, current, *, expected_previous_d
     if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
         return False, "invalid_observation"
     try:
-        expected_old = date.fromisoformat(expected_previous_date)
-        expected_new = date.fromisoformat(expected_current_date)
-        observed_old = date.fromisoformat(previous["date"])
-        observed_new = date.fromisoformat(current["date"])
+        expected_old = _strict_date(expected_previous_date)
+        expected_new = _strict_date(expected_current_date)
+        observed_old = _strict_date(previous["date"])
+        observed_new = _strict_date(current["date"])
     except (KeyError, TypeError, ValueError):
         return False, "invalid_trade_dates"
     if expected_old >= expected_new:
@@ -93,9 +102,21 @@ def evaluate_verified_budget_entry(previous, current, *, expected_previous_date,
     """
     if not previous or not current:
         return False, "two_closes_required"
+    expected_symbol = verification.pop("expected_symbol", None)
+    expected_exchange = verification.pop("expected_exchange", None)
+    if (expected_symbol is None) != (expected_exchange is None):
+        return False, "missing_expected_identity"
+    if expected_symbol is not None:
+        if (not isinstance(expected_symbol, str) or not expected_symbol.strip()
+                or expected_symbol != expected_symbol.strip()
+                or expected_exchange not in ("NYSE", "Nasdaq")):
+            return False, "invalid_expected_identity"
     for item in (previous, current):
         if not isinstance(item, Mapping):
             return False, "invalid_observation"
+        if expected_symbol is not None and (item.get("symbol") != expected_symbol
+                                            or item.get("exchange") != expected_exchange):
+            return False, "fallback_identity_mismatch"
         if item.get("price_basis") != "raw_unadjusted_regular_session":
             return False, "raw_close_basis_unverified"
         if item.get("fx_date") != item.get("date"):

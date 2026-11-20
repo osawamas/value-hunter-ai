@@ -4,6 +4,7 @@ import org.junit.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import static org.junit.Assert.*;
 
@@ -41,5 +42,29 @@ public class PriceOnlyReplaySafetyTest {
         assertTrue(JpxWatchWorker.pendingRapid(DAY, DAY, DAY, rapid, Set.of()).isEmpty());
         assertTrue(JpxWatchWorker.pendingRapid(PREVIOUS.minusDays(1), DAY, PREVIOUS,
                 rapid, Set.of()).isEmpty());
+    }
+
+    @Test public void trackerUsesOnlyEvidenceForTheExactQuotePair() throws Exception {
+        var original = """
+                {"intervals":[{"previousDay":"2026-11-16","latestDay":"2026-11-17",
+                "sources":{"2026-11-16":{"url":"https://www.jpx.co.jp/listing/others/ex-rights/jpx-att/20261116.xls","sha256":"%s"},
+                           "2026-11-17":{"url":"https://www.jpx.co.jp/listing/others/ex-rights/jpx-att/20261117.xls","sha256":"%s"}},
+                "excludedCodes":["1002"]}]}
+                """.formatted("a".repeat(64), "b".repeat(64));
+        var evidence = JpxRapidEvidence.parse(original);
+        var before = new JpxCloseTable.Sessions(null, new BigDecimal("100"));
+        var after = new JpxCloseTable.Sessions(null, new BigDecimal("108"));
+        var comparison = new JpxDailyCheck.Comparison(
+                new JpxDailyCheck.Report(DAY, "", Map.of("1001", after, "1002", after), Set.of()),
+                new JpxDailyCheck.Report(PREVIOUS, "", Map.of("1001", before, "1002", before), Set.of()));
+        var screen = new JpxDailyCheck.Screening(List.of(), List.of(), List.of(), Set.of());
+        var finance = JpxAutomaticFinance.Batch.empty();
+        var rapid = JpxWatchWorker.rapidCandidates(comparison, screen, finance, evidence.excluded(PREVIOUS, DAY));
+        assertEquals(List.of("1001"), rapid.stream().map(PriceOnlyScreen.RapidMove::code).toList());
+        assertTrue(JpxWatchWorker.rapidCandidates(comparison, screen, finance,
+                evidence.excluded(PREVIOUS, DAY.plusDays(1))).isEmpty());
+        assertThrows(org.json.JSONException.class, () -> JpxRapidEvidence.parse(original.replace("20261117.xls", "20261118.xls")));
+        assertThrows(org.json.JSONException.class, () -> JpxRapidEvidence.parse(original.replace("www.jpx.co.jp", "example.com")));
+        assertTrue(JpxWatchWorker.pendingRapid(PREVIOUS, DAY, DAY, rapid, Set.of("price-rapid:1001")).isEmpty());
     }
 }

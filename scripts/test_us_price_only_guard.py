@@ -9,6 +9,25 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.flags = dict(ordinary_share_verified=True, financials_verified=False,
                           corporate_actions_verified=True, source_verified=True)
 
+    def test_boolean_close_or_fx_never_counts_as_number(self):
+        for side in ('old', 'new'):
+            for field in ('close_usd', 'usd_jpy'):
+                for bad in (True, False):
+                    with self.subTest(side=side, field=field, bad=bad):
+                        old, new = dict(self.old), dict(self.new)
+                        (old if side == 'old' else new)[field] = bad
+                        self.assertEqual(check(old, new, **self.flags),
+                                         (False, 'invalid_close_or_fx'))
+
+    def test_noncanonical_dates_rejected(self):
+        args = dict(expected_previous_date='2026-11-16', expected_current_date='2026-11-17', **self.flags)
+        for bad in ('2026-11-7', '2026-W47-2', '2026-11-17T00:00:00', '20261117'):
+            with self.subTest(bad=bad):
+                self.assertEqual(session_check(self.old, {**self.new, 'date': bad}, **args),
+                                 (False, 'invalid_trade_dates'))
+                self.assertEqual(session_check(self.old, self.new,
+                    **{**args, 'expected_current_date': bad}), (False, 'invalid_trade_dates'))
+
     def test_crossing(self):
         self.assertEqual(check(self.old, self.new, **self.flags),
                          (True, "entered_100_share_budget"))
@@ -109,6 +128,54 @@ class PriceOnlyGuardTests(unittest.TestCase):
                                  (False, reason))
         self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
                          "fx_date": "2026-11-18"}, **args)[0])
+
+    def test_verified_fallback_rejects_wrong_ticker_or_exchange(self):
+        old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq",
+               "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.old["date"], "close_source": "source:old",
+               "fx_source": "fx:old"}
+        new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq",
+               "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.new["date"], "close_source": "source:new",
+               "fx_source": "fx:new"}
+        args = dict(expected_previous_date=self.old["date"],
+                    expected_current_date=self.new["date"],
+                    expected_symbol="ABC", expected_exchange="Nasdaq", **self.flags)
+        self.assertEqual(verified_check(old, new, **args),
+                         (True, "entered_100_share_budget"))
+        for changed in ({"symbol": "XYZ"}, {"exchange": "NYSE"},
+                        {"symbol": None}, {"exchange": None}):
+            with self.subTest(changed=changed):
+                self.assertEqual(verified_check(old, {**new, **changed}, **args),
+                                 (False, "fallback_identity_mismatch"))
+                self.assertEqual(verified_check({**old, **changed}, new, **args),
+                                 (False, "fallback_identity_mismatch"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_exchange": "AMEX"}),
+                         (False, "invalid_expected_identity"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_symbol": None}),
+                         (False, "missing_expected_identity"))
+
+    def test_fx_only_crossing_and_reverse_direction(self):
+        """Each session must use its own USD/JPY; reverse crossing is not entry."""
+        args = dict(expected_previous_date="2026-11-16",
+                    expected_current_date="2026-11-17", **self.flags)
+        old = {**self.old, "close_usd": "7", "usd_jpy": "150"}
+        entered = {**self.new, "close_usd": "7", "usd_jpy": "140"}
+        self.assertEqual(session_check(old, entered, **args),
+                         (True, "entered_100_share_budget"))
+        self.assertEqual(session_check(entered | {"date": old["date"]},
+                                       old | {"date": entered["date"]}, **args),
+                         (False, "no_budget_crossing"))
+        self.assertEqual(session_check(old, {**entered, "usd_jpy": "150"}, **args),
+                         (False, "no_budget_crossing"))
+
+    def test_price_only_rise_cannot_be_budget_entry(self):
+        old = {**self.old, "close_usd": "6", "usd_jpy": "150"}
+        new = {**self.new, "close_usd": "8", "usd_jpy": "150"}
+        self.assertEqual(check(old, new, **self.flags),
+                         (False, "no_budget_crossing"))
 
 if __name__ == "__main__":
     unittest.main()

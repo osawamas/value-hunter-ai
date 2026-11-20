@@ -46,7 +46,7 @@ def workbook_date(cell, datemode):
     return date(*map(int, re.split(r"[/.-]", normalized(cell.value))))
 
 
-def read_daily_rights(body, filename, *, rapid_day=None):
+def read_daily_rights(body, filename, *, rapid_interval=None):
     workbook = xlrd.open_workbook(file_contents=body)
     try:
         sheet = workbook.sheet_by_index(0)
@@ -67,13 +67,14 @@ def read_daily_rights(body, filename, *, rapid_day=None):
         else:
             raise ValueError("JPX daily rights columns could not be identified")
 
-        if rapid_day is not None:
+        if rapid_interval is not None:
+            previous_day, latest_day = rapid_interval
             titles = [normalized(cell) for row in range(header_index) for cell in sheet.row_values(row)]
             periods = [match for text in titles if (match := DAILY_PERIOD.fullmatch(text))]
             if len(periods) != 1:
                 raise ValueError("JPX rights coverage period is missing or ambiguous")
             first, last = (date(*map(int, value.split("/"))) for value in periods[0].groups())
-            if first != published_on or not first <= rapid_day <= last:
+            if first != published_on or not first <= latest_day <= last:
                 raise ValueError("JPX rights workbook does not cover the comparison end date")
 
         notices = defaultdict(set)
@@ -85,7 +86,7 @@ def read_daily_rights(body, filename, *, rapid_day=None):
             if flag:
                 flags.add(flag)
             kind = notice_kind(remark)
-            if rapid_day is not None and any(normalized(row[col].value) for col in (record, ex, ticker)):
+            if rapid_interval is not None and any(normalized(row[col].value) for col in (record, ex, ticker)):
                 # Unrecognized and mixed corporate-event descriptions also block alerts.
                 kind = kind or ("dividend" if "配当" in remark else "other_event")
             if kind is None:
@@ -100,7 +101,7 @@ def read_daily_rights(body, filename, *, rapid_day=None):
             ex_on = workbook_date(row[ex], workbook.datemode)
             if ex_on > record_on:
                 raise ValueError(f"Inconsistent dates on JPX daily rights row {index + 1}")
-            if rapid_day is not None and ex_on != rapid_day:
+            if rapid_interval is not None and not previous_day < ex_on <= latest_day:
                 continue
             notices[code].add(DailyShareNotice(published_on, ex_on, record_on, kind, flag))
         return published_on, notices, flags
@@ -114,7 +115,7 @@ def rapid_exclusions(previous_day, latest_day, previous_body, latest_body):
         raise ValueError("Invalid JPX comparison interval")
     blocked = set()
     for day, body in ((previous_day, previous_body), (latest_day, latest_body)):
-        _, notices, _ = read_daily_rights(body, f"{day:%Y%m%d}.xls", rapid_day=latest_day)
+        _, notices, _ = read_daily_rights(body, f"{day:%Y%m%d}.xls", rapid_interval=(previous_day, latest_day))
         blocked.update(notices)
     return blocked
 

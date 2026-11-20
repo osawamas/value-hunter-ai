@@ -125,6 +125,7 @@ def daily_sources(urls, output):
     results = {}
     notes_by_release = {}
     dates_by_event = defaultdict(set)
+    pending_files = {}
     for url in urls:
         path = urlsplit(url).path
         if "/listing/others/ex-rights/" not in path or not re.search(r"/\d{8}\.xls$", path):
@@ -132,6 +133,8 @@ def daily_sources(urls, output):
         filename = Path(path).name
         body = download(url)
         published_on, notices, flags = read_daily_rights(body, filename)
+        if published_on.strftime("%Y%m%d") != filename[:-4]:
+            raise ValueError(f"JPX daily workbook publication date disagrees with filename: {filename}")
         counts = Counter(entry.kind for entries in notices.values() for entry in entries)
         for code, entries in notices.items():
             for entry in entries:
@@ -150,6 +153,10 @@ def daily_sources(urls, output):
             "sha256": digest,
         }
         notes_by_release[published_on.isoformat()] = workbook_notes(body)
+        pending_files[filename] = body
+    # Publish only after every edition has passed provenance and conflict checks.
+    # A later conflicting edition must not leave a partially refreshed cache.
+    for filename, body in pending_files.items():
         (output / filename).write_bytes(body)
     comparison = {
         "distinct_event_keys": len(dates_by_event),
@@ -159,12 +166,21 @@ def daily_sources(urls, output):
 
 
 def verified_rapid_exclusions(previous_day, latest_day, output):
+    if not isinstance(previous_day, date) or not isinstance(latest_day, date):
+        raise ValueError("JPX rapid comparison requires date objects")
+    if previous_day >= latest_day:
+        raise ValueError("JPX rapid comparison dates must be strictly increasing")
     days = (previous_day, latest_day)
     filenames = {f"{day:%Y%m%d}.xls" for day in days}
     links = [url for url in page_links(DAILY_INDEX) if Path(urlsplit(url).path).name in filenames]
     releases, _, _ = daily_sources(links, output)
     if releases.keys() != {day.isoformat() for day in days}:
         raise ValueError("Both official JPX rights editions are required")
+    return rapid_exclusion_record(previous_day, latest_day, releases, output)
+
+
+def rapid_exclusion_record(previous_day, latest_day, releases, output):
+    days = (previous_day, latest_day)
     bodies = [(output / f"{day:%Y%m%d}.xls").read_bytes() for day in days]
     if any(sha256(body).hexdigest() != releases[day.isoformat()]["sha256"] for day, body in zip(days, bodies)):
         raise ValueError("JPX workbooks changed after the original download")
@@ -172,8 +188,9 @@ def verified_rapid_exclusions(previous_day, latest_day, output):
         "previousDay": previous_day.isoformat(),
         "latestDay": latest_day.isoformat(),
         "excludedCodes": sorted(rapid_exclusions(previous_day, latest_day, *bodies)),
-        "sources": {day: {"url": value["official_url"], "sha256": value["sha256"]}
-                    for day, value in releases.items()},
+        "sources": {day.isoformat(): {"url": releases[day.isoformat()]["official_url"],
+                                    "sha256": releases[day.isoformat()]["sha256"]}
+                    for day in days},
     }
 
 
