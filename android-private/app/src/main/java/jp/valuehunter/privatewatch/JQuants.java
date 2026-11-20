@@ -17,7 +17,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
-import javax.net.ssl.HttpsURLConnection;
 
 final class JQuants {
     static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
@@ -68,16 +67,16 @@ final class JQuants {
         long wait = nextRequest - SystemClock.elapsedRealtime();
         if (wait > 0) Thread.sleep(wait);
         nextRequest = SystemClock.elapsedRealtime() + 12_500;
-        var connection = (HttpsURLConnection) new URL(url).openConnection();
+        var connection = MarketNetwork.open(new URL(url));
         connection.setConnectTimeout(15_000);
         connection.setReadTimeout(20_000);
         connection.setInstanceFollowRedirects(false);
         connection.setRequestProperty("x-api-key", apiKey);
         connection.setRequestProperty("Accept", "application/json");
         try {
-            int status = connection.getResponseCode();
+            int status = MarketNetwork.response(connection);
             if (status != 200) throw new HttpFailure(status);
-            try (var reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            try (var reader = new BufferedReader(new InputStreamReader(MarketNetwork.input(connection), StandardCharsets.UTF_8))) {
                 StringBuilder body = new StringBuilder();
                 char[] buffer = new char[8192];
                 int length;
@@ -88,7 +87,7 @@ final class JQuants {
                 return new JSONObject(body.toString());
             }
         } finally {
-            connection.disconnect();
+            MarketNetwork.close(connection);
         }
     }
 

@@ -9,6 +9,7 @@ on:
       - 'android-private/tools/check_notification_emulator.sh'
       - 'android-private/app/src/main/AndroidManifest.xml'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/Notification*.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MarketNetwork.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ScanWorker.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java'
       - 'android-private/app/src/androidTest/**/Notification*.java'

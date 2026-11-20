@@ -23,7 +23,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import javax.net.ssl.HttpsURLConnection;
 
 /** Checks the exchange's company disclosure archive for gaps in the monthly rights reports. */
 final class JpxIssuerArchive {
@@ -283,7 +282,7 @@ final class JpxIssuerArchive {
     }
 
     private static String request(URI uri, String code, CookieManager session) throws IOException {
-        var connection = (HttpsURLConnection) new URL(uri.toString()).openConnection();
+        var connection = MarketNetwork.open(new URL(uri.toString()));
         connection.setInstanceFollowRedirects(false);
         connection.setConnectTimeout(8_000);
         connection.setReadTimeout(10_000);
@@ -299,14 +298,14 @@ final class JpxIssuerArchive {
                 byte[] payload = ("BaseJh=BaseJh&mgrCd=" + code + "0&jjHisiFlg=1&sniMtGmnId=JJK010010")
                         .getBytes(StandardCharsets.US_ASCII);
                 connection.setFixedLengthStreamingMode(payload.length);
-                try (var output = connection.getOutputStream()) {
+                try (var output = MarketNetwork.output(connection)) {
                     output.write(payload);
                 }
             }
-            int status = connection.getResponseCode();
-            if (status != 200) throw new HttpFailure(status, connection.getHeaderField("Retry-After"));
-            session.put(uri, connection.getHeaderFields());
-            try (var input = connection.getInputStream(); var bytes = new ByteArrayOutputStream()) {
+            int status = MarketNetwork.response(connection);
+            if (status != 200) throw new HttpFailure(status, MarketNetwork.header(connection, "Retry-After"));
+            session.put(uri, MarketNetwork.headers(connection));
+            try (var input = MarketNetwork.input(connection); var bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[8192];
                 for (int n; (n = input.read(buffer)) != -1;) {
                     if (bytes.size() + n > MAX_RESPONSE) throw new IllegalArgumentException("JPX company archive too large");
@@ -319,7 +318,7 @@ final class JpxIssuerArchive {
                 }
             }
         } finally {
-            connection.disconnect();
+            MarketNetwork.close(connection);
         }
     }
 }

@@ -31,7 +31,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.HttpsURLConnection;
 
 public final class UsDailyWorker extends Worker {
     private static final String WORK = "us-daily-closes";
@@ -67,6 +66,7 @@ public final class UsDailyWorker extends Worker {
     }
 
     static void schedule(Context context) {
+        if (!MarketNetwork.allowed()) return;
         var workManager = WorkManager.getInstance(context);
         var request = new PeriodicWorkRequest.Builder(UsDailyWorker.class, 6, TimeUnit.HOURS)
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -101,7 +101,12 @@ public final class UsDailyWorker extends Worker {
         return result;
     }
 
+    private boolean networkStopped() {
+        return isStopped() || !MarketNetwork.allowed();
+    }
+
     @NonNull @Override public Result doWork() {
+        if (!MarketNetwork.allowed()) return Result.success();
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
         try {
@@ -111,7 +116,7 @@ public final class UsDailyWorker extends Worker {
             LocalDate previous = cachedDate(file, state, provider);
             LocalDate target = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
             for (int offset = 0; offset < 7; offset++) {
-                if (isStopped()) return Result.retry();
+                if (networkStopped()) return Result.retry();
                 LocalDate day = target.minusDays(offset);
                 if (previous != null && !day.isAfter(previous)) {
                     boolean assess = needsValuation(state, previous, provider);
@@ -133,7 +138,7 @@ public final class UsDailyWorker extends Worker {
                 var closes = fetchCloses(day, key);
                 if (closes.length() == 0) continue;
                 var snapshot = quoteSnapshot(day, provider, key, closes);
-                if (isStopped()) return Result.retry();
+                if (networkStopped()) return Result.retry();
                 synchronized (QUOTE_LOCK) {
                     if (UsPriceOnlyBudget.previousSession(day).equals(previous)) {
                         var old = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
@@ -158,6 +163,7 @@ public final class UsDailyWorker extends Worker {
             report(state, "終値を取得できず（HTTP " + e.code + "）");
             return e.code == 429 || e.code >= 500 ? Result.retry() : Result.success();
         } catch (IOException e) {
+            if (networkStopped()) return Result.success();
             report(state, "終値を取得できず（通信または保存エラー）");
             return Result.retry();
         } catch (JSONException e) {
@@ -171,7 +177,7 @@ public final class UsDailyWorker extends Worker {
             return UsDailyCloses.parse(fetch(ENDPOINT + day + "?adjusted=false&include_otc=false", key), day);
         }
         return UsDoltCloses.fetch(day, address -> {
-            if (isStopped()) throw new IOException("Worker stopped");
+            if (networkStopped()) throw new IOException("Worker stopped");
             return fetch(address, "");
         });
     }
@@ -185,7 +191,7 @@ public final class UsDailyWorker extends Worker {
     }
 
     private void backfillPrevious(Context context, LocalDate day, String provider, String key) {
-        if (isStopped()) return;
+        if (networkStopped()) return;
         var priorDay = UsPriceOnlyBudget.previousSession(day);
         var priorFile = new AtomicFile(new File(context.getNoBackupFilesDir(), PREVIOUS_QUOTE_FILE));
         try {
@@ -196,7 +202,7 @@ public final class UsDailyWorker extends Worker {
         }
         try {
             var closes = fetchCloses(priorDay, key);
-            if (closes.length() == 0 || isStopped()) return;
+            if (closes.length() == 0 || networkStopped()) return;
             var snapshot = quoteSnapshot(priorDay, provider, key, closes);
             synchronized (QUOTE_LOCK) {
                 writeSnapshot(priorFile, snapshot);
@@ -283,7 +289,7 @@ public final class UsDailyWorker extends Worker {
     }
 
     private void updateCoverage(SharedPreferences state, JSONArray closes, LocalDate day, String provider) {
-        if (isStopped()) return;
+        if (networkStopped()) return;
         try {
             var nasdaq = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "nasdaqlisted.txt", ""), true);
             var nyse = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "otherlisted.txt", ""), false);
@@ -294,7 +300,7 @@ public final class UsDailyWorker extends Worker {
                 // Close monitoring uses the live exchange directories even without a private SEC ledger.
             }
             String summary = UsMarketCoverage.summarize(nyse, nasdaq, closes, day, ledger);
-            if (!isStopped()) state.edit().putString(MARKET_DATE, day.toString())
+            if (!networkStopped()) state.edit().putString(MARKET_DATE, day.toString())
                     .putString(MARKET_SOURCE, provider).putString(MARKET_TEXT, summary).apply();
         } catch (IOException | JSONException unable) {
             // Retry the coverage comparison on the next periodic run, keeping the saved closes.
@@ -308,13 +314,13 @@ public final class UsDailyWorker extends Worker {
     }
 
     private void assess(SharedPreferences state, JSONArray closes, LocalDate day, String provider) {
-        if (isStopped()) return;
+        if (networkStopped()) return;
         UsDailyValuation.Report result;
         try {
             result = UsDailyValuation.assess(closes, day,
                     MASSIVE.equals(provider) ? "Massive参考判定" : "DoltHub参考判定", new UsDailyValuation.Fetch() {
                 @Override public JSONObject facts(String address) throws IOException, JSONException {
-                    if (isStopped()) throw new IOException("Worker stopped");
+                    if (networkStopped()) throw new IOException("Worker stopped");
                     return fetch(address, "");
                 }
 
@@ -330,14 +336,14 @@ public final class UsDailyWorker extends Worker {
         } catch (IOException | JSONException e) {
             result = new UsDailyValuation.Report("参考判定は次の更新で再試行（為替または分割情報を取得できず）", true);
         }
-        if (isStopped()) return;
+        if (networkStopped()) return;
         state.edit().putString(VALUATION_DATE, day.toString()).putString(VALUATION_SOURCE, provider)
                 .putString(VALUATION_TEXT, result.text()).putBoolean(VALUATION_RETRY, result.retry()).apply();
     }
 
     private void updateHistory(SharedPreferences state, LocalDate session) {
         YearMonth month = YearMonth.from(session);
-        if (isStopped() || month.toString().equals(state.getString(HISTORY_MONTH, ""))) return;
+        if (networkStopped() || month.toString().equals(state.getString(HISTORY_MONTH, ""))) return;
         YearMonth first = month.minusMonths(UsMonthlyHistory.MONTHS);
         if (!month.toString().equals(state.getString(HISTORY_CURSOR, ""))) {
             var reset = state.edit().putString(HISTORY_CURSOR, month.toString());
@@ -350,7 +356,7 @@ public final class UsDailyWorker extends Worker {
         try {
             // Retain completed annual queries for retries within the same refresh month.
             for (int offset = 0; offset < UsMonthlyHistory.MONTHS; offset += 12) {
-                if (isStopped()) return;
+                if (networkStopped()) return;
                 String key = HISTORY_CURSOR + offset;
                 String cached = state.getString(key, "");
                 JSONArray batch = cached.isEmpty()
@@ -365,7 +371,7 @@ public final class UsDailyWorker extends Worker {
             for (int offset = 0; offset < UsMonthlyHistory.MONTHS; offset += 12) {
                 update.remove(HISTORY_CURSOR + offset);
             }
-            if (!isStopped()) update.apply();
+            if (!networkStopped()) update.apply();
         } catch (IOException e) {
             // Resume any completed annual queries on the next periodic update.
         } catch (JSONException e) {
@@ -411,7 +417,7 @@ public final class UsDailyWorker extends Worker {
 
     static String fetchText(String address, String key) throws IOException, JSONException {
         var url = new URL(address);
-        var connection = (HttpsURLConnection) url.openConnection();
+        var connection = MarketNetwork.open(url);
         try {
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(30_000);
@@ -429,13 +435,13 @@ public final class UsDailyWorker extends Worker {
                         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/135.0.0.0 Safari/537.36");
                 connection.setRequestProperty("Accept", "application/json, text/plain, */*");
             }
-            int code = connection.getResponseCode();
+            int code = MarketNetwork.response(connection);
             if (code != 200) throw new HttpStatus(code);
-            try (var input = connection.getInputStream()) {
+            try (var input = MarketNetwork.input(connection)) {
                 return readText(input);
             }
         } finally {
-            connection.disconnect();
+            MarketNetwork.close(connection);
         }
     }
 

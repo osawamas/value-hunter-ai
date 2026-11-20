@@ -76,6 +76,7 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     private static void enqueue(Context context, ExistingWorkPolicy policy) {
+        if (!MarketNetwork.allowed()) return;
         var request = new OneTimeWorkRequest.Builder(UsSecFinanceWorker.class)
                 .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -83,7 +84,12 @@ public final class UsSecFinanceWorker extends Worker {
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
     }
 
+    private boolean networkStopped() {
+        return isStopped() || !MarketNetwork.allowed();
+    }
+
     @NonNull @Override public Result doWork() {
+        if (!MarketNetwork.allowed()) return Result.success();
         var context = getApplicationContext();
         var preferences = ScanWorker.prefs(context);
         var directory = context.getNoBackupFilesDir();
@@ -127,7 +133,7 @@ public final class UsSecFinanceWorker extends Worker {
                 long deadline = SystemClock.elapsedRealtime() + BATCH_MILLIS;
                 try {
                     int end = Math.min(targets.length(), position + BATCH);
-                    while (position < end && !isStopped() && SystemClock.elapsedRealtime() < deadline) {
+                    while (position < end && !networkStopped() && SystemClock.elapsedRealtime() < deadline) {
                         var target = targets.getJSONObject(position);
                         var row = facts(target, day);
                         if (row != null) results.put(row);
@@ -138,7 +144,7 @@ public final class UsSecFinanceWorker extends Worker {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
                     updateProgress(position, targets.length(), results.length(), reused);
                 }
-                if (isStopped()) return Result.retry();
+                if (networkStopped()) return Result.retry();
                 if (position < targets.length()) {
                     enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
@@ -158,11 +164,11 @@ public final class UsSecFinanceWorker extends Worker {
             var budget = prepareBudget(quote, ledger, directory, day, hash, preferences);
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 if (!hash.equals(UsReferenceAlerts.sha256(closeFile.readFully()))) {
-                    if (!isStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
+                    if (!networkStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
                 }
-                UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::isStopped);
-                if (!isStopped()) {
+                UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::networkStopped);
+                if (!networkStopped()) {
                     if (!applyBudget(context, preferences, day, budget)) return Result.retry();
                     if (budget != null && budget.retry() && getRunAttemptCount() < MAX_BUDGET_RETRIES) {
                         return Result.retry();
@@ -178,6 +184,7 @@ public final class UsSecFinanceWorker extends Worker {
             Thread.currentThread().interrupt();
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
+            if (networkStopped()) return Result.success();
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             if (!progress.endsWith(" · 再試行待ち")) {
                 preferences.edit().putString(UsDailyWorker.PRIVATE_STATUS,
@@ -202,7 +209,7 @@ public final class UsSecFinanceWorker extends Worker {
 
     private BudgetCheck prepareBudget(JSONObject quote, JSONObject ledger, File directory,
                                       LocalDate day, String hash, android.content.SharedPreferences state) {
-        if (isStopped()) return null;
+        if (networkStopped()) return null;
         var expected = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
         if (!day.equals(expected)) return null;
         try {
@@ -230,7 +237,7 @@ public final class UsSecFinanceWorker extends Worker {
             if (!budget.screen().entered().isEmpty()) {
                 try {
                     primary = corroborateBudget(previous, quote, priorDay, day, asOf, budget, download,
-                            this::isStopped, sent, cursor);
+                            this::networkStopped, sent, cursor);
                 } catch (IOException | JSONException unavailable) {
                     primary = new BudgetCheck(budget, cursor, unavailable instanceof IOException);
                 }
@@ -274,7 +281,7 @@ public final class UsSecFinanceWorker extends Worker {
             }
         }
         var result = UsNasdaqRecovery.check(missing, priorDay, day, oldFx, newFx, splits.keySet(), nasdaqSplits,
-                receipts, download, this::isStopped);
+                receipts, download, this::networkStopped);
         state.edit().putString(NOCP_PAIR_KEY, key).putString(NOCP_RECEIPTS, receipts.toString()).apply();
         return result;
     }
@@ -407,7 +414,7 @@ public final class UsSecFinanceWorker extends Worker {
             // Check both endpoints: the previous day's filings become eligible, and
             // the current index may contain corrections with earlier filing dates.
             for (LocalDate date = since; !date.isAfter(until); date = date.plusDays(1)) {
-                if (isStopped()) return null;
+                if (networkStopped()) return null;
                 if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
                 changed.addAll(UsSecFilingIndex.issuers(download.get(UsSecFilingIndex.address(date)), date));
             }

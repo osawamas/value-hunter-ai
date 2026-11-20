@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.time.DateTimeException;
 import java.util.regex.Pattern;
 
-import javax.net.ssl.HttpsURLConnection;
 
 /** Resolves historic splits and consolidations from their issuer disclosures. */
 final class JpxCorporateActionDate {
@@ -86,17 +85,17 @@ final class JpxCorporateActionDate {
         if (!JpxIssuerArchive.disclosureSource(uri)) throw new IOException("Invalid JPX disclosure address");
         File file = File.createTempFile("jpx-action-", ".pdf", context.getCacheDir());
         try {
-            var connection = (HttpsURLConnection) uri.toURL().openConnection();
+            var connection = MarketNetwork.open(uri.toURL());
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(6_000);
             connection.setReadTimeout(10_000);
             try {
-                int status = connection.getResponseCode();
+                int status = MarketNetwork.response(connection);
                 if (status == 429 || status >= 500) {
-                    throw new JpxIssuerArchive.HttpFailure(status, connection.getHeaderField("Retry-After"));
+                    throw new JpxIssuerArchive.HttpFailure(status, MarketNetwork.header(connection, "Retry-After"));
                 }
-                if (status != 200 || connection.getContentLength() > MAX_PDF_BYTES) return "";
-                try (var input = connection.getInputStream(); var output = new FileOutputStream(file)) {
+                if (status != 200 || MarketNetwork.contentLength(connection) > MAX_PDF_BYTES) return "";
+                try (var input = MarketNetwork.input(connection); var output = new FileOutputStream(file)) {
                     var buffer = new byte[8192];
                     int total = 0;
                     for (int n; (n = input.read(buffer)) >= 0;) {
@@ -106,7 +105,7 @@ final class JpxCorporateActionDate {
                     }
                 }
             } finally {
-                connection.disconnect();
+                MarketNetwork.close(connection);
             }
             if (Build.VERSION.SDK_INT < 35) {
                 return JpxCompatiblePdfReader.readText(context, file, MAX_PAGES);

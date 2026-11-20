@@ -47,6 +47,7 @@ public final class MainActivity extends Activity {
     private Switch monitorSwitch;
     private TextView monitorStatus;
     private TextView notificationStatus;
+    private TextView communicationStatus;
     private TextView lastCheck;
     private TextView detail;
     private TextView usDailyStatus;
@@ -54,7 +55,9 @@ public final class MainActivity extends Activity {
     private Button testNotificationButton;
     private boolean notificationTestPending;
     private Button checkNow;
+    private Button showDetail;
     private Thread detailThread;
+    private boolean communicationPreferenceSaved = true;
 
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange = (prefs, name) -> render();
 
@@ -73,7 +76,6 @@ public final class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         state = ScanWorker.prefs(this);
         ScanWorker.cancelLegacyApiWork(this);
-        UsDailyWorker.schedule(this);
 
         var scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -93,6 +95,23 @@ public final class MainActivity extends Activity {
         label(hero, "株式モニター", 30, SURFACE, true, 7);
         monitorStatus = label(hero, "", 15, ACCENT, true, 10);
         label(hero, "新しく条件に入った銘柄を無音で通知", 13, LIGHT_TEXT, false, 5);
+
+        var communication = section(content, SURFACE, true);
+        var networkSwitch = optionSwitch(communication, "相場データの通信", MarketNetwork.allowed());
+        communicationStatus = label(communication, "", 13, MUTED, false, 5);
+        networkSwitch.setOnCheckedChangeListener((view, checked) -> {
+            communicationPreferenceSaved = MarketNetwork.setAllowed(this, checked);
+            if (checked) {
+                scheduleMarketChecks();
+            } else {
+                androidx.work.WorkManager.getInstance(this).cancelAllWork();
+                if (detailThread != null) {
+                    detailThread.interrupt();
+                    detail.setText("通信を停止した");
+                }
+            }
+            render();
+        });
 
         var notifications = section(content, SURFACE, true);
         label(notifications, "通知", 19, INK, true, 0);
@@ -156,12 +175,12 @@ public final class MainActivity extends Activity {
         var result = section(content, SURFACE, true);
         label(result, "最新の確認", 19, INK, true, 0);
         lastCheck = label(result, "", 14, MUTED, false, 5);
-        var showDetail = button(result, "終値と判定の詳細", PAGE, 10);
+        showDetail = button(result, "終値と判定の詳細", PAGE, 10);
         detail = label(result, "", 14, INK, false, 8);
         detail.setTextIsSelectable(true);
         detail.setMovementMethod(LinkMovementMethod.getInstance());
         detail.setVisibility(View.GONE);
-        showDetail.setOnClickListener(view -> checkDetails(showDetail));
+        showDetail.setOnClickListener(view -> checkDetails());
 
         render();
     }
@@ -169,6 +188,12 @@ public final class MainActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         state.registerOnSharedPreferenceChangeListener(onChange);
+        scheduleMarketChecks();
+    }
+
+    private void scheduleMarketChecks() {
+        if (!MarketNetwork.allowed()) return;
+        UsDailyWorker.schedule(this);
         if (monitorSwitch.isChecked() || JpxWatchWorker.enabled(this)) {
             JpxWatchWorker.setEnabled(this, monitorSwitch.isChecked());
         }
@@ -198,28 +223,33 @@ public final class MainActivity extends Activity {
 
     private void render() {
         usDailyStatus.setText(UsDailyWorker.displayStatus(state));
+        boolean connected = MarketNetwork.allowed();
         boolean active = monitorSwitch.isChecked();
-        monitorStatus.setText(active ? "●  東証日報の自動監視中"
+        String status = connected ? "相場データの取得を許可" : "通信オフ · 自動更新・手動更新を停止中";
+        communicationStatus.setText(communicationPreferenceSaved ? status : status + "\n設定を保存できなかった");
+        monitorStatus.setText(!connected ? "○  通信オフ · 保存済みの結果を表示中" : active ? "●  東証日報の自動監視中"
                 + (Build.VERSION.SDK_INT < 35 ? "（互換モード）" : "") : "○  日本株の自動監視を停止中");
-        checkNow.setEnabled(active);
+        checkNow.setEnabled(connected && active);
+        showDetail.setEnabled(connected && detailThread == null);
         boolean requested = ScanWorker.notificationsRequested(this);
         boolean permitted = ScanWorker.systemAllowsAlerts(this);
         if (!requested && notificationTestPending) {
             testNotificationButton.removeCallbacks(sendTestNotification);
             notificationTestPending = false;
         }
-        notificationStatus.setText(!requested ? "通知と点灯は停止中。監視は続く"
+        notificationStatus.setText(!requested ? "通知と点灯は停止中"
                 : permitted ? "通知は有効" : "端末側で通知を許可すると受け取れる");
         notificationButton.setText(permitted ? "端末の通知設定" : "端末で通知を許可する");
         testNotificationButton.setEnabled(requested && permitted && !notificationTestPending);
         testNotificationButton.setText(notificationTestPending ? "テスト通知を予約中" : "5秒後にテスト通知");
         String report = JpxWatchWorker.displayStatus(state);
-        lastCheck.setText(!report.isEmpty() ? report : active ? "初回の東証日報を確認待ち" : "自動監視をオンにすると確認を開始");
+        lastCheck.setText(!report.isEmpty() ? report : !connected ? "保存済みの確認結果はまだない"
+                : active ? "初回の東証日報を確認待ち" : "自動監視をオンにすると確認を開始");
     }
 
-    private void checkDetails(Button action) {
-        if (detailThread != null) return;
-        action.setEnabled(false);
+    private void checkDetails() {
+        if (detailThread != null || !MarketNetwork.allowed()) return;
+        showDetail.setEnabled(false);
         detail.setVisibility(View.VISIBLE);
         detail.setText("東証日報を確認中");
         detailThread = new Thread(() -> {
@@ -237,11 +267,12 @@ public final class MainActivity extends Activity {
                 message = "東証日報のPDFを読み取れなかった";
             }
             CharSequence result = message;
+            boolean cancelled = Thread.currentThread().isInterrupted();
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 detailThread = null;
-                detail.setText(result);
-                action.setEnabled(true);
+                if (!cancelled && MarketNetwork.allowed()) detail.setText(result);
+                render();
             });
         }, "jpx-daily-detail");
         detailThread.start();

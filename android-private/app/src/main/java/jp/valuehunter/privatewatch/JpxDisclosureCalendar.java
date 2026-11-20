@@ -131,6 +131,7 @@ final class JpxDisclosureCalendar {
                 days.put(day, read(day, loader, stopped));
                 changed = true;
             } catch (IOException | IllegalArgumentException error) {
+                if (stopped.getAsBoolean()) break;
                 // A date remains unverified until all its listings are available.
                 if (recheck) {
                     changed |= days.remove(day) != null;
