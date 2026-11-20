@@ -43,8 +43,8 @@ final class JpxWatchDeliveryProbe {
         updatedMonths.add(YearMonth.of(2026, 10));
         var octoberRights = new JpxShareRights(rights.coveredCodes(), updatedMonths, rights.notices());
         var published = new JpxDailyCheck.Comparison(
-                JpxDailyCheck.readReport(new File(directory, "jpx-20261116.pdf"), MONDAY, universe, ""),
-                JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), FRIDAY, universe, ""));
+                JpxDailyCheck.readReport(context, new File(directory, "jpx-20261116.pdf"), MONDAY, universe, ""),
+                JpxDailyCheck.readReport(context, new File(directory, "jpx-20261113.pdf"), FRIDAY, universe, ""));
         var months = new HashSet<YearMonth>();
         for (int month = 4; month <= 9; month++) months.add(YearMonth.of(2026, month));
         var review = new JpxIssuerArchive.Review(LocalDate.of(2026, 10, 1), MONDAY.plusDays(4));

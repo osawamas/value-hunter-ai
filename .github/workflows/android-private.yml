@@ -8,6 +8,12 @@ on:
       - 'android-private/**'
       - 'docs/data/android-s63-shares.json'
       - '.github/workflows/android-private.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android-private/**'
+      - 'docs/data/android-s63-shares.json'
+      - '.github/workflows/android-private.yml'
 
 permissions:
   contents: read

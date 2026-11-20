@@ -3,7 +3,6 @@ package jp.valuehunter.privatewatch;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.text.Html;
 
 import androidx.annotation.NonNull;
@@ -34,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class JpxWatchWorker extends Worker {
     static final String WORK = "jpx-daily-watch";
@@ -102,7 +102,7 @@ public final class JpxWatchWorker extends Worker {
         synchronized (STATE_LOCK) {
             var state = ScanWorker.prefs(context);
             var work = WorkManager.getInstance(context);
-            if (enabled && Build.VERSION.SDK_INT >= 35) {
+            if (enabled) {
                 if (!enabled(context)) {
                     state.edit().putString(TOKEN, UUID.randomUUID().toString())
                             .putString(STATUS, "東証日報の確認を予約した").apply();
@@ -127,7 +127,7 @@ public final class JpxWatchWorker extends Worker {
 
     static boolean checkNow(Context context) {
         synchronized (STATE_LOCK) {
-            if (Build.VERSION.SDK_INT < 35 || !enabled(context)) return false;
+            if (!enabled(context)) return false;
             var request = new OneTimeWorkRequest.Builder(JpxWatchWorker.class)
                     .setConstraints(connected()).setInputData(financePass()).build();
             WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP, request);
@@ -148,8 +148,10 @@ public final class JpxWatchWorker extends Worker {
         work.enqueueUniquePeriodicWork(FINANCE, ExistingPeriodicWorkPolicy.UPDATE, request.build());
     }
 
-    static long nextFinanceStart(long completed, boolean periodic, JpxAutomaticFinance.Batch batch) {
-        return periodic && batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
+    static long nextFinanceStart(long completed, boolean financePass, boolean periodicFinance,
+                                 JpxAutomaticFinance.Batch batch) {
+        boolean scheduled = !financePass || periodicFinance;
+        return scheduled && batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
     }
 
     private static Constraints connected() {
@@ -163,7 +165,7 @@ public final class JpxWatchWorker extends Worker {
     }
 
     private Result check() {
-        if (Build.VERSION.SDK_INT < 35 || isStopped()) return Result.success();
+        if (isStopped()) return Result.success();
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
         String token = state.getString(TOKEN, "");
@@ -236,7 +238,7 @@ public final class JpxWatchWorker extends Worker {
                         .append("銘柄 · 100株10万円以下に入った ").append(priceOnly.entered().size()).append("銘柄");
                 if (!priceOnly.entered().isEmpty()) {
                     summary.append("\n予算入り ").append(String.join("、",
-                            priceOnly.entered().stream().map(PriceOnlyScreen.BudgetEntry::code).toList()));
+                            priceOnly.entered().stream().map(PriceOnlyScreen.BudgetEntry::code).collect(Collectors.toUnmodifiableList())));
                 }
                 if (automaticFinance) summary.append("\n株価急変（前日比±8%以上） ")
                         .append(exclusions == null ? "権利落ち資料の確認待ち" : rapid.size() + "銘柄");
@@ -250,6 +252,10 @@ public final class JpxWatchWorker extends Worker {
                 // Leave the inputs eligible for another check until the notification is submitted.
                 update.putString(PROCESSED, added.isEmpty() && budgetAdded.isEmpty() && rapidAdded.isEmpty() ? processed : "");
                 if (!update.commit()) return Result.retry();
+                long nextFinance = nextFinanceStart(System.currentTimeMillis(),
+                        getInputData().getBoolean(FINANCE_PASS, false),
+                        getInputData().getBoolean(PERIODIC_FINANCE, false), finance);
+                if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
                 if (!added.isEmpty()) {
                     var detail = new StringBuilder(date + "の終値（参考）");
                     for (var entry : added.subList(0, Math.min(12, added.size()))) {
@@ -302,9 +308,6 @@ public final class JpxWatchWorker extends Worker {
                         return Result.retry();
                     }
                 }
-                long nextFinance = nextFinanceStart(System.currentTimeMillis(),
-                        getInputData().getBoolean(PERIODIC_FINANCE, false), finance);
-                if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
             }
             return Result.success();
         } catch (IOException error) {
@@ -362,7 +365,7 @@ public final class JpxWatchWorker extends Worker {
                                              List<JpxDailyCheck.Candidate> entered, Set<String> alerted) {
         if (baseline == null || last == null || !date.isAfter(baseline) || date.isBefore(last)) return List.of();
         if (!date.equals(last)) return entered;
-        return entered.stream().filter(entry -> !alerted.contains(entry.code())).toList();
+        return entered.stream().filter(entry -> !alerted.contains(entry.code())).collect(Collectors.toUnmodifiableList());
     }
 
     static List<PriceOnlyScreen.BudgetEntry> pendingBudget(LocalDate baseline, LocalDate last, LocalDate date,
@@ -370,7 +373,7 @@ public final class JpxWatchWorker extends Worker {
                                                              Set<String> alerted) {
         if (baseline == null || last == null || !date.isAfter(baseline) || date.isBefore(last)) return List.of();
         if (!date.equals(last)) return entered;
-        return entered.stream().filter(entry -> !alerted.contains(PRICE_ALERT_PREFIX + entry.code())).toList();
+        return entered.stream().filter(entry -> !alerted.contains(PRICE_ALERT_PREFIX + entry.code())).collect(Collectors.toUnmodifiableList());
     }
 
     private static final String RAPID_ALERT_PREFIX = "price-rapid:";
@@ -388,7 +391,7 @@ public final class JpxWatchWorker extends Worker {
                 || date.isBefore(last)) return List.of();
         if (!date.equals(last)) return entered;
         return entered.stream().filter(entry ->
-                !alerted.contains(RAPID_ALERT_PREFIX + entry.code())).toList();
+                !alerted.contains(RAPID_ALERT_PREFIX + entry.code())).collect(Collectors.toUnmodifiableList());
     }
 
     private static LocalDate dateOrNull(String text) {

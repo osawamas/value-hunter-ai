@@ -117,7 +117,7 @@ public class UsNasdaqRecoveryTest {
                 receipts, load, () -> false).screen().assessed());
     }
 
-    private static JSONObject response(String symbol) {
+    private static JSONObject response(String symbol) throws JSONException {
         var table = new JSONArray();
         var chart = new JSONArray();
         var format = java.time.format.DateTimeFormatter.ofPattern("MM/dd/uuuu", java.util.Locale.ROOT);

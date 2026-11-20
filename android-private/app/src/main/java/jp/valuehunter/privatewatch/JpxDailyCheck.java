@@ -1,6 +1,6 @@
 package jp.valuehunter.privatewatch;
 
-import android.annotation.TargetApi;
+import android.os.Build;
 import android.content.Context;
 import android.util.AtomicFile;
 
@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -34,7 +35,6 @@ import org.json.JSONObject;
 
 import jp.valuehunter.privatewatch.ValueCandidateScreen.Level;
 
-@TargetApi(35)
 final class JpxDailyCheck {
     private static final String REPORT_ROOT =
             "https://www.jpx.co.jp/automation/markets/statistics-equities/daily/files/";
@@ -88,7 +88,7 @@ final class JpxDailyCheck {
             appendCoverage(message, screening.assessed(), "<br>", finance);
             var automaticCandidates = screening.candidates().stream()
                     .filter(candidate -> !WATCH_CODES.contains(candidate.code())
-                            && finance.entries().containsKey(candidate.code())).toList();
+                            && finance.entries().containsKey(candidate.code())).collect(Collectors.toUnmodifiableList());
             if (!automaticCandidates.isEmpty()) message.append("<br><br>自動取得の割安候補");
             for (var candidate : automaticCandidates.subList(0, Math.min(50, automaticCandidates.size()))) {
                 var annual = finance.entries().get(candidate.code()).annualFor(latest.date());
@@ -390,7 +390,8 @@ final class JpxDailyCheck {
         var universe = JpxStockUniverse.load(context);
         var listings = JpxStockUniverse.listings();
         var delistings = JpxStockUniverse.delistings();
-        var cache = new AtomicFile(new File(context.getNoBackupFilesDir(), "jpx-report-quotes-v1.json"));
+        var cache = new AtomicFile(new File(context.getNoBackupFilesDir(),
+                Build.VERSION.SDK_INT >= 35 ? "jpx-report-quotes-v1.json" : "jpx-report-compatible-v1.json"));
         var saved = JpxQuoteCache.read(cache);
         return checkRecent(today, day -> {
             var listed = universe.forTradingDay(day, listings, delistings);
@@ -399,7 +400,7 @@ final class JpxDailyCheck {
                 try {
                     var response = download(reportUrl(requested), pdf);
                     if (!response.exists()) return null;
-                    var report = readReport(pdf, requested, listed, response.version());
+                    var report = readReport(context, pdf, requested, listed, response.version());
                     JpxQuoteCache.save(cache, report);
                     return report;
                 } finally {
@@ -512,9 +513,12 @@ final class JpxDailyCheck {
         throw new IOException("直近10日間に公表された株式相場表が見つからなかった");
     }
 
-    static Report readReport(File pdf, LocalDate day, JpxStockUniverse universe, String edition) throws IOException {
+    static Report readReport(Context context, File pdf, LocalDate day, JpxStockUniverse universe,
+                             String edition) throws IOException {
         try {
-            var table = JpxAndroidPdfReader.read(pdf, universe.codes(), day);
+            var table = Build.VERSION.SDK_INT >= 35
+                    ? JpxAndroidPdfReader.read(pdf, universe.codes(), day)
+                    : JpxCompatiblePdfReader.read(context, pdf, universe.codes(), day);
             var quotes = table.prices();
             var ambiguous = table.ambiguousCodes();
             // A valid PDF header does not guarantee a usable equity table. A layout

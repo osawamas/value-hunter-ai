@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
-import android.annotation.TargetApi;
+import android.content.Context;
+import android.os.Build;
 import android.graphics.pdf.PdfRenderer;
 import android.os.ParcelFileDescriptor;
 
@@ -81,10 +82,9 @@ final class JpxCorporateActionDate {
         return shareDate ? found : null;
     }
 
-    @TargetApi(35)
-    static String readPdf(URI uri, File cache) throws IOException {
+    static String readPdf(URI uri, Context context) throws IOException {
         if (!JpxIssuerArchive.disclosureSource(uri)) throw new IOException("Invalid JPX disclosure address");
-        File file = File.createTempFile("jpx-action-", ".pdf", cache);
+        File file = File.createTempFile("jpx-action-", ".pdf", context.getCacheDir());
         try {
             var connection = (HttpsURLConnection) uri.toURL().openConnection();
             connection.setInstanceFollowRedirects(false);
@@ -106,23 +106,31 @@ final class JpxCorporateActionDate {
             } finally {
                 connection.disconnect();
             }
-            try (var descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
-                 var pdf = new PdfRenderer(descriptor)) {
-                if (pdf.getPageCount() == 0 || pdf.getPageCount() > MAX_PAGES) return "";
-                var body = new StringBuilder();
-                for (int i = 0; i < pdf.getPageCount(); i++) {
-                    try (var page = pdf.openPage(i)) {
-                        var blocks = page.getTextContents();
-                        if (blocks.isEmpty()) return "";
-                        for (var block : blocks) body.append(block.getText()).append('\n');
-                    }
-                }
-                return body.toString();
+            if (Build.VERSION.SDK_INT < 35) {
+                return JpxCompatiblePdfReader.readText(context, file, MAX_PAGES);
             }
+            return readNativeText(file);
         } catch (IllegalArgumentException | IllegalStateException | SecurityException invalid) {
             return "";
         } finally {
             file.delete();
+        }
+    }
+
+    @android.annotation.TargetApi(35)
+    private static String readNativeText(File file) throws IOException {
+        try (var descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+             var pdf = new PdfRenderer(descriptor)) {
+            if (pdf.getPageCount() == 0 || pdf.getPageCount() > MAX_PAGES) return "";
+            var body = new StringBuilder();
+            for (int i = 0; i < pdf.getPageCount(); i++) {
+                try (var page = pdf.openPage(i)) {
+                    var blocks = page.getTextContents();
+                    if (blocks.isEmpty()) return "";
+                    for (var block : blocks) body.append(block.getText()).append('\n');
+                }
+            }
+            return body.toString();
         }
     }
 }

@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** Issuer disclosures used by the JPX manual preview. */
 final class JpxReferenceFinancials {
@@ -86,7 +87,7 @@ final class JpxReferenceFinancials {
     }
 
     static List<String> watchCodes() {
-        return BY_CODE.keySet().stream().sorted().toList();
+        return BY_CODE.keySet().stream().sorted().collect(Collectors.toUnmodifiableList());
     }
 
     private record Annual(LocalDate periodEnd, LocalDate released, BigDecimal eps, BigDecimal bps, String source) {

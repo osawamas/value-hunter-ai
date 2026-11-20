@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 /** Incrementally acquires public annual summaries for affordable JPX ordinary shares. */
 final class JpxAutomaticFinance {
@@ -108,7 +109,7 @@ final class JpxAutomaticFinance {
                     // Revalidate an invalid cached date from the official document.
                 }
                 var date = JpxCorporateActionDate.effective(
-                        JpxCorporateActionDate.readPdf(disclosure.pdfLink(), context.getCacheDir()), disclosure);
+                        JpxCorporateActionDate.readPdf(disclosure.pdfLink(), context), disclosure);
                 if (date != null && !stopped.getAsBoolean()) state.edit().putString(key, date.toString()).apply();
                 return date;
             }
@@ -126,7 +127,7 @@ final class JpxAutomaticFinance {
                     recordDay = null;
                 }
                 if (recordDay == null) {
-                    var text = JpxCorporateActionDate.readPdf(disclosure.pdfLink(), context.getCacheDir());
+                    var text = JpxCorporateActionDate.readPdf(disclosure.pdfLink(), context);
                     recordDay = JpxCorporateActionDate.recordDay(
                             text, disclosure, JpxCorporateActionDate.effective(text, disclosure));
                     if (recordDay != null && !stopped.getAsBoolean()) {
@@ -193,7 +194,7 @@ final class JpxAutomaticFinance {
                         .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
                         .thenComparing(code -> entries.containsKey(code) ? entries.get(code).checkedThrough() : LocalDate.MIN)
                         .thenComparing(Comparator.naturalOrder()))
-                .toList();
+                .collect(Collectors.toUnmodifiableList());
 
         int checked = 0;
         int attempted = 0;
@@ -314,7 +315,7 @@ final class JpxAutomaticFinance {
                                                         JpxAnnualSummary.Annual annual, Sources sources) throws IOException {
         var since = annual.end().minusYears(1);
         var relevant = page.disclosures().stream().filter(d -> !d.day().isBefore(since)
-                && JpxIssuerArchive.shareChange(d.title())).distinct().toList();
+                && JpxIssuerArchive.shareChange(d.title())).distinct().collect(Collectors.toUnmodifiableList());
         if (relevant.size() > 6) return null;
         for (var disclosure : relevant) {
             if (disclosure.pdfLink() == null || !JpxCorporateActionDate.supported(disclosure.title())) return null;
