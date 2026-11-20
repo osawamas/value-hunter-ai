@@ -130,11 +130,11 @@ class PriceOnlyGuardTests(unittest.TestCase):
                          "fx_date": "2026-11-18"}, **args)[0])
 
     def test_verified_fallback_rejects_wrong_ticker_or_exchange(self):
-        old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq",
+        old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq", "close_venue": "Nasdaq",
                "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.old["date"], "close_source": "source:old",
                "fx_source": "fx:old"}
-        new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq",
+        new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq", "close_venue": "Nasdaq",
                "price_basis": "raw_unadjusted_regular_session",
                "fx_date": self.new["date"], "close_source": "source:new",
                "fx_source": "fx:new"}
@@ -143,6 +143,12 @@ class PriceOnlyGuardTests(unittest.TestCase):
                     expected_symbol="ABC", expected_exchange="Nasdaq", **self.flags)
         self.assertEqual(verified_check(old, new, **args),
                          (True, "entered_100_share_budget"))
+        for bad_venue in ("NYSE", "consolidated", None):
+            with self.subTest(venue=bad_venue):
+                self.assertEqual(verified_check(old, {**new, "close_venue": bad_venue}, **args),
+                                 (False, "close_venue_mismatch"))
+                self.assertEqual(verified_check({**old, "close_venue": bad_venue}, new, **args),
+                                 (False, "close_venue_mismatch"))
         for changed in ({"symbol": "XYZ"}, {"exchange": "NYSE"},
                         {"symbol": None}, {"exchange": None}):
             with self.subTest(changed=changed):
