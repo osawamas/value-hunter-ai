@@ -9,11 +9,14 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** The reference list of domestic ordinary shares on Prime, Standard, and Growth. */
 record JpxStockUniverse(LocalDate asOf, Set<String> codes) {
@@ -43,12 +46,12 @@ record JpxStockUniverse(LocalDate asOf, Set<String> codes) {
             if (!table.contains("（上場承認日）") || !table.contains(">コード</th>")) continue;
             var body = BODY.matcher(table);
             if (!body.find()) throw new IOException("Missing JPX listing rows");
-            var rows = ROW.matcher(body.group(1)).results().map(row -> row.group(1)).toList();
+            var rows = groups(ROW, body.group(1));
             var events = new HashMap<String, LocalDate>();
             for (int i = 0; i < rows.size(); i++) {
-                var fields = CELL.matcher(rows.get(i)).results().map(cell -> cell.group(1)).toList();
+                var fields = groups(CELL, rows.get(i));
                 if (fields.size() != 8 || i + 1 == rows.size()) continue;
-                var marketFields = CELL.matcher(rows.get(i + 1)).results().map(cell -> cell.group(1)).toList();
+                var marketFields = groups(CELL, rows.get(i + 1));
                 if (marketFields.size() != 6 || !DOMESTIC_MARKETS.contains(
                         JpxIssuerArchive.visibleText(marketFields.get(0)))) continue;
                 var date = LISTING_DATE.matcher(fields.get(0));
@@ -89,8 +92,8 @@ record JpxStockUniverse(LocalDate asOf, Set<String> codes) {
             events = new HashMap<>();
             var rows = ROW.matcher(body.group(1));
             while (rows.find()) {
-                var fields = CELL.matcher(rows.group(1)).results()
-                        .map(cell -> JpxIssuerArchive.visibleText(cell.group(1))).toList();
+                var fields = groups(CELL, rows.group(1)).stream()
+                        .map(JpxIssuerArchive::visibleText).collect(Collectors.toUnmodifiableList());
                 if (fields.size() != 5 || !DATE.matcher(fields.get(0)).matches()
                         || !CODE.matcher(fields.get(2)).matches()) throw new IOException("Invalid JPX delisting row");
                 try {
@@ -104,6 +107,13 @@ record JpxStockUniverse(LocalDate asOf, Set<String> codes) {
         }
         if (events == null || events.isEmpty()) throw new IOException("Missing JPX delistings");
         return Map.copyOf(events);
+    }
+
+    private static List<String> groups(Pattern pattern, String html) {
+        var values = new ArrayList<String>();
+        var matcher = pattern.matcher(html);
+        while (matcher.find()) values.add(matcher.group(1));
+        return values;
     }
 
     JpxStockUniverse forTradingDay(LocalDate day, Map<String, LocalDate> listings, Map<String, LocalDate> delistings) {

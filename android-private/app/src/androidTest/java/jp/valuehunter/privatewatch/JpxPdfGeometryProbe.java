@@ -47,10 +47,10 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             }
             var universe = JpxStockUniverse.load(getTargetContext());
             var history = JpxHistoryReference.load(getTargetContext());
-            String logs = digestReport(directory, LocalDate.of(2026, 10, 29), codes)
-                    + digestReport(directory, LocalDate.of(2026, 11, 13), codes)
-                    + digestReport(directory, LocalDate.of(2026, 11, 16), codes)
-                    + checkSampleReport(directory, rights, universe, history);
+            String logs = digestReport(getTargetContext(), directory, LocalDate.of(2026, 10, 29), codes)
+                    + digestReport(getTargetContext(), directory, LocalDate.of(2026, 11, 13), codes)
+                    + digestReport(getTargetContext(), directory, LocalDate.of(2026, 11, 16), codes)
+                    + checkSampleReport(getTargetContext(), directory, rights, universe, history);
             checkRightsRefresh(getTargetContext());
             checkJpxWatch();
             checkReportEditions();
@@ -64,11 +64,19 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         }
     }
 
-    private static String digestReport(File directory, LocalDate day, HashSet<String> codes) throws Exception {
+    private static String digestReport(android.content.Context context, File directory,
+                                       LocalDate day, HashSet<String> codes) throws Exception {
         String filename = "jpx-" + day.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + ".pdf";
-        var table = JpxAndroidPdfReader.read(new File(directory, filename), codes, day);
+        var file = new File(directory, filename);
+        var table = JpxCompatiblePdfReader.read(context, file, codes, day);
         var prices = table.prices();
         var ambiguous = table.ambiguousCodes();
+        if (android.os.Build.VERSION.SDK_INT >= 35) {
+            var nativeTable = JpxAndroidPdfReader.read(file, codes, day);
+            if (!prices.equals(nativeTable.prices()) || !ambiguous.equals(nativeTable.ambiguousCodes())) {
+                throw new AssertionError("JPX native and compatibility extractors differ for " + filename);
+            }
+        }
         var digest = MessageDigest.getInstance("SHA-256");
         int closes = 0;
         for (String code : new TreeSet<>(prices.keySet())) {
@@ -85,13 +93,13 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         return "JPX_ANDROID_CLOSES " + filename + " " + prices.size() + " " + closes + " " + hex + "\n";
     }
 
-    private static String checkSampleReport(File directory, JpxShareRights rights,
+    private static String checkSampleReport(android.content.Context context, File directory, JpxShareRights rights,
                                             JpxStockUniverse universe, JpxHistoryReference history) throws IOException {
         var file = new File(directory, "jpx-20261116.pdf");
         var day = LocalDate.of(2026, 11, 16);
-        var report = JpxDailyCheck.readReport(file, day, universe, "");
+        var report = JpxDailyCheck.readReport(context, file, day, universe, "");
         var previousDay = LocalDate.of(2026, 11, 13);
-        var previous = JpxDailyCheck.readReport(new File(directory, "jpx-20261113.pdf"), previousDay, universe, "");
+        var previous = JpxDailyCheck.readReport(context, new File(directory, "jpx-20261113.pdf"), previousDay, universe, "");
         var comparison = JpxDailyCheck.checkRecent(day.plusDays(2), date -> {
             if (date.isAfter(day)) return null;
             if (date.equals(day)) return report;
@@ -170,7 +178,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             throw new AssertionError("The Android daily report preview did not match the JPX reference");
         }
         try {
-            JpxDailyCheck.readReport(file, day.minusDays(1), universe, "");
+            JpxDailyCheck.readReport(context, file, day.minusDays(1), universe, "");
             throw new AssertionError("JPX report with a different trading date was accepted");
         } catch (IOException expected) {
             if (!expected.getMessage().contains("立会日が取得先の日付と一致しない")) throw expected;

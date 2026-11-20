@@ -1,6 +1,5 @@
 package jp.valuehunter.privatewatch;
 
-import android.annotation.TargetApi;
 import android.util.AtomicFile;
 
 import org.json.JSONArray;
@@ -18,9 +17,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** Stores parsed JPX reports privately across process restarts. */
-@TargetApi(35)
 final class JpxQuoteCache {
     private static final int MAX_BYTES = 2_000_000;
     private static final int RETAIN_REPORTS = 4;
@@ -111,7 +110,7 @@ final class JpxQuoteCache {
     }
 
     private static String universeKey(JpxStockUniverse universe) {
-        return sha(universe.asOf() + "\n" + String.join("\n", universe.codes().stream().sorted().toList()));
+        return sha(universe.asOf() + "\n" + String.join("\n", universe.codes().stream().sorted().collect(Collectors.toUnmodifiableList())));
     }
 
     private static String sha(String text) {

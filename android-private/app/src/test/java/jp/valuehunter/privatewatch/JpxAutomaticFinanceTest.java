@@ -280,19 +280,20 @@ public class JpxAutomaticFinanceTest {
         var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(9, first.fetched());
         assertTrue(first.status().contains("初回確認待ち 3677銘柄"));
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, first));
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, first));
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         var pause = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(0, pause.fetched());
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, pause));
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, pause));
         assertEquals(10, calls.get());
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         int passes = 1;
         while (scanned.size() < quotes.size() && passes < 165) {
             var batch = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
             long expected = scanned.size() < quotes.size() ? clock.get() + 900_000 : 0;
-            assertEquals(expected, JpxWatchWorker.nextFinanceStart(clock.get(), true, batch));
-            assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), false, batch));
+            assertEquals(expected, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, batch));
+            assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, false, batch));
+            assertEquals(expected, JpxWatchWorker.nextFinanceStart(clock.get(), false, false, batch));
             passes++;
         }
         assertEquals(40, passes);
@@ -322,13 +323,13 @@ public class JpxAutomaticFinanceTest {
             var run = JpxAutomaticFinance.refresh(preferences(saved), report, DAY, source, () -> false, () -> 1,
                     elapsed::get, uri -> { throw new AssertionError(uri); }, null);
             assertEquals(3, run.fetched());
-            assertEquals(pass == 0 ? 901_000 : 0, JpxWatchWorker.nextFinanceStart(1_000, true, run));
+            assertEquals(pass == 0 ? 901_000 : 0, JpxWatchWorker.nextFinanceStart(1_000, true, true, run));
         }
         assertEquals(List.of("1400", "1401", "1402", "1403", "1404", "1405"), calls);
         var unwritten = JpxAutomaticFinance.refresh(preferences(new HashMap<>(), () -> false), report, DAY, source,
                 () -> false, () -> 1, elapsed::get, uri -> { throw new AssertionError(uri); }, null);
         assertEquals(3, unwritten.fetched());
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(1_000, true, unwritten));
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(1_000, true, true, unwritten));
     }
 
     @Test public void archiveRateLimitHonorsAProviderDelayLongerThanAnHour() {

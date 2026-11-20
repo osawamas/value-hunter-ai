@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -71,7 +72,7 @@ final class JpxIssuerArchive {
 
         Disclosure annualOn(LocalDate date) {
             var annuals = disclosures.stream().filter(disclosure -> disclosure.results()
-                    && disclosure.day().isBefore(date) && annualTitle(disclosure.title())).toList();
+                    && disclosure.day().isBefore(date) && annualTitle(disclosure.title())).collect(Collectors.toUnmodifiableList());
             var latestMonth = annuals.stream().map(Disclosure::fiscalMonth).filter(java.util.Objects::nonNull)
                     .max(YearMonth::compareTo).orElse(null);
             Disclosure latest = null;

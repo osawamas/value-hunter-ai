@@ -91,8 +91,7 @@ public final class MainActivity extends Activity {
         monitorSwitch.setTrackTintList(new ColorStateList(
                 new int[][] {new int[] {android.R.attr.state_checked}, new int[] {}},
                 new int[] {ACCENT, OUTLINE}));
-        monitorSwitch.setEnabled(supported());
-        monitorSwitch.setChecked(supported() && !state.getBoolean(PAUSED, false));
+        monitorSwitch.setChecked(!state.getBoolean(PAUSED, false));
         place(japan, monitorSwitch, 5);
         monitorSwitch.setOnCheckedChangeListener((view, checked) -> {
             state.edit().putBoolean(PAUSED, !checked).apply();
@@ -135,7 +134,6 @@ public final class MainActivity extends Activity {
         label(result, "最新の確認", 19, INK, true, 0);
         lastCheck = label(result, "", 14, MUTED, false, 5);
         var showDetail = button(result, "終値と判定の詳細", PAGE, 10);
-        showDetail.setEnabled(supported());
         detail = label(result, "", 14, INK, false, 8);
         detail.setTextIsSelectable(true);
         detail.setMovementMethod(LinkMovementMethod.getInstance());
@@ -176,15 +174,15 @@ public final class MainActivity extends Activity {
 
     private void render() {
         usDailyStatus.setText(UsDailyWorker.displayStatus(state));
-        boolean active = supported() && monitorSwitch.isChecked();
-        monitorStatus.setText(!supported() ? "Android 15以降に対応" : active ? "●  東証日報の自動監視中" : "○  日本株の自動監視を停止中");
+        boolean active = monitorSwitch.isChecked();
+        monitorStatus.setText(active ? "●  東証日報の自動監視中"
+                + (Build.VERSION.SDK_INT < 35 ? "（互換モード）" : "") : "○  日本株の自動監視を停止中");
         checkNow.setEnabled(active);
         boolean alerts = ScanWorker.alertsEnabled(this);
         notificationStatus.setText(alerts ? "通知は有効" : "通知の許可が必要");
         notificationButton.setText(alerts ? "通知設定を開く" : "通知を有効にする");
         String report = JpxWatchWorker.displayStatus(state);
-        lastCheck.setText(!supported() ? "この端末では東証日報を読み取れない"
-                : !report.isEmpty() ? report : active ? "初回の東証日報を確認待ち" : "自動監視をオンにすると確認を開始");
+        lastCheck.setText(!report.isEmpty() ? report : active ? "初回の東証日報を確認待ち" : "自動監視をオンにすると確認を開始");
     }
 
     private void checkDetails(Button action) {
@@ -224,10 +222,6 @@ public final class MainActivity extends Activity {
             startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.fromParts("package", getPackageName(), null)));
         }
-    }
-
-    private static boolean supported() {
-        return Build.VERSION.SDK_INT >= 35;
     }
 
     private LinearLayout section(LinearLayout parent, int color, boolean border) {
