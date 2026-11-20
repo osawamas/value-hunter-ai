@@ -251,6 +251,9 @@ public final class ScanWorker extends Worker {
                     .setStyle(new Notification.BigTextStyle().bigText(detail))
                     .setDeleteIntent(trackInteraction ? NotificationDismissal.intent(context, receiptKey) : null)
                     .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build()));
+            // A successful request (or an already-active/acknowledged receipt) is recorded locally.
+            // Failure to save history never turns a submitted notification into a retry burst.
+            if (trackInteraction) AlertHistory.record(context, receipt, title, detail, System.currentTimeMillis());
             return true;
         } catch (SecurityException denied) {
             return false;
