@@ -96,6 +96,27 @@ class SourceProvenanceTests(TestCase):
             self.assertEqual(list(Path(temp).iterdir()), [])
             notes.assert_not_called()
 
+    def test_conflicting_event_ex_dates_do_not_publish_partial_cache(self):
+        from types import SimpleNamespace
+        day = date(2026, 11, 16)
+        urls = [
+            "https://www.jpx.co.jp/listing/others/ex-rights/a/20261116.xls",
+            "https://www.jpx.co.jp/listing/others/ex-rights/b/20261117.xls",
+        ]
+        notices = [
+            {"6861": [SimpleNamespace(kind="split", record_on=day, ex_on=date(2026, 11, 17))]},
+            {"6861": [SimpleNamespace(kind="split", record_on=day, ex_on=date(2026, 11, 18))]},
+        ]
+        with TemporaryDirectory() as temp, \
+             patch.object(sources, "download", side_effect=[b"one", b"two"]), \
+             patch.object(sources, "read_daily_rights", side_effect=[
+                 (date(2026, 11, 16), notices[0], set()),
+                 (date(2026, 11, 17), notices[1], set())]), \
+             patch.object(sources, "workbook_notes", return_value=[]):
+            with self.assertRaisesRegex(ValueError, "Conflicting JPX ex-rights dates"):
+                sources.daily_sources(urls, Path(temp))
+            self.assertEqual(list(Path(temp).iterdir()), [])
+
     def test_conflicting_daily_editions_fail_closed(self):
         day = date(2026, 11, 16)
         urls = [
