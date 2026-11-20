@@ -78,6 +78,45 @@ public class UsNasdaqRecoveryTest {
                 java.util.List.of(fromOfficial, next), Set.of("ABC")));
     }
 
+    @Test public void rechecksAClosingPairPublishedAfterTheFirstAttempt() throws Exception {
+        var receipts = new JSONObject();
+        var first = UsNasdaqRecovery.check(Set.of("ABC", "DEF"), OLD, NEW, OLD_FX, NEW_FX, Set.of(),
+                Set.of(), receipts, url -> {
+                    if (url.contains("/DEF/")) return response("DEF").toString();
+                    var payload = response("ABC");
+                    var partial = payload.getJSONObject("data").getJSONObject("nocp");
+                    partial.getJSONArray("nocpTable").remove(1);
+                    partial.getJSONArray("nocpChart").remove(1);
+                    return payload.toString();
+                }, () -> false, () -> 1);
+        assertEquals(1, first.screen().assessed());
+        assertFalse(first.more());
+        var saved = new JSONObject(receipts.toString());
+        var early = UsNasdaqRecovery.check(Set.of("ABC", "DEF"), OLD, NEW, OLD_FX, NEW_FX, Set.of(),
+                Set.of(), saved, url -> { throw new AssertionError(url); }, () -> false, () -> 30_000);
+        assertEquals(1, early.screen().assessed());
+        var result = UsNasdaqRecovery.check(Set.of("ABC", "DEF"), OLD, NEW, OLD_FX, NEW_FX, Set.of(),
+                Set.of(), saved, url -> {
+                    assertTrue(url.contains("/ABC/"));
+                    return response("ABC").toString();
+                }, () -> false, () -> 3_600_001);
+        assertEquals(2, result.screen().assessed());
+        assertEquals(java.util.List.of("ABC"), UsSecFinanceWorker.pendingBudgetEntries(
+                result.screen().entered(), Set.of("DEF")).stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
+    }
+
+    @Test public void corruptOrLegacyReceiptsCanBeRecovered() throws Exception {
+        var receipts = new JSONObject("{\"ABC\":[\"7\"],\"DEF\":false,\"XYZ\":[\"0\",\"6\"]}");
+        var symbols = Set.of("ABC", "DEF", "XYZ");
+        UsSecFinanceWorker.Download load = url -> response(url.split("/")[5]).toString();
+        var recovered = UsNasdaqRecovery.check(symbols, OLD, NEW, OLD_FX, NEW_FX, Set.of(), Set.of(),
+                receipts, load, () -> false);
+        assertEquals(1, recovered.screen().assessed());
+        assertTrue(recovered.more());
+        assertEquals(3, UsNasdaqRecovery.check(symbols, OLD, NEW, OLD_FX, NEW_FX, Set.of(), Set.of(),
+                receipts, load, () -> false).screen().assessed());
+    }
+
     private static JSONObject response(String symbol) {
         var table = new JSONArray();
         var chart = new JSONArray();

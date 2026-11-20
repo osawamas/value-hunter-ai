@@ -380,12 +380,13 @@ final class JpxDailyCheck {
     static Comparison check(Context context) throws IOException {
         var today = LocalDate.now(ZoneId.of("Asia/Tokyo"));
         var universe = JpxStockUniverse.load(context);
+        var delistings = JpxStockUniverse.delistings();
         var pdf = File.createTempFile("jpx-daily-", ".pdf", context.getCacheDir());
         try {
             return checkRecent(today, day -> {
                 var response = download(reportUrl(day), pdf);
                 if (!response.exists()) return null;
-                return readReport(pdf, day, universe, response.version());
+                return readReport(pdf, day, universe.forTradingDay(day, delistings), response.version());
             });
         } finally {
             pdf.delete();

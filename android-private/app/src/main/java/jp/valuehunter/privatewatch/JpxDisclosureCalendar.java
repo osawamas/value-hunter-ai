@@ -105,7 +105,7 @@ final class JpxDisclosureCalendar {
     }
 
     static Map<LocalDate, Day> refresh(SharedPreferences state, LocalDate latest, LocalDate earliest,
-                                       BooleanSupplier stopped) {
+                                       BooleanSupplier stopped, PageLoader loader, LocalDate recheckFrom) {
         var days = new HashMap<LocalDate, Day>();
         try {
             var saved = new JSONObject(state.getString(CACHE, "{}"));
@@ -124,14 +124,19 @@ final class JpxDisclosureCalendar {
         boolean changed = false;
         for (LocalDate day = latest; !day.isBefore(earliest) && !day.isBefore(latest.minusDays(RETAIN_DAYS))
                 && fetched < 8 && !stopped.getAsBoolean(); day = day.minusDays(1)) {
-            if (days.containsKey(day)) continue;
+            boolean recheck = recheckFrom != null && !day.isBefore(recheckFrom);
+            if (!recheck && days.containsKey(day)) continue;
             fetched++;
             try {
-                days.put(day, read(day, JpxIssuerArchive::publicPage, stopped));
+                days.put(day, read(day, loader, stopped));
                 changed = true;
             } catch (IOException | IllegalArgumentException error) {
                 // A date remains unverified until all its listings are available.
-                break;
+                if (recheck) {
+                    changed |= days.remove(day) != null;
+                } else {
+                    break;
+                }
             }
         }
         if (changed) {

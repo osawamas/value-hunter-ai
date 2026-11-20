@@ -36,6 +36,35 @@ public class JpxAutomaticFinanceTest {
         assertEquals(Set.of(CODE), result.annual());
     }
 
+    @Test public void refreshedTdnetCorrectionInvalidatesAPreviouslyClearTradingDay() throws Exception {
+        var cache = new HashMap<String, Object>();
+        var older = DAY.minusDays(1);
+        String empty = "<div id=\"kaiji-date-1\">2026年11月16日</div>に開示された情報はありません";
+        var initial = JpxDisclosureCalendar.refresh(preferences(cache), older, older, () -> false,
+                url -> empty, older);
+        assertTrue(initial.get(older).rights().isEmpty());
+
+        var filing = acquire(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var entry = new JpxAutomaticFinance.Entry(older.minusDays(1), filing.annual(), "");
+        assertEquals("", entry.failure(CODE, older, initial));
+        String corrected = """
+                <div id="kaiji-date-1">2026年11月16日</div>
+                <div class="kaijiSum">1～1件&nbsp;/&nbsp;全1件</div>
+                <tr class="hyodaiUpd"><td class="oddnew-L kjTime">15:00</td><td class="oddnew-M kjCode">14200</td>
+                <td class="oddnew-M kjName">会社</td><td class="oddnew-M kjTitle"><a>株式分割</a>
+                <s>その他のお知らせ</s></td></tr>
+                """;
+        var resumed = JpxDisclosureCalendar.refresh(preferences(cache), older, older, () -> false,
+                url -> corrected, older);
+        assertEquals(Set.of(CODE), resumed.get(older).rights());
+        assertFalse(entry.failure(CODE, older, resumed).isEmpty());
+
+        var offline = JpxDisclosureCalendar.refresh(preferences(cache), older, older, () -> false,
+                url -> { throw new IOException("offline"); }, older);
+        assertFalse(offline.containsKey(older));
+        assertFalse(entry.failure(CODE, older, offline).isEmpty());
+    }
+
     @Test public void publicFinancialStatementEntersAutomaticScreenWithoutManualRegistration() throws Exception {
         var entry = acquire(archive("決算短信〔日本基準〕(連結)", PATH), filing());
         assertNotNull(entry.annual());
@@ -247,13 +276,24 @@ public class JpxAutomaticFinanceTest {
                 throw new AssertionError("This replay exercises the queue without requesting filings");
             }
         };
-        var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        var clock = new java.util.concurrent.atomic.AtomicLong(1);
+        var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(9, first.fetched());
-        for (int pass = 0; scanned.size() < quotes.size() && pass < 165; pass++)
-            JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
+        assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,
+                () -> false, clock::get).fetched());
+        assertEquals(10, calls.get());
+        clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
+        int passes = 1;
+        while (scanned.size() < quotes.size() && passes < 165) {
+            JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
+            passes++;
+        }
+        assertEquals(155, passes);
         assertEquals(quotes.keySet(), scanned);
         assertEquals(quotes.size() + 1, calls.get());
-        assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false).fetched());
+        assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,
+                () -> false, clock::get).fetched());
     }
 
     @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() throws Exception {
@@ -336,11 +376,12 @@ public class JpxAutomaticFinanceTest {
         };
         var cache = new HashMap<String, Object>();
         var report = report(DAY, "890");
-        var stopped = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        var stopped = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, () -> 1);
         assertEquals(0, stopped.fetched());
         assertFalse(cache.containsKey("annual-" + CODE));
 
-        var resumed = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false);
+        var resumed = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false,
+                () -> 1 + java.util.concurrent.TimeUnit.HOURS.toMillis(1));
         assertEquals(1, resumed.fetched());
         assertEquals("", resumed.entries().get(CODE).hold());
         assertEquals(1, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, null, () -> true).entries().size());
@@ -413,6 +454,7 @@ public class JpxAutomaticFinanceTest {
                                     case "putString", "putLong" -> data.put(values[0].toString(), values[1]);
                                     case "remove" -> data.remove(values[0].toString());
                                     case "apply" -> { return null; }
+                                    case "commit" -> { return true; }
                                     default -> throw new IllegalStateException(change.getName());
                                 }
                                 return editor;

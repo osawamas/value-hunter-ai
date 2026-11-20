@@ -12,9 +12,11 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 final class UsNasdaqRecovery {
     private static final int BATCH = 24;
+    private static final long RECHECK_MS = TimeUnit.HOURS.toMillis(1);
 
     record Result(PriceOnlyScreen.Result screen, boolean retry, boolean more) {
         static Result empty() { return new Result(PriceOnlyScreen.Result.empty(), false, false); }
@@ -31,10 +33,19 @@ final class UsNasdaqRecovery {
     static Result check(Set<String> missing, LocalDate previous, LocalDate latest, UsScreen.Fx oldFx,
                         UsScreen.Fx newFx, Set<String> splits, Set<String> nasdaqSplits, JSONObject receipts,
                         UsSecFinanceWorker.Download download, BooleanSupplier stopped) throws JSONException {
+        return check(missing, previous, latest, oldFx, newFx, splits, nasdaqSplits, receipts, download, stopped,
+                System::currentTimeMillis);
+    }
+
+    static Result check(Set<String> missing, LocalDate previous, LocalDate latest, UsScreen.Fx oldFx,
+                        UsScreen.Fx newFx, Set<String> splits, Set<String> nasdaqSplits, JSONObject receipts,
+                        UsSecFinanceWorker.Download download, BooleanSupplier stopped, LongSupplier clock)
+            throws JSONException {
         if (!previous.equals(oldFx.date()) || !latest.equals(newFx.date())) return Result.empty();
         var eligible = missing.stream().filter(code -> !UsNasdaqCloseCheck.hasSplit(splits, code)
                 && !UsNasdaqCloseCheck.hasSplit(nasdaqSplits, code)).sorted().toList();
-        var queue = eligible.stream().filter(code -> !receipts.has(code)).toList();
+        long now = clock.getAsLong();
+        var queue = eligible.stream().filter(code -> due(receipts, code, now)).toList();
         boolean retry = false;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(75);
         for (String code : queue.subList(0, Math.min(BATCH, queue.size()))) {
@@ -42,7 +53,7 @@ final class UsNasdaqRecovery {
             try {
                 var pair = UsNasdaqOfficialClose.read(new JSONObject(download.get(UsNasdaqOfficialClose.url(code))),
                         code, previous, latest);
-                receipts.put(code, pair == null ? Boolean.FALSE : new JSONArray()
+                receipts.put(code, pair == null ? clock.getAsLong() + RECHECK_MS : new JSONArray()
                         .put(pair.before().toPlainString()).put(pair.after().toPlainString()));
             } catch (UsDailyWorker.HttpStatus unavailable) {
                 if (unavailable.code == 429) {
@@ -50,11 +61,11 @@ final class UsNasdaqRecovery {
                     break;
                 }
                 if (unavailable.code >= 500) retry = true;
-                else receipts.put(code, false);
+                else receipts.put(code, clock.getAsLong() + RECHECK_MS);
             } catch (IOException unavailable) {
                 retry = true;
             } catch (JSONException invalid) {
-                receipts.put(code, false);
+                receipts.put(code, clock.getAsLong() + RECHECK_MS);
             }
         }
         var before = new HashMap<String, BigDecimal>();
@@ -63,11 +74,13 @@ final class UsNasdaqRecovery {
         var newRate = BigDecimal.valueOf(newFx.yenPerDollar());
         for (String code : eligible) {
             var pair = receipts.optJSONArray(code);
-            if (pair == null || pair.length() != 2) continue;
+            if (pair == null) continue;
             try {
+                if (pair.length() != 2) throw new JSONException("Incomplete Nasdaq price pair");
                 var oldPrice = new BigDecimal(pair.getString(0));
                 var newPrice = new BigDecimal(pair.getString(1));
-                if (oldPrice.signum() <= 0 || newPrice.signum() <= 0) continue;
+                if (oldPrice.signum() <= 0 || newPrice.signum() <= 0)
+                    throw new JSONException("Invalid Nasdaq price pair");
                 before.put(code, oldPrice.multiply(oldRate));
                 after.put(code, newPrice.multiply(newRate));
             } catch (JSONException | NumberFormatException malformed) {
@@ -75,8 +88,12 @@ final class UsNasdaqRecovery {
             }
         }
         var result = PriceOnlyScreen.budgetEntries(before.keySet(), Set.of(), before::get, after::get);
-        boolean remaining = eligible.stream().anyMatch(code -> !receipts.has(code));
+        boolean remaining = eligible.stream().anyMatch(code -> due(receipts, code, now));
         return new Result(result, retry, !retry && remaining);
+    }
+
+    private static boolean due(JSONObject receipts, String code, long now) {
+        return receipts.optJSONArray(code) == null && receipts.optLong(code, 0L) <= now;
     }
 
     private UsNasdaqRecovery() {}

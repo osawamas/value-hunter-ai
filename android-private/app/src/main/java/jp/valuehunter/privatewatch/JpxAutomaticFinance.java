@@ -16,7 +16,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 /** Incrementally acquires public annual summaries for affordable JPX ordinary shares. */
 final class JpxAutomaticFinance {
@@ -26,6 +28,7 @@ final class JpxAutomaticFinance {
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
     private static final String RETRY_PREFIX = "retry-after-";
+    private static final String ARCHIVE_RETRY = "archive-retry-after";
 
     record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
                  JpxAnnualSummary.Annual previousAnnual) {
@@ -127,7 +130,8 @@ final class JpxAutomaticFinance {
                 }
                 return rights.adjustment(code, disclosure, recordDay);
             }
-        }, stopped);
+        }, stopped, System::currentTimeMillis, JpxIssuerArchive::publicPage,
+                comparison.previous() == null ? report.date() : comparison.previous().date());
     }
 
     static Batch cached(Context context, JpxDailyCheck.Report report) {
@@ -145,6 +149,17 @@ final class JpxAutomaticFinance {
 
     static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
                          Sources sources, BooleanSupplier stopped) {
+        return refresh(state, report, through, sources, stopped, System::currentTimeMillis);
+    }
+
+    static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
+                         Sources sources, BooleanSupplier stopped, LongSupplier clock) {
+        return refresh(state, report, through, sources, stopped, clock, JpxIssuerArchive::publicPage, null);
+    }
+
+    private static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
+                         Sources sources, BooleanSupplier stopped, LongSupplier clock,
+                         JpxDisclosureCalendar.PageLoader disclosureLoader, LocalDate recheckFrom) {
         var entries = new HashMap<String, Entry>();
         var eligible = new ArrayList<String>();
         LocalDate earliest = report.date().isAfter(through) ? through.plusDays(1) : report.date().plusDays(1);
@@ -157,8 +172,12 @@ final class JpxAutomaticFinance {
             LocalDate tomorrow = entry.checkedThrough().plusDays(1);
             if (entry.annual() != null && entry.hold().isEmpty() && tomorrow.isBefore(earliest)) earliest = tomorrow;
         }
-        var updates = JpxDisclosureCalendar.refresh(state, report.date(), earliest, stopped);
-        long now = System.currentTimeMillis();
+        var updates = JpxDisclosureCalendar.refresh(state, report.date(), earliest, stopped,
+                disclosureLoader, recheckFrom);
+        long now = clock.getAsLong();
+        if (sources == null || stopped.getAsBoolean() || state.getLong(ARCHIVE_RETRY, 0L) > now) {
+            return new Batch(Map.copyOf(entries), updates, eligible.size(), 0);
+        }
         var pending = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
                 .filter(code -> due(entries.get(code), code, through, report.date(), updates))
@@ -173,7 +192,7 @@ final class JpxAutomaticFinance {
         int checked = 0;
         int attempted = 0;
         int consecutiveFailures = 0;
-        long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(75);
+        long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(75);
         for (String code : pending) {
             if (attempted >= BATCH_SIZE || stopped.getAsBoolean() || System.nanoTime() >= until) break;
             attempted++;
@@ -186,10 +205,13 @@ final class JpxAutomaticFinance {
                 consecutiveFailures = 0;
             } catch (IOException unavailable) {
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
-                        && (http.status == 429 || http.status == 503)) break;
+                        && (http.status == 429 || http.status == 503)) {
+                    state.edit().putLong(ARCHIVE_RETRY, clock.getAsLong() + TimeUnit.HOURS.toMillis(1)).commit();
+                    break;
+                }
                 // Keep verified data and move on when an individual issuer stalls.
                 state.edit().putLong(RETRY_PREFIX + code,
-                        now + java.util.concurrent.TimeUnit.HOURS.toMillis(1)).apply();
+                        clock.getAsLong() + TimeUnit.HOURS.toMillis(1)).apply();
                 if (++consecutiveFailures >= 3) break;
             } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
                 var entry = new Entry(through, null, "東証の決算開示を確認できなかった");
