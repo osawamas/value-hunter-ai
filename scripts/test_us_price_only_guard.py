@@ -108,9 +108,11 @@ class PriceOnlyGuardTests(unittest.TestCase):
 
     def test_verified_provenance_gate(self):
         old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
+               "independent_raw_close_verified": True,
                "fx_date": self.old["date"], "close_source": "exchange:old",
                "fx_source": "fixing:old"}
         new = {**self.new, "price_basis": "raw_unadjusted_regular_session",
+               "independent_raw_close_verified": True,
                "fx_date": self.new["date"], "close_source": "exchange:new",
                "fx_source": "fixing:new"}
         args = dict(expected_previous_date=self.old["date"],
@@ -129,13 +131,41 @@ class PriceOnlyGuardTests(unittest.TestCase):
         self.assertFalse(verified_check(old, {**new, "date": "2026-11-18",
                          "fx_date": "2026-11-18"}, **args)[0])
 
+    def test_independent_raw_close_reconciliation_required_for_each_session(self):
+        """A raw-price label or URL alone cannot authorize fallback notifications."""
+        old = {**self.old, "price_basis": "raw_unadjusted_regular_session",
+               "independent_raw_close_verified": True,
+               "fx_date": self.old["date"], "close_source": "raw:old",
+               "fx_source": "fx:old"}
+        new = {**self.new, "price_basis": "raw_unadjusted_regular_session",
+               "independent_raw_close_verified": True,
+               "fx_date": self.new["date"], "close_source": "raw:new",
+               "fx_source": "fx:new"}
+        args = dict(expected_previous_date=self.old["date"],
+                    expected_current_date=self.new["date"], **self.flags)
+        self.assertEqual(verified_check(old, new, **args),
+                         (True, "entered_100_share_budget"))
+        for bad in (None, False, 1, "true"):
+            for side in ("old", "new"):
+                with self.subTest(bad=bad, side=side):
+                    changed = {**(old if side == "old" else new),
+                               "independent_raw_close_verified": bad}
+                    previous, current = (changed, new) if side == "old" else (old, changed)
+                    self.assertEqual(verified_check(previous, current, **args),
+                                     (False, "independent_raw_close_unverified"))
+        self.assertEqual(verified_check({k: v for k, v in old.items()
+                                        if k != "independent_raw_close_verified"}, new, **args),
+                         (False, "independent_raw_close_unverified"))
+
     def test_verified_fallback_rejects_wrong_ticker_or_exchange(self):
         old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq",
                "price_basis": "raw_unadjusted_regular_session",
+               "independent_raw_close_verified": True,
                "fx_date": self.old["date"], "close_source": "source:old",
                "fx_source": "fx:old"}
         new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq",
                "price_basis": "raw_unadjusted_regular_session",
+               "independent_raw_close_verified": True,
                "fx_date": self.new["date"], "close_source": "source:new",
                "fx_source": "fx:new"}
         args = dict(expected_previous_date=self.old["date"],
