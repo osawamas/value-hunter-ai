@@ -9,7 +9,7 @@ import android.net.Uri;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-/** Records explicit clears so a restarted worker can finish saving a posted alert. */
+/** Records user interaction so a restarted worker can finish saving a posted alert. */
 public final class NotificationDismissal extends BroadcastReceiver {
     private static final String STORE = "notification-dismissals";
     private static final String SCHEME = "valuehunter-dismiss";
@@ -22,6 +22,12 @@ public final class NotificationDismissal extends BroadcastReceiver {
         return PendingIntent.getBroadcast(context, 0, acknowledge, PendingIntent.FLAG_IMMUTABLE);
     }
 
+    static PendingIntent openIntent(Context context, String receipt) {
+        var open = new Intent(context, NotificationOpenActivity.class)
+                .setData(Uri.fromParts(SCHEME, receipt, null));
+        return PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_IMMUTABLE);
+    }
+
     static boolean recorded(Context context, String receipt) {
         var state = context.getSharedPreferences(STORE, Context.MODE_PRIVATE);
         return isRecent(state.getLong(receipt, 0), System.currentTimeMillis());
@@ -32,12 +38,17 @@ public final class NotificationDismissal extends BroadcastReceiver {
     }
 
     @Override public void onReceive(Context context, Intent intent) {
-        var data = intent.getData();
+        record(context, intent.getData());
+    }
+
+    static void record(Context context, Uri data) {
         if (data == null || !SCHEME.equals(data.getScheme())) return;
         String receipt = data.getSchemeSpecificPart();
         if (receipt == null || !RECEIPT.matcher(receipt).matches()) return;
-        long now = System.currentTimeMillis();
-        var state = context.getSharedPreferences(STORE, Context.MODE_PRIVATE);
+        remember(context.getSharedPreferences(STORE, Context.MODE_PRIVATE), receipt, System.currentTimeMillis());
+    }
+
+    static void remember(android.content.SharedPreferences state, String receipt, long now) {
         var edit = state.edit();
         state.getAll().forEach((key, value) -> {
             if (!(value instanceof Long at) || !isRecent(at, now)) edit.remove(key);

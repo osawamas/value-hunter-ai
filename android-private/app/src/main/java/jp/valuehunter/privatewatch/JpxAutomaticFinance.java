@@ -23,7 +23,7 @@ import java.util.function.LongSupplier;
 /** Incrementally acquires public annual summaries for affordable JPX ordinary shares. */
 final class JpxAutomaticFinance {
     private static final int BATCH_SIZE = 24;
-    private static final int INITIAL_BATCH_SIZE = 72;
+    private static final int INITIAL_BATCH_SIZE = 96;
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
@@ -66,7 +66,8 @@ final class JpxAutomaticFinance {
             long financials = entries.values().stream().filter(entry -> entry.annual() != null).count();
             var message = new StringBuilder("通期決算の自動取得 ").append(financials)
                     .append(" / 予算内 ").append(budget).append("銘柄 · 取得保留 ")
-                    .append(entries.size() - financials).append("銘柄 · 今回 ").append(fetched).append("銘柄確認");
+                    .append(entries.size() - financials).append("銘柄 · 初回確認待ち ").append(budget - entries.size())
+                    .append("銘柄 · 今回 ").append(fetched).append("銘柄確認");
             var holds = new java.util.TreeMap<String, Integer>();
             for (var entry : entries.values()) {
                 if (entry.annual() == null) holds.merge(entry.hold(), 1, Integer::sum);
@@ -131,7 +132,7 @@ final class JpxAutomaticFinance {
                 }
                 return rights.adjustment(code, disclosure, recordDay);
             }
-        }, stopped, System::currentTimeMillis, JpxIssuerArchive::publicPage,
+        }, stopped, System::currentTimeMillis, System::nanoTime, JpxIssuerArchive::publicPage,
                 comparison.previous() == null ? report.date() : comparison.previous().date());
     }
 
@@ -155,12 +156,13 @@ final class JpxAutomaticFinance {
 
     static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
                          Sources sources, BooleanSupplier stopped, LongSupplier clock) {
-        return refresh(state, report, through, sources, stopped, clock, JpxIssuerArchive::publicPage, null);
+        return refresh(state, report, through, sources, stopped, clock, System::nanoTime,
+                JpxIssuerArchive::publicPage, null);
     }
 
-    private static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
+    static Batch refresh(SharedPreferences state, JpxDailyCheck.Report report, LocalDate through,
                          Sources sources, BooleanSupplier stopped, LongSupplier clock,
-                         JpxDisclosureCalendar.PageLoader disclosureLoader, LocalDate recheckFrom) {
+                         LongSupplier nanoTime, JpxDisclosureCalendar.PageLoader disclosureLoader, LocalDate recheckFrom) {
         var entries = new HashMap<String, Entry>();
         var eligible = new ArrayList<String>();
         LocalDate earliest = report.date().isAfter(through) ? through.plusDays(1) : report.date().plusDays(1);
@@ -195,9 +197,10 @@ final class JpxAutomaticFinance {
         int consecutiveFailures = 0;
         int initial = (int) pending.stream().filter(code -> !entries.containsKey(code)).count();
         int limit = Math.min(INITIAL_BATCH_SIZE, Math.max(BATCH_SIZE, initial));
-        long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(75);
+        long started = nanoTime.getAsLong();
         for (String code : pending) {
-            if (attempted >= limit || stopped.getAsBoolean() || System.nanoTime() >= until) break;
+            if (attempted >= limit || stopped.getAsBoolean()
+                    || nanoTime.getAsLong() - started >= TimeUnit.SECONDS.toNanos(75)) break;
             attempted++;
             try {
                 var entry = acquire(code, through, entries.get(code), sources);

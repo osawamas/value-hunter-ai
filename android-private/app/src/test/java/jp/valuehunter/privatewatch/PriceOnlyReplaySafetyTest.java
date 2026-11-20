@@ -43,6 +43,40 @@ public class PriceOnlyReplaySafetyTest {
         assertFalse(NotificationDismissal.isRecent(dismissed, dismissed - 1));
     }
 
+    @Test public void recordedTapIsAvailableAfterRestartAndScopedToTheExactAlert() {
+        String exact = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
+        String other = ScanWorker.notificationReceipt("予算入り", "2026-11-17 DEF");
+        long now = java.util.concurrent.TimeUnit.DAYS.toMillis(8);
+        var disk = new java.util.HashMap<String, Long>();
+        disk.put("expired", 1000L);
+        var state = (android.content.SharedPreferences) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{android.content.SharedPreferences.class},
+                (prefs, method, args) -> switch (method.getName()) {
+                    case "getAll" -> Map.copyOf(disk);
+                    case "edit" -> java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+                            new Class<?>[]{android.content.SharedPreferences.Editor.class}, (editor, change, values) -> {
+                                switch (change.getName()) {
+                                    case "putLong" -> disk.put((String) values[0], (Long) values[1]);
+                                    case "remove" -> disk.remove((String) values[0]);
+                                    case "commit" -> { return true; }
+                                    default -> throw new AssertionError(change);
+                                }
+                                return editor;
+                            });
+                    default -> throw new AssertionError(method);
+                });
+        NotificationDismissal.remember(state, "8-" + exact, now);
+        var restored = Map.copyOf(disk);
+        assertFalse(restored.containsKey("expired"));
+        ScanWorker.submitNotification(exact, () -> NotificationDismissal.isRecent(
+                restored.getOrDefault("8-" + exact, 0L), now + 1), () -> null,
+                () -> { throw new AssertionError("Tapped alert is already acknowledged"); });
+        var delivered = new java.util.concurrent.atomic.AtomicBoolean();
+        ScanWorker.submitNotification(other, () -> NotificationDismissal.isRecent(
+                restored.getOrDefault("8-" + other, 0L), now + 1), () -> null, () -> delivered.set(true));
+        assertTrue(delivered.get());
+    }
+
     @Test public void rapidAndBudgetReasonsAreIndependentOnSameTradingDay() {
         var rapid = List.of(new PriceOnlyScreen.RapidMove("1001", new BigDecimal("-8")));
         var budget = List.of(new PriceOnlyScreen.BudgetEntry("1001", new BigDecimal("90000")));

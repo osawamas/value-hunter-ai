@@ -227,16 +227,17 @@ public final class ScanWorker extends Worker {
                 != PackageManager.PERMISSION_GRANTED) return false;
         var manager = context.getSystemService(NotificationManager.class);
         createAlertChannel(manager);
-        var tap = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         if (!alertsEnabled(context)) return false;
         String receipt = notificationReceipt(title, detail);
-        String dismissalKey = id + "-" + receipt;
-        boolean trackDismissal = id != TEST_NOTIFICATION_ID;
+        String receiptKey = id + "-" + receipt;
+        boolean trackInteraction = id != TEST_NOTIFICATION_ID;
+        var tap = trackInteraction ? NotificationDismissal.openIntent(context, receiptKey)
+                : PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         var extras = new android.os.Bundle();
         extras.putString(NOTIFICATION_RECEIPT, receipt);
         try {
-            submitNotification(receipt, () -> trackDismissal && NotificationDismissal.recorded(context, dismissalKey), () -> {
+            submitNotification(receipt, () -> trackInteraction && NotificationDismissal.recorded(context, receiptKey), () -> {
                 for (var active : manager.getActiveNotifications()) {
                     if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null) {
                         return active.getNotification().extras.getString(NOTIFICATION_RECEIPT);
@@ -248,7 +249,7 @@ public final class ScanWorker extends Worker {
                     .setContentTitle(title)
                     .setContentText(detail.replace('\n', ' '))
                     .setStyle(new Notification.BigTextStyle().bigText(detail))
-                    .setDeleteIntent(trackDismissal ? NotificationDismissal.intent(context, dismissalKey) : null)
+                    .setDeleteIntent(trackInteraction ? NotificationDismissal.intent(context, receiptKey) : null)
                     .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build()));
             return true;
         } catch (SecurityException denied) {
@@ -263,8 +264,8 @@ public final class ScanWorker extends Worker {
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
-    static void submitNotification(String receipt, java.util.function.BooleanSupplier dismissed,
+    static void submitNotification(String receipt, java.util.function.BooleanSupplier acknowledged,
                                    java.util.function.Supplier<String> active, Runnable post) {
-        if (!dismissed.getAsBoolean() && !receipt.equals(active.get())) post.run();
+        if (!acknowledged.getAsBoolean() && !receipt.equals(active.get())) post.run();
     }
 }

@@ -279,6 +279,7 @@ public class JpxAutomaticFinanceTest {
         var clock = new java.util.concurrent.atomic.AtomicLong(1);
         var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(9, first.fetched());
+        assertTrue(first.status().contains("初回確認待ち 3677銘柄"));
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,
                 () -> false, clock::get).fetched());
@@ -289,11 +290,35 @@ public class JpxAutomaticFinanceTest {
             JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
             passes++;
         }
-        assertEquals(53, passes);
+        assertEquals(40, passes);
         assertEquals(quotes.keySet(), scanned);
         assertEquals(quotes.size() + 1, calls.get());
         assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,
                 () -> false, clock::get).fetched());
+    }
+
+    @Test public void slowSourcesStopNewRequestsAtTheTimeBudgetAndResumeTheRest() {
+        var quotes = new HashMap<String, JpxCloseTable.Sessions>();
+        for (int code = 1400; code < 1406; code++)
+            quotes.put(Integer.toString(code), new JpxCloseTable.Sessions(null, new BigDecimal("890")));
+        var report = new JpxDailyCheck.Report(DAY, "", Map.copyOf(quotes), Set.of());
+        var saved = new HashMap<String, Object>();
+        var elapsed = new java.util.concurrent.atomic.AtomicLong();
+        var calls = new java.util.ArrayList<String>();
+        var source = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) {
+                calls.add(code);
+                elapsed.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(30));
+                return new JpxIssuerArchive.Page(List.of());
+            }
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) { throw new AssertionError(); }
+        };
+        for (int pass = 0; pass < 2; pass++) {
+            var run = JpxAutomaticFinance.refresh(preferences(saved), report, DAY, source, () -> false, () -> 1,
+                    elapsed::get, uri -> { throw new AssertionError(uri); }, null);
+            assertEquals(3, run.fetched());
+        }
+        assertEquals(List.of("1400", "1401", "1402", "1403", "1404", "1405"), calls);
     }
 
     @Test public void firstTimeOneShareCoveragePrecedesRoutineHundredShareRefresh() throws Exception {
