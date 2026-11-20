@@ -41,7 +41,7 @@ final class NotificationHistory {
         if (postedAt <= 0) {
             post.run();
             postedAt = now;
-            wake.run();
+            // Screen wake is best-effort: a vendor/OS failure must not erase a successful post.\n            try {\n                wake.run();\n            } catch (RuntimeException unavailable) {\n                // The notification was already submitted; persist its receipt regardless.\n            }
         }
 
         history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
