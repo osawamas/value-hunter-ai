@@ -58,6 +58,7 @@ final class UsListingHistory {
     static Scope scope(JSONObject dates, LocalDate previous, LocalDate latest,
                        UsMarketCoverage.Directory fallbackNyse, UsMarketCoverage.Directory fallbackNasdaq)
             throws JSONException {
+        if (!previous.isBefore(latest)) throw new IllegalArgumentException("US sessions must increase");
         var before = markets(dates.optJSONObject(previous.toString()));
         var after = markets(dates.optJSONObject(latest.toString()));
         if (before == null || after == null) {
