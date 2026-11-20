@@ -62,22 +62,27 @@ def dia_for_session(directory, day):
     return holdings, "same_date_holdings"
 
 
-def run_cycle(archive, prices, now, calendar, *, with_dow=False, compare_marketparquet=False):
+def run_cycle(archive, prices, now, calendar, *, with_dow=False, compare_marketparquet=False, recheck_outside_window=False):
     eastern_now = now.astimezone(EASTERN)
     today = eastern_now.date()
     result = {"checked_at": eastern_now.isoformat()}
-    if not calendar.is_session(today.isoformat()) or not time(12) <= eastern_now.time() < time(13):
+    capture_window = calendar.is_session(today.isoformat()) and time(12) <= eastern_now.time() < time(13)
+    if not capture_window and not recheck_outside_window:
         return dict(result, status="outside_capture_window")
 
-    target = archive / today.isoformat()
-    if target.is_dir():
-        observed, _, _ = load_listing_directories(target)
-        require_listing_date(today, observed)
-        result["capture"] = "already_saved"
+    if capture_window:
+        target = archive / today.isoformat()
+        if target.is_dir():
+            observed, _, _ = load_listing_directories(target)
+            require_listing_date(today, observed)
+            result["capture"] = "already_saved"
+        else:
+            observed, _, originals = load_listing_directories()
+            require_listing_date(today, observed)
+            result["capture"] = save_listing_snapshot(archive, today, originals)
     else:
-        observed, _, originals = load_listing_directories()
-        require_listing_date(today, observed)
-        result["capture"] = save_listing_snapshot(archive, today, originals)
+        # Recovery must not fetch or relabel an out-of-window listing as today's snapshot.
+        result["capture"] = "skipped_outside_window"
 
     dia_directory = archive / "dia-holdings" if with_dow else None
     if dia_directory is not None:
@@ -237,6 +242,7 @@ def main():
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--dolt-dir", type=Path, required=True)
     parser.add_argument("--with-dow", action="store_true", help="Archive dated DIA holdings and check Dow coverage")
+    parser.add_argument("--recheck-outside-window", action="store_true", help="Replay saved prior sessions without capturing a new listing outside the noon ET window")
     parser.add_argument("--compare-marketparquet", action="store_true", help="Compare with the same-date public sample")
     args = parser.parse_args()
     try:
@@ -248,6 +254,7 @@ def main():
             args.archive.resolve(), args.dolt_dir.resolve(), datetime.now(EASTERN),
             exchange_calendars.get_calendar("XNYS"), with_dow=args.with_dow,
             compare_marketparquet=args.compare_marketparquet,
+            recheck_outside_window=args.recheck_outside_window,
         )
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f"US daily coverage: {error}\n")
