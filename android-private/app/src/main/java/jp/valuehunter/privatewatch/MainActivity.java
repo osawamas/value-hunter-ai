@@ -24,6 +24,9 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 public final class MainActivity extends Activity {
     private static final String PAUSED = "public_jpx_watch_paused";
@@ -130,6 +133,13 @@ public final class MainActivity extends Activity {
             }
         });
 
+        var history = section(content, SURFACE, true);
+        label(history, "過去7日間の通知履歴", 19, INK, true, 0);
+        var historyText = label(history, "", 13, INK, false, 7);
+        var refreshHistory = button(history, "履歴を更新", PAGE, 7);
+        refreshHistory.setOnClickListener(view -> showHistory(historyText));
+        showHistory(historyText);
+
         var result = section(content, SURFACE, true);
         label(result, "最新の確認", 19, INK, true, 0);
         lastCheck = label(result, "", 14, MUTED, false, 5);
@@ -213,6 +223,23 @@ public final class MainActivity extends Activity {
             });
         }, "jpx-daily-detail");
         detailThread.start();
+    }
+
+    private void showHistory(TextView view) {
+        var entries = AlertHistory.read(this);
+        if (entries.isEmpty()) {
+            view.setText("過去7日間の配信要求記録はない");
+            return;
+        }
+        var formatter = DateTimeFormatter.ofPattern("M/d HH:mm")
+                .withZone(ZoneId.systemDefault());
+        var lines = new StringBuilder();
+        for (var entry : entries) {
+            if (lines.length() > 0) lines.append("\\n\\n");
+            lines.append(formatter.format(Instant.ofEpochMilli(entry.at())))
+                    .append(" · ").append(entry.title());
+        }
+        view.setText(lines.toString());
     }
 
     private void openAlertSettings() {
