@@ -71,6 +71,43 @@ class DailyCoverageTest(unittest.TestCase):
             self.assertEqual(4, sync.call_count)
 
 
+    @patch("us_daily_coverage.compare_session")
+    @patch("us_daily_coverage.sync")
+    @patch("us_daily_coverage.load_listing_directories")
+    def test_replay_outside_noon_uses_only_saved_prior_session(self, load, sync, compare):
+        eastern = ZoneInfo("America/New_York")
+        calendar = Mock()
+        calendar.is_session.return_value = True
+        calendar.sessions_in_range.return_value = [datetime(2026, 11, 16)]
+        sync.return_value = "updated"
+        compare.return_value = {"status": "compared"}
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "2026-11-16").mkdir()
+            result = run_cycle(root, root / "stocks",
+                               datetime(2026, 11, 17, 14, tzinfo=eastern),
+                               calendar, recheck_outside_window=True)
+            self.assertEqual("skipped_outside_window", result["capture"])
+            self.assertEqual("checked_recent_snapshots", result["status"])
+            self.assertEqual("2026-11-16", result["sessions"][0]["trading_date"])
+            self.assertFalse((root / "2026-11-17").exists())
+            load.assert_not_called()
+            sync.assert_called_once()
+            compare.assert_called_once()
+
+    @patch("us_daily_coverage.sync")
+    def test_replay_outside_noon_without_saved_sessions_does_not_sync(self, sync):
+        calendar = Mock()
+        calendar.is_session.return_value = False
+        calendar.sessions_in_range.return_value = []
+        with TemporaryDirectory() as directory:
+            result = run_cycle(Path(directory), Path(directory) / "stocks",
+                               datetime(2026, 11, 21, 14, tzinfo=ZoneInfo("America/New_York")),
+                               calendar, recheck_outside_window=True)
+            self.assertEqual("no_recent_snapshots", result["status"])
+            self.assertEqual("skipped_outside_window", result["capture"])
+            sync.assert_not_called()
+
     def test_reports_symbol_changes_even_with_unchanged_market_totals(self):
         report = {"trading_date": "2026-11-16", "sample_price_basis": "Dolt",
                   "directory_observed_at": {"otherlisted.txt": "2026-11-16T11:00:00"},
