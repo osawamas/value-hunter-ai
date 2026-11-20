@@ -14,6 +14,10 @@ BUDGET_JPY = Decimal("100000")
 def _positive(value):
     if isinstance(value, bool):
         return None
+    # Decimal accepts underscores (e.g. "1_0") and surrounding whitespace.
+    # Neither is a canonical exchange close or FX numeric observation.
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value) is None:
+        return None
     try:
         number = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
