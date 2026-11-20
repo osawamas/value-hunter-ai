@@ -157,6 +157,30 @@ class PriceOnlyGuardTests(unittest.TestCase):
                          **{**args, "expected_symbol": None}),
                          (False, "missing_expected_identity"))
 
+    def test_verified_gate_never_allows_identity_to_be_omitted(self):
+        old = {**self.old, "symbol": "ABC", "exchange": "Nasdaq",
+               "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.old["date"], "close_source": "exchange:old",
+               "fx_source": "fixing:old"}
+        new = {**self.new, "symbol": "ABC", "exchange": "Nasdaq",
+               "price_basis": "raw_unadjusted_regular_session",
+               "fx_date": self.new["date"], "close_source": "exchange:new",
+               "fx_source": "fixing:new"}
+        args = dict(expected_previous_date=self.old["date"],
+                    expected_current_date=self.new["date"], **self.flags)
+        self.assertEqual(verified_check(old, new, **args),
+                         (False, "missing_expected_identity"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_symbol": "ABC"}),
+                         (False, "missing_expected_identity"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_exchange": "Nasdaq"}),
+                         (False, "missing_expected_identity"))
+        self.assertEqual(verified_check(old, new,
+                         **{**args, "expected_symbol": "ABC",
+                            "expected_exchange": "Nasdaq"}),
+                         (True, "entered_100_share_budget"))
+
     def test_fx_only_crossing_and_reverse_direction(self):
         """Each session must use its own USD/JPY; reverse crossing is not entry."""
         args = dict(expected_previous_date="2026-11-16",
