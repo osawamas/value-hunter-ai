@@ -10,6 +10,14 @@ from collections.abc import Mapping
 BUDGET_JPY = Decimal("100000")
 
 
+def _session_date(value):
+    """Accept only canonical YYYY-MM-DD, never compact or ISO week dates."""
+    if not isinstance(value, str) or len(value) != 10 or value[4] != "-" or value[7] != "-" or not all("0" <= ch <= "9" for ch in (value[:4] + value[5:7] + value[8:])):
+        raise ValueError("noncanonical session date")
+    return _session_date(value)
+
+
+
 def _positive(value):
     try:
         number = Decimal(str(value))
@@ -39,8 +47,8 @@ def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
     if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
         return False, "invalid_observation"
     try:
-        old_date = date.fromisoformat(previous["date"])
-        new_date = date.fromisoformat(current["date"])
+        old_date = _session_date(previous["date"])
+        new_date = _session_date(current["date"])
     except (KeyError, TypeError, ValueError):
         return False, "invalid_trade_dates"
     if old_date >= new_date:
@@ -69,10 +77,10 @@ def evaluate_budget_entry_for_sessions(previous, current, *, expected_previous_d
     if not isinstance(previous, Mapping) or not isinstance(current, Mapping):
         return False, "invalid_observation"
     try:
-        expected_old = date.fromisoformat(expected_previous_date)
-        expected_new = date.fromisoformat(expected_current_date)
-        observed_old = date.fromisoformat(previous["date"])
-        observed_new = date.fromisoformat(current["date"])
+        expected_old = _session_date(expected_previous_date)
+        expected_new = _session_date(expected_current_date)
+        observed_old = _session_date(previous["date"])
+        observed_new = _session_date(current["date"])
     except (KeyError, TypeError, ValueError):
         return False, "invalid_trade_dates"
     if expected_old >= expected_new:
