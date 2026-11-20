@@ -21,7 +21,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Locale;
-import javax.net.ssl.HttpsURLConnection;
 
 public final class UsScanWorker extends Worker {
     private static final Object LOCK = new Object();
@@ -32,6 +31,7 @@ public final class UsScanWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        if (!MarketNetwork.allowed()) return Result.success();
         if (!getInputData().getBoolean(ScanWorker.LEGACY_API_REQUEST, false)) return Result.success();
         synchronized (LOCK) {
             return scan();
@@ -97,16 +97,16 @@ public final class UsScanWorker extends Worker {
     }
 
     static String get(String address, String bearer) throws IOException {
-        var connection = (HttpsURLConnection) new URL(address).openConnection();
+        var connection = MarketNetwork.open(new URL(address));
         connection.setConnectTimeout(15_000);
         connection.setReadTimeout(20_000);
         connection.setInstanceFollowRedirects(false);
         connection.setRequestProperty("Accept", "application/json");
         if (bearer != null) connection.setRequestProperty("Authorization", "Bearer " + bearer);
         try {
-            int status = connection.getResponseCode();
+            int status = MarketNetwork.response(connection);
             if (status != 200) throw new HttpFailure(status);
-            try (var stream = connection.getInputStream(); var buffer = new ByteArrayOutputStream()) {
+            try (var stream = MarketNetwork.input(connection); var buffer = new ByteArrayOutputStream()) {
                 byte[] bytes = new byte[8192];
                 for (int read; (read = stream.read(bytes)) != -1;) {
                     if (buffer.size() + read > 1_048_576) throw new IOException("Market data response too large");
@@ -115,7 +115,7 @@ public final class UsScanWorker extends Worker {
                 return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
             }
         } finally {
-            connection.disconnect();
+            MarketNetwork.close(connection);
         }
     }
 

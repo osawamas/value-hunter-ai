@@ -10,9 +10,18 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Switch;
+import android.widget.Button;
+import android.widget.TextView;
 
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.util.function.BooleanSupplier;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.HttpsURLConnection;
 
 final class NotificationDeliveryProbe {
     private static final int JAPAN = 51;
@@ -31,6 +40,9 @@ final class NotificationDeliveryProbe {
         var history = NotificationHistory.file(context);
         var prefs = ScanWorker.prefs(context);
         if ("restore".equals(phase)) {
+            require(!MarketNetwork.allowed(), "Market communication was re-enabled by reboot");
+            requireBlocked();
+            require(MarketNetwork.setAllowed(context, true), "Cannot restore communication for the alert replay");
             require(!ScanWorker.notificationsRequested(context)
                     && prefs.getBoolean(NotificationScreenWake.ENABLED, false),
                     "The two switch settings did not survive reboot");
@@ -88,7 +100,19 @@ final class NotificationDeliveryProbe {
                 "Diagnostic notification ignored disabled wake or changed real history");
         manager.cancel(ScanWorker.TEST_NOTIFICATION_ID);
 
+        var disconnected = new CountDownLatch(1);
+        var connection = MarketNetwork.open(openUntilStopped(disconnected));
+        var input = MarketNetwork.input(connection);
         exerciseSettings(instrumentation, power);
+        require(disconnected.await(5, TimeUnit.SECONDS), "OFF did not disconnect an open market connection");
+        try (input) {
+            try {
+                input.read();
+                throw new AssertionError("An open market stream was readable after OFF");
+            } catch (IOException stopped) {
+                require(!MarketNetwork.allowed(), "Stream should fail after explicit OFF");
+            }
+        }
         sleep(instrumentation, power);
         require(!ScanWorker.postNotification(context, 53, "抑止テスト", "1299")
                 && !ScanWorker.testNotification(context), "Disabled notifications still accepted submission");
@@ -113,8 +137,10 @@ final class NotificationDeliveryProbe {
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
-                var alerts = option(root, "無音通知");
-                var wake = option(root, "通知時に画面を点灯");
+                var alerts = control(root, "無音通知", Switch.class);
+                var wake = control(root, "通知時に画面を点灯", Switch.class);
+                var network = control(root, "相場データの通信", Switch.class);
+                require(network != null && network.isChecked(), "Market communication switch did not start enabled");
                 require(alerts != null && wake != null, "Notification switches could not be found");
                 require(alerts.isChecked() && !wake.isChecked(), "Switches did not show the saved state");
                 alerts.performClick();
@@ -128,22 +154,68 @@ final class NotificationDeliveryProbe {
                 require(alerts.isChecked() && wake.isChecked(), "Alerts ON did not retain the wake preference");
                 alerts.performClick();
                 require(!alerts.isChecked() && wake.isChecked(), "Could not retain wake with notifications off");
+
+                network.performClick();
+                require(!network.isChecked() && !MarketNetwork.allowed(), "Communication OFF did not apply");
+                require(!control(root, "今すぐ更新", Button.class).isEnabled()
+                        && !control(root, "終値と判定の詳細", Button.class).isEnabled(),
+                        "Manual network actions are available with communication off");
+                require(control(root, "通知履歴（7日間）", Button.class).isEnabled(), "Offline history is unavailable");
+                require(!alerts.isChecked() && wake.isChecked(), "Communication toggle affected notification options");
+                network.performClick();
+                require(network.isChecked() && MarketNetwork.allowed()
+                        && control(root, "終値と判定の詳細", Button.class).isEnabled(),
+                        "Turning communication on did not restore manual updates");
+                network.performClick();
             });
+            requireBlocked();
         } finally {
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
     }
 
-    private static Switch option(View view, String text) {
-        if (view instanceof Switch entry && text.contentEquals(entry.getText())) return entry;
+    private static <T extends TextView> T control(View view, String text, Class<T> type) {
+        if (type.isInstance(view) && text.contentEquals(type.cast(view).getText())) return type.cast(view);
         if (view instanceof ViewGroup group) {
             for (int i = 0; i < group.getChildCount(); i++) {
-                var found = option(group.getChildAt(i), text);
+                var found = control(group.getChildAt(i), text, type);
                 if (found != null) return found;
             }
         }
         return null;
+    }
+
+    private static URL openUntilStopped(CountDownLatch disconnected) throws IOException {
+        return new URL(null, "https://market.invalid/", new URLStreamHandler() {
+            @Override protected URLConnection openConnection(URL address) {
+                return new HttpsURLConnection(address) {
+                    @Override public void connect() {}
+                    @Override public boolean usingProxy() { return false; }
+                    @Override public void disconnect() { disconnected.countDown(); }
+                    @Override public String getCipherSuite() { return ""; }
+                    @Override public java.security.cert.Certificate[] getLocalCertificates() { return null; }
+                    @Override public java.security.cert.Certificate[] getServerCertificates() { return null; }
+                    @Override public java.io.InputStream getInputStream() {
+                        return new java.io.ByteArrayInputStream(new byte[]{1});
+                    }
+                };
+            }
+        });
+    }
+
+    private static void requireBlocked() throws IOException {
+        var destination = new URL(null, "https://market.invalid/", new URLStreamHandler() {
+            @Override protected URLConnection openConnection(URL address) {
+                throw new AssertionError("Market request reached the transport while off");
+            }
+        });
+        try {
+            MarketNetwork.open(destination);
+            throw new AssertionError("MarketNetwork.open accepted a request while off");
+        } catch (IOException stopped) {
+            require(!MarketNetwork.allowed(), "Blocked test should exercise the explicit OFF state");
+        }
     }
 
     private static void sleep(Instrumentation instrumentation, PowerManager power) throws IOException {

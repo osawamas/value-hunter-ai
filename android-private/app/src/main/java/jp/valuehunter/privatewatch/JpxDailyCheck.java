@@ -560,7 +560,7 @@ final class JpxDailyCheck {
     }
 
     private static HttpsURLConnection open(String source) throws IOException {
-        var connection = (HttpsURLConnection) new URL(source).openConnection();
+        var connection = MarketNetwork.open(new URL(source));
         connection.setConnectTimeout(12_000);
         connection.setReadTimeout(20_000);
         connection.setInstanceFollowRedirects(false);
@@ -574,19 +574,19 @@ final class JpxDailyCheck {
             connection.setRequestMethod("HEAD");
             return edition(connection);
         } finally {
-            connection.disconnect();
+            MarketNetwork.close(connection);
         }
     }
 
     private static Edition edition(HttpsURLConnection connection) throws IOException {
-        int status = connection.getResponseCode();
+        int status = MarketNetwork.response(connection);
         if (status == 404) return new Edition(false, "");
         if (status != 200) throw new IOException("JPXの応答 HTTP " + status);
-        String version = connection.getHeaderField("x-amz-version-id");
+        String version = MarketNetwork.header(connection, "x-amz-version-id");
         if (version != null && !version.equals("null") && version.matches("[A-Za-z0-9_.-]{1,128}")) {
             return new Edition(true, "version:" + version);
         }
-        String tag = connection.getHeaderField("ETag");
+        String tag = MarketNetwork.header(connection, "ETag");
         return new Edition(true, tag != null && tag.matches("\"[A-Za-z0-9_.-]{1,128}\"") ? "etag:" + tag : "");
     }
 
@@ -595,10 +595,10 @@ final class JpxDailyCheck {
         try {
             var result = edition(connection);
             if (!result.exists()) return result;
-            if (connection.getContentLengthLong() > MAX_PDF_BYTES) {
+            if (MarketNetwork.contentLength(connection) > MAX_PDF_BYTES) {
                 throw new IOException("東証日報のPDFが上限サイズを超えている");
             }
-            try (var input = connection.getInputStream(); var output = new FileOutputStream(pdf)) {
+            try (var input = MarketNetwork.input(connection); var output = new FileOutputStream(pdf)) {
                 byte[] buffer = new byte[32_768];
                 int total = 0;
                 for (int count; (count = input.read(buffer)) != -1;) {
@@ -623,7 +623,7 @@ final class JpxDailyCheck {
             }
             return result;
         } finally {
-            connection.disconnect();
+            MarketNetwork.close(connection);
         }
     }
 }

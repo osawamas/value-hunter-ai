@@ -238,6 +238,7 @@ final class JpxAutomaticFinance {
                 checked++;
                 consecutiveFailures = 0;
             } catch (IOException unavailable) {
+                if (stopped.getAsBoolean()) break;
                 canExtendInitial = false;
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
                         && (http.status == 429 || http.status == 503)) {
