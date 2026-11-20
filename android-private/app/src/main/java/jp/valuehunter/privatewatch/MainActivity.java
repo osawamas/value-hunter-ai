@@ -235,7 +235,7 @@ public final class MainActivity extends Activity {
                 .withZone(ZoneId.systemDefault());
         var lines = new StringBuilder();
         for (var entry : entries) {
-            if (lines.length() > 0) lines.append("\\n\\n");
+            if (lines.length() > 0) lines.append("\n\n");
             lines.append(formatter.format(Instant.ofEpochMilli(entry.at())))
                     .append(" · ").append(entry.title());
         }
