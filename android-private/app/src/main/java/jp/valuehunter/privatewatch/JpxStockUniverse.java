@@ -19,11 +19,54 @@ import java.util.regex.Pattern;
 record JpxStockUniverse(LocalDate asOf, Set<String> codes) {
     private static final Pattern CODE = Pattern.compile("[0-9][0-9A-Z]{3}");
     private static final URI DELISTINGS = URI.create("https://www.jpx.co.jp/listing/stocks/delisted/");
+    private static final URI LISTINGS = URI.create("https://www.jpx.co.jp/listing/stocks/new/");
     private static final Pattern TABLE = Pattern.compile("<table\\b[^>]*>(.*?)</table>", Pattern.DOTALL);
     private static final Pattern BODY = Pattern.compile("<tbody\\b[^>]*>(.*?)</tbody>", Pattern.DOTALL);
     private static final Pattern ROW = Pattern.compile("<tr\\b[^>]*>(.*?)</tr>", Pattern.DOTALL);
     private static final Pattern CELL = Pattern.compile("<td\\b[^>]*>(.*?)</td>", Pattern.DOTALL);
     private static final Pattern DATE = Pattern.compile("[0-9]{4}/[0-9]{2}/[0-9]{2}");
+    private static final Pattern LISTING_DATE = Pattern.compile("^\\s*([0-9]{4}/[0-9]{2}/[0-9]{2})\\s*<br\\s*/?>\\s*（");
+    private static final Set<String> DOMESTIC_MARKETS = Set.of("プライム", "スタンダード", "グロース");
+
+    static Map<String, LocalDate> listings() {
+        try {
+            return readListings(JpxIssuerArchive.publicPage(LISTINGS));
+        } catch (IOException | IllegalArgumentException unavailable) {
+            return Map.of();
+        }
+    }
+
+    static Map<String, LocalDate> readListings(String page) throws IOException {
+        var tables = TABLE.matcher(page);
+        while (tables.find()) {
+            String table = tables.group(1);
+            if (!table.contains("（上場承認日）") || !table.contains(">コード</th>")) continue;
+            var body = BODY.matcher(table);
+            if (!body.find()) throw new IOException("Missing JPX listing rows");
+            var rows = ROW.matcher(body.group(1)).results().map(row -> row.group(1)).toList();
+            var events = new HashMap<String, LocalDate>();
+            for (int i = 0; i < rows.size(); i++) {
+                var fields = CELL.matcher(rows.get(i)).results().map(cell -> cell.group(1)).toList();
+                if (fields.size() != 8 || i + 1 == rows.size()) continue;
+                var marketFields = CELL.matcher(rows.get(i + 1)).results().map(cell -> cell.group(1)).toList();
+                if (marketFields.size() != 6 || !DOMESTIC_MARKETS.contains(
+                        JpxIssuerArchive.visibleText(marketFields.get(0)))) continue;
+                var date = LISTING_DATE.matcher(fields.get(0));
+                if (!date.find()) continue;
+                var code = JpxIssuerArchive.visibleText(fields.get(2));
+                if (!CODE.matcher(code).matches()) throw new IOException("Invalid JPX listing code");
+                try {
+                    var listingDate = LocalDate.parse(date.group(1).replace('/', '-'));
+                    var earlier = events.putIfAbsent(code, listingDate);
+                    if (earlier != null && !earlier.equals(listingDate)) throw new IOException("Conflicting JPX listing dates");
+                } catch (DateTimeParseException invalid) {
+                    throw new IOException("Invalid JPX listing date", invalid);
+                }
+            }
+            if (!events.isEmpty()) return Map.copyOf(events);
+        }
+        throw new IOException("Missing JPX listings");
+    }
 
     static Map<String, LocalDate> delistings() {
         try {
@@ -63,12 +106,17 @@ record JpxStockUniverse(LocalDate asOf, Set<String> codes) {
         return Map.copyOf(events);
     }
 
-    JpxStockUniverse forTradingDay(LocalDate day, Map<String, LocalDate> delistings) {
+    JpxStockUniverse forTradingDay(LocalDate day, Map<String, LocalDate> listings, Map<String, LocalDate> delistings) {
         var effective = new HashSet<>(codes);
-        delistings.forEach((code, date) -> {
-            if (date.isAfter(asOf) && !date.isAfter(day)) effective.remove(code);
+        listings.forEach((code, date) -> {
+            if (date.isAfter(asOf) && !date.isAfter(day)) effective.add(code);
         });
-        return effective.size() == codes.size() ? this : new JpxStockUniverse(asOf, Set.copyOf(effective));
+        delistings.forEach((code, date) -> {
+            var listing = listings.get(code);
+            if (date.isAfter(asOf) && !date.isAfter(day)
+                    && (listing == null || !listing.isAfter(date) || listing.isAfter(day))) effective.remove(code);
+        });
+        return effective.equals(codes) ? this : new JpxStockUniverse(asOf, Set.copyOf(effective));
     }
 
     static JpxStockUniverse load(Context context) throws IOException {

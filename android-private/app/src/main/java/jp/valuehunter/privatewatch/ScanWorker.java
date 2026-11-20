@@ -229,16 +229,37 @@ public final class ScanWorker extends Worker {
         var tap = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         if (!alertsEnabled(context)) return false;
+        String receipt = notificationReceipt(title, detail);
+        var extras = new android.os.Bundle();
+        extras.putString(NOTIFICATION_RECEIPT, receipt);
         try {
-            manager.notify(id, new Notification.Builder(context, CHANNEL)
+            submitNotification(receipt, () -> {
+                for (var active : manager.getActiveNotifications()) {
+                    if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null) {
+                        return active.getNotification().extras.getString(NOTIFICATION_RECEIPT);
+                    }
+                }
+                return null;
+            }, () -> manager.notify(id, new Notification.Builder(context, CHANNEL)
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentTitle(title)
                     .setContentText(detail.replace('\n', ' '))
                     .setStyle(new Notification.BigTextStyle().bigText(detail))
-                    .setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+                    .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build()));
             return true;
         } catch (SecurityException denied) {
             return false;
         }
+    }
+
+    private static final String NOTIFICATION_RECEIPT = "jp.valuehunter.privatewatch.delivery";
+
+    static String notificationReceipt(String title, String detail) {
+        return UsReferenceAlerts.sha256((title.length() + ":" + title + detail)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    static void submitNotification(String receipt, java.util.function.Supplier<String> active, Runnable post) {
+        if (!receipt.equals(active.get())) post.run();
     }
 }

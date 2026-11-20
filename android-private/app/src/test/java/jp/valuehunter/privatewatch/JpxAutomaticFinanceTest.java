@@ -289,7 +289,7 @@ public class JpxAutomaticFinanceTest {
             JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
             passes++;
         }
-        assertEquals(155, passes);
+        assertEquals(78, passes);
         assertEquals(quotes.keySet(), scanned);
         assertEquals(quotes.size() + 1, calls.get());
         assertEquals(0, JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network,

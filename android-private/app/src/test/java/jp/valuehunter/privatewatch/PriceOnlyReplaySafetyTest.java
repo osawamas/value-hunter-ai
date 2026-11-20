@@ -13,6 +13,23 @@ public class PriceOnlyReplaySafetyTest {
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
     private static final LocalDate PREVIOUS = DAY.minusDays(1);
 
+    @Test public void crashAfterPostingBeforeSavingDoesNotPostAnAlreadyActiveNoticeAgain() {
+        var active = new java.util.concurrent.atomic.AtomicReference<String>();
+        var posts = new java.util.concurrent.atomic.AtomicInteger();
+        var receipt = ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC");
+        ScanWorker.submitNotification(receipt, active::get, () -> {
+            posts.incrementAndGet();
+            active.set(receipt);
+        });
+        // Recreate the receipt exactly as a restarting Worker would, with the Android notification still active.
+        ScanWorker.submitNotification(ScanWorker.notificationReceipt("予算入り", "2026-11-17 ABC"),
+                active::get, () -> { throw new AssertionError("Duplicate post"); });
+        assertEquals(1, posts.get());
+        var newDay = ScanWorker.notificationReceipt("予算入り", "2026-11-18 ABC");
+        ScanWorker.submitNotification(newDay, active::get, posts::incrementAndGet);
+        assertEquals(2, posts.get());
+    }
+
     @Test public void rapidAndBudgetReasonsAreIndependentOnSameTradingDay() {
         var rapid = List.of(new PriceOnlyScreen.RapidMove("1001", new BigDecimal("-8")));
         var budget = List.of(new PriceOnlyScreen.BudgetEntry("1001", new BigDecimal("90000")));

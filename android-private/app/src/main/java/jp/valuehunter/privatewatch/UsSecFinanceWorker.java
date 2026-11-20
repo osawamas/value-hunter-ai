@@ -100,6 +100,11 @@ public final class UsSecFinanceWorker extends Worker {
             if (scan == null || !hash.equals(scan.optString("hash"))) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
                 var nyse = listings("otherlisted.txt", false);
+                try {
+                    UsListingHistory.remember(directory, nyse, nasdaq);
+                } catch (JSONException invalid) {
+                    // Financial refresh can continue while the dated listing pair is unavailable.
+                }
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
                 var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
                 var changed = changedIssuers(UsDeviceFinancials.reuseFrom(scan, day), day);
@@ -182,9 +187,10 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    record BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry, UsNasdaqRecovery.Result official) {
+    record BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry,
+                       UsNasdaqRecovery.Result official, boolean exactListings) {
         BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry) {
-            this(result, cursor, retry, UsNasdaqRecovery.Result.empty());
+            this(result, cursor, retry, UsNasdaqRecovery.Result.empty(), false);
         }
     }
 
@@ -207,13 +213,14 @@ public final class UsSecFinanceWorker extends Worker {
             if (!priorDay.toString().equals(previous.optString("trading_date_et"))
                     || !quote.getString("source").equals(previous.optString("source"))) return null;
             var nasdaq = listings("nasdaqlisted.txt", true);
-            var ordinary = UsPriceOnlyBudget.ordinary(listings("otherlisted.txt", false), nasdaq, day);
+            var nyse = listings("otherlisted.txt", false);
+            var scope = UsListingHistory.scope(UsListingHistory.remember(directory, nyse, nasdaq), priorDay, day, nyse, nasdaq);
             var rates = new JSONArray(download.get(FX + "&from=" + priorDay + "&to=" + day));
             var financial = UsReferenceAlerts.read(ledger);
             if (!hash.equals(financial.hash())) return null;
-            var budget = UsPriceOnlyBudget.compare(previous, quote, rates, ordinary, financial, expected);
+            var budget = UsPriceOnlyBudget.compare(previous, quote, rates, scope.ordinary(), financial, expected);
             if (!UsPriceOnlyBudget.canCorroborateDolt(previous, quote)) {
-                return new BudgetCheck(budget, "", false);
+                return new BudgetCheck(budget, "", false, UsNasdaqRecovery.Result.empty(), scope.exactDates());
             }
             Set<String> sent = sentBudgetSymbols(state, day);
             String cursor = day.toString().equals(state.getString(BUDGET_CURSOR_DAY, ""))
@@ -232,26 +239,26 @@ public final class UsSecFinanceWorker extends Worker {
             try {
                 if (!primary.retry()) {
                     String key = hash + ":" + UsReferenceAlerts.sha256(previousBytes);
-                    official = recoverOfficial(previous, quote, nasdaq, financial, priorDay, day, asOf, rates, state, key);
+                    official = recoverOfficial(previous, quote, scope.nasdaq(), financial, priorDay, day, asOf, rates, state, key);
                 }
             } catch (IOException unavailable) {
                 official = new UsNasdaqRecovery.Result(PriceOnlyScreen.Result.empty(), true, false);
             } catch (JSONException invalid) {
                 // Keep normal alerts when the supplementary dates or market evidence cannot be validated.
             }
-            return new BudgetCheck(primary.result(), primary.cursor(), primary.retry() || official.retry(), official);
+            return new BudgetCheck(primary.result(), primary.cursor(), primary.retry() || official.retry(), official, scope.exactDates());
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             return null;
         }
     }
 
     private UsNasdaqRecovery.Result recoverOfficial(JSONObject previous, JSONObject latest,
-            UsMarketCoverage.Directory nasdaq, UsReferenceAlerts.Screen financial, LocalDate priorDay,
+            Set<String> nasdaq, UsReferenceAlerts.Screen financial, LocalDate priorDay,
             LocalDate day, LocalDate asOf, JSONArray rates, android.content.SharedPreferences state, String key)
             throws IOException, JSONException {
         var before = UsDeviceFinancials.prices(previous.getJSONArray("closes"));
         var after = UsDeviceFinancials.prices(latest.getJSONArray("closes"));
-        var missing = UsNasdaqRecovery.missing(nasdaq.symbols(), financial.rows().keySet(), before.keySet(), after.keySet());
+        var missing = UsNasdaqRecovery.missing(nasdaq, financial.rows().keySet(), before.keySet(), after.keySet());
         if (missing.isEmpty()) return UsNasdaqRecovery.Result.empty();
         var oldFx = tradeDateFx(rates, priorDay);
         var newFx = tradeDateFx(rates, day);
@@ -335,6 +342,7 @@ public final class UsSecFinanceWorker extends Worker {
         String summary = "財務または株価で一次判定 " + (budget.combinedAssessed() + official.assessed()) + " / " + budget.listed()
                 + "銘柄 · うち株価だけ " + (result.assessed() + official.assessed()) + "銘柄"
                 + "\n株価だけで100株10万円以下に入った " + result.entered().size() + "銘柄";
+        if (!check.exactListings()) summary += "\n上場一覧は比較2日分の履歴が揃うまで参考集計";
         if (!budget.verifiedPriceBasis()) {
             summary += " · 2つの取得元で終値一致 " + budget.notificationEntries().size()
                     + "銘柄 · 照合待ち " + (result.entered().size() - budget.notificationEntries().size()) + "銘柄";

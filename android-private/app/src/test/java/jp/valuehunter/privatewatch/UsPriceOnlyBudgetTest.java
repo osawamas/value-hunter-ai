@@ -18,6 +18,24 @@ public class UsPriceOnlyBudgetTest {
     private static final String VERIFIED = UsDailyCloses.MASSIVE_SOURCE;
     private static final Set<String> LISTED = Set.of("ABC", "FIN", "UNCHANGED");
 
+    @Test public void usesListingsOnBothTradingDaysWithoutMixingVenues() throws Exception {
+        var dates = new JSONObject()
+                .put(FRIDAY.toString(), new JSONObject().put("nyse", new JSONArray(List.of("ABC", "MOVED")))
+                        .put("nasdaq", new JSONArray(List.of("FIN"))))
+                .put(MONDAY.toString(), new JSONObject().put("nyse", new JSONArray(List.of("ABC", "TXR")))
+                        .put("nasdaq", new JSONArray(List.of("FIN", "MOVED"))));
+        var nyse = new UsMarketCoverage.Directory(MONDAY.plusDays(1), Set.of("ABC", "TXR"), Set.of(), Set.of());
+        var nasdaq = new UsMarketCoverage.Directory(MONDAY.plusDays(1), Set.of("FIN", "MOVED"), Set.of(), Set.of());
+        var exact = UsListingHistory.scope(new JSONObject(dates.toString()), FRIDAY, MONDAY, nyse, nasdaq);
+        assertTrue(exact.exactDates());
+        assertEquals(Set.of("ABC", "FIN"), exact.ordinary());
+        assertEquals(Set.of("FIN"), exact.nasdaq());
+        dates.remove(FRIDAY.toString());
+        var fallback = UsListingHistory.scope(dates, FRIDAY, MONDAY, nyse, nasdaq);
+        assertFalse(fallback.exactDates());
+        assertEquals(Set.of("ABC", "FIN", "MOVED", "TXR"), fallback.ordinary());
+    }
+
     @Test public void usesEachDaysExchangeRateAndExcludesFinanciallyScreenedStocks() throws Exception {
         var result = UsPriceOnlyBudget.compare(closes(FRIDAY, VERIFIED), closes(MONDAY, VERIFIED), rates(),
                 LISTED, finance(VERIFIED), MONDAY);

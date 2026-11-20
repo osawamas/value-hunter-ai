@@ -23,6 +23,7 @@ import java.util.function.LongSupplier;
 /** Incrementally acquires public annual summaries for affordable JPX ordinary shares. */
 final class JpxAutomaticFinance {
     private static final int BATCH_SIZE = 24;
+    private static final int INITIAL_BATCH_SIZE = 48;
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
@@ -192,9 +193,11 @@ final class JpxAutomaticFinance {
         int checked = 0;
         int attempted = 0;
         int consecutiveFailures = 0;
+        int initial = (int) pending.stream().filter(code -> !entries.containsKey(code)).count();
+        int limit = Math.min(INITIAL_BATCH_SIZE, Math.max(BATCH_SIZE, initial));
         long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(75);
         for (String code : pending) {
-            if (attempted >= BATCH_SIZE || stopped.getAsBoolean() || System.nanoTime() >= until) break;
+            if (attempted >= limit || stopped.getAsBoolean() || System.nanoTime() >= until) break;
             attempted++;
             try {
                 var entry = acquire(code, through, entries.get(code), sources);
