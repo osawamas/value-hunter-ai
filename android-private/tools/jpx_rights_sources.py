@@ -159,6 +159,10 @@ def daily_sources(urls, output):
 
 
 def verified_rapid_exclusions(previous_day, latest_day, output):
+    if not isinstance(previous_day, date) or not isinstance(latest_day, date):
+        raise ValueError("JPX rapid comparison requires date objects")
+    if previous_day >= latest_day:
+        raise ValueError("JPX rapid comparison dates must be strictly increasing")
     days = (previous_day, latest_day)
     filenames = {f"{day:%Y%m%d}.xls" for day in days}
     links = [url for url in page_links(DAILY_INDEX) if Path(urlsplit(url).path).name in filenames]
