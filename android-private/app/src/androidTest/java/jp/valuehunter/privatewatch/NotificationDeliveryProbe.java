@@ -184,6 +184,8 @@ final class NotificationDeliveryProbe {
                     "The missing-close group did not show its ticker");
             return "MARKET_WIFI_RECOVERY_OK";
         } finally {
+            // Leave the next instrumentation process offline until its test scheduler is installed.
+            require(MarketNetwork.setAllowed(context, false), "Could not isolate the next market probe");
             shell(instrumentation, "svc wifi enable");
             shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
@@ -320,8 +322,8 @@ final class NotificationDeliveryProbe {
         var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         try {
-            require(await(() -> findDialogText(instrumentation, "通信量について") != null),
-                    "First-open communication notice was not visible");
+            require(await(() -> findDialogText(instrumentation, "通信量について") != null, 12_000),
+                    "First-open communication notice was not visible for " + choice);
             require(await(() -> findDialogText(instrumentation, "従量制のモバイル回線") != null
                     && findDialogText(instrumentation, "データ無制限") != null),
                     "The warning did not describe affected plans and recommended networks");
