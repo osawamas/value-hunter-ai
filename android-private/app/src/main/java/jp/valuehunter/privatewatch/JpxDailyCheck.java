@@ -64,7 +64,11 @@ final class JpxDailyCheck {
         }
     }
 
-    record Comparison(Report latest, Report previous) {
+    record Comparison(Report latest, Report previous, boolean comparisonFailed) {
+        Comparison(Report latest, Report previous) {
+            this(latest, previous, false);
+        }
+
         String processedKey(String rightsRevision) {
             if (previous == null) return "";
             return editionKey(latest.date(), latest.edition(), previous.date(), previous.edition(), rightsRevision);
@@ -484,6 +488,12 @@ final class JpxDailyCheck {
         }
     }
 
+    static final class ReportUnavailable extends IOException {
+        ReportUnavailable() {
+            super("直近10日間に公表された株式相場表が見つからなかった");
+        }
+    }
+
     static Comparison checkRecent(LocalDate today, ReportLoader load) throws IOException {
         Report latest = null;
         for (LocalDate day : candidateDays(today)) {
@@ -493,7 +503,7 @@ final class JpxDailyCheck {
                 report = load.load(day);
             } catch (IOException error) {
                 if (latest == null || Thread.currentThread().isInterrupted()) throw error;
-                return new Comparison(latest, null);
+                return new Comparison(latest, null, true);
             }
             if (report == null) continue;
             // A stale cache or a mismatched response must not masquerade as the
@@ -510,7 +520,7 @@ final class JpxDailyCheck {
             latest = report;
         }
         if (latest != null) return new Comparison(latest, null);
-        throw new IOException("直近10日間に公表された株式相場表が見つからなかった");
+        throw new ReportUnavailable();
     }
 
     static Report readReport(Context context, File pdf, LocalDate day, JpxStockUniverse universe,

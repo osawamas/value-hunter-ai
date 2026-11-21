@@ -87,10 +87,25 @@ public final class UsDailyWorker extends Worker {
 
     static String displayStatus(SharedPreferences state) {
         String status = state.getString(STATUS, "初回の自動更新待ち");
+        var finance = MarketFreshness.US_FINANCE;
+        String proven = finance.result(state);
+        if (finance.day(state) == null) {
+            var baseline = readPrivateBaseline(state);
+            if (baseline != null && !baseline.rows().isEmpty()) {
+                int candidates = (int) baseline.rows().values().stream().filter(UsReferenceAlerts.Observation::candidate).count();
+                proven = MarketFreshness.result(baseline.day(), baseline.rows().size(), candidates);
+            }
+        }
+        var recent = new StringBuilder(proven);
+        String closeWait = MarketFreshness.US_CLOSE.waiting(state);
+        String financeWait = finance.waiting(state);
+        if (!closeWait.isEmpty()) recent.append("\n終値 · ").append(closeWait);
+        if (!financeWait.isEmpty()) recent.append("\n財務 · ").append(financeWait);
+        recent.append("\n").append(status);
         String day = state.getString(DATE, "");
-        if (day.isEmpty()) return status;
+        if (day.isEmpty()) return recent.toString();
         String source = MASSIVE.equals(state.getString(PROVIDER, "")) ? "Massive" : "DoltHub参考値";
-        String result = status + "\n取得済み " + day + "（米東部） · " + source + " "
+        String result = recent + "\n取得済み " + day + "（米東部） · " + source + " "
                 + state.getInt(COUNT, 0) + "件";
         if (day.equals(state.getString(MARKET_DATE, ""))
                 && state.getString(PROVIDER, "").equals(state.getString(MARKET_SOURCE, ""))) {
@@ -137,12 +152,12 @@ public final class UsDailyWorker extends Worker {
     private Result check() {
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
+        LocalDate target = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
         try {
             String key = readKey(context);
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
             LocalDate previous = cachedDate(file, state, provider);
-            LocalDate target = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
             for (int offset = 0; offset < 7; offset++) {
                 if (networkStopped()) return paused();
                 LocalDate day = target.minusDays(offset);
@@ -159,8 +174,9 @@ public final class UsDailyWorker extends Worker {
                     UsSecFinanceWorker.ensureScheduled(context);
                     updateHistory(state, previous);
                     if (networkStopped()) return paused();
-                    MarketUpdate.US_CLOSE.completed(state.edit())
-                            .putString(STATUS, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち").apply();
+                    var update = MarketUpdate.US_CLOSE.completed(state.edit())
+                            .putString(STATUS, previous.equals(target) ? "終値を取得済み" : "保存済みの終値を表示中");
+                    markQuoteFreshness(update, previous, target).apply();
                     return Result.success();
                 }
                 if (!UsDailyCloses.tradingDay(day)) continue;
@@ -176,10 +192,11 @@ public final class UsDailyWorker extends Worker {
                         writeSnapshot(priorFile, old);
                     }
                     writeSnapshot(file, snapshot);
+                    var update = state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
+                            .putString(PROVIDER, provider).putString(STATUS, "終値の自動取得に成功");
+                    MarketFreshness.US_FINANCE.waiting(update, MarketFreshness.Phase.FINANCE, day);
+                    markQuoteFreshness(update, day, target).apply();
                 }
-                state.edit().putString(DATE, day.toString()).putInt(COUNT, closes.length())
-                        .putString(PROVIDER, provider)
-                        .putString(STATUS, "終値の自動取得に成功").apply();
                 if (day.equals(target)) backfillPrevious(context, day, provider, key);
                 UsSecFinanceWorker.ensureScheduled(context);
                 updateCoverage(state, closes, day, provider);
@@ -189,20 +206,29 @@ public final class UsDailyWorker extends Worker {
                 MarketUpdate.US_CLOSE.completed(state.edit()).apply();
                 return Result.success();
             }
-            report(state, "直近7日間の終値を取得できず");
+            report(state, "直近7日間の終値を取得できず", MarketFreshness.Phase.PUBLICATION, target);
             return Result.success();
         } catch (HttpStatus e) {
             if (networkStopped()) return paused();
-            report(state, "終値を取得できず（HTTP " + e.code + "）");
-            return e.code == 429 || e.code >= 500 ? Result.retry() : Result.success();
+            boolean retry = e.code == 429 || e.code >= 500;
+            report(state, "終値を取得できず（HTTP " + e.code + "）",
+                    retry ? MarketFreshness.Phase.ERROR : MarketFreshness.Phase.NEXT_CHECK, target);
+            return retry ? Result.retry() : Result.success();
         } catch (IOException e) {
             if (networkStopped()) return paused();
-            report(state, "終値を取得できず（通信または保存エラー）");
+            report(state, "終値を取得できず（通信または保存エラー）", MarketFreshness.Phase.ERROR, target);
             return Result.retry();
         } catch (JSONException e) {
-            report(state, "終値を取得できず（配信形式を要確認）");
+            if (networkStopped()) return paused();
+            report(state, "終値を取得できず（配信形式を要確認）", MarketFreshness.Phase.NEXT_CHECK, target);
             return Result.success();
         }
+    }
+
+    private static SharedPreferences.Editor markQuoteFreshness(SharedPreferences.Editor edit, LocalDate available,
+                                                                LocalDate target) {
+        return MarketFreshness.US_CLOSE.waiting(edit,
+                available.isBefore(target) ? MarketFreshness.Phase.PUBLICATION : null, target);
     }
 
     private JSONArray fetchCloses(LocalDate day, String key) throws IOException, JSONException {
@@ -264,7 +290,8 @@ public final class UsDailyWorker extends Worker {
                     + coverage.getJSONObject("Nasdaq").getInt("with_close_and_reference_financials");
             String status = day + " · SEC財務・株数の自動照合 " + financials + "銘柄";
             if (!ledger.has("reference_screen")) {
-                state.edit().putString(PRIVATE_STATUS, status + " · 為替・分割資料待ち").apply();
+                MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.FINANCE, day)
+                        .putString(PRIVATE_STATUS, status + " · 為替・分割資料待ち").apply();
                 return;
             }
             var screen = UsReferenceAlerts.read(ledger);
@@ -273,6 +300,11 @@ public final class UsDailyWorker extends Worker {
             }
             var previous = readPrivateBaseline(state);
             if (previous != null && day.isBefore(previous.day())) return;
+            if (screen.rows().isEmpty()) {
+                MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.FINANCE, day)
+                        .putString(PRIVATE_STATUS, status + " · 判定に使える財務・株数が未確認").apply();
+                return;
+            }
             status += " · 参考判定 " + screen.rows().size() + "銘柄";
             long count = 0;
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
@@ -296,6 +328,8 @@ public final class UsDailyWorker extends Worker {
             if (!ScanWorker.notificationsRequested(context) || !pending.contains("\n")) pending = "";
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status);
+            MarketFreshness.US_FINANCE.verified(update, day, screen.rows().size(), (int) count, "");
+            MarketFreshness.US_FINANCE.waiting(update, null, day);
             if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
             if (!pending.isEmpty() && !stopped.getAsBoolean()) {
                 if (!deliverFinancialAlert(context, state, pending) && !stopped.getAsBoolean()) {
@@ -303,7 +337,8 @@ public final class UsDailyWorker extends Worker {
                 }
             }
         } catch (JSONException | DateTimeParseException e) {
-            state.edit().putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
+            MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.NEXT_CHECK, day)
+                    .putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
         }
     }
 
@@ -518,8 +553,8 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static void report(SharedPreferences state, String status) {
-        state.edit().putString(STATUS, status).apply();
+    private static void report(SharedPreferences state, String status, MarketFreshness.Phase phase, LocalDate target) {
+        MarketFreshness.US_CLOSE.waiting(state.edit().putString(STATUS, status), phase, target).apply();
     }
 
     static final class HttpStatus extends IOException {

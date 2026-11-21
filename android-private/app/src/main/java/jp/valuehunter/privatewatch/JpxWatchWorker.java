@@ -53,6 +53,7 @@ public final class JpxWatchWorker extends Worker {
     private static final String PENDING = "jpx_watch_pending";
     private static final String CHECKED_AT = "jpx_watch_checked_at";
     private static final String OUTCOME = "jpx_watch_outcome";
+    private static final String FINANCE_PENDING = "jpx_finance_pending";
     private static final DateTimeFormatter JAPAN_TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm", Locale.JAPAN)
             .withZone(ZoneId.of("Asia/Tokyo"));
     static final String STATUS = "jpx_watch_status";
@@ -78,25 +79,33 @@ public final class JpxWatchWorker extends Worker {
     private final Function<Context, JpxShareRights.Selection> rights;
     private final AlertSender alerts;
     private final boolean automaticFinance;
+    private final java.util.function.Supplier<LocalDate> expectedDay;
 
     public JpxWatchWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         this(context, parameters, (app, key, revision) -> JpxDailyCheck.checkWatch(app, key, revision),
-                JpxShareRights::refresh, ScanWorker::postNotification, true);
+                JpxShareRights::refresh, ScanWorker::postNotification, true, () -> JpxTradingDays.expected(Instant.now()));
     }
 
     JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
                    Function<Context, JpxShareRights.Selection> rights, AlertSender alerts) {
-        this(context, parameters, comparisons, rights, alerts, false);
+        this(context, parameters, comparisons, rights, alerts, false, () -> null);
+    }
+
+    JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
+                   Function<Context, JpxShareRights.Selection> rights, AlertSender alerts,
+                   java.util.function.Supplier<LocalDate> expectedDay) {
+        this(context, parameters, comparisons, rights, alerts, false, expectedDay);
     }
 
     private JpxWatchWorker(Context context, WorkerParameters parameters, ComparisonLoader comparisons,
                            Function<Context, JpxShareRights.Selection> rights, AlertSender alerts,
-                           boolean automaticFinance) {
+                           boolean automaticFinance, java.util.function.Supplier<LocalDate> expectedDay) {
         super(context, parameters);
         this.comparisons = comparisons;
         this.rights = rights;
         this.alerts = alerts;
         this.automaticFinance = automaticFinance;
+        this.expectedDay = expectedDay;
     }
 
     static boolean enabled(Context context) {
@@ -118,8 +127,10 @@ public final class JpxWatchWorker extends Worker {
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
                 scheduleFinance(work, 0);
             } else {
-                state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
-                        .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).remove(PENDING).remove(MarketUpdate.JPX.lastUpdate).apply();
+                var reset = state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
+                        .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).remove(PENDING).remove(FINANCE_PENDING).remove(MarketUpdate.JPX.lastUpdate);
+                MarketFreshness.JPX.clear(reset);
+                reset.apply();
                 work.cancelUniqueWork(WORK);
                 work.cancelUniqueWork(MANUAL);
                 work.cancelUniqueWork(FINANCE);
@@ -195,6 +206,7 @@ public final class JpxWatchWorker extends Worker {
         String token = state.getString(TOKEN, "");
         if (token.isEmpty()) return Result.success();
 
+        LocalDate expected = expectedDay.get();
         try {
             synchronized (STATE_LOCK) {
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
@@ -226,19 +238,31 @@ public final class JpxWatchWorker extends Worker {
                 if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
                 if (comparison == null) {
-                    MarketUpdate.JPX.completed(recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略")).apply();
+                    var edit = recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略");
+                    LocalDate last = dateOrNull(state.getString(LATEST, ""));
+                    if (expected != null && (last == null || last.isBefore(expected))) {
+                        MarketFreshness.JPX.waiting(edit, MarketFreshness.Phase.PUBLICATION, expected);
+                    } else if (MarketFreshness.JPX.phase(state) == MarketFreshness.Phase.PUBLICATION
+                            || MarketFreshness.JPX.phase(state) == MarketFreshness.Phase.ERROR
+                            || MarketFreshness.JPX.phase(state) == MarketFreshness.Phase.NEXT_CHECK) {
+                        var phase = state.getBoolean(FINANCE_PENDING, false) ? MarketFreshness.Phase.FINANCE : null;
+                        MarketFreshness.JPX.waiting(edit, phase, last);
+                    }
+                    MarketUpdate.JPX.completed(edit).apply();
                     return Result.success();
                 }
                 var screen = comparison.screen(evidence.rights(), finance);
                 LocalDate date = comparison.latest().date();
                 var baseline = dateOrNull(state.getString(BASELINE, ""));
                 var last = dateOrNull(state.getString(LATEST, ""));
-                if (comparison.previous() == null) {
+                var priorDay = expected == null ? null : JpxTradingDays.onOrBefore(date.minusDays(1));
+                if (comparison.previous() == null || (priorDay != null && !priorDay.equals(comparison.previous().date()))) {
                     var partial = new StringBuilder("比較用の日報を取得できなかった");
                     partial.append("\n").append(date).append("の当日判定");
                     comparison.appendCoverage(partial, screen.assessed(), "\n", finance);
                     appendCandidates(partial, screen);
-                    return retryReport(state, partial.toString());
+                    var phase = comparison.comparisonFailed() ? failedPhase() : MarketFreshness.Phase.COMPARISON;
+                    return retryReport(state, partial.toString(), phase, priorDay != null ? priorDay : date);
                 }
                 var alerted = date.equals(last)
                         ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
@@ -279,6 +303,17 @@ public final class JpxWatchWorker extends Worker {
                         .putString(BASELINE, savedBaseline.toString())
                         .putString(LATEST, date.toString()).putStringSet(ALERTED, alerted)
                         .putString(STATUS, summary.toString());
+                boolean financePending = screen.assessed() == 0 || screen.held() > 0
+                        || finance.entries().size() < finance.budget();
+                update.putBoolean(FINANCE_PENDING, financePending);
+                var phase = expected != null && date.isBefore(expected) ? MarketFreshness.Phase.PUBLICATION
+                        : financePending ? MarketFreshness.Phase.FINANCE : null;
+                MarketFreshness.JPX.waiting(update, phase, phase == MarketFreshness.Phase.PUBLICATION ? expected : date);
+                if (screen.assessed() > 0) {
+                    String candidates = screen.candidates().stream().map(JpxDailyCheck.Candidate::summary)
+                            .collect(Collectors.joining("\n"));
+                    MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
+                }
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded);
                 String processed = notifyEnabled ? comparison.processedKey(revision) : "";
@@ -302,7 +337,9 @@ public final class JpxWatchWorker extends Worker {
             synchronized (STATE_LOCK) {
                 if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
-                return retryReport(state, "日報を取得できなかった");
+                return retryReport(state, "日報を取得できなかった",
+                        error instanceof JpxDailyCheck.ReportUnavailable ? MarketFreshness.Phase.PUBLICATION : failedPhase(),
+                        expected);
             }
         }
     }
@@ -390,9 +427,19 @@ public final class JpxWatchWorker extends Worker {
                 "detail", detail.toString(), "codes", new JSONArray(codes), "error", error)));
     }
 
+    private MarketFreshness.Phase failedPhase() {
+        return getRunAttemptCount() < 2 ? MarketFreshness.Phase.ERROR : MarketFreshness.Phase.NEXT_CHECK;
+    }
+
     private Result retryReport(SharedPreferences state, String message) {
+        return retryReport(state, message, null, null);
+    }
+
+    private Result retryReport(SharedPreferences state, String message, MarketFreshness.Phase phase, LocalDate target) {
         boolean retry = getRunAttemptCount() < 2;
-        recordCheck(state.edit(), retry ? message + " · 再試行を予約した" : message).apply();
+        var edit = recordCheck(state.edit(), retry ? message + " · 再試行を予約した" : message);
+        if (phase != null) MarketFreshness.JPX.waiting(edit, phase, target);
+        edit.apply();
         return retry ? Result.retry() : Result.success();
     }
 
@@ -413,6 +460,15 @@ public final class JpxWatchWorker extends Worker {
             check.append(summary);
         }
         return check.toString();
+    }
+
+    static String displayFreshness(SharedPreferences state) {
+        var market = MarketFreshness.JPX;
+        String waiting = market.waiting(state);
+        String saved = market.details(state);
+        return market.result(state) + (waiting.isEmpty() ? "" : "\n" + waiting)
+                + (!saved.isEmpty() && !market.day(state).equals(dateOrNull(state.getString(LATEST, "")))
+                        ? "\n保存済みの候補\n" + saved : "");
     }
 
     private static void appendCandidates(StringBuilder message, JpxDailyCheck.Screening screen) {

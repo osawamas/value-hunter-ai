@@ -87,6 +87,8 @@ final class UsReferenceDeliveryProbe {
             verifyResult(context, factory, ListenableWorker.Result.success());
             expectQuiet(notifications);
             if (wifi) {
+                verifyFreshness(context, checkpoint);
+                expectQuiet(notifications);
                 long receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
                         .stream().filter(row -> row.title().equals("米国株の参考条件入り 1銘柄")
                                 && row.detail().contains("TEST") && row.detail().contains(SECOND.toString())).count();
@@ -102,6 +104,31 @@ final class UsReferenceDeliveryProbe {
             notifications.cancelAll();
             close.delete();
             checkpoint.delete();
+        }
+    }
+
+    private static void verifyFreshness(Context context, AtomicFile checkpoint) throws Exception {
+        var state = ScanWorker.prefs(context);
+        var market = MarketFreshness.US_FINANCE;
+        if (!SECOND.equals(market.day(state)) || market.phase(state) != null) {
+            throw new AssertionError("US did not display the completed trading day");
+        }
+        var next = SECOND.plusDays(1);
+        var scan = new JSONObject(new String(checkpoint.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+        var ledger = scan.getJSONObject("ledger").put("trading_date_et", next.toString());
+        var screen = ledger.getJSONObject("reference_screen").put("fx_date", next.toString());
+        var rows = screen.getJSONArray("observations");
+        String hash = ledger.getString("close_sha256");
+        screen.put("observations", new JSONArray());
+        UsDailyWorker.applyFinancialScreen(context, state, ledger, next, PROVIDER, hash, () -> false);
+        if (!SECOND.equals(market.day(state)) || market.phase(state) != MarketFreshness.Phase.FINANCE
+                || !UsDailyWorker.displayStatus(state).contains(SECOND + " の取引分 · 判定済み")) {
+            throw new AssertionError("An incomplete US screen replaced the previous result");
+        }
+        screen.put("observations", rows);
+        UsDailyWorker.applyFinancialScreen(context, state, ledger, next, PROVIDER, hash, () -> false);
+        if (!next.equals(market.day(state)) || market.phase(state) != null) {
+            throw new AssertionError("US freshness did not advance after validation");
         }
     }
 
