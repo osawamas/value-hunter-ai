@@ -203,6 +203,16 @@ public final class ScanWorker extends Worker {
         return postNotification(context, TEST_NOTIFICATION_ID, "VALUE HUNTER AI 無音通知テスト", "無音通知と画面点灯のテスト");
     }
 
+    static final String ALERT_GENERATION = "public_alert_generation";
+    static final String FINANCIAL_ALERT_GENERATION = "public_financial_alert_generation";
+
+    static void setNotificationsRequested(android.content.SharedPreferences state, boolean enabled) {
+        if (state.getBoolean(NOTIFICATIONS_ENABLED, true) == enabled) return;
+        var edit = state.edit().putBoolean(NOTIFICATIONS_ENABLED, enabled);
+        if (!enabled) edit.putLong(ALERT_GENERATION, state.getLong(ALERT_GENERATION, 0) + 1);
+        edit.apply();
+    }
+
     static boolean notificationsRequested(Context context) {
         return prefs(context).getBoolean(NOTIFICATIONS_ENABLED, true);
     }
@@ -212,12 +222,21 @@ public final class ScanWorker extends Worker {
     }
 
     static boolean systemAllowsAlerts(Context context) {
+        return systemAlertBlockReason(context).isEmpty();
+    }
+
+    static String alertBlockReason(Context context) {
+        return notificationsRequested(context) ? systemAlertBlockReason(context) : "アプリの無音通知がオフ";
+    }
+
+    private static String systemAlertBlockReason(Context context) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) return false;
+                != PackageManager.PERMISSION_GRANTED) return "通知の権限が未許可";
         var manager = context.getSystemService(NotificationManager.class);
-        if (manager == null || !manager.areNotificationsEnabled()) return false;
+        if (manager == null || !manager.areNotificationsEnabled()) return "端末の通知設定でブロック";
         var channel = manager.getNotificationChannel(CHANNEL);
-        return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
+        return channel != null && channel.getImportance() == NotificationManager.IMPORTANCE_NONE
+                ? "割安通知チャンネルがオフ" : "";
     }
 
     static Intent alertSettings(Context context) {
@@ -241,9 +260,14 @@ public final class ScanWorker extends Worker {
 
     static boolean postNotification(Context context, int id, String title, String detail) {
         boolean trackInteraction = id != TEST_NOTIFICATION_ID;
-        if (!alertsEnabled(context) || (trackInteraction && !MarketNetwork.allowed())) return false;
+        String kind = trackInteraction ? "相場通知" : "テスト通知";
+        String blocked = alertBlockReason(context);
+        if (!blocked.isEmpty() || (trackInteraction && !MarketNetwork.allowed())) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    kind + "を投稿せず: " + (blocked.isEmpty() ? DiagnosticLog.route() : blocked));
+            return false;
+        }
         var manager = context.getSystemService(NotificationManager.class);
-        createAlertChannel(manager);
         String receipt = notificationReceipt(title, detail);
         String receiptKey = id + "-" + receipt;
         var tap = trackInteraction ? NotificationDismissal.openIntent(context, receiptKey)
@@ -253,6 +277,8 @@ public final class ScanWorker extends Worker {
         extras.putString(NOTIFICATION_RECEIPT, receipt);
         String preview = notificationPreview(detail);
         try {
+            createAlertChannel(manager);
+            boolean[] submitted = {false};
             Runnable post = () -> {
                 if (!alertsEnabled(context) || (trackInteraction && !MarketNetwork.allowed())) {
                     throw new SecurityException("Notifications disabled before submission");
@@ -267,6 +293,8 @@ public final class ScanWorker extends Worker {
                         .setGroupAlertBehavior(Notification.GROUP_ALERT_SUMMARY)
                         .setVisibility(Notification.VISIBILITY_PRIVATE)
                         .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
+                submitted[0] = true;
+                DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, kind + "をAndroidに投稿");
             };
             if (!trackInteraction) {
                 post.run();
@@ -274,7 +302,7 @@ public final class ScanWorker extends Worker {
                 return true;
             }
             long now = System.currentTimeMillis();
-            return NotificationHistory.deliver(NotificationHistory.file(context), receiptKey, title, detail, now, () -> {
+            boolean delivered = NotificationHistory.deliver(NotificationHistory.file(context), receiptKey, title, detail, now, () -> {
                 for (var active : manager.getActiveNotifications()) {
                     if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null
                             && receipt.equals(active.getNotification().extras.getString(NOTIFICATION_RECEIPT))) {
@@ -283,7 +311,12 @@ public final class ScanWorker extends Worker {
                 }
                 return NotificationDismissal.recordedAt(context, receiptKey, now);
             }, post, () -> NotificationScreenWake.afterPost(context));
+            if (delivered && !submitted[0]) DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    "同じ相場通知は投稿済み · 再投稿を省略");
+            return delivered;
         } catch (SecurityException | java.io.IOException unavailable) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    kind + (unavailable instanceof SecurityException ? "の投稿を拒否" : "の履歴を保存できず"));
             return false;
         }
     }

@@ -99,7 +99,17 @@ final class UsSingleSessionBudgetCheck {
             }
         }
         saved.put("after", now + TimeUnit.HOURS.toMillis(1)).put("cursor", batch.get(batch.size() - 1));
-        if (!stopped.getAsBoolean()) save(state, day, saved, results);
+        if (stopped.getAsBoolean()) return;
+        if (!sameDay.equals(UsListingHistory.sessionExchanges(directory, day))
+                || !paired.equals(UsListingHistory.verifiedSupplementSymbols(directory, day))
+                || !groups.equals(MarketCoverage.US.groups(state))) {
+            throw new IOException("Reference budget evidence changed during acquisition");
+        }
+        save(state, day, saved, results);
+    }
+
+    static boolean hasPublishedResult(SharedPreferences state, LocalDate day) {
+        return read(state, day.toString()).optInt("eligible") > 0;
     }
 
     private static Set<String> priorPrices(File directory, LocalDate day) throws IOException, JSONException {

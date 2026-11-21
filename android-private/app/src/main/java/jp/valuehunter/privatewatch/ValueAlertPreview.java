@@ -7,10 +7,14 @@ import org.json.JSONObject;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.Map;
 
 final class ValueAlertPreview {
     static final String SETTINGS = "value_alert_thresholds";
+    static final String LIVE = "value_alert_live";
 
     enum Market {
         JPX("東証", "value_alert_preview_jpx"), US("米国株", "value_alert_preview_us");
@@ -28,6 +32,63 @@ final class ValueAlertPreview {
     record Row(ValueAlertMeter.Score score, int shares) {}
     record Session(LocalDate day, String source, Map<String, Row> rows) {}
     record History(Session latest, Session previous) {}
+    record Entry(String code, int shares, int level, int points) {
+        String key() { return receiptKey(code, level); }
+        String summary() {
+            return code + " · " + shares + "株 · " + ValueAlertMeter.LABELS.get(level) + " · " + points + "点";
+        }
+    }
+
+    private static String receiptKey(String code, int level) { return "meter:" + level + ":" + code; }
+
+    static Map<String, Entry> entries(SharedPreferences state, Market market, LocalDate day, String source,
+                                      JSONObject rows, Set<String> sent, Predicate<String> identity) throws JSONException {
+        var history = history(state, market);
+        var prior = history.latest();
+        if (prior != null && day.equals(prior.day())) prior = history.previous();
+        if (prior == null || !source.equals(prior.source()) || !market.expectedPrior(day).equals(prior.day())) {
+            return Map.of();
+        }
+        var current = decode(new JSONObject().put("day", day.toString()).put("source", source).put("rows", rows));
+        if (current == null) return Map.of();
+        var thresholds = ValueAlertMeter.Thresholds.read(state.getString(SETTINGS, ""));
+        var entries = new java.util.ArrayList<Entry>();
+        for (var candidate : current.rows().entrySet()) {
+            var code = candidate.getKey();
+            var row = candidate.getValue();
+            var before = prior.rows().get(code);
+            if (before == null || row.shares() == 0 || !identity.test(code)) continue;
+            int level = promotion(before, row, thresholds);
+            if (level == 0 || sent.contains(code)) continue;
+            boolean alreadySent = false;
+            for (int rank = level; rank <= 3; rank++) alreadySent |= sent.contains(receiptKey(code, rank));
+            if (!alreadySent) entries.add(new Entry(code, row.shares(), level, row.score().points()));
+        }
+        entries.sort(java.util.Comparator.comparingInt(Entry::shares).reversed()
+                .thenComparing(java.util.Comparator.comparingInt(Entry::level).reversed()).thenComparing(Entry::code));
+        var ordered = new LinkedHashMap<String, Entry>();
+        for (var entry : entries) ordered.put(entry.key(), entry);
+        return ordered;
+    }
+
+    static Set<String> previouslyNotified(Set<String> sent) {
+        var codes = new java.util.HashSet<>(sent);
+        for (var key : sent) {
+            if (key.startsWith("meter:") && key.length() > 8) codes.add(key.substring(8));
+        }
+        return codes;
+    }
+
+    static String title(String market, Map<String, Entry> entries) {
+        int strongest = entries.values().stream().mapToInt(Entry::level).max().orElseThrow();
+        return market + " · " + ValueAlertMeter.LABELS.get(strongest)
+                + " · 割安度の新規・昇格 " + entries.size() + "銘柄";
+    }
+
+    private static int promotion(Row prior, Row current, ValueAlertMeter.Thresholds thresholds) {
+        var priorScore = prior.shares() == 0 ? new ValueAlertMeter.Score(0, 0, 0) : prior.score();
+        return ValueAlertMeter.promotion(priorScore, current.score(), thresholds);
+    }
 
     static void save(SharedPreferences state, SharedPreferences.Editor edit, Market market,
                      LocalDate day, String source, JSONObject rows) throws JSONException {
@@ -35,9 +96,15 @@ final class ValueAlertPreview {
         var latest = saved.optJSONObject("latest");
         var version = new JSONObject().put("day", day.toString()).put("source", source).put("rows", rows);
         if (latest != null) {
-            String oldDay = latest.optString("day");
-            if (oldDay.compareTo(day.toString()) > 0) return;
-            if (oldDay.compareTo(day.toString()) < 0) saved.put("previous", latest);
+            try {
+                LocalDate oldDay = LocalDate.parse(latest.getString("day"));
+                if (latest.getString("source").isBlank()) throw new JSONException("Missing meter source");
+                latest.getJSONObject("rows");
+                if (oldDay.isAfter(day)) return;
+                if (oldDay.isBefore(day)) saved.put("previous", latest);
+            } catch (JSONException | java.time.DateTimeException invalid) {
+                // Replace invalid metadata while retaining any separately stored previous session.
+            }
         }
         edit.putString(market.key, saved.put("latest", version).toString());
     }
@@ -68,8 +135,7 @@ final class ValueAlertPreview {
             var prior = comparable ? previous.rows().get(entry.getKey()) : null;
             if (prior != null) {
                 comparableRows++;
-                var priorScore = prior.shares() == 0 ? new ValueAlertMeter.Score(0, 0, 0) : prior.score();
-                changes[lot][ValueAlertMeter.promotion(priorScore, row.score(), thresholds)]++;
+                changes[lot][promotion(prior, row, thresholds)]++;
             }
         }
         var text = new StringBuilder(market.label).append(" · ").append(latest.day())

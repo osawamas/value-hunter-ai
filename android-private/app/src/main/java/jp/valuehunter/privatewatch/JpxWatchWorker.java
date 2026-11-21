@@ -125,6 +125,7 @@ public final class JpxWatchWorker extends Worker {
                 var request = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 6, TimeUnit.HOURS)
                         .setConstraints(connected()).build();
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+                DiagnosticLog.requested(context, DiagnosticLog.Area.JPX, "日報・財務の定期更新");
                 scheduleFinance(work, 0);
             } else {
                 var reset = state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
@@ -149,6 +150,7 @@ public final class JpxWatchWorker extends Worker {
             var request = new OneTimeWorkRequest.Builder(JpxWatchWorker.class)
                     .setConstraints(connected()).setInputData(financePass()).build();
             WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP, request);
+            DiagnosticLog.requested(context, DiagnosticLog.Area.JPX, "追加の更新");
             return true;
         }
     }
@@ -188,6 +190,11 @@ public final class JpxWatchWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        var area = DiagnosticLog.Area.JPX;
+        return DiagnosticLog.work(getApplicationContext(), area, getRunAttemptCount(), this::runUpdate);
+    }
+
+    private Result runUpdate() {
         synchronized (CHECK_LOCK) {
             networkGeneration = MarketNetwork.generation();
             if (networkStopped()) return paused();
@@ -211,7 +218,7 @@ public final class JpxWatchWorker extends Worker {
         try {
             synchronized (STATE_LOCK) {
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
-                Result waiting = deliverPending(context, state, pendingAlerts(state));
+                Result waiting = deliverPending(context, state, pendingAlerts(state), expected);
                 if (waiting != null) return waiting;
             }
             var evidence = rights.apply(context);
@@ -271,8 +278,11 @@ public final class JpxWatchWorker extends Worker {
                 }
                 var alerted = date.equals(last)
                         ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
+                long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
+                long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
-                var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
+                boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, false);
+                var added = notifyEnabled && !useMeter ? pending(baseline, last, date, screen.entered(), ValueAlertPreview.previouslyNotified(alerted))
                         : List.<JpxDailyCheck.Candidate>of();
                 var priceOnly = comparison.priceOnly(screen);
                 var budgetAdded = notifyEnabled && automaticFinance
@@ -282,6 +292,10 @@ public final class JpxWatchWorker extends Worker {
                 var rapid = rapidCandidates(comparison, screen, finance, exclusions);
                 var rapidAdded = notifyEnabled ? pendingRapid(baseline, last, date, rapid, alerted)
                         : List.<PriceOnlyScreen.RapidMove>of();
+                DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の条件入り: 財務 "
+                        + screen.entered().size() + "件・予算 " + priceOnly.entered().size() + "件・急変 "
+                        + rapid.size() + "件 · 通知待ち " + (added.size() + budgetAdded.size() + rapidAdded.size())
+                        + "件" + (notifyEnabled ? "" : " · " + ScanWorker.alertBlockReason(context)));
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
@@ -322,9 +336,26 @@ public final class JpxWatchWorker extends Worker {
                             .collect(Collectors.joining("\n"));
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
-                saveMeter(state, update, comparison, screen, finance, evidence.rights());
+                var meterRows = saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 var pending = pendingAlerts(state);
-                queueAlerts(pending, date, added, budgetAdded, rapidAdded);
+                queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
+                if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meterRows != null) {
+                    var held = screen.holds().stream().map(JpxDailyCheck.Held::code).collect(Collectors.toSet());
+                    try {
+                        var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, date, "JPX",
+                                meterRows, alerted, code -> !held.contains(code));
+                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
+                        if (!entries.isEmpty()) {
+                            var detail = new StringBuilder(date + "の東証終値（参考）");
+                            for (var entry : entries.values()) detail.append("\n").append(entry.summary());
+                            queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
+                                    detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった",
+                                    alertGeneration, financialGeneration);
+                        }
+                    } catch (JSONException invalid) {
+                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度を比較できず");
+                    }
+                }
                 String processed = notifyEnabled ? comparison.processedKey(revision) : "";
                 // Commit the alert payload with its comparison before attempting Android delivery.
                 update.putString(PROCESSED, pending.length() == 0 ? processed : "")
@@ -334,7 +365,7 @@ public final class JpxWatchWorker extends Worker {
                         getInputData().getBoolean(FINANCE_PASS, false),
                         getInputData().getBoolean(PERIODIC_FINANCE, false), finance);
                 if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
-                Result waiting = deliverPending(context, state, pending);
+                Result waiting = deliverPending(context, state, pending, expected);
                 if (waiting != null) return waiting;
                 if (pending.length() == 0 && !state.edit().putString(PROCESSED, processed).commit()) {
                     return Result.retry();
@@ -343,6 +374,7 @@ public final class JpxWatchWorker extends Worker {
             return Result.success();
         } catch (IOException error) {
             if (networkStopped()) return paused();
+            DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "日報の取得失敗: " + error.getClass().getSimpleName());
             synchronized (STATE_LOCK) {
                 if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
@@ -353,15 +385,16 @@ public final class JpxWatchWorker extends Worker {
         }
     }
 
-    private static void saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
+    private static JSONObject saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
                                   JpxDailyCheck.Comparison comparison, JpxDailyCheck.Screening screen,
                                   JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
         try {
             var rows = comparison.meterRows(screen, finance, rights);
             ValueAlertPreview.save(state, edit, ValueAlertPreview.Market.JPX,
                     comparison.latest().date(), "JPX", rows);
+            return rows;
         } catch (JSONException unavailable) {
-            // A preview formatting failure must not affect the existing alert queue.
+            return null;
         }
     }
 
@@ -375,7 +408,8 @@ public final class JpxWatchWorker extends Worker {
         }
     }
 
-    private Result deliverPending(Context context, SharedPreferences state, JSONArray pending) throws IOException {
+    private Result deliverPending(Context context, SharedPreferences state, JSONArray pending, LocalDate expected)
+            throws IOException {
         if (networkStopped()) return paused();
         if (pending.length() == 0) return null;
         if (!ScanWorker.notificationsRequested(context)) {
@@ -383,12 +417,22 @@ public final class JpxWatchWorker extends Worker {
             while (pending.length() > 0) pending.remove(pending.length() - 1);
             return null;
         }
-        if (!ScanWorker.alertsEnabled(context)) return null;
         try {
             while (pending.length() > 0) {
                 if (networkStopped()) return paused();
                 var alert = pending.getJSONObject(0);
-                if (!alerts.post(context, alert.getInt("id"), alert.getString("title"), alert.getString("detail"))) {
+                int id = alert.getInt("id");
+                var day = dateOrNull(alert.getString("day"));
+                if (day == null || (expected != null && day.isBefore(expected))
+                        || alert.optLong("alertGeneration", 0) != state.getLong(ScanWorker.ALERT_GENERATION, 0)
+                        || (id == NOTIFICATION_ID && alert.optLong("financialGeneration", 0)
+                        != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0))) {
+                    pending.remove(0);
+                    if (!state.edit().putString(PENDING, pending.toString()).commit()) return Result.retry();
+                    continue;
+                }
+                if (!ScanWorker.alertsEnabled(context)) return null;
+                if (!alerts.post(context, id, alert.getString("title"), alert.getString("detail"))) {
                     return networkStopped() ? paused() : retryReport(state, alert.getString("error"));
                 }
                 var sent = new HashSet<>(state.getStringSet(ALERTED, Set.of()));
@@ -411,13 +455,14 @@ public final class JpxWatchWorker extends Worker {
     private static void queueAlerts(JSONArray pending, LocalDate day,
                                     List<JpxDailyCheck.Candidate> added,
                                     List<PriceOnlyScreen.BudgetEntry> budget,
-                                    List<PriceOnlyScreen.RapidMove> rapid) {
+                                    List<PriceOnlyScreen.RapidMove> rapid,
+                                    long alertGeneration, long financialGeneration) {
         if (!added.isEmpty()) {
             var detail = new StringBuilder(day + "の終値（参考）");
             for (var entry : added) detail.append("\n").append(entry.summary());
             queueAlert(pending, day, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
                     detail, added.stream().map(JpxDailyCheck.Candidate::code).collect(Collectors.toList()),
-                    "無音通知を送信できなかった");
+                    "無音通知を送信できなかった", alertGeneration, financialGeneration);
         }
         if (!budget.isEmpty()) {
             var detail = new StringBuilder(day + "の終値で100株の購入額を計算（手数料別）");
@@ -428,7 +473,7 @@ public final class JpxWatchWorker extends Worker {
             queueAlert(pending, day, PRICE_NOTIFICATION_ID,
                     "東証・参考 100株10万円以下に入った " + budget.size() + "銘柄", detail,
                     budget.stream().map(entry -> PRICE_ALERT_PREFIX + entry.code()).collect(Collectors.toList()),
-                    "予算入りの無音通知を送信できなかった");
+                    "予算入りの無音通知を送信できなかった", alertGeneration, financialGeneration);
         }
         if (!rapid.isEmpty()) {
             var detail = new StringBuilder(day + "の東証終値 · 分割・併合・配当落ち等を除外");
@@ -438,14 +483,16 @@ public final class JpxWatchWorker extends Worker {
             }
             queueAlert(pending, day, RAPID_NOTIFICATION_ID, "東証・参考 株価急変 " + rapid.size() + "銘柄",
                     detail, rapid.stream().map(entry -> RAPID_ALERT_PREFIX + entry.code()).collect(Collectors.toList()),
-                    "急変の無音通知を送信できなかった");
+                    "急変の無音通知を送信できなかった", alertGeneration, financialGeneration);
         }
     }
 
     private static void queueAlert(JSONArray pending, LocalDate day, int id, String title,
-                                   StringBuilder detail, List<String> codes, String error) {
+                                   StringBuilder detail, List<String> codes, String error,
+                                   long alertGeneration, long financialGeneration) {
         pending.put(new JSONObject(java.util.Map.of("day", day.toString(), "id", id, "title", title,
-                "detail", detail.toString(), "codes", new JSONArray(codes), "error", error)));
+                "detail", detail.toString(), "codes", new JSONArray(codes), "error", error,
+                "alertGeneration", alertGeneration, "financialGeneration", financialGeneration)));
     }
 
     private MarketFreshness.Phase failedPhase() {
@@ -458,6 +505,8 @@ public final class JpxWatchWorker extends Worker {
 
     private Result retryReport(SharedPreferences state, String message, MarketFreshness.Phase phase, LocalDate target) {
         boolean retry = getRunAttemptCount() < 2;
+        DiagnosticLog.record(getApplicationContext(), DiagnosticLog.Area.JPX,
+                phase == null ? "日報の確認を保留" : "更新保留: " + phase.label);
         var edit = recordCheck(state.edit(), retry ? message + " · 再試行を予約した" : message);
         if (phase != null) MarketFreshness.JPX.waiting(edit, phase, target);
         edit.apply();

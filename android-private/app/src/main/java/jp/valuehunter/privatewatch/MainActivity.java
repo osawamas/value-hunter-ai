@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -61,6 +63,7 @@ public final class MainActivity extends Activity {
     private Button notificationButton;
     private Button testNotificationButton;
     private boolean notificationTestPending;
+    private boolean notificationWasBlocked;
     private Button checkNow;
     private Button showDetail;
     private Button jpxCoverageButton;
@@ -115,6 +118,9 @@ public final class MainActivity extends Activity {
         networkSwitch.setOnClickListener(view -> applyMarketNetworkPreference(networkSwitch.isChecked()));
         wifiSwitch.setOnClickListener(view -> {
             communicationPreferenceSaved = MarketNetwork.setWifiOnly(this, wifiSwitch.isChecked());
+            DiagnosticLog.record(this, DiagnosticLog.Area.NETWORK,
+                    "Wi-Fi限定の設定" + (communicationPreferenceSaved ? "を変更" : "を保存できず")
+                            + " · " + DiagnosticLog.route());
             // Replace saved jobs so their network constraint matches the selected mode.
             androidx.work.WorkManager.getInstance(this).cancelAllWork();
             scheduleMarketChecks();
@@ -125,12 +131,16 @@ public final class MainActivity extends Activity {
         var notifications = section(content, SURFACE, true);
         label(notifications, "通知", 19, INK, true, 0);
         var notificationSwitch = optionSwitch(notifications, "無音通知", ScanWorker.notificationsRequested(this));
-        notificationSwitch.setOnCheckedChangeListener((view, checked) ->
-                state.edit().putBoolean(ScanWorker.NOTIFICATIONS_ENABLED, checked).apply());
+        notificationSwitch.setOnCheckedChangeListener((view, checked) -> {
+            ScanWorker.setNotificationsRequested(state, checked);
+            DiagnosticLog.record(this, DiagnosticLog.Area.ALERT, checked ? "設定で通知オン" : "設定で通知オフ");
+        });
         var wakeScreen = optionSwitch(notifications, "通知時に画面を点灯",
                 state.getBoolean(NotificationScreenWake.ENABLED, true));
-        wakeScreen.setOnCheckedChangeListener((view, checked) ->
-                state.edit().putBoolean(NotificationScreenWake.ENABLED, checked).apply());
+        wakeScreen.setOnCheckedChangeListener((view, checked) -> {
+            state.edit().putBoolean(NotificationScreenWake.ENABLED, checked).apply();
+            DiagnosticLog.record(this, DiagnosticLog.Area.WAKE, checked ? "設定で点灯オン" : "設定で点灯オフ");
+        });
         notificationStatus = label(notifications, "", 13, MUTED, false, 5);
         notificationButton = button(notifications, "", PAGE, 7);
         notificationButton.setOnClickListener(view -> {
@@ -152,8 +162,17 @@ public final class MainActivity extends Activity {
         });
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
+        var useMeter = optionSwitch(notifications, "割安メーターで通知", state.getBoolean(ValueAlertPreview.LIVE, false));
+        useMeter.setOnCheckedChangeListener((view, checked) -> {
+            state.edit().putBoolean(ValueAlertPreview.LIVE, checked)
+                    .putLong(ScanWorker.FINANCIAL_ALERT_GENERATION,
+                            state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0) + 1).apply();
+            DiagnosticLog.record(this, DiagnosticLog.Area.ALERT, checked ? "割安メーター通知オン" : "割安メーター通知オフ");
+        });
+        label(notifications, "オンで新規入り・昇格を3段階で通知。比較資料のある銘柄が対象。", 13, MUTED, false, 5);
         button(notifications, "割安アラートの境界", PAGE, 5)
                 .setOnClickListener(view -> showValueAlertMeter());
+        button(notifications, "診断ログ", PAGE, 5).setOnClickListener(view -> showDiagnostics());
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
@@ -224,6 +243,9 @@ public final class MainActivity extends Activity {
 
     private void applyMarketNetworkPreference(boolean allowed) {
         communicationPreferenceSaved = MarketNetwork.setAllowed(this, allowed);
+        DiagnosticLog.record(this, DiagnosticLog.Area.NETWORK,
+                "相場通信の設定" + (communicationPreferenceSaved ? "を変更" : "を保存できず")
+                        + " · " + DiagnosticLog.route());
         if (MarketNetwork.requested()) {
             scheduleMarketChecks();
         } else {
@@ -263,6 +285,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        resumePendingAlerts();
         render();
     }
 
@@ -283,8 +306,17 @@ public final class MainActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == 1 && ScanWorker.alertsEnabled(this)) JpxWatchWorker.checkNow(this);
+        if (requestCode == 1) resumePendingAlerts();
         render();
+    }
+
+    private void resumePendingAlerts() {
+        boolean blocked = !ScanWorker.systemAllowsAlerts(this);
+        if (notificationWasBlocked && !blocked && ScanWorker.notificationsRequested(this) && MarketNetwork.allowed()) {
+            JpxWatchWorker.checkNow(this);
+            if (UsDailyWorker.hasPendingFinancialAlert(state)) UsSecFinanceWorker.ensureScheduled(this);
+        }
+        notificationWasBlocked = blocked;
     }
 
     private void render() {
@@ -407,7 +439,7 @@ public final class MainActivity extends Activity {
         controls.setPadding(dp(20), dp(8), dp(20), dp(12));
         scroll.addView(controls);
         label(controls, "0〜100点の境界を変更。下の件数は端末に保存された取引日の試算。", 14, INK, false, 0);
-        label(controls, "利益の急減や必要な資料の不足がある場合、点数に届いても段階を上げない。", 13, MUTED, false, 5);
+        label(controls, "利益の急減や資料不足があると段階を抑える。同業比較と財務余力は取得前のため、超割安は保留。", 13, MUTED, false, 5);
         var band = new LinearLayout(this);
         band.setOrientation(LinearLayout.HORIZONTAL);
         place(controls, band, 12);
@@ -445,7 +477,9 @@ public final class MainActivity extends Activity {
                 captions[i].setText(caption);
                 sliders[i].setContentDescription("下限スライダー " + caption);
             }
-            preview.setText("実データによる試算（実際の通知には未適用）\n\n"
+            preview.setText("保存済みデータによる試算 · "
+                    + (state.getBoolean(ValueAlertPreview.LIVE, false)
+                    ? "通知は保存した境界で判定" : "割安メーター通知はオフ") + "\n\n"
                     + ValueAlertPreview.summary(ValueAlertPreview.Market.JPX, jpx, thresholds) + "\n\n"
                     + ValueAlertPreview.summary(ValueAlertPreview.Market.US, us, thresholds));
         };
@@ -487,7 +521,13 @@ public final class MainActivity extends Activity {
             });
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 var thresholds = new ValueAlertMeter.Thresholds(values[0], values[1], values[2]);
-                if (state.edit().putString(ValueAlertPreview.SETTINGS, thresholds.encode()).commit()) {
+                var edit = state.edit().putString(ValueAlertPreview.SETTINGS, thresholds.encode());
+                if (state.getBoolean(ValueAlertPreview.LIVE, false)
+                        && !thresholds.equals(ValueAlertMeter.Thresholds.read(state.getString(ValueAlertPreview.SETTINGS, "")))) {
+                    edit.putLong(ScanWorker.FINANCIAL_ALERT_GENERATION,
+                            state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0) + 1);
+                }
+                if (edit.commit()) {
                     dialog.dismiss();
                 } else {
                     Toast.makeText(this, "境界を保存できなかった", Toast.LENGTH_SHORT).show();
@@ -495,6 +535,27 @@ public final class MainActivity extends Activity {
             });
         });
         dialog.show();
+    }
+
+    private void showDiagnostics() {
+        var report = DiagnosticLog.report(this);
+        var scroll = new ScrollView(this);
+        var text = new TextView(this);
+        text.setPadding(dp(20), dp(10), dp(20), dp(12));
+        text.setTextColor(INK);
+        text.setTextSize(13);
+        text.setTextIsSelectable(true);
+        text.setText(report);
+        scroll.addView(text);
+        new AlertDialog.Builder(this).setTitle("診断ログ").setView(scroll)
+                .setNegativeButton("閉じる", null)
+                .setPositiveButton("診断ログをコピー", (dialog, which) -> {
+                    var clipboard = getSystemService(ClipboardManager.class);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("VALUE HUNTER AI 診断ログ", DiagnosticLog.report(this)));
+                        Toast.makeText(this, "診断ログをコピーした", Toast.LENGTH_SHORT).show();
+                    }
+                }).show();
     }
 
     private void showNotificationHistory() {

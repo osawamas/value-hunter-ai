@@ -68,6 +68,8 @@ public final class UsDailyWorker extends Worker {
     private static final String REPAIR_METRICS_DAY = "us_listing_repair_metrics_day";
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
+    private static final String PENDING_ALERT_GENERATION = "us_private_pending_alert_generation";
+    private static final String PENDING_FINANCIAL_GENERATION = "us_private_pending_financial_generation";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
     static final String PRICE_ONLY_STATUS = "us_price_only_status";
@@ -96,6 +98,7 @@ public final class UsDailyWorker extends Worker {
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                 .build();
         workManager.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_CLOSE, "定期更新");
     }
 
     static void checkNow(Context context) {
@@ -103,6 +106,7 @@ public final class UsDailyWorker extends Worker {
         var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED)).build();
         WorkManager.getInstance(context).enqueueUniqueWork(ON_WIFI, ExistingWorkPolicy.KEEP, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_CLOSE, "追加の更新");
     }
 
     static void recheckSingleSessionBudget(Context context, LocalDate day) {
@@ -111,6 +115,7 @@ public final class UsDailyWorker extends Worker {
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                 .setInputData(data).build();
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_BUDGET, "上場一覧との再照合");
         WorkManager.getInstance(context).enqueueUniqueWork("us-single-session-budget-" + day,
                 ExistingWorkPolicy.KEEP, request);
     }
@@ -124,6 +129,7 @@ public final class UsDailyWorker extends Worker {
         var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
                 .setInputData(data).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES).build();
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_CLOSE, "日付別の終値補完");
         return WorkManager.getInstance(context).enqueueUniqueWork(
                 "us-listing-recheck-" + day, ExistingWorkPolicy.KEEP, request);
     }
@@ -191,6 +197,12 @@ public final class UsDailyWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        var area = getInputData().getString("single_session_budget_day") != null
+                ? DiagnosticLog.Area.US_BUDGET : DiagnosticLog.Area.US_CLOSE;
+        return DiagnosticLog.work(getApplicationContext(), area, getRunAttemptCount(), this::runUpdate);
+    }
+
+    private Result runUpdate() {
         synchronized (CHECK_LOCK) {
             networkGeneration = MarketNetwork.generation();
             if (networkStopped()) return paused();
@@ -200,6 +212,8 @@ public final class UsDailyWorker extends Worker {
                     UsSingleSessionBudgetCheck.run(getApplicationContext(), LocalDate.parse(singleSession),
                             this::networkStopped, repairSource);
                     return networkStopped() ? paused() : Result.success();
+                } catch (DateTimeParseException invalid) {
+                    return Result.failure();
                 } catch (IOException | JSONException unavailable) {
                     return networkStopped() ? paused() : Result.retry();
                 }
@@ -445,28 +459,56 @@ public final class UsDailyWorker extends Worker {
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
-            if (alertsRequested && !pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
-                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending)) return;
+            long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
+            long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
+            if (!pending.isEmpty() && (!sameDay || !alertsRequested
+                    || !pending.startsWith(day + "の終値（参考）\n", pending.indexOf('\n') + 1)
+                    || state.getLong(PENDING_ALERT_GENERATION, 0) != alertGeneration
+                    || state.getLong(PENDING_FINANCIAL_GENERATION, 0) != financialGeneration)) {
+                if (!state.edit().remove(PRIVATE_PENDING).commit()) return;
+                pending = "";
+            }
+            if (!pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
+                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration)) return;
                 pending = "";
             }
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
+            var reference = ledger.getJSONObject("reference_screen");
+            var meter = reference.optJSONObject("meter_rows");
+            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, false);
+            var ranks = useMeter && meter != null && anchor != null
+                    && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
+                    ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent, code -> {
+                        var before = anchor.rows().get(code);
+                        var now = screen.rows().get(code);
+                        return before != null && now != null && before.cik() == now.cik()
+                                && before.exchange().equals(now.exchange());
+                    }) : java.util.Map.<String, ValueAlertPreview.Entry>of();
+            var entrants = useMeter ? java.util.Map.<String, String>of() : UsReferenceAlerts.entrantRows(anchor, screen, ValueAlertPreview.previouslyNotified(sent));
+            String notificationState = ScanWorker.alertBlockReason(context);
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
+                    + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
             if (pending.isEmpty() && alertsRequested) {
-                var entrants = UsReferenceAlerts.entrantRows(anchor, screen, sent);
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
                             + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
                     sent.addAll(entrants.keySet());
+                } else if (!ranks.isEmpty()) {
+                    pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
+                            + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
+                                    .collect(java.util.stream.Collectors.joining("\n"));
+                    sent.addAll(ranks.keySet());
                 }
             }
-            var reference = ledger.getJSONObject("reference_screen");
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", new JSONObject(reference,
                             new String[]{"provider", "close_sha256", "fx_date", "observations"}));
             if (!alertsRequested || !pending.contains("\n")) pending = "";
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
+                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status)
+                    .putLong(PENDING_ALERT_GENERATION, alertGeneration)
+                    .putLong(PENDING_FINANCIAL_GENERATION, financialGeneration);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
-            var meter = reference.optJSONObject("meter_rows");
             if (meter != null) {
                 try {
                     ValueAlertPreview.save(state, update, ValueAlertPreview.Market.US, day, provider, meter);
@@ -478,7 +520,7 @@ public final class UsDailyWorker extends Worker {
             MarketFreshness.US_FINANCE.waiting(update, null, day);
             if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
             if (!pending.isEmpty() && !stopped.getAsBoolean()) {
-                if (!deliverFinancialAlert(context, state, pending) && !stopped.getAsBoolean()) {
+                if (!deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration) && !stopped.getAsBoolean()) {
                     state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
                 }
             }
@@ -488,9 +530,16 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending) {
+    static boolean hasPendingFinancialAlert(SharedPreferences state) {
+        return !state.getString(PRIVATE_PENDING, "").isEmpty();
+    }
+
+    private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending,
+                                                  long alertGeneration, long financialGeneration) {
         int separator = pending.indexOf('\n');
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
+                || alertGeneration != state.getLong(ScanWorker.ALERT_GENERATION, 0)
+                || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)
                 || ScanWorker.postNotification(context, US_NOTIFICATION_ID,
                         pending.substring(0, separator), pending.substring(separator + 1))) {
             return state.edit().remove(PRIVATE_PENDING).commit();

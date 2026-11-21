@@ -12,5 +12,6 @@ public final class MarketWatchApplication extends Application {
     @Override public void onCreate() {
         super.onCreate();
         MarketNetwork.startTracking(this);
+        DiagnosticLog.record(this, DiagnosticLog.Area.NETWORK, "アプリ起動 · " + DiagnosticLog.route());
     }
 }

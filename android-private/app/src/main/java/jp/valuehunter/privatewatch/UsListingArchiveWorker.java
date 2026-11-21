@@ -52,6 +52,7 @@ public final class UsListingArchiveWorker extends Worker {
                 .setBackoffCriteria(BackoffPolicy.LINEAR, 15, TimeUnit.MINUTES)
                 .build();
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_LISTING, "定期更新");
     }
 
     static void checkNow(Context context) {
@@ -61,6 +62,7 @@ public final class UsListingArchiveWorker extends Worker {
                 .setBackoffCriteria(BackoffPolicy.LINEAR, 15, TimeUnit.MINUTES)
                 .build();
         WorkManager.getInstance(context).enqueueUniqueWork(IMMEDIATE, ExistingWorkPolicy.KEEP, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_LISTING, "追加の更新");
     }
 
     static boolean captureWindow(Instant now) {
@@ -76,6 +78,11 @@ public final class UsListingArchiveWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        var area = DiagnosticLog.Area.US_LISTING;
+        return DiagnosticLog.work(getApplicationContext(), area, getRunAttemptCount(), this::runUpdate);
+    }
+
+    private Result runUpdate() {
         synchronized (CAPTURE_LOCK) {
             long generation = MarketNetwork.generation();
             if (stopped(generation)) return MarketNetwork.pausedWork(generation);
@@ -99,12 +106,17 @@ public final class UsListingArchiveWorker extends Worker {
                     }
                 }
                 saveStatus(prefs, directory, day, false);
+                DiagnosticLog.record(app, DiagnosticLog.Area.US_LISTING,
+                        UsListingHistory.hasIdentity(directory, day) ? "対象取引日の上場一覧を保存済み"
+                                : captureWindow(now) ? "対象取引日の上場一覧を待機中" : "上場一覧の保存時間外");
                 if (!stopped(generation)) recheck(app, prefs, directory, now);
                 return Result.success();
             } catch (IOException | JSONException | ExecutionException | TimeoutException unavailable) {
                 if (stopped(generation)) return MarketNetwork.pausedWork(generation);
                 boolean retry = captureWindow(Instant.now());
                 saveStatus(prefs, directory, day, retry);
+                DiagnosticLog.record(app, DiagnosticLog.Area.US_LISTING,
+                        "上場一覧を取得または保存できず: " + unavailable.getClass().getSimpleName());
                 return retry ? Result.retry() : Result.success();
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
@@ -128,7 +140,8 @@ public final class UsListingArchiveWorker extends Worker {
         var groups = MarketCoverage.US.groups(prefs);
         var verified = UsListingHistory.verifiedSupplementSymbols(directory, day);
         var single = UsListingHistory.sessionExchanges(directory, day).keySet();
-        if (groups.values().stream().flatMap(List::stream).anyMatch(single::contains)) {
+        if (UsSingleSessionBudgetCheck.hasPublishedResult(prefs, day)
+                || groups.values().stream().flatMap(List::stream).anyMatch(single::contains)) {
             UsDailyWorker.recheckSingleSessionBudget(app, day);
         }
         if (day.toString().equals(prefs.getString(RECHECK, ""))) return;

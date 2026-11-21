@@ -225,7 +225,7 @@ final class JpxDailyCheck {
             var assessed = new HashSet<String>();
             for (String code : screenCodes(finance)) {
                 var automatic = finance.entries().get(code);
-                var change = automatic != null && automatic.annual() != null
+                var change = automatic != null && (automatic.annual() != null || automatic.previousAnnual() != null)
                         ? automaticChange(code, rights, finance, automatic) : referenceChange(code, rights);
                 if (change.now().level() != Level.HELD) assessed.add(code);
                 if (change.now().qualifies()) candidates.add(change.now());
