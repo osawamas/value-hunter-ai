@@ -27,34 +27,74 @@ final class UsReferenceDeliveryProbe {
     private UsReferenceDeliveryProbe() {}
 
     static void run(Context context) throws Exception {
+        run(context, null, null);
+    }
+
+    static void run(Context context, Runnable disconnect, Runnable reconnect) throws Exception {
         var notifications = context.getSystemService(NotificationManager.class);
         var directory = context.getNoBackupFilesDir();
         var close = new AtomicFile(new File(directory, "us-daily-closes.json"));
         var checkpoint = new AtomicFile(new File(directory, "us-sec-financials.json"));
         var factRequests = new AtomicInteger();
+        var extraRequests = new AtomicInteger();
         var indexRequests = new AtomicInteger();
+        boolean wifi = disconnect != null;
         var factory = new WorkerFactory() {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
                 if (!name.equals(UsSecFinanceWorker.class.getName())) return null;
-                return new UsSecFinanceWorker(app, parameters, url -> payload(url, factRequests, indexRequests));
+                return new UsSecFinanceWorker(app, parameters, url -> {
+                    if (wifi && url.endsWith("/CIK0000043210.json")) {
+                        extraRequests.incrementAndGet();
+                        return facts().replace("12345", "43210");
+                    }
+                    if (wifi && url.endsWith("/CIK0000012345.json") && factRequests.get() == 0) {
+                        disconnect.run();
+                    }
+                    String data = payload(url, factRequests, indexRequests);
+                    if (wifi && url.endsWith("/otherlisted.txt")) {
+                        return data.replace("File Creation", "AAA|Second Corp Common Stock|N|N|N\nFile Creation");
+                    }
+                    if (wifi && url.equals(UsDeviceFinancials.SEC_DIRECTORY)) {
+                        return data.replace(
+                                "\"TEST\",\"NYSE\"]]", "\"TEST\",\"NYSE\"],[43210,\"Second Corp\",\"AAA\",\"NYSE\"]]");
+                    }
+                    return data;
+                });
             }
         };
         notifications.cancelAll();
         try {
-            writeClose(close, FIRST, 20);
+            writeClose(close, FIRST, 20, wifi);
             verifyResult(context, factory, ListenableWorker.Result.retry());
             expectQuiet(notifications);
+            if (wifi) {
+                var saved = new JSONObject(new String(checkpoint.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+                if (saved.getInt("cursor") != 1 || saved.getJSONArray("results").length() != 1
+                        || extraRequests.get() != 1 || !MarketNetwork.waitingForWifi()) {
+                    throw new AssertionError("SEC did not persist the finished issuer and stop at the interrupted issuer");
+                }
+                reconnect.run();
+            }
             verifyResult(context, factory, ListenableWorker.Result.success());
             expectQuiet(notifications);
             if (factRequests.get() != 2) throw new AssertionError("First day was not retried exactly once");
 
-            writeClose(close, SECOND, 5);
+            writeClose(close, SECOND, 5, wifi);
             verifyResult(context, factory, ListenableWorker.Result.success());
             verifySilentNotice(notifications);
 
             notifications.cancelAll();
             verifyResult(context, factory, ListenableWorker.Result.success());
             expectQuiet(notifications);
+            if (wifi) {
+                long receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
+                        .stream().filter(row -> row.title().equals("米国株の参考条件入り 1銘柄")
+                                && row.detail().contains("TEST") && row.detail().contains(SECOND.toString())).count();
+                if (receipts != 1 || extraRequests.get() != 1
+                        || !MarketUpdate.US_FINANCE.display(ScanWorker.prefs(context)).contains("最終更新")) {
+                    throw new AssertionError("SEC recovery repeated an issuer, lost the update time, or duplicated delivery");
+                }
+            }
             if (factRequests.get() != 2 || indexRequests.get() != 2) {
                 throw new AssertionError("Unchanged issuer was not reused after checking the SEC index");
             }
@@ -71,10 +111,11 @@ final class UsReferenceDeliveryProbe {
         if (!expected.equals(worker.doWork())) throw new AssertionError("Unexpected SEC worker result");
     }
 
-    private static void writeClose(AtomicFile close, LocalDate day, int price) throws Exception {
+    private static void writeClose(AtomicFile close, LocalDate day, int price, boolean extra) throws Exception {
         var prices = new JSONObject().put("trading_date_et", day.toString()).put("source", PROVIDER)
                 .put("adjusted", JSONObject.NULL).put("closes", new JSONArray()
                         .put(new JSONObject().put("symbol", "TEST").put("close_usd", price)));
+        if (extra) prices.getJSONArray("closes").put(new JSONObject().put("symbol", "AAA").put("close_usd", 30));
         UsDailyWorker.writeSnapshot(close, prices);
     }
 
@@ -97,15 +138,7 @@ final class UsReferenceDeliveryProbe {
         }
         if (url.endsWith("/CIK0000012345.json")) {
             if (factRequests.incrementAndGet() == 1) throw new IOException("Simulated connection loss");
-            return """
-                    {"cik":12345,"facts":{
-                     "us-gaap":{"StockholdersEquity":{"units":{"USD":[
-                      {"end":"2026-09-30","filed":"2026-10-20","accn":"0000012345-26-000001","form":"10-K","val":1500}]}},
-                      "NetIncomeLoss":{"units":{"USD":[
-                      {"start":"2025-10-01","end":"2026-09-30","filed":"2026-10-20","accn":"0000012345-26-000001","form":"10-K","val":90}]}}},
-                     "dei":{"EntityCommonStockSharesOutstanding":{"units":{"shares":[
-                      {"end":"2026-10-13","filed":"2026-10-20","accn":"0000012345-26-000001","form":"10-K","val":100}]}}}}}
-                    """;
+            return facts();
         }
         if (url.contains("frankfurter.dev")) {
             return "[{\"date\":\"2026-11-16\",\"base\":\"USD\",\"quote\":\"JPY\",\"rate\":150}]";
@@ -115,6 +148,18 @@ final class UsReferenceDeliveryProbe {
         }
         if (url.contains("FROM+split")) return "{\"query_execution_status\":\"Success\",\"rows\":[]}";
         throw new AssertionError("Unexpected source " + url);
+    }
+
+    private static String facts() {
+        return """
+                    {"cik":12345,"facts":{
+                     "us-gaap":{"StockholdersEquity":{"units":{"USD":[
+                      {"end":"2026-09-30","filed":"2026-10-20","accn":"0000012345-26-000001","form":"10-K","val":1500}]}},
+                      "NetIncomeLoss":{"units":{"USD":[
+                      {"start":"2025-10-01","end":"2026-09-30","filed":"2026-10-20","accn":"0000012345-26-000001","form":"10-K","val":90}]}}},
+                     "dei":{"EntityCommonStockSharesOutstanding":{"units":{"shares":[
+                      {"end":"2026-10-13","filed":"2026-10-20","accn":"0000012345-26-000001","form":"10-K","val":100}]}}}}}
+                    """;
     }
 
     private static void expectQuiet(NotificationManager manager) throws InterruptedException {

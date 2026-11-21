@@ -114,6 +114,19 @@ final class MarketNetwork {
         return requested && wifiOnly && !allowed();
     }
 
+    static long generation() {
+        return GATE.generation();
+    }
+
+    static boolean interrupted(long generation) {
+        return GATE.interrupted(generation);
+    }
+
+    static ListenableWorker.Result pausedWork(long generation) {
+        if (requested && wifiOnly && interrupted(generation)) return ListenableWorker.Result.retry();
+        return pausedWork();
+    }
+
     static ListenableWorker.Result pausedWork() {
         // Leave interrupted acquisitions pending even when the app process is killed before Wi-Fi returns.
         return waitingForWifi() ? ListenableWorker.Result.retry() : ListenableWorker.Result.success();
@@ -201,6 +214,7 @@ final class MarketNetwork {
             if (allowed && wifiOnly && allowed()) {
                 JpxWatchWorker.checkNow(application);
                 UsDailyWorker.checkNow(application);
+                UsSecFinanceWorker.ensureScheduled(application);
             }
         });
     }
@@ -276,9 +290,18 @@ final class MarketNetwork {
         private final Set<HttpsURLConnection> connections = Collections.newSetFromMap(new IdentityHashMap<>());
         private boolean allowed = true;
         private Network route;
+        private long generation;
 
         synchronized boolean allowed() {
             return allowed;
+        }
+
+        synchronized long generation() {
+            return generation;
+        }
+
+        synchronized boolean interrupted(long start) {
+            return !allowed || generation != start;
         }
 
         List<HttpsURLConnection> setAllowed(boolean enabled) {
@@ -287,6 +310,7 @@ final class MarketNetwork {
 
         synchronized List<HttpsURLConnection> setRoute(boolean enabled, Network wifi) {
             boolean changed = !Objects.equals(route, wifi);
+            if (allowed != enabled || changed) generation++;
             route = wifi;
             allowed = enabled;
             if ((enabled && !changed) || connections.isEmpty()) return Collections.emptyList();

@@ -258,10 +258,12 @@ final class JpxAutomaticFinance {
                 checked++;
             }
         }
-        boolean continueInitial = checked > 0 && !limited && consecutiveFailures < 3 && !stopped.getAsBoolean()
-                && pending.subList(attempted, pending.size()).stream().anyMatch(code -> !entries.containsKey(code))
-                // Flush this batch's async writes before advancing the scheduled run.
-                && state.edit().commit();
+        boolean interrupted = stopped.getAsBoolean();
+        boolean more = checked > 0 && !limited && consecutiveFailures < 3 && !interrupted
+                && pending.subList(attempted, pending.size()).stream().anyMatch(code -> !entries.containsKey(code));
+        // Flush acquired issuers before the next run, even if this run ended on a lost connection.
+        boolean saved = checked == 0 || state.edit().commit();
+        boolean continueInitial = more && saved;
         return new Batch(Map.copyOf(entries), updates, eligible.size(), checked, continueInitial);
     }
 

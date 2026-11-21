@@ -9,11 +9,17 @@ on:
       - 'android-private/tools/check_notification_emulator.sh'
       - 'android-private/app/src/main/AndroidManifest.xml'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/Notification*.java'
-      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MarketNetwork.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/Market*.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxWatchWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxAutomaticFinance.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDailyWorker.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSecFinanceWorker.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ScanWorker.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java'
       - 'android-private/app/src/androidTest/**/Notification*.java'
       - 'android-private/app/src/androidTest/**/JpxPdfGeometryProbe.java'
+      - 'android-private/app/src/androidTest/**/JpxWatchDeliveryProbe.java'
+      - 'android-private/app/src/androidTest/**/UsReferenceDeliveryProbe.java'
 
 permissions:
   contents: read

@@ -40,6 +40,7 @@ final class NotificationDeliveryProbe {
         var power = context.getSystemService(PowerManager.class);
         var history = NotificationHistory.file(context);
         var prefs = ScanWorker.prefs(context);
+        if ("recovery".equals(phase)) return exerciseMarketRecovery(instrumentation);
         if ("restore".equals(phase)) {
             require(!MarketNetwork.allowed(), "Market communication was re-enabled by reboot");
             require(MarketNetwork.wifiOnly(), "Wi-Fi-only choice did not survive reboot");
@@ -127,6 +128,39 @@ final class NotificationDeliveryProbe {
                 "A suppressed notification changed history");
         exerciseWifiOnly(instrumentation, power);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static String exerciseMarketRecovery(Instrumentation instrumentation) throws Exception {
+        var context = instrumentation.getTargetContext();
+        var work = androidx.work.WorkManager.getInstance(context);
+        work.cancelAllWork().getResult().get(10, TimeUnit.SECONDS);
+        androidx.work.testing.WorkManagerTestInitHelper.initializeTestWorkManager(context,
+                new androidx.work.Configuration.Builder().setExecutor(new androidx.work.testing.SynchronousExecutor()).build());
+        var settings = ScanWorker.prefs(context);
+        require(settings.edit().putBoolean(ScanWorker.NOTIFICATIONS_ENABLED, true)
+                .putBoolean(NotificationScreenWake.ENABLED, false).commit(), "Cannot set alert recovery controls");
+        require(MarketNetwork.setWifiOnly(context, true) && MarketNetwork.setAllowed(context, true),
+                "Cannot enable Wi-Fi-only recovery");
+        Runnable disconnect = () -> changeWifi(instrumentation, false);
+        Runnable reconnect = () -> changeWifi(instrumentation, true);
+        try {
+            reconnect.run();
+            JpxWatchDeliveryProbe.verifyWifiRecovery(context, disconnect, reconnect);
+            UsReferenceDeliveryProbe.run(context, disconnect, reconnect);
+            return "MARKET_WIFI_RECOVERY_OK";
+        } finally {
+            shell(instrumentation, "svc wifi enable");
+        }
+    }
+
+    private static void changeWifi(Instrumentation instrumentation, boolean connected) {
+        try {
+            shell(instrumentation, connected ? "svc wifi enable" : "svc wifi disable");
+        } catch (IOException error) {
+            throw new AssertionError("Cannot toggle Wi-Fi in the recovery probe", error);
+        }
+        require(await(connected ? MarketNetwork::allowed : MarketNetwork::waitingForWifi, 25_000),
+                connected ? "Recovery probe did not restore Wi-Fi" : "Recovery probe did not lose Wi-Fi");
     }
 
     private static void exerciseWifiOnly(Instrumentation instrumentation, PowerManager power) throws Exception {

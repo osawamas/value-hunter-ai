@@ -18,6 +18,10 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import java.io.IOException;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,6 +50,7 @@ public final class JpxWatchWorker extends Worker {
     private static final String LATEST = "jpx_watch_latest";
     private static final String PROCESSED = "jpx_watch_processed";
     private static final String ALERTED = "jpx_watch_alerted";
+    private static final String PENDING = "jpx_watch_pending";
     private static final String CHECKED_AT = "jpx_watch_checked_at";
     private static final String OUTCOME = "jpx_watch_outcome";
     private static final DateTimeFormatter JAPAN_TIME = DateTimeFormatter.ofPattern("M月d日 HH:mm", Locale.JAPAN)
@@ -114,7 +119,7 @@ public final class JpxWatchWorker extends Worker {
                 scheduleFinance(work, 0);
             } else {
                 state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
-                        .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).apply();
+                        .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).remove(PENDING).remove(MarketUpdate.JPX.lastUpdate).apply();
                 work.cancelUniqueWork(WORK);
                 work.cancelUniqueWork(MANUAL);
                 work.cancelUniqueWork(FINANCE);
@@ -160,33 +165,50 @@ public final class JpxWatchWorker extends Worker {
         return MarketNetwork.constraints(NetworkType.CONNECTED);
     }
 
+    private long networkGeneration;
+
     private boolean networkStopped() {
-        return isStopped() || !MarketNetwork.allowed();
+        return isStopped() || MarketNetwork.interrupted(networkGeneration);
+    }
+
+    private Result paused() {
+        return MarketNetwork.pausedWork(networkGeneration);
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
         synchronized (CHECK_LOCK) {
-            return check();
+            networkGeneration = MarketNetwork.generation();
+            if (networkStopped()) return paused();
+            MarketUpdate.JPX.started();
+            try {
+                return check();
+            } finally {
+                MarketUpdate.JPX.finished();
+            }
         }
     }
 
     private Result check() {
-        if (networkStopped()) return MarketNetwork.pausedWork();
+        if (networkStopped()) return paused();
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
         String token = state.getString(TOKEN, "");
         if (token.isEmpty()) return Result.success();
 
         try {
+            synchronized (STATE_LOCK) {
+                if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
+                Result waiting = deliverPending(context, state, pendingAlerts(state));
+                if (waiting != null) return waiting;
+            }
             var evidence = rights.apply(context);
             var rapidEvidence = automaticFinance ? JpxRapidEvidence.refresh() : JpxRapidEvidence.unavailable();
             String revision = automaticFinance ? evidence.revision() + "|" + rapidEvidence.revision() : evidence.revision();
-            if (networkStopped()) return MarketNetwork.pausedWork();
+            if (networkStopped()) return paused();
             String processedKey = ScanWorker.alertsEnabled(context) ? state.getString(PROCESSED, "") : "";
             if (automaticFinance && getInputData().getBoolean(FINANCE_PASS, false)) processedKey = "";
             var comparison = comparisons.load(context, processedKey, revision);
-            if (networkStopped()) return MarketNetwork.pausedWork();
+            if (networkStopped()) return paused();
             if (comparison != null) {
                 synchronized (STATE_LOCK) {
                     if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
@@ -201,10 +223,10 @@ public final class JpxWatchWorker extends Worker {
                     ? JpxAutomaticFinance.refresh(context, comparison, evidence.rights(), this::networkStopped)
                     : JpxAutomaticFinance.Batch.empty();
             synchronized (STATE_LOCK) {
-                if (networkStopped()) return MarketNetwork.pausedWork();
+                if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
                 if (comparison == null) {
-                    recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略").apply();
+                    MarketUpdate.JPX.completed(recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略")).apply();
                     return Result.success();
                 }
                 var screen = comparison.screen(evidence.rights(), finance);
@@ -257,73 +279,115 @@ public final class JpxWatchWorker extends Worker {
                         .putString(BASELINE, savedBaseline.toString())
                         .putString(LATEST, date.toString()).putStringSet(ALERTED, alerted)
                         .putString(STATUS, summary.toString());
+                var pending = pendingAlerts(state);
+                queueAlerts(pending, date, added, budgetAdded, rapidAdded);
                 String processed = notifyEnabled ? comparison.processedKey(revision) : "";
-                // Leave the inputs eligible for another check until the notification is submitted.
-                update.putString(PROCESSED, added.isEmpty() && budgetAdded.isEmpty() && rapidAdded.isEmpty() ? processed : "");
-                if (!update.commit()) return Result.retry();
+                // Commit the alert payload with its comparison before attempting Android delivery.
+                update.putString(PROCESSED, pending.length() == 0 ? processed : "")
+                        .putString(PENDING, pending.toString());
+                if (!MarketUpdate.JPX.completed(update).commit()) return Result.retry();
                 long nextFinance = nextFinanceStart(System.currentTimeMillis(),
                         getInputData().getBoolean(FINANCE_PASS, false),
                         getInputData().getBoolean(PERIODIC_FINANCE, false), finance);
                 if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
-                if (!added.isEmpty()) {
-                    var detail = new StringBuilder(date + "の終値（参考）");
-                    for (var entry : added) {
-                        detail.append("\n").append(entry.summary());
-                    }
-                    if (!alerts.post(context, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
-                            detail.toString())) {
-                        state.edit().putString(STATUS, summary + "\n無音通知を送信できなかった · 通知設定を確認").apply();
-                        // Keep PROCESSED empty and retry promptly before the next six-hour scan.
-                        // The retry limit in retryReport prevents an endless notification loop.
-                        return retryReport(state, "無音通知を送信できなかった");
-                    }
-                    for (var entry : added) alerted.add(entry.code());
-                    if (!state.edit().putStringSet(ALERTED, new HashSet<>(alerted))
-                            .putString(PROCESSED, budgetAdded.isEmpty() && rapidAdded.isEmpty() ? processed : "").commit()) {
-                        return Result.retry();
-                    }
-                }
-                if (!budgetAdded.isEmpty()) {
-                    var detail = new StringBuilder(date + "の終値で100株の購入額を計算（手数料別）");
-                    for (var entry : budgetAdded) {
-                        detail.append("\n").append(entry.code()).append(" · ")
-                                .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
-                    }
-                    if (!alerts.post(context, PRICE_NOTIFICATION_ID,
-                            "東証・参考 100株10万円以下に入った " + budgetAdded.size() + "銘柄", detail.toString())) {
-                        return retryReport(state, "予算入りの無音通知を送信できなかった");
-                    }
-                    for (var entry : budgetAdded) alerted.add(PRICE_ALERT_PREFIX + entry.code());
-                    if (!state.edit().putStringSet(ALERTED, new HashSet<>(alerted))
-                            .putString(PROCESSED, rapidAdded.isEmpty() ? processed : "").commit()) {
-                        return Result.retry();
-                    }
-                }
-                if (!rapidAdded.isEmpty()) {
-                    var detail = new StringBuilder(date + "の東証終値 · 分割・併合・配当落ち等を除外");
-                    for (var entry : rapidAdded) {
-                        detail.append("\n").append(entry.code()).append(" · ")
-                                .append(entry.percent().stripTrailingZeros().toPlainString()).append("%");
-                    }
-                    if (!alerts.post(context, RAPID_NOTIFICATION_ID,
-                            "東証・参考 株価急変 " + rapidAdded.size() + "銘柄", detail.toString())) {
-                        return retryReport(state, "急変の無音通知を送信できなかった");
-                    }
-                    for (var entry : rapidAdded) alerted.add(RAPID_ALERT_PREFIX + entry.code());
-                    if (!state.edit().putStringSet(ALERTED, alerted).putString(PROCESSED, processed).commit()) {
-                        return Result.retry();
-                    }
+                Result waiting = deliverPending(context, state, pending);
+                if (waiting != null) return waiting;
+                if (pending.length() == 0 && !state.edit().putString(PROCESSED, processed).commit()) {
+                    return Result.retry();
                 }
             }
             return Result.success();
         } catch (IOException error) {
-            if (networkStopped()) return MarketNetwork.pausedWork();
+            if (networkStopped()) return paused();
             synchronized (STATE_LOCK) {
-                if (networkStopped()) return MarketNetwork.pausedWork();
+                if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
                 return retryReport(state, "日報を取得できなかった");
             }
         }
+    }
+
+    private static JSONArray pendingAlerts(SharedPreferences state) throws IOException {
+        try {
+            return new JSONArray(state.getString(PENDING, "[]"));
+        } catch (JSONException invalid) {
+            // Recover from a corrupt local queue using the saved report and sent-code list.
+            if (!state.edit().remove(PENDING).remove(PROCESSED).commit()) throw new IOException(invalid);
+            return new JSONArray();
+        }
+    }
+
+    private Result deliverPending(Context context, SharedPreferences state, JSONArray pending) throws IOException {
+        if (networkStopped()) return paused();
+        if (pending.length() == 0) return null;
+        if (!ScanWorker.notificationsRequested(context)) {
+            if (!state.edit().remove(PENDING).commit()) return Result.retry();
+            while (pending.length() > 0) pending.remove(pending.length() - 1);
+            return null;
+        }
+        if (!ScanWorker.alertsEnabled(context)) return null;
+        try {
+            while (pending.length() > 0) {
+                if (networkStopped()) return paused();
+                var alert = pending.getJSONObject(0);
+                if (!alerts.post(context, alert.getInt("id"), alert.getString("title"), alert.getString("detail"))) {
+                    return networkStopped() ? paused() : retryReport(state, alert.getString("error"));
+                }
+                var sent = new HashSet<>(state.getStringSet(ALERTED, Set.of()));
+                if (alert.getString("day").equals(state.getString(LATEST, ""))) {
+                    var codes = alert.getJSONArray("codes");
+                    for (int index = 0; index < codes.length(); index++) sent.add(codes.getString(index));
+                }
+                pending.remove(0);
+                if (!state.edit().putString(PENDING, pending.toString()).putStringSet(ALERTED, sent).commit()) {
+                    return Result.retry();
+                }
+            }
+            return null;
+        } catch (JSONException invalid) {
+            if (!state.edit().remove(PENDING).remove(PROCESSED).commit()) return Result.retry();
+            throw new IOException("Invalid JPX notification queue", invalid);
+        }
+    }
+
+    private static void queueAlerts(JSONArray pending, LocalDate day,
+                                    List<JpxDailyCheck.Candidate> added,
+                                    List<PriceOnlyScreen.BudgetEntry> budget,
+                                    List<PriceOnlyScreen.RapidMove> rapid) {
+        if (!added.isEmpty()) {
+            var detail = new StringBuilder(day + "の終値（参考）");
+            for (var entry : added) detail.append("\n").append(entry.summary());
+            queueAlert(pending, day, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
+                    detail, added.stream().map(JpxDailyCheck.Candidate::code).collect(Collectors.toList()),
+                    "無音通知を送信できなかった");
+        }
+        if (!budget.isEmpty()) {
+            var detail = new StringBuilder(day + "の終値で100株の購入額を計算（手数料別）");
+            for (var entry : budget) {
+                detail.append("\n").append(entry.code()).append(" · ")
+                        .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
+            }
+            queueAlert(pending, day, PRICE_NOTIFICATION_ID,
+                    "東証・参考 100株10万円以下に入った " + budget.size() + "銘柄", detail,
+                    budget.stream().map(entry -> PRICE_ALERT_PREFIX + entry.code()).collect(Collectors.toList()),
+                    "予算入りの無音通知を送信できなかった");
+        }
+        if (!rapid.isEmpty()) {
+            var detail = new StringBuilder(day + "の東証終値 · 分割・併合・配当落ち等を除外");
+            for (var entry : rapid) {
+                detail.append("\n").append(entry.code()).append(" · ")
+                        .append(entry.percent().stripTrailingZeros().toPlainString()).append("%");
+            }
+            queueAlert(pending, day, RAPID_NOTIFICATION_ID, "東証・参考 株価急変 " + rapid.size() + "銘柄",
+                    detail, rapid.stream().map(entry -> RAPID_ALERT_PREFIX + entry.code()).collect(Collectors.toList()),
+                    "急変の無音通知を送信できなかった");
+        }
+    }
+
+    private static void queueAlert(JSONArray pending, LocalDate day, int id, String title,
+                                   StringBuilder detail, List<String> codes, String error) {
+        pending.put(new JSONObject(java.util.Map.of("day", day.toString(), "id", id, "title", title,
+                "detail", detail.toString(), "codes", new JSONArray(codes), "error", error)));
     }
 
     private Result retryReport(SharedPreferences state, String message) {
