@@ -25,12 +25,7 @@ final class UsListingHistory {
             throws JSONException {
         UsPriceOnlyBudget.ordinary(nyse, nasdaq, nyse.date());
         var file = new AtomicFile(new File(directory, "us-listing-dates.json"));
-        JSONObject saved;
-        try {
-            saved = new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
-        } catch (IOException | JSONException unavailable) {
-            saved = new JSONObject();
-        }
+        var saved = read(file);
         var newest = nyse.date();
         var keys = saved.keys();
         while (keys.hasNext()) {
@@ -70,6 +65,33 @@ final class UsListingHistory {
         var nasdaq = new HashSet<>(after.nasdaq());
         nasdaq.retainAll(before.nasdaq());
         return new Scope(union(nyse, nasdaq), Set.copyOf(nasdaq), true);
+    }
+
+    record DatedScope(LocalDate day, Set<String> symbols) {}
+
+    static DatedScope coverageScope(JSONObject dates, LocalDate tradeDay, UsMarketCoverage.Directory nyse,
+                                    UsMarketCoverage.Directory nasdaq) throws JSONException {
+        var exact = markets(dates.optJSONObject(tradeDay.toString()));
+        if (exact != null) return new DatedScope(tradeDay, union(exact.nyse(), exact.nasdaq()));
+        return new DatedScope(nyse.date(), UsPriceOnlyBudget.ordinary(nyse, nasdaq, tradeDay));
+    }
+
+    static DatedScope retainedScope(File directory, LocalDate tradeDay) {
+        var saved = read(new AtomicFile(new File(directory, "us-listing-dates.json")));
+        for (int offset = 0; offset <= 4; offset++) {
+            var date = tradeDay.plusDays(offset);
+            var entries = markets(saved.optJSONObject(date.toString()));
+            if (entries != null) return new DatedScope(date, union(entries.nyse(), entries.nasdaq()));
+        }
+        return null;
+    }
+
+    private static JSONObject read(AtomicFile file) {
+        try {
+            return new JSONObject(new String(file.readFully(), StandardCharsets.UTF_8));
+        } catch (IOException | JSONException unavailable) {
+            return new JSONObject();
+        }
     }
 
     private static Markets markets(JSONObject saved) {

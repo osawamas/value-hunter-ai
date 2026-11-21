@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
@@ -146,6 +147,15 @@ final class JpxAutomaticFinance {
                 comparison.previous() == null ? report.date() : comparison.previous().date());
     }
 
+    static Set<String> failedAcquisitions(Context context) {
+        var state = context.getSharedPreferences("jpx-automatic-finance-v1", Context.MODE_PRIVATE);
+        var failed = new java.util.HashSet<String>();
+        for (String key : state.getAll().keySet()) {
+            if (key.startsWith(RETRY_PREFIX)) failed.add(key.substring(RETRY_PREFIX.length()));
+        }
+        return failed;
+    }
+
     static Batch cached(Context context, JpxDailyCheck.Report report) {
         var state = context.getSharedPreferences("jpx-automatic-finance-v1", Context.MODE_PRIVATE);
         return refresh(state, report, LocalDate.now(TOKYO).minusDays(2), null, () -> true);
@@ -242,7 +252,8 @@ final class JpxAutomaticFinance {
                 canExtendInitial = false;
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
                         && (http.status == 429 || http.status == 503)) {
-                    state.edit().putLong(ARCHIVE_RETRY, archiveRetryAt(clock.getAsLong(), http.retryAfter)).commit();
+                    long retryAt = archiveRetryAt(clock.getAsLong(), http.retryAfter);
+                    state.edit().putLong(ARCHIVE_RETRY, retryAt).putLong(RETRY_PREFIX + code, retryAt).commit();
                     limited = true;
                     break;
                 }

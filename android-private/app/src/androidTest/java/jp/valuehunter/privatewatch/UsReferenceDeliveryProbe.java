@@ -88,6 +88,14 @@ final class UsReferenceDeliveryProbe {
             expectQuiet(notifications);
             if (wifi) {
                 verifyFreshness(context, checkpoint);
+                var coverageState = ScanWorker.prefs(context);
+                String coverage = MarketCoverage.US.summary(coverageState);
+                if (!coverage.contains("監視対象 3銘柄") || !coverage.contains("終値確認 2 / 3銘柄")
+                        || !coverage.contains("割安判定 2 / 3銘柄")
+                        || !MarketCoverage.US.groups(coverageState).getOrDefault(MarketCoverage.Reason.CLOSE, java.util.List.of())
+                                .equals(java.util.List.of("OTHER"))) {
+                    throw new AssertionError("US coverage lost an unpriced listing: " + coverage);
+                }
                 expectQuiet(notifications);
                 long receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
                         .stream().filter(row -> row.title().equals("米国株の参考条件入り 1銘柄")

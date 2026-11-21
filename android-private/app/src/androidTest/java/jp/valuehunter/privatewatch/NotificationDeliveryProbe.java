@@ -160,6 +160,18 @@ final class NotificationDeliveryProbe {
             } catch (AssertionError error) {
                 throw new AssertionError("US Wi-Fi recovery: " + error.getMessage(), error);
             }
+            instrumentation.waitForIdleSync();
+            instrumentation.runOnMainSync(() -> {
+                var button = control(activity.getWindow().getDecorView(), "米国株の未判定の内訳", Button.class);
+                require(button != null && button.isEnabled() && button.performClick(), "Cannot open US market coverage");
+            });
+            require(await(() -> findDialogText(instrumentation, "終値待ち · 1銘柄") != null),
+                    "US coverage did not present the missing-close group");
+            var group = findDialogText(instrumentation, "終値待ち · 1銘柄");
+            require(group != null && group.performAction(AccessibilityNodeInfo.ACTION_CLICK),
+                    "Could not open the missing-close group");
+            require(await(() -> findDialogText(instrumentation, "OTHER") != null),
+                    "The missing-close group did not show its ticker");
             return "MARKET_WIFI_RECOVERY_OK";
         } finally {
             shell(instrumentation, "svc wifi enable");

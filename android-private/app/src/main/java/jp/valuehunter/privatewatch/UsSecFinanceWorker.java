@@ -129,18 +129,24 @@ public final class UsSecFinanceWorker extends Worker {
             if (scan == null || !hash.equals(scan.optString("hash"))) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
                 var nyse = listings("otherlisted.txt", false);
-                try {
-                    UsListingHistory.remember(directory, nyse, nasdaq);
-                } catch (JSONException invalid) {
-                    // Financial refresh can continue while the dated listing pair is unavailable.
-                }
+                var scope = coverageScope(directory, day, nyse, nasdaq);
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
                 var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
-                var changed = changedIssuers(UsDeviceFinancials.reuseFrom(scan, day), day);
+                var changed = targets.length() == 0 ? null : changedIssuers(UsDeviceFinancials.reuseFrom(scan, day), day);
                 if (networkStopped()) return paused();
                 scan = UsDeviceFinancials.startScan(hash, day, targets, scan, changed);
+                saveCoverageScope(scan, scope);
+                if (targets.length() == 0) {
+                    publishCoverage(preferences, closeFile, scan, prices.keySet());
+                    throw new IOException("No listed issuers matched the SEC directory");
+                }
                 int reused = scan.getInt("reused");
                 updateProgress(day, 0, scan.getJSONArray("targets").length(), reused, reused);
+                UsDailyWorker.writeSnapshot(checkpoint, scan);
+                publishCoverage(preferences, closeFile, scan, prices.keySet());
+            } else if (!scan.has("coverage_listing_date")) {
+                // Add a dated scope to a checkpoint created before coverage was available.
+                saveCoverageScope(scan, UsListingHistory.retainedScope(directory, day));
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
@@ -159,8 +165,15 @@ public final class UsSecFinanceWorker extends Worker {
                     int end = Math.min(targets.length(), position + BATCH);
                     while (position < end && !networkStopped() && SystemClock.elapsedRealtime() < deadline) {
                         var target = targets.getJSONObject(position);
-                        var row = facts(target, day);
+                        JSONObject row;
+                        try {
+                            row = facts(target, day);
+                        } catch (IOException unavailable) {
+                            if (!networkStopped()) scan.put("coverage_failed", target.getString("symbol"));
+                            throw unavailable;
+                        }
                         if (networkStopped()) break;
+                        scan.remove("coverage_failed");
                         if (row != null) results.put(row);
                         scan.put("cursor", ++position);
                         if (position < end) Thread.sleep(BETWEEN_REQUESTS_MILLIS);
@@ -168,6 +181,7 @@ public final class UsSecFinanceWorker extends Worker {
                 } finally {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
                     updateProgress(day, position, targets.length(), results.length(), reused);
+                    publishCoverage(preferences, closeFile, scan, prices.keySet());
                 }
                 if (networkStopped()) return paused();
                 if (position < targets.length()) {
@@ -194,6 +208,7 @@ public final class UsSecFinanceWorker extends Worker {
                     if (!networkStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
                 }
+                publishCoverage(preferences, closeFile, scan, prices.keySet());
                 UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::networkStopped);
                 if (!networkStopped()) {
                     if (!applyBudget(context, preferences, day, budget)) return networkStopped() ? paused() : Result.retry();
@@ -228,6 +243,72 @@ public final class UsSecFinanceWorker extends Worker {
             }
             return Result.retry();
         }
+    }
+
+    private static UsListingHistory.DatedScope coverageScope(File directory, LocalDate day,
+                                                            UsMarketCoverage.Directory nyse,
+                                                            UsMarketCoverage.Directory nasdaq) {
+        try {
+            var saved = UsListingHistory.remember(directory, nyse, nasdaq);
+            return UsListingHistory.coverageScope(saved, day, nyse, nasdaq);
+        } catch (JSONException unavailable) {
+            return null;
+        }
+    }
+
+    private static void saveCoverageScope(JSONObject scan, UsListingHistory.DatedScope scope) throws JSONException {
+        if (scope != null) scan.put("coverage_symbols", new JSONArray(scope.symbols()));
+        scan.put("coverage_listing_date", scope == null ? "" : scope.day().toString());
+    }
+
+    private static void publishCoverage(android.content.SharedPreferences preferences, AtomicFile closeFile,
+                                        JSONObject scan, Set<String> closes) {
+        try {
+            var snapshot = coverage(scan, closes);
+            if (snapshot == null) return;
+            synchronized (UsDailyWorker.QUOTE_LOCK) {
+                if (!scan.getString("hash").equals(UsReferenceAlerts.sha256(closeFile.readFully()))) return;
+                MarketCoverage.US.save(preferences.edit(), snapshot).apply();
+            }
+        } catch (IOException | JSONException | DateTimeParseException unavailable) {
+            // The previous dated coverage remains available while this snapshot cannot be verified.
+        }
+    }
+
+    static MarketCoverage.Snapshot coverage(JSONObject scan, Set<String> closes) throws JSONException {
+        var scope = scan.optJSONArray("coverage_symbols");
+        if (scope == null) return null;
+        var ordinary = new HashSet<String>();
+        for (int index = 0; index < scope.length(); index++) ordinary.add(scope.getString(index));
+        var reasons = new java.util.HashMap<String, MarketCoverage.Reason>();
+        for (String symbol : ordinary) reasons.put(symbol, MarketCoverage.Reason.IDENTIFICATION);
+        var targets = scan.getJSONArray("targets");
+        for (int index = 0; index < targets.length(); index++) {
+            reasons.put(targets.getJSONObject(index).getString("symbol"), MarketCoverage.Reason.FINANCIALS);
+        }
+        var results = scan.getJSONArray("results");
+        for (int index = 0; index < results.length(); index++) {
+            reasons.put(results.getJSONObject(index).getString("symbol"), MarketCoverage.Reason.VALUATION);
+        }
+
+        var ledger = scan.optJSONObject("ledger");
+        Set<String> screened = Set.of();
+        var day = LocalDate.parse(scan.getString("day"));
+        if (UsReferenceAlerts.hasTradeDateFx(ledger, day)
+                && scan.getString("hash").equals(ledger.optString("close_sha256"))) {
+            screened = UsReferenceAlerts.read(ledger).rows().keySet();
+            var splits = ledger.optJSONArray("split_holds");
+            if (splits != null) {
+                for (int index = 0; index < splits.length(); index++) {
+                    reasons.put(splits.getString(index), MarketCoverage.Reason.CORPORATE_ACTION);
+                }
+            }
+        }
+
+        var failed = scan.optString("coverage_failed");
+        if (!failed.isEmpty()) reasons.put(failed, MarketCoverage.Reason.DOWNLOAD);
+        return MarketCoverage.build(day, LocalDate.parse(scan.getString("coverage_listing_date")),
+                ordinary, closes, screened, reasons);
     }
 
     record BudgetCheck(UsPriceOnlyBudget.Result result, String cursor, boolean retry,
