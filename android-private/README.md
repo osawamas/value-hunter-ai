@@ -584,3 +584,17 @@ javac --release 17 -cp "$US_REPLAY_JSON_JAR" -d "$US_REPLAY_CLASSES" \
 java -cp "$US_REPLAY_CLASSES:$US_REPLAY_JSON_JAR" jp.valuehunter.privatewatch.UsRetryReplay \
   "$US_REPLAY_INPUT" 2026-11-16 2026-11-17 INTC CSCO
 ```
+
+#### 上場照合で保留になった銘柄を再検証する
+
+同じJDKとJSONライブラリで、上の `javac` の末尾に `tools/UsDatedRetryReplay.java` を追加する。
+保存済みの11月17日分の監査を使う場合は、`android-private` 直下で次を実行する。
+
+```bash
+java -cp "$US_REPLAY_CLASSES:$US_REPLAY_JSON_JAR" jp.valuehunter.privatewatch.UsDatedRetryReplay \
+  ../docs/us-dated-listing-audit-20261117.json
+```
+
+監査JSONだけで実行すると、保留・除外理由を再集計する。株価配信元に参考終値があった記録があっても、元の上場一覧を照合できるまでは補完に数えない。終値や正式判定の件数は監査対象銘柄の中での件数。
+
+上場一覧と終値などの原本を確保できた場合は、第2引数にその原本を置いた非公開ディレクトリを渡す。日付別の上場一覧は `YYYY-MM-DD-nyse.txt` と `YYYY-MM-DD-nasdaq.txt` を比較日・当日分用意する。`closes.json` には補完前の比較日・当日の終値、`supplement.json` には補完時の当日終値を入れる。`sec.json`、`fx.json`、`splits.json` は上と同じ形式で、SEC財務は `CIK0000012345.json` のようにCIKを10桁で表したファイル名にする。照合に通った銘柄だけを計算し、結果JSONには件数・銘柄コード・保留理由を出す。通知候補の再処理も検証できる。通知の送信は行わない。

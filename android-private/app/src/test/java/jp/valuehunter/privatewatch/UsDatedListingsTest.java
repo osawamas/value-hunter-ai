@@ -24,13 +24,13 @@ public final class UsDatedListingsTest {
                         "NEW", "ABC CLASS A COMMON STOCK", "COLLIDE", "ABC COMMON STOCK"),
                 Map.of("MOVE", "ABC CLASS A COMMON STOCK"));
 
-        assertEquals(Set.of("GOOD"), UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY));
-        assertTrue(UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY.plusDays(1)).isEmpty());
-        assertTrue(UsListingHistory.verifiedSupplementSymbols(new JSONObject(), after, BEFORE, DAY).isEmpty());
+        assertEquals(Set.of("GOOD"), UsMarketCoverage.verifiedSupplementSymbols(before, after, BEFORE, DAY));
+        assertTrue(UsMarketCoverage.verifiedSupplementSymbols(before, after, BEFORE, DAY.plusDays(1)).isEmpty());
+        assertTrue(UsMarketCoverage.verifiedSupplementSymbols(new JSONObject(), after, BEFORE, DAY).isEmpty());
         after.put("time", "20:44");
-        assertEquals(Set.of("GOOD"), UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY));
+        assertEquals(Set.of("GOOD"), UsMarketCoverage.verifiedSupplementSymbols(before, after, BEFORE, DAY));
         after.put("time", "20:45");
-        assertTrue(UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY).isEmpty());
+        assertTrue(UsMarketCoverage.verifiedSupplementSymbols(before, after, BEFORE, DAY).isEmpty());
     }
 
     @Test public void unpricedSymbolsShowTheOutstandingIdentityCheck() {
