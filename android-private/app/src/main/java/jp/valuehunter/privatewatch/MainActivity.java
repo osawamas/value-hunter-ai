@@ -22,6 +22,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -148,6 +149,8 @@ public final class MainActivity extends Activity {
         });
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
+        button(notifications, "割安アラートの境界", PAGE, 5)
+                .setOnClickListener(view -> showValueAlertMeter());
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
@@ -373,6 +376,98 @@ public final class MainActivity extends Activity {
         } catch (org.json.JSONException invalid) {
             dialog.setMessage("未判定の内訳を読み込めなかった").show();
         }
+    }
+
+    private void showValueAlertMeter() {
+        var saved = ValueAlertMeter.Thresholds.read(state.getString(ValueAlertPreview.SETTINGS, ""));
+        var jpx = ValueAlertPreview.history(state, ValueAlertPreview.Market.JPX);
+        var us = ValueAlertPreview.history(state, ValueAlertPreview.Market.US);
+        var scroll = new ScrollView(this);
+        var controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setPadding(dp(20), dp(8), dp(20), dp(12));
+        scroll.addView(controls);
+        label(controls, "0〜100点の境界を変更。下の件数は端末に保存された取引日の試算。", 14, INK, false, 0);
+        label(controls, "利益の急減や必要な資料の不足がある場合、点数に届いても段階を上げない。", 13, MUTED, false, 5);
+        var band = new LinearLayout(this);
+        band.setOrientation(LinearLayout.HORIZONTAL);
+        place(controls, band, 12);
+        int[] colors = {OUTLINE, 0xffa2c59e, 0xff659c7d, FOREST};
+        int[] values = {saved.first(), saved.second(), saved.third()};
+        var captions = new TextView[3];
+        var sliders = new SeekBar[3];
+        for (int i = 0; i < values.length; i++) {
+            captions[i] = label(controls, "", 14, INK, true, 10);
+            sliders[i] = new SeekBar(this);
+            sliders[i].setMin(1);
+            sliders[i].setMax(100);
+            sliders[i].setProgress(values[i]);
+            sliders[i].setMinimumHeight(dp(44));
+            place(controls, sliders[i], 0);
+        }
+        var preview = label(controls, "", 13, INK, false, 8);
+        Runnable refresh = () -> {
+            var thresholds = new ValueAlertMeter.Thresholds(values[0], values[1], values[2]);
+            band.removeAllViews();
+            int from = 0;
+            for (int i = 0; i < colors.length; i++) {
+                int to = i < values.length ? values[i] : 100;
+                if (to > from) {
+                    var color = new View(this);
+                    color.setBackgroundColor(colors[i]);
+                    band.addView(color, new LinearLayout.LayoutParams(0, dp(12), to - from));
+                }
+                from = to;
+            }
+            band.setContentDescription("割安度の境界 " + values[0] + "、" + values[1] + "、" + values[2] + " 点");
+            for (int i = 0; i < values.length; i++) {
+                String caption = ValueAlertMeter.LABELS.get(i + 1) + " · " + values[i] + "点以上";
+                captions[i].setText(caption);
+                sliders[i].setContentDescription("下限スライダー " + caption);
+            }
+            preview.setText("実データによる試算（実際の通知には未適用）\n\n"
+                    + ValueAlertPreview.summary(ValueAlertPreview.Market.JPX, jpx, thresholds) + "\n\n"
+                    + ValueAlertPreview.summary(ValueAlertPreview.Market.US, us, thresholds));
+        };
+        for (int i = 0; i < values.length; i++) {
+            int index = i;
+            sliders[i].setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                    if (!fromUser) return;
+                    int min = index == 0 ? 1 : values[index - 1] + 1;
+                    int max = index == 2 ? 100 : values[index + 1] - 1;
+                    values[index] = Math.max(min, Math.min(max, value));
+                    if (values[index] != value) bar.setProgress(values[index]);
+                    refresh.run();
+                }
+
+                @Override public void onStartTrackingTouch(SeekBar bar) {}
+                @Override public void onStopTrackingTouch(SeekBar bar) {}
+            });
+        }
+        refresh.run();
+        var dialog = new AlertDialog.Builder(this).setTitle("割安アラートの境界").setView(scroll)
+                .setNeutralButton("初期値に戻す", null).setNegativeButton("キャンセル", null)
+                .setPositiveButton("境界を保存", null).create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
+                var defaults = ValueAlertMeter.DEFAULT;
+                values[0] = defaults.first();
+                values[1] = defaults.second();
+                values[2] = defaults.third();
+                for (int i = 0; i < values.length; i++) sliders[i].setProgress(values[i]);
+                refresh.run();
+            });
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+                var thresholds = new ValueAlertMeter.Thresholds(values[0], values[1], values[2]);
+                if (state.edit().putString(ValueAlertPreview.SETTINGS, thresholds.encode()).commit()) {
+                    dialog.dismiss();
+                } else {
+                    Toast.makeText(this, "境界を保存できなかった", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+        dialog.show();
     }
 
     private void showNotificationHistory() {

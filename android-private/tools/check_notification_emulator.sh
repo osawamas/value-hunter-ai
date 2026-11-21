@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'adb logcat -b crash -d -t 150 AndroidRuntime:E "*:S" || true' ERR
 
 app=jp.valuehunter.privatewatch
 runner="$app.test/$app.JpxPdfGeometryProbe"

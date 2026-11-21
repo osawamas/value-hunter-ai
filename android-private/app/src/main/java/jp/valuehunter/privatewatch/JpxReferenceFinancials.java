@@ -114,6 +114,13 @@ final class JpxReferenceFinancials {
         return ValueCandidateScreen.assess(close, annual.eps(), annual.bps());
     }
 
+    static ValueAlertMeter.Score meterScore(String code, LocalDate day, BigDecimal close) {
+        var disclosures = BY_CODE.get(code);
+        if (disclosures == null || !day.isAfter(disclosures.annual().released())) return null;
+        var annual = disclosures.annual();
+        return ValueAlertMeter.assess(close, annual.eps(), annual.bps(), List.of(), null, null, null);
+    }
+
     static void appendHtml(StringBuilder html, String code, LocalDate session, BigDecimal close) {
         var disclosures = BY_CODE.get(code);
         if (disclosures == null) return;

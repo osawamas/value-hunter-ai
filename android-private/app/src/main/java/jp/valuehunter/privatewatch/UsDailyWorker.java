@@ -464,6 +464,8 @@ public final class UsDailyWorker extends Worker {
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
+            var meter = ledger.getJSONObject("reference_screen").optJSONObject("meter_rows");
+            if (meter != null) ValueAlertPreview.save(state, update, ValueAlertPreview.Market.US, day, provider, meter);
             MarketFreshness.US_FINANCE.verified(update, day, screen.rows().size(), (int) count, "");
             MarketFreshness.US_FINANCE.waiting(update, null, day);
             if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;

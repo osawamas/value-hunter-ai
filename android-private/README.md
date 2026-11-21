@@ -9,6 +9,12 @@
 
 国内普通株の終値は東証日報から一括取得する。財務を登録している銘柄は極洋、積水ハウス、王子ホールディングス、三菱製紙、ENEOS、トヨタ自動車、キヤノン、丸紅、オリックス、NTT、KDDI、ソフトバンク。米国株（NYSE・Nasdaq）はAndroidが公開データから日次終値とSEC財務を取得する。シンガポール株（SGX）はホーム画面に準備中と表示する。
 
+## 割安アラートの境界を試す
+
+「通知」→「割安アラートの境界」で、割安・かなり割安・超割安の最低点をそれぞれ変更して保存できる。初期値は60・75・85点。3つの値は昇順で、同じ点には設定できない。100株枠と1株参考枠を分けて、端末に保存した東証・米国株の日次データから段階別候補件数を再計算する。直前の取引日との両日照合ができた銘柄は、新規入り・昇格も試算する。
+
+現段階では通知条件の試算用。運用中の無音通知は従来の判定を使う。未取得の補助項目は仮に50点相当とし、確認できた資料で段階の上限を設ける。米国株は同じSEC年次書類で比較できる通期EPSと営業CFを再利用し、東証は保存されている比較可能な通期EPSを使う。同業比較と財務余力はまだ取得していないため、「超割安」は必要な裏付けが揃うまで表示されない。
+
 ## 3市場の判定方針と5年履歴の検証
 
 対象は東証・NYSE／Nasdaq・SGX。取引日の価格と割安判定に必要な財務がそろった銘柄から算出し、海外株は基準日の確認できる為替で購入額を円に換算する。100株が10万円以下の候補を優先し、単元未満株を取り扱う銘柄は1株枠でも判定する。価格や財務が不足する銘柄は保留理由を残す。5年履歴は参考情報として扱い、履歴が短い銘柄も同じ割安条件で判定する。通知は新たに条件へ入った銘柄を対象にする。端末監視では国内普通株の購入額を一括判定し、予算内の銘柄の通期決算を自動取得して財務判定を行う。
@@ -579,7 +585,7 @@ JDK 17以上とJSONライブラリ（既存のJVMテストと同じ `org.json:js
 ```bash
 src=app/src/main/java/jp/valuehunter/privatewatch
 javac --release 17 -cp "$US_REPLAY_JSON_JAR" -d "$US_REPLAY_CLASSES" \
-  "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget}.java \
+  "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget,ValueAlertMeter}.java \
   tools/UsRetryReplay.java
 java -cp "$US_REPLAY_CLASSES:$US_REPLAY_JSON_JAR" jp.valuehunter.privatewatch.UsRetryReplay \
   "$US_REPLAY_INPUT" 2026-11-16 2026-11-17 INTC CSCO

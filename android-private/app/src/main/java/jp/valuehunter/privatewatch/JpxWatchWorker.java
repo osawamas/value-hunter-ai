@@ -219,7 +219,8 @@ public final class JpxWatchWorker extends Worker {
             String revision = automaticFinance ? evidence.revision() + "|" + rapidEvidence.revision() : evidence.revision();
             if (networkStopped()) return paused();
             String processedKey = ScanWorker.alertsEnabled(context) ? state.getString(PROCESSED, "") : "";
-            if (automaticFinance && getInputData().getBoolean(FINANCE_PASS, false)) processedKey = "";
+            if ((automaticFinance && getInputData().getBoolean(FINANCE_PASS, false))
+                    || !state.contains(ValueAlertPreview.Market.JPX.key)) processedKey = "";
             var comparison = comparisons.load(context, processedKey, revision);
             if (networkStopped()) return paused();
             if (comparison != null) {
@@ -262,6 +263,9 @@ public final class JpxWatchWorker extends Worker {
                     partial.append("\n").append(date).append("の当日判定");
                     comparison.appendCoverage(partial, screen.assessed(), "\n", finance);
                     appendCandidates(partial, screen);
+                    var preview = state.edit();
+                    saveMeter(state, preview, comparison, screen, finance, evidence.rights());
+                    preview.apply();
                     var phase = comparison.comparisonFailed() ? failedPhase() : MarketFreshness.Phase.COMPARISON;
                     return retryReport(state, partial.toString(), phase, priorDay != null ? priorDay : date);
                 }
@@ -318,6 +322,7 @@ public final class JpxWatchWorker extends Worker {
                             .collect(Collectors.joining("\n"));
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
+                saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded);
                 String processed = notifyEnabled ? comparison.processedKey(revision) : "";
@@ -345,6 +350,18 @@ public final class JpxWatchWorker extends Worker {
                         error instanceof JpxDailyCheck.ReportUnavailable ? MarketFreshness.Phase.PUBLICATION : failedPhase(),
                         expected);
             }
+        }
+    }
+
+    private static void saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
+                                  JpxDailyCheck.Comparison comparison, JpxDailyCheck.Screening screen,
+                                  JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
+        try {
+            var rows = comparison.meterRows(screen, finance, rights);
+            ValueAlertPreview.save(state, edit, ValueAlertPreview.Market.JPX,
+                    comparison.latest().date(), "JPX", rows);
+        } catch (JSONException unavailable) {
+            // A preview formatting failure must not affect the existing alert queue.
         }
     }
 

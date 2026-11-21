@@ -339,6 +339,37 @@ final class NotificationDeliveryProbe {
         return null;
     }
 
+    private static void exerciseValueMeter(Instrumentation instrumentation, android.app.Activity activity) {
+        var state = ScanWorker.prefs(instrumentation.getTargetContext());
+        require(state.edit().remove(ValueAlertPreview.SETTINGS).commit(), "Cannot reset the meter fixture");
+        openValueMeter(instrumentation, activity);
+        require(await(() -> findDialogText(instrumentation, "割安 · 60点以上") != null
+                && findDialogText(instrumentation, "かなり割安 · 75点以上") != null
+                && findDialogText(instrumentation, "超割安 · 85点以上") != null), "Bad meter defaults");
+        var slider = findDialogText(instrumentation, "下限スライダー 超割安 · 85点以上");
+        var value = new android.os.Bundle();
+        value.putFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE, 90);
+        require(slider != null && slider.performAction(
+                AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.getId(), value),
+                "Cannot change the highest threshold");
+        require(await(() -> findDialogText(instrumentation, "超割安 · 90点以上") != null), "Meter did not update");
+        var save = findDialogText(instrumentation, "境界を保存");
+        require(save != null && save.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot save the threshold");
+        require(await(() -> "60,75,90".equals(state.getString(ValueAlertPreview.SETTINGS, ""))),
+                "Meter did not persist thresholds");
+        openValueMeter(instrumentation, activity);
+        require(await(() -> findDialogText(instrumentation, "超割安 · 90点以上") != null), "Saved threshold did not reopen");
+        var cancel = findDialogText(instrumentation, "キャンセル");
+        require(cancel != null && cancel.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot close the meter");
+    }
+
+    private static void openValueMeter(Instrumentation instrumentation, android.app.Activity activity) {
+        instrumentation.runOnMainSync(() -> {
+            var button = control(activity.getWindow().getDecorView(), "割安アラートの境界", Button.class);
+            require(button != null && button.performClick(), "Cannot open the threshold meter");
+        });
+    }
+
     private static void exerciseSettings(Instrumentation instrumentation, PowerManager power) throws IOException {
         var context = instrumentation.getTargetContext();
         // Leave market monitoring paused while driving the notification controls.
@@ -383,6 +414,7 @@ final class NotificationDeliveryProbe {
                         "Turning communication on did not restore manual updates");
                 network.performClick();
             });
+            exerciseValueMeter(instrumentation, activity);
             requireBlocked();
         } finally {
             instrumentation.runOnMainSync(activity::finish);
