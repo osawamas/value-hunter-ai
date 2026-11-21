@@ -27,6 +27,10 @@ public final class UsDatedListingsTest {
         assertEquals(Set.of("GOOD"), UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY));
         assertTrue(UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY.plusDays(1)).isEmpty());
         assertTrue(UsListingHistory.verifiedSupplementSymbols(new JSONObject(), after, BEFORE, DAY).isEmpty());
+        after.put("time", "20:44");
+        assertEquals(Set.of("GOOD"), UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY));
+        after.put("time", "20:45");
+        assertTrue(UsListingHistory.verifiedSupplementSymbols(before, after, BEFORE, DAY).isEmpty());
     }
 
     @Test public void unpricedSymbolsShowTheOutstandingIdentityCheck() {
@@ -38,7 +42,7 @@ public final class UsDatedListingsTest {
 
     private static JSONObject snapshot(LocalDate day, Map<String, String> nyse, Map<String, String> nasdaq)
             throws Exception {
-        return new JSONObject().put("day", day.toString())
+        return new JSONObject().put("day", day.toString()).put("time", "15:00")
                 .put("nyse", new JSONObject(nyse)).put("nasdaq", new JSONObject(nasdaq));
     }
 }

@@ -96,8 +96,17 @@ final class UsListingHistory {
                 previous, day);
     }
 
+    private static boolean hasSessionEvidence(JSONObject snapshot, LocalDate day) {
+        if (!day.toString().equals(snapshot.optString("day"))) return false;
+        try {
+            return sessionSnapshot(java.time.LocalTime.parse(snapshot.optString("time")));
+        } catch (DateTimeException invalid) {
+            return false;
+        }
+    }
+
     static Set<String> verifiedSupplementSymbols(JSONObject before, JSONObject after, LocalDate previous, LocalDate day) {
-        if (!day.toString().equals(after.optString("day")) || !previous.toString().equals(before.optString("day"))) {
+        if (!hasSessionEvidence(before, previous) || !hasSessionEvidence(after, day)) {
             return Set.of();
         }
         var result = new HashSet<String>();
@@ -111,9 +120,9 @@ final class UsListingHistory {
             var tickers = current.keys();
             while (tickers.hasNext()) {
                 String ticker = tickers.next();
-                String name = current.optString(ticker);
-                if (!name.isEmpty() && ticker.matches("[A-Z0-9.$+^=/_-]{1,24}")
-                        && !oldOther.has(ticker) && !currentOther.has(ticker) && name.equals(old.optString(ticker))) {
+                var identity = current.opt(ticker);
+                if (identity instanceof String name && !name.isEmpty() && ticker.matches("[A-Z0-9.$+^=/_-]{1,24}")
+                        && !oldOther.has(ticker) && !currentOther.has(ticker) && name.equals(old.opt(ticker))) {
                     result.add(ticker);
                 }
             }
