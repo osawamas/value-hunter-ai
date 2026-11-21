@@ -153,4 +153,14 @@ public class NotificationHistoryTest {
                 NOW + 1000, () -> 0, UNEXPECTED, UNEXPECTED));
     }
 
+    @Test public void duplicateLegacyReceiptsKeepNewestTimestampRegardlessOfRowOrder() throws Exception {
+        var file = history();
+        Files.writeString(file.toPath(), "[{\"receipt\":\"same\",\"at\":" + (NOW - 5000)
+                + ",\"title\":\"古い\"},{\"receipt\":\"same\",\"at\":" + (NOW - 1000)
+                + ",\"title\":\"新しい\"}]");
+        var entries = NotificationHistory.recent(file, NOW);
+        assertEquals(1, entries.size());
+        assertEquals(NOW - 1000, entries.get(0).postedAt());
+        assertEquals("新しい", entries.get(0).title());
+    }
 }
