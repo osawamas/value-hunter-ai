@@ -213,7 +213,9 @@ public final class UsSecFinanceWorker extends Worker {
 
             if (networkStopped()) return paused();
             var ledger = scan.optJSONObject("ledger");
-            if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)) {
+            if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)
+                    || (!ledger.getJSONObject("reference_screen").has("meter_rows")
+                    && scan.optJSONObject("valuation_evidence") != null)) {
                 var evidence = scan.optJSONObject("valuation_evidence");
                 if (evidence == null) {
                     var rates = new JSONArray(download.get(

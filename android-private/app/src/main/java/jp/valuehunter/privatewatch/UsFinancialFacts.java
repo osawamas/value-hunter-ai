@@ -49,6 +49,48 @@ final class UsFinancialFacts {
         return foreign.facts() == null ? domestic : foreign;
     }
 
+    record MeterHistory(List<BigDecimal> annualEps, Integer cash) {}
+
+    static MeterHistory meterHistory(JSONObject payload, LocalDate day) {
+        var document = payload.optJSONObject("facts");
+        var gaap = document == null ? null : document.optJSONObject("us-gaap");
+        var eps = facts(gaap, "EarningsPerShareBasic", "USD/shares", day, false).stream()
+                .filter(row -> "10-K".equals(row.form) && fullYear(row)).collect(Collectors.toList());
+        var latest = latest(eps, true);
+        if (latest == null || latest.end.isBefore(day.minusMonths(16))) {
+            return new MeterHistory(List.of(), null);
+        }
+        // The same filing reports prior per-share values on the current share basis.
+        var series = new ArrayList<BigDecimal>();
+        series.add(latest.value);
+        var end = latest.end;
+        for (int index = 0; index < 2; index++) {
+            var prior = precedingAnnual(eps, latest, end);
+            if (prior == null) break;
+            series.add(prior.value);
+            end = prior.end;
+        }
+        var cash = facts(gaap, "NetCashProvidedByUsedInOperatingActivities", "USD", day, false).stream()
+                .filter(row -> sameFiling(row, latest) && fullYear(row)).collect(Collectors.toList());
+        var cashNow = one(cash.stream().filter(row -> row.end.equals(latest.end))
+                .collect(Collectors.toList()));
+        var cashPrior = precedingAnnual(cash, latest, latest.end);
+        Integer cashScore = null;
+        if (cashNow != null && cashPrior != null) {
+            cashScore = cashNow.value.signum() > 0 && cashPrior.value.signum() > 0 ? 100
+                    : cashNow.value.signum() < 0 && cashPrior.value.signum() < 0 ? 0 : 50;
+        }
+        return new MeterHistory(List.copyOf(series), cashScore);
+    }
+
+    private static Fact precedingAnnual(List<Fact> rows, Fact filing, LocalDate end) {
+        return one(rows.stream().filter(row -> sameFiling(row, filing))
+                .filter(row -> {
+                    long gap = java.time.temporal.ChronoUnit.DAYS.between(row.end, end);
+                    return gap >= 350 && gap <= 380;
+                }).collect(Collectors.toList()));
+    }
+
     private static Assessment assess(JSONObject document, LocalDate session, boolean supplementary,
                                      boolean foreignAnnual) {
         var gaap = document.optJSONObject("us-gaap");

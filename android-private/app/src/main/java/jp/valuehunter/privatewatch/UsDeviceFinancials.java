@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -150,7 +151,11 @@ final class UsDeviceFinancials {
         int cik = target.getInt("cik");
         var figures = UsFinancialFacts.read(payload, cik, day);
         if (figures == null) return null;
-        return new JSONObject().put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
+        var history = UsFinancialFacts.meterHistory(payload, day);
+        var eps = new JSONArray();
+        for (var value : history.annualEps()) eps.put(value.toPlainString());
+        return new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
+                .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
                 .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
                 .put("profit_basis", figures.profitBasis())
@@ -174,6 +179,7 @@ final class UsDeviceFinancials {
         int nasdaq = 0;
         var observations = new JSONArray();
         var splitHolds = new JSONArray();
+        var meter = new JSONObject();
         var rate = BigDecimal.valueOf(fx.yenPerDollar());
         for (int index = 0; index < records.length(); index++) {
             var row = records.getJSONObject(index);
@@ -201,12 +207,23 @@ final class UsDeviceFinancials {
             };
             observations.put(new JSONObject().put("symbol", symbol).put("exchange", exchange)
                     .put("cik", row.getInt("cik")).put("status", status).put("quantity", quantity));
+            var eps = new ArrayList<BigDecimal>();
+            var history = row.optJSONArray("meter_eps");
+            if (history != null) {
+                for (int i = 0; i < Math.min(3, history.length()); i++) eps.add(new BigDecimal(history.getString(i)));
+            }
+            Integer cash = row.has("meter_cash") ? row.getInt("meter_cash") : null;
+            var score = ValueAlertMeter.assess(cap, new BigDecimal(row.getString("profit")),
+                    new BigDecimal(row.getString("equity")), eps, cash, null, null);
+            meter.put(exchange + ":" + row.getInt("cik") + ":" + symbol,
+                    new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed())
+                            .put("outside_budget".equals(status) ? 0 : quantity));
         }
         var coverage = new JSONObject().put("NYSE", coverage(nyse)).put("Nasdaq", coverage(nasdaq));
         return new JSONObject().put("trading_date_et", day.toString()).put("close_provider", provider)
                 .put("close_sha256", hash).put("coverage", coverage).put("split_holds", splitHolds)
                 .put("reference_screen", new JSONObject().put("provider", provider).put("close_sha256", hash)
-                        .put("fx_date", fx.date().toString()).put("observations", observations));
+                        .put("fx_date", fx.date().toString()).put("observations", observations).put("meter_rows", meter));
     }
 
     private static JSONObject coverage(int count) throws JSONException {

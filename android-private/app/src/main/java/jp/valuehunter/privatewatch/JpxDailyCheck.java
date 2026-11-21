@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import jp.valuehunter.privatewatch.ValueCandidateScreen.Level;
@@ -234,6 +235,41 @@ final class JpxDailyCheck {
             candidates.sort(CANDIDATE_ORDER);
             entered.sort(CANDIDATE_ORDER);
             return new Screening(List.copyOf(candidates), List.copyOf(entered), List.copyOf(held), Set.copyOf(assessed));
+        }
+
+        JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
+                throws JSONException {
+            var rows = new JSONObject();
+            for (String code : screen.assessedCodes()) {
+                var close = latest.close(code);
+                int shares = budgetQuantity(close);
+                var entry = finance.entries().get(code);
+                var annual = entry == null ? null : entry.annualFor(latest.date());
+                var score = annual == null ? JpxReferenceFinancials.meterScore(code, latest.date(), close)
+                        : ValueAlertMeter.assess(annual.onShareBasis(latest.date(), close, true),
+                        annual.onShareBasis(latest.date(), annual.eps(), false),
+                        annual.onShareBasis(latest.date(), annual.bps(), false),
+                        recentEps(code, entry, annual, rights), null, null, null);
+                if (score != null && score.confirmed() > 0) rows.put(code, ValueAlertPreview.encode(score, shares));
+            }
+            return rows;
+        }
+
+        private List<BigDecimal> recentEps(String code, JpxAutomaticFinance.Entry entry,
+                                           JpxAnnualSummary.Annual annual, JpxShareRights rights) {
+            var prior = entry.previousAnnual();
+            var day = latest.date();
+            if (prior == null || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
+            long gap = java.time.temporal.ChronoUnit.DAYS.between(prior.end(), annual.end());
+            if (gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())
+                    || rights.firstUnadjustedChange(code, prior.end(), day, prior.adjustments()) != null) {
+                return List.of(annual.eps());
+            }
+            var currentEps = annual.onShareBasis(day, annual.eps(), false)
+                    .divide(annual.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+            var priorEps = prior.onShareBasis(day, prior.eps(), false)
+                    .divide(prior.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+            return List.of(currentEps, priorEps);
         }
 
         PriceOnlyScreen.Result priceOnly(Screening financial) {
