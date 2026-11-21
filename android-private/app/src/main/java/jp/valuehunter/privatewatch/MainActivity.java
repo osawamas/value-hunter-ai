@@ -448,7 +448,7 @@ public final class MainActivity extends Activity {
         refresh.run();
         var dialog = new AlertDialog.Builder(this).setTitle("割安アラートの境界").setView(scroll)
                 .setNeutralButton("初期値に戻す", null).setNegativeButton("キャンセル", null)
-                .setPositiveButton("保存", null).create();
+                .setPositiveButton("境界を保存", null).create();
         dialog.setOnShowListener(ignored -> {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
                 var defaults = ValueAlertMeter.DEFAULT;

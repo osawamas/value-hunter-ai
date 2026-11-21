@@ -353,7 +353,7 @@ final class NotificationDeliveryProbe {
                 AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.getId(), value),
                 "Cannot change the highest threshold");
         require(await(() -> findDialogText(instrumentation, "超割安 · 90点以上") != null), "Meter did not update");
-        var save = findDialogText(instrumentation, "保存");
+        var save = findDialogText(instrumentation, "境界を保存");
         require(save != null && save.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot save the threshold");
         require(await(() -> "60,75,90".equals(state.getString(ValueAlertPreview.SETTINGS, ""))),
                 "Meter did not persist thresholds");
