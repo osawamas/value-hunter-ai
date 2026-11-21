@@ -56,6 +56,24 @@ public final class MarketCoverageTest {
                 coverage.unassessed());
     }
 
+    @Test public void completedLedgerDistinguishesNonPositiveFinancialsFromWaitingForEvidence() throws Exception {
+        var hash = "a".repeat(64);
+        var scan = new JSONObject().put("day", DAY.toString()).put("hash", hash)
+                .put("coverage_listing_date", DAY.toString())
+                .put("coverage_symbols", new JSONArray(List.of("LOSS", "WAIT")))
+                .put("targets", new JSONArray()).put("results", new JSONArray(List.of(
+                        row("LOSS").put("profit", "-1").put("equity", "10"),
+                        row("WAIT").put("profit", "2").put("equity", "3"))));
+        scan.put("ledger", new JSONObject().put("trading_date_et", DAY.toString()).put("close_sha256", hash)
+                .put("reference_screen", new JSONObject().put("fx_date", DAY.toString())
+                        .put("provider", UsDoltCloses.SOURCE).put("close_sha256", hash)
+                        .put("observations", new JSONArray())));
+        var coverage = UsSecFinanceWorker.coverage(scan, Set.of("LOSS", "WAIT"));
+        assertEquals(0, coverage.assessed());
+        assertEquals(Map.of(NON_POSITIVE_FINANCIALS, List.of("LOSS"), VALUATION, List.of("WAIT")),
+                coverage.unassessed());
+    }
+
     private static JpxCloseTable.Sessions close(long amount) {
         return new JpxCloseTable.Sessions(null, BigDecimal.valueOf(amount));
     }

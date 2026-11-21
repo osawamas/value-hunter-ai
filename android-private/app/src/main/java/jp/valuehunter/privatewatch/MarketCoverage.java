@@ -26,6 +26,7 @@ enum MarketCoverage {
         DOWNLOAD("取得エラー"),
         IDENTIFICATION("上場銘柄とSECの照合待ち"),
         VALUATION("為替など判定資料の確認待ち"),
+        NON_POSITIVE_FINANCIALS("利益または自己資本がゼロ以下"),
         OUTSIDE_BUDGET("終値で予算外と確認");
 
         final String label;

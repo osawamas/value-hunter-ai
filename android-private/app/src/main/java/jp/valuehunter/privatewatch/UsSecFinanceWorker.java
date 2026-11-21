@@ -385,6 +385,12 @@ public final class UsSecFinanceWorker extends Worker {
         if (UsReferenceAlerts.hasTradeDateFx(ledger, day)
                 && scan.getString("hash").equals(ledger.optString("close_sha256"))) {
             screened = UsReferenceAlerts.read(ledger).rows().keySet();
+            for (int index = 0; index < results.length(); index++) {
+                var row = results.getJSONObject(index);
+                if (UsDeviceFinancials.nonPositiveFinancials(row)) {
+                    reasons.put(row.getString("symbol"), MarketCoverage.Reason.NON_POSITIVE_FINANCIALS);
+                }
+            }
             var splits = ledger.optJSONArray("split_holds");
             if (splits != null) {
                 for (int index = 0; index < splits.length(); index++) {
@@ -634,14 +640,7 @@ public final class UsSecFinanceWorker extends Worker {
         try {
             int cik = target.getInt("cik");
             var payload = new JSONObject(download.get(String.format(Locale.ROOT, SEC_FACTS, cik)));
-            var figures = UsFinancialFacts.read(payload, cik, day);
-            if (figures == null) return null;
-            return new JSONObject().put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
-                    .put("cik", cik).put("share_date", figures.shareDate().toString())
-                    .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
-                    .put("profit_basis", figures.profitBasis())
-                    .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
-                    .put("equity", figures.equity().toPlainString());
+            return UsDeviceFinancials.financialRow(target, payload, day);
         } catch (UsDailyWorker.HttpStatus error) {
             if (error.code == 404) return null;
             throw error;
