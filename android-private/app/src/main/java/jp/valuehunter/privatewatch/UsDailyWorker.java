@@ -179,7 +179,12 @@ public final class UsDailyWorker extends Worker {
                         if (assess) assess(state, closes, previous, provider);
                     }
                     if (previous.equals(target)) {
-                        if (key.isEmpty()) supplementCloses(state, file, previous);
+                        try {
+                            if (key.isEmpty()) supplementCloses(state, file, previous);
+                        } catch (IOException | JSONException unavailable) {
+                            if (!networkStopped()) UsSecFinanceWorker.ensureScheduled(context);
+                            throw unavailable;
+                        }
                         backfillPrevious(context, previous, provider, key);
                     }
                     UsSecFinanceWorker.ensureScheduled(context);

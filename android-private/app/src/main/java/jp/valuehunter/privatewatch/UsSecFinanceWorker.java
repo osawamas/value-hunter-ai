@@ -228,7 +228,11 @@ public final class UsSecFinanceWorker extends Worker {
                 var fx = new UsScreen.Fx(day, evidence.getDouble("fx_rate"));
                 var splitDates = evidence.getJSONObject("splits");
                 var splits = new java.util.HashMap<String, LocalDate>();
-                for (var symbol : splitDates.keySet()) splits.put(symbol, LocalDate.parse(splitDates.getString(symbol)));
+                var symbols = splitDates.keys();
+                while (symbols.hasNext()) {
+                    var symbol = symbols.next();
+                    splits.put(symbol, LocalDate.parse(splitDates.getString(symbol)));
+                }
                 ledger = UsDeviceFinancials.screen(day, provider, hash, results, prices, fx, splits);
                 scan.put("ledger", ledger).remove("retained_ledger");
                 scan.remove("supplement_recheck");
