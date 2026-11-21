@@ -42,6 +42,22 @@ class EvidenceAuditTests(unittest.TestCase):
                          {"missing correction": ["5678"], "split review": ["1234"]})
         self.assertNotIn("9012", sum(result["codes_by_hold_reason"].values(), []))
 
+    def test_explicit_non_hold_cannot_be_counted_as_held(self):
+        address = "https://www2.jpx.co.jp/disc/12340/123_tse-ace-original-ixbrl.htm"
+        with self.assertRaises(ValueError):
+            audit({"universe": ["1234"], "records": [
+                {"ticker": "1234", "source_url": address,
+                 "source_sha256": HASH, "financial_eligible": False,
+                 "on_hold": False}
+            ]})
+        # Legacy manifests without an explicit hold flag remain conservatively held.
+        result = audit({"universe": ["1234"], "records": [
+            {"ticker": "1234", "source_url": address,
+             "source_sha256": HASH, "financial_eligible": False}
+        ]})
+        self.assertEqual(result["on_hold"], 1)
+        self.assertEqual(result["hold_reason_unclassified"], 1)
+
     def test_missing_original_never_counts_as_retrieved(self):
         result = audit({"universe": ["1234", "5678"], "records": [
             {"ticker": "1234", "financial_eligible": False, "on_hold": True}
