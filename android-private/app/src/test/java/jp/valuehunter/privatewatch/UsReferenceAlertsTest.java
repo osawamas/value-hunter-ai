@@ -25,6 +25,16 @@ public final class UsReferenceAlertsTest {
         return new UsReferenceAlerts.Screen(day, provider, "", rows);
     }
 
+    @Test public void queuedAlertIsInvalidatedBySameDayCloseCorrection() {
+        String original = "a".repeat(64);
+        String corrected = "b".repeat(64);
+        assertEquals(true, UsReferenceAlerts.pendingMatchesClose(original, original));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose(original, corrected));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose("", corrected));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose(null, corrected));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose("invalid", "invalid"));
+    }
+
     @Test public void reportsOnlyComparableEntriesAndPrioritizesPurchaseLots() {
         var previous = screen(DAY, SOURCE, Map.of(
                 "AAA", row(1, "reference", 1), "BBB", row(2, "outside_budget", 1),
