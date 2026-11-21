@@ -17,6 +17,17 @@ final class UsSingleSessionBudget {
         return yen.compareTo(BUDGET) <= 0 ? Verdict.WITHIN : Verdict.OUTSIDE;
     }
 
+    static void addUnpairedCurrentOnly(Set<String> eligible, Set<String> pending,
+                                       Map<String, String> sameDay, Set<String> paired,
+                                       Set<String> todayPrices, Set<String> priorPrices) {
+        for (var symbol : pending) {
+            if (sameDay.containsKey(symbol) && todayPrices.contains(symbol)
+                    && !priorPrices.contains(symbol) && !paired.contains(symbol)) {
+                eligible.add(symbol);
+            }
+        }
+    }
+
     static Set<String> targets(Set<String> pending, Map<String, String> sameDay, Set<String> paired) {
         var targets = new TreeSet<>(pending);
         targets.retainAll(sameDay.keySet());
