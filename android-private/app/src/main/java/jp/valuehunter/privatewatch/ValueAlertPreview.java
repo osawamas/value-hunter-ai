@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.Map;
 
 final class ValueAlertPreview {
@@ -42,7 +42,7 @@ final class ValueAlertPreview {
     private static String receiptKey(String code, int level) { return "meter:" + level + ":" + code; }
 
     static Map<String, Entry> entries(SharedPreferences state, Market market, LocalDate day, String source,
-                                      JSONObject rows, Set<String> sent, Predicate<String> identity) throws JSONException {
+                                      JSONObject rows, Set<String> sent, Function<String, String> verifiedCode) throws JSONException {
         var history = history(state, market);
         var prior = history.latest();
         if (prior != null && day.equals(prior.day())) prior = history.previous();
@@ -54,10 +54,13 @@ final class ValueAlertPreview {
         var thresholds = ValueAlertMeter.Thresholds.read(state.getString(SETTINGS, ""));
         var entries = new java.util.ArrayList<Entry>();
         for (var candidate : current.rows().entrySet()) {
-            var code = candidate.getKey();
+            var identity = candidate.getKey();
             var row = candidate.getValue();
-            var before = prior.rows().get(code);
-            if (before == null || row.shares() == 0 || !identity.test(code)) continue;
+            var before = prior.rows().get(identity);
+            if (before == null || row.shares() == 0) continue;
+            // Match the stored identity across sessions before choosing the notification symbol.
+            String code = verifiedCode.apply(identity);
+            if (code == null) continue;
             int level = promotion(before, row, thresholds);
             if (level == 0 || sent.contains(code)) continue;
             boolean alreadySent = false;

@@ -126,19 +126,24 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Could not prepare isolated meter settings");
         }
         String hash = "a".repeat(64);
-        var before = meterLedger(FIRST, hash, 50);
-        var after = meterLedger(SECOND, hash, 78);
+        var before = meterLedger(FIRST, hash, 15);
+        var after = meterLedger(SECOND, hash, 9);
         UsDailyWorker.applyFinancialScreen(context, state, before, FIRST, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
         verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄",
-                "METER · 100株 · かなり割安 · 78点");
+                "METER · 100株 · かなり割安 · 84点");
         var receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis());
         if (receipts.stream().noneMatch(row -> row.title().contains("かなり割安")
-                && row.detail().contains("METER · 100株 · かなり割安 · 78点"))) {
+                && row.detail().contains("METER · 100株 · かなり割安 · 84点"))) {
             throw new AssertionError("US notification did not use the saved meter band");
         }
         notifications.cancelAll();
+        UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
+        expectQuiet(notifications);
+        if (!state.edit().putBoolean(ValueAlertPreview.LIVE, false).commit()) {
+            throw new AssertionError("Cannot switch back to the conventional alert rules");
+        }
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
     }
@@ -150,11 +155,11 @@ final class UsReferenceDeliveryProbe {
         if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
             throw new AssertionError("Cannot prepare stale alert settings");
         }
-        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 50), FIRST, PROVIDER, hash, () -> false);
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
         if (!state.edit().putString("us_private_sec_pending", old).commit()) {
             throw new AssertionError("Cannot save old delivery fixture");
         }
-        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(SECOND, hash, 50), SECOND, PROVIDER, hash, () -> false);
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(SECOND, hash, 15), SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
         if (UsDailyWorker.hasPendingFinancialAlert(state)) throw new AssertionError("Old trading day stayed queued");
         ScanWorker.setNotificationsRequested(state, false);
@@ -163,23 +168,48 @@ final class UsReferenceDeliveryProbe {
         if (!state.edit().putString("us_private_sec_pending", muted).commit()) {
             throw new AssertionError("Cannot save old settings fixture");
         }
-        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(SECOND, hash, 50), SECOND, PROVIDER, hash, () -> false);
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(SECOND, hash, 15), SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
         if (UsDailyWorker.hasPendingFinancialAlert(state)) throw new AssertionError("Muted alert stayed queued");
     }
 
-    private static JSONObject meterLedger(LocalDate day, String hash, int score) throws Exception {
-        var observations = new JSONArray().put(new JSONObject().put("symbol", "METER").put("cik", 12345)
-                .put("exchange", "NYSE").put("status", "priority").put("quantity", 100));
-        var scores = new JSONObject().put("METER", ValueAlertPreview.encode(new ValueAlertMeter.Score(score, 2, 4), 100));
-        var reference = new JSONObject().put("provider", PROVIDER).put("close_sha256", hash)
-                .put("fx_date", day.toString()).put("observations", observations).put("meter_rows", scores);
-        var coverage = new JSONObject();
-        for (var exchange : java.util.List.of("NYSE", "Nasdaq")) {
-            coverage.put(exchange, new JSONObject().put("with_close_and_reference_financials", 1));
+    private static JSONObject meterLedger(LocalDate day, String hash, int close) throws Exception {
+        var financials = new JSONArray();
+        var prices = new java.util.HashMap<String, java.math.BigDecimal>();
+        boolean current = SECOND.equals(day);
+        for (var ticker : java.util.List.of("METER", "NEWCIK", "NEWVENUE")) {
+            int cik = ticker.equals("NEWCIK") && current ? 54321 : 12345;
+            String exchange = ticker.equals("NEWVENUE") && current ? "Nasdaq" : "NYSE";
+            var target = new JSONObject().put("symbol", ticker).put("exchange", exchange).put("cik", cik);
+            var payload = new JSONObject(facts().replace("12345", Integer.toString(cik)));
+            var gaap = payload.getJSONObject("facts").getJSONObject("us-gaap");
+            gaap.put("EarningsPerShareBasic", new JSONObject().put("units", new JSONObject()
+                    .put("USD/shares", meterAnnualFacts(cik, 0.9, 0.8))));
+            gaap.put("NetCashProvidedByUsedInOperatingActivities", new JSONObject().put("units", new JSONObject()
+                    .put("USD", meterAnnualFacts(cik, 100, 80))));
+            var row = UsDeviceFinancials.financialRow(target, payload, day);
+            if (row == null) throw new AssertionError("SEC fixture did not qualify for financial screening: " + ticker);
+            financials.put(row);
+            prices.put(ticker, java.math.BigDecimal.valueOf(close));
         }
-        return new JSONObject().put("trading_date_et", day.toString()).put("close_provider", PROVIDER)
-                .put("close_sha256", hash).put("coverage", coverage).put("reference_screen", reference);
+        // Exercise the same persisted composite keys as the SEC finance worker.
+        var ledger = UsDeviceFinancials.screen(day, PROVIDER, hash, financials, prices,
+                new UsScreen.Fx(day, 65), java.util.Map.of());
+        var scores = ledger.getJSONObject("reference_screen").getJSONObject("meter_rows");
+        if (!scores.has("NYSE:12345:METER") || scores.length() != 3) {
+            throw new AssertionError("Production screening did not produce the expected meter identities");
+        }
+        return ledger;
+    }
+
+    private static JSONArray meterAnnualFacts(int cik, double latest, double previous) throws Exception {
+        var facts = new JSONArray();
+        for (int year = 2026; year >= 2025; year--) {
+            facts.put(new JSONObject().put("start", (year - 1) + "-10-01").put("end", year + "-09-30")
+                    .put("val", year == 2026 ? latest : previous).put("filed", "2026-10-20").put("form", "10-K")
+                    .put("accn", String.format(java.util.Locale.ROOT, "%010d-26-000001", cik)));
+        }
+        return facts;
     }
 
     private static void verifyStaleBudgetClears(Context context) throws Exception {

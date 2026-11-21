@@ -343,7 +343,7 @@ public final class JpxWatchWorker extends Worker {
                     var held = screen.holds().stream().map(JpxDailyCheck.Held::code).collect(Collectors.toSet());
                     try {
                         var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, date, "JPX",
-                                meterRows, alerted, code -> !held.contains(code));
+                                meterRows, alerted, code -> held.contains(code) ? null : code);
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
