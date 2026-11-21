@@ -402,7 +402,7 @@ public final class MainActivity extends Activity {
             sliders[i].setMin(1);
             sliders[i].setMax(100);
             sliders[i].setProgress(values[i]);
-            sliders[i].setMinHeight(dp(44));
+            sliders[i].setMinimumHeight(dp(44));
             place(controls, sliders[i], 0);
         }
         var preview = label(controls, "", 13, INK, false, 8);
