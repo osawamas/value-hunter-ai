@@ -59,28 +59,22 @@ final class UsListingHistory {
     }
 
     static synchronized boolean hasIdentity(File directory, LocalDate day) {
-        return hasSessionEvidence(read(identityFile(directory, day)), day);
+        return UsMarketCoverage.hasSessionEvidence(read(identityFile(directory, day)), day);
     }
 
     static synchronized boolean capture(File directory, LocalDate day, java.time.LocalTime now,
                                         UsMarketCoverage.Directory nyse, UsMarketCoverage.Directory nasdaq)
             throws JSONException {
         if (!day.equals(nyse.date()) || !day.equals(nasdaq.date())
-                || !sessionSnapshot(nyse.timestamp()) || !sessionSnapshot(nasdaq.timestamp())
+                || !UsMarketCoverage.sessionSnapshot(nyse.timestamp()) || !UsMarketCoverage.sessionSnapshot(nasdaq.timestamp())
                 || nyse.timestamp().isAfter(now) || nasdaq.timestamp().isAfter(now)) return false;
         remember(directory, nyse, nasdaq);
         return hasIdentity(directory, day);
     }
 
-    private static boolean sessionSnapshot(java.time.LocalTime time) {
-        // The evening distribution describes the upcoming session.
-        return time != null && !time.isBefore(java.time.LocalTime.of(9, 30))
-                && time.isBefore(java.time.LocalTime.of(20, 45));
-    }
-
     private static void preserveIdentities(File directory, UsMarketCoverage.Directory nyse,
                                            UsMarketCoverage.Directory nasdaq) {
-        if (!sessionSnapshot(nyse.timestamp()) || !sessionSnapshot(nasdaq.timestamp())
+        if (!UsMarketCoverage.sessionSnapshot(nyse.timestamp()) || !UsMarketCoverage.sessionSnapshot(nasdaq.timestamp())
                 || !UsDailyCloses.tradingDay(nyse.date())
                 || !nyse.ordinaryNames().keySet().equals(nyse.symbols())
                 || !nasdaq.ordinaryNames().keySet().equals(nasdaq.symbols())) return;
@@ -99,42 +93,8 @@ final class UsListingHistory {
 
     static synchronized Set<String> verifiedSupplementSymbols(File directory, LocalDate day) {
         var previous = UsPriceOnlyBudget.previousSession(day);
-        return verifiedSupplementSymbols(read(identityFile(directory, previous)), read(identityFile(directory, day)),
+        return UsMarketCoverage.verifiedSupplementSymbols(read(identityFile(directory, previous)), read(identityFile(directory, day)),
                 previous, day);
-    }
-
-    private static boolean hasSessionEvidence(JSONObject snapshot, LocalDate day) {
-        if (!day.toString().equals(snapshot.optString("day"))) return false;
-        try {
-            return sessionSnapshot(java.time.LocalTime.parse(snapshot.optString("time")));
-        } catch (DateTimeException invalid) {
-            return false;
-        }
-    }
-
-    static Set<String> verifiedSupplementSymbols(JSONObject before, JSONObject after, LocalDate previous, LocalDate day) {
-        if (!hasSessionEvidence(before, previous) || !hasSessionEvidence(after, day)) {
-            return Set.of();
-        }
-        var result = new HashSet<String>();
-        for (String exchange : java.util.List.of("nyse", "nasdaq")) {
-            String other = "nyse".equals(exchange) ? "nasdaq" : "nyse";
-            var old = before.optJSONObject(exchange);
-            var current = after.optJSONObject(exchange);
-            var oldOther = before.optJSONObject(other);
-            var currentOther = after.optJSONObject(other);
-            if (old == null || current == null || oldOther == null || currentOther == null) return Set.of();
-            var tickers = current.keys();
-            while (tickers.hasNext()) {
-                String ticker = tickers.next();
-                var identity = current.opt(ticker);
-                if (identity instanceof String name && !name.isEmpty() && ticker.matches("[A-Z0-9.$+^=/_-]{1,24}")
-                        && !oldOther.has(ticker) && !currentOther.has(ticker) && name.equals(old.opt(ticker))) {
-                    result.add(ticker);
-                }
-            }
-        }
-        return Set.copyOf(result);
     }
 
     static Scope scope(JSONObject dates, LocalDate previous, LocalDate latest,

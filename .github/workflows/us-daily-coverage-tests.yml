@@ -8,6 +8,11 @@ on:
       - 'android-private/tools/test_us_dolt_cache_integrity.py'
       - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_monitor_*.py'
+      - 'android-private/tools/UsRetryReplay.java'
+      - 'android-private/tools/UsDatedRetryReplay.java'
+      - 'android-private/tools/test_us_dated_retry_replay.py'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsMarketCoverage.java'
+      - 'docs/us-dated-listing-audit-20261117.json'
       - 'android-private/tools/*us_nyse_taq_probe.py'
       - 'android-private/tools/*us_nasdaq_nls_probe.py'
       - 'android-private/tools/*us_public_files_probe.py'
@@ -28,6 +33,11 @@ on:
       - 'android-private/tools/test_us_dolt_cache_integrity.py'
       - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_monitor_*.py'
+      - 'android-private/tools/UsRetryReplay.java'
+      - 'android-private/tools/UsDatedRetryReplay.java'
+      - 'android-private/tools/test_us_dated_retry_replay.py'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsMarketCoverage.java'
+      - 'docs/us-dated-listing-audit-20261117.json'
       - 'android-private/tools/*us_nyse_taq_probe.py'
       - 'android-private/tools/*us_nasdaq_nls_probe.py'
       - 'android-private/tools/*us_public_files_probe.py'
@@ -54,3 +64,18 @@ jobs:
       - name: Test US price-only notification eligibility
         working-directory: scripts
         run: python3 -m unittest -v test_us_price_only_guard test_us_coverage_reconcile
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Replay dated US listing audit with the Android screening code
+        working-directory: android-private
+        run: |
+          dir="$(mktemp -d)"
+          curl --fail --silent --show-error --retry 2 \
+            https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
+          src=app/src/main/java/jp/valuehunter/privatewatch
+          javac --release 17 -cp "$dir/json.jar" -d "$dir/classes" \
+            "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory}.java \
+            tools/{UsRetryReplay,UsDatedRetryReplay}.java
+          python3 tools/test_us_dated_retry_replay.py "$dir/classes:$dir/json.jar"

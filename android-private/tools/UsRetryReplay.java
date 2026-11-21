@@ -17,7 +17,7 @@ import java.util.Set;
 
 /** Runs the app's date, issuer, valuation and notification checks against local historical inputs. */
 public final class UsRetryReplay {
-    private record Stage(int closes, int facts, UsReferenceAlerts.Screen screen) {
+    record Stage(int closes, int facts, UsReferenceAlerts.Screen screen) {
         JSONObject counts() {
             return new JSONObject().put("closes", closes).put("financial_rows", facts)
                     .put("screened", screen.rows().size())
@@ -94,7 +94,7 @@ public final class UsRetryReplay {
                         .filter(symbol -> !after.screen().rows().containsKey(symbol)).sorted().toList()).toString(2));
     }
 
-    private static Map<String, BigDecimal> closes(JSONArray bars, LocalDate day) throws JSONException {
+    static Map<String, BigDecimal> closes(JSONArray bars, LocalDate day) throws JSONException {
         var rows = new JSONArray();
         for (int index = 0; index < bars.length(); index++) {
             var row = bars.getJSONObject(index);
@@ -128,7 +128,7 @@ public final class UsRetryReplay {
         return rows;
     }
 
-    private static Stage screen(LocalDate day, Map<String, BigDecimal> prices, JSONArray facts, JSONArray rates,
+    static Stage screen(LocalDate day, Map<String, BigDecimal> prices, JSONArray facts, JSONArray rates,
                                 Map<String, LocalDate> splits) throws JSONException {
         var fx = UsScreen.readFx(rates, day);
         if (!day.equals(fx.date())) throw new JSONException("Missing trade-date FX for " + day);
@@ -137,7 +137,7 @@ public final class UsRetryReplay {
         return new Stage(prices.size(), facts.length(), UsReferenceAlerts.read(ledger));
     }
 
-    private static JSONObject response(Path input, String name) throws IOException, JSONException {
+    static JSONObject response(Path input, String name) throws IOException, JSONException {
         var result = json(input, name);
         if (!"Success".equals(result.optString("query_execution_status"))) {
             throw new JSONException("Unsuccessful Dolt response: " + name);
@@ -145,7 +145,7 @@ public final class UsRetryReplay {
         return result;
     }
 
-    private static JSONObject json(Path input, String name) throws IOException, JSONException {
+    static JSONObject json(Path input, String name) throws IOException, JSONException {
         return new JSONObject(Files.readString(input.resolve(name)));
     }
 }
