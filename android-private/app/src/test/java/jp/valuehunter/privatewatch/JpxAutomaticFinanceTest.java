@@ -49,6 +49,12 @@ public class JpxAutomaticFinanceTest {
         assertNull(missing.annual());
         assertEquals(valid.annual(), missing.previousAnnual());
         assertFalse(missing.failure(CODE, DAY, Map.of()).isEmpty());
+        var pair = new JpxDailyCheck.Comparison(report(DAY, "600"), report(DAY.minusDays(1), "950"));
+        var finance = new JpxAutomaticFinance.Batch(Map.of(CODE, missing), Map.of(), 1, 1);
+        var screen = pair.screen(new JpxShareRights(Set.of(), Set.of(), List.of()), finance);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        assertTrue(screen.holds().stream().anyMatch(hold -> CODE.equals(hold.code())
+                && missing.hold().equals(hold.reason())));
         var retried = JpxAutomaticFinance.acquire(CODE, DAY, missing,
                 sources(archive("決算短信〔日本基準〕(連結)", PATH), filing()));
         assertEquals(valid.annual(), retried.annual());
@@ -73,6 +79,32 @@ public class JpxAutomaticFinanceTest {
         var next = JpxDisclosureCalendar.refresh(preferences(cache), latest, older, () -> false,
                 url -> { throw new IOException("offline"); }, null);
         assertEquals(days, next);
+    }
+
+    @Test public void meterUsesVerifiedPreviousReportWhenPhoneHasNeverScoredTheIssuer() throws Exception {
+        var state = preferences(new HashMap<>());
+        var priorDay = DAY.minusDays(1);
+        var valid = acquire(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var finance = new JpxAutomaticFinance.Batch(Map.of(CODE, valid), Map.of(), 1, 1);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "600"), report(priorDay, "950"));
+        var screen = comparison.screen(rights, finance);
+        assertTrue(screen.holds().stream().noneMatch(hold -> CODE.equals(hold.code())));
+        assertNull(ValueAlertPreview.history(state, ValueAlertPreview.Market.JPX).latest());
+
+        var edit = state.edit();
+        var pair = JpxWatchWorker.saveMeter(state, edit, comparison, screen, finance, rights);
+        var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, DAY, "JPX",
+                pair.rows(), pair.prior(), Set.of(), code -> code);
+        assertEquals(Set.of("meter:1:" + CODE), entries.keySet());
+        assertTrue(edit.commit());
+        assertEquals(priorDay, ValueAlertPreview.history(state, ValueAlertPreview.Market.JPX).previous().day());
+        assertTrue(ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, DAY, "JPX",
+                pair.rows(), pair.prior(), entries.keySet(), code -> code).isEmpty());
+
+        var gap = new JpxDailyCheck.Comparison(report(DAY, "600"), report(priorDay.minusDays(3), "950"));
+        var noPrior = JpxWatchWorker.saveMeter(state, state.edit(), gap, gap.screen(rights, finance), finance, rights);
+        assertNull(noPrior.prior());
     }
 
     @Test public void refreshedTdnetCorrectionInvalidatesAPreviouslyClearTradingDay() throws Exception {

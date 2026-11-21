@@ -256,7 +256,9 @@ public final class UsSecFinanceWorker extends Worker {
                     return Result.success();
                 }
                 publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
-                UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::networkStopped);
+                if (!UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::networkStopped)) {
+                    return networkStopped() ? paused() : Result.retry();
+                }
                 if (!networkStopped()) {
                     UsDailyWorker.screenRepairProgress(preferences, quote, ledger, day);
                     if (!applyBudget(context, preferences, day, budget)) return networkStopped() ? paused() : Result.retry();

@@ -20,15 +20,22 @@ final class UsDailyCloses {
     // Scheduled full-day closures for NYSE and Nasdaq. Early closes are trading days.
     // https://www.nyse.com/trade/hours-calendars
     // https://www.nasdaqtrader.com/Trader.aspx?id=Calendar
-    private static final Set<LocalDate> HOLIDAYS_2026 = Set.of(
+    private static final Set<LocalDate> HOLIDAYS = Set.of(
             LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 19), LocalDate.of(2026, 2, 16),
             LocalDate.of(2026, 4, 3), LocalDate.of(2026, 5, 25), LocalDate.of(2026, 6, 19),
             LocalDate.of(2026, 7, 3), LocalDate.of(2026, 9, 7), LocalDate.of(2026, 11, 26),
-            LocalDate.of(2026, 12, 25));
+            LocalDate.of(2026, 12, 25),
+            LocalDate.of(2027, 1, 1), LocalDate.of(2027, 1, 18), LocalDate.of(2027, 2, 15),
+            LocalDate.of(2027, 3, 26), LocalDate.of(2027, 5, 31), LocalDate.of(2027, 6, 18),
+            LocalDate.of(2027, 7, 5), LocalDate.of(2027, 9, 6), LocalDate.of(2027, 11, 25),
+            LocalDate.of(2027, 12, 24),
+            LocalDate.of(2028, 1, 17), LocalDate.of(2028, 2, 21), LocalDate.of(2028, 4, 14),
+            LocalDate.of(2028, 5, 29), LocalDate.of(2028, 6, 19), LocalDate.of(2028, 7, 4),
+            LocalDate.of(2028, 9, 4), LocalDate.of(2028, 11, 23), LocalDate.of(2028, 12, 25));
 
     static boolean tradingDay(LocalDate day) {
         return day.getDayOfWeek() != DayOfWeek.SATURDAY && day.getDayOfWeek() != DayOfWeek.SUNDAY
-                && !HOLIDAYS_2026.contains(day);
+                && !HOLIDAYS.contains(day);
     }
 
     static LocalDate onOrBeforeTradingDay(LocalDate day) {

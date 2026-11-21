@@ -46,10 +46,16 @@ final class ValueAlertPreview {
         var history = history(state, market);
         var prior = history.latest();
         if (prior != null && day.equals(prior.day())) prior = history.previous();
-        if (prior == null || !source.equals(prior.source()) || !market.expectedPrior(day).equals(prior.day())) {
+        return entries(state, market, day, source, rows, prior, sent, verifiedCode);
+    }
+
+    static Map<String, Entry> entries(SharedPreferences state, Market market, LocalDate day, String source,
+                                      JSONObject rows, Session prior, Set<String> sent,
+                                      Function<String, String> verifiedCode) throws JSONException {
+        if (prior == null || !source.equals(prior.source()) || !prior.day().equals(market.expectedPrior(day))) {
             return Map.of();
         }
-        var current = decode(new JSONObject().put("day", day.toString()).put("source", source).put("rows", rows));
+        var current = session(day, source, rows);
         if (current == null) return Map.of();
         var thresholds = ValueAlertMeter.Thresholds.read(state.getString(SETTINGS, ""));
         var entries = new java.util.ArrayList<Entry>();
@@ -95,9 +101,14 @@ final class ValueAlertPreview {
 
     static void save(SharedPreferences state, SharedPreferences.Editor edit, Market market,
                      LocalDate day, String source, JSONObject rows) throws JSONException {
+        save(state, edit, market, day, source, rows, null);
+    }
+
+    static void save(SharedPreferences state, SharedPreferences.Editor edit, Market market, LocalDate day,
+                     String source, JSONObject rows, JSONObject verifiedPriorRows) throws JSONException {
         var saved = read(state, market);
         var latest = saved.optJSONObject("latest");
-        var version = new JSONObject().put("day", day.toString()).put("source", source).put("rows", rows);
+        var version = snapshot(day, source, rows);
         if (latest != null) {
             try {
                 LocalDate oldDay = LocalDate.parse(latest.getString("day"));
@@ -109,7 +120,19 @@ final class ValueAlertPreview {
                 // Replace invalid metadata while retaining any separately stored previous session.
             }
         }
+        if (verifiedPriorRows != null) {
+            var priorDay = market.expectedPrior(day);
+            if (priorDay != null) saved.put("previous", snapshot(priorDay, source, verifiedPriorRows));
+        }
         edit.putString(market.key, saved.put("latest", version).toString());
+    }
+
+    static Session session(LocalDate day, String source, JSONObject rows) throws JSONException {
+        return decode(snapshot(day, source, rows));
+    }
+
+    private static JSONObject snapshot(LocalDate day, String source, JSONObject rows) throws JSONException {
+        return new JSONObject().put("day", day.toString()).put("source", source).put("rows", rows);
     }
 
     static JSONArray encode(ValueAlertMeter.Score score, int shares) {

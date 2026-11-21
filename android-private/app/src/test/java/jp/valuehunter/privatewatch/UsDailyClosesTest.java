@@ -35,6 +35,15 @@ public class UsDailyClosesTest {
         assertEquals(friday, UsDailyCloses.onOrBeforeTradingDay(friday.plusDays(2)));
     }
 
+    @Test public void followingYearsHandleObservedHolidaysAndShortSessions() {
+        assertEquals(LocalDate.of(2026, 12, 31), UsPriceOnlyBudget.previousSession(LocalDate.of(2027, 1, 4)));
+        assertEquals(LocalDate.of(2027, 3, 25), UsPriceOnlyBudget.previousSession(LocalDate.of(2027, 3, 29)));
+        assertEquals(LocalDate.of(2027, 12, 23), UsPriceOnlyBudget.previousSession(LocalDate.of(2027, 12, 27)));
+        assertTrue(UsDailyCloses.tradingDay(LocalDate.of(2027, 12, 31)));
+        assertTrue(UsDailyCloses.tradingDay(LocalDate.of(2028, 7, 3)));
+        assertEquals(LocalDate.of(2028, 7, 3), UsPriceOnlyBudget.previousSession(LocalDate.of(2028, 7, 5)));
+    }
+
     @Test public void backfillDoesNotReuseADifferentDateProviderOrEmptySnapshot() throws Exception {
         var source = UsDoltCloses.SOURCE;
         var quote = new JSONObject().put("source", source).put("trading_date_et", DAY.toString())
