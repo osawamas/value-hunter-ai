@@ -35,6 +35,25 @@ public final class UsReferenceAlertsTest {
         assertFalse(UsReferenceAlerts.pendingMatchesClose("invalid", "invalid"));
     }
 
+    @Test public void sameDayFinancialCorrectionRebuildsEntrantsFromPriorSession() {
+        var prior = screen(DAY.minusDays(1), SOURCE, Map.of(
+                "AAA", row(1, "outside_budget", 100),
+                "BBB", row(2, "outside_budget", 100)));
+        var initial = screen(DAY, SOURCE, Map.of(
+                "AAA", row(1, "reference", 100),
+                "BBB", row(2, "outside_budget", 100)));
+        var corrected = screen(DAY, SOURCE, Map.of(
+                "AAA", row(1, "outside_budget", 100),
+                "BBB", row(2, "priority", 100)));
+        assertEquals(List.of("AAA · 100株 · 参考候補"),
+                UsReferenceAlerts.entrants(prior, initial));
+        assertEquals(List.of("BBB · 100株 · 優先候補"),
+                UsReferenceAlerts.entrants(prior, corrected));
+        // Only a delivered receipt suppresses another notification.
+        assertEquals(List.of(), List.copyOf(UsReferenceAlerts.entrantRows(
+                prior, corrected, java.util.Set.of("BBB")).values()));
+    }
+
     @Test public void reportsOnlyComparableEntriesAndPrioritizesPurchaseLots() {
         var previous = screen(DAY, SOURCE, Map.of(
                 "AAA", row(1, "reference", 1), "BBB", row(2, "outside_budget", 1),
