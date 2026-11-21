@@ -91,6 +91,10 @@ final class UsListingHistory {
         }
     }
 
+    static synchronized java.util.Map<String, String> sessionExchanges(File directory, LocalDate day) {
+        return UsMarketCoverage.sessionExchanges(read(identityFile(directory, day)), day);
+    }
+
     static synchronized Set<String> verifiedSupplementSymbols(File directory, LocalDate day) {
         var previous = UsPriceOnlyBudget.previousSession(day);
         return UsMarketCoverage.verifiedSupplementSymbols(read(identityFile(directory, previous)), read(identityFile(directory, day)),
