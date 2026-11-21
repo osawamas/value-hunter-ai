@@ -107,21 +107,26 @@ final class JpxDisclosureCalendar {
     static Map<LocalDate, Day> refresh(SharedPreferences state, LocalDate latest, LocalDate earliest,
                                        BooleanSupplier stopped, PageLoader loader, LocalDate recheckFrom) {
         var days = new HashMap<LocalDate, Day>();
+        boolean changed = false;
         try {
             var saved = new JSONObject(state.getString(CACHE, "{}"));
             var keys = saved.keys();
             while (keys.hasNext()) {
                 String key = keys.next();
-                LocalDate date = LocalDate.parse(key);
-                if (date.isBefore(latest.minusDays(RETAIN_DAYS)) || date.isAfter(latest)) continue;
-                var entry = saved.getJSONObject(key);
-                days.put(date, new Day(codes(entry.getJSONArray("rights")), codes(entry.getJSONArray("annual"))));
+                try {
+                    LocalDate date = LocalDate.parse(key);
+                    if (date.isBefore(latest.minusDays(RETAIN_DAYS)) || date.isAfter(latest)) continue;
+                    var entry = saved.getJSONObject(key);
+                    days.put(date, new Day(codes(entry.getJSONArray("rights")), codes(entry.getJSONArray("annual"))));
+                } catch (JSONException | DateTimeException invalid) {
+                    changed = true;
+                }
             }
-        } catch (JSONException | DateTimeException invalid) {
-            days.clear();
+        } catch (JSONException invalid) {
+            changed = true;
         }
         int fetched = 0;
-        boolean changed = false;
+        int consecutiveFailures = 0;
         for (LocalDate day = latest; !day.isBefore(earliest) && !day.isBefore(latest.minusDays(RETAIN_DAYS))
                 && fetched < 8 && !stopped.getAsBoolean(); day = day.minusDays(1)) {
             boolean recheck = recheckFrom != null && !day.isBefore(recheckFrom);
@@ -129,15 +134,14 @@ final class JpxDisclosureCalendar {
             fetched++;
             try {
                 days.put(day, read(day, loader, stopped));
+                consecutiveFailures = 0;
                 changed = true;
             } catch (IOException | IllegalArgumentException error) {
                 if (stopped.getAsBoolean()) break;
                 // A date remains unverified until all its listings are available.
-                if (recheck) {
-                    changed |= days.remove(day) != null;
-                } else {
-                    break;
-                }
+                if (recheck) changed |= days.remove(day) != null;
+                if (++consecutiveFailures >= 2 || error instanceof JpxIssuerArchive.HttpFailure http
+                        && (http.status == 429 || http.status == 503)) break;
             }
         }
         if (changed) {

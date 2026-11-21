@@ -56,6 +56,25 @@ public class JpxAutomaticFinanceTest {
         assertNull(retried.previousAnnual());
     }
 
+    @Test public void tdnetRepairsOtherDaysWhenOneDateIsUnavailable() throws Exception {
+        var cache = new HashMap<String, Object>();
+        var latest = java.time.LocalDate.of(2026, 11, 17);
+        var older = latest.minusDays(1);
+        String empty = "<div id=\"kaiji-date-1\">2026年11月16日</div>に開示された情報はありません";
+        var days = JpxDisclosureCalendar.refresh(preferences(cache), latest, older, () -> false,
+                url -> {
+                    if (url.toString().endsWith("20261117.html")) throw new IOException("Individual date unavailable");
+                    return empty;
+                }, null);
+        assertFalse(days.containsKey(latest));
+        assertTrue(days.containsKey(older));
+        var saved = new org.json.JSONObject((String) cache.get("disclosure-days"));
+        cache.put("disclosure-days", saved.put("invalid date", new org.json.JSONObject()).toString());
+        var next = JpxDisclosureCalendar.refresh(preferences(cache), latest, older, () -> false,
+                url -> { throw new IOException("offline"); }, null);
+        assertEquals(days, next);
+    }
+
     @Test public void refreshedTdnetCorrectionInvalidatesAPreviouslyClearTradingDay() throws Exception {
         var cache = new HashMap<String, Object>();
         var older = DAY.minusDays(1);

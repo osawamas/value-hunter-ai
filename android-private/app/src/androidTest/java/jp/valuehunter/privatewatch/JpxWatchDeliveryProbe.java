@@ -310,10 +310,11 @@ final class JpxWatchDeliveryProbe {
                 throw new AssertionError("JPX coverage does not match the assessed fixture: " + MarketCoverage.JPX.summary(state));
             }
             inputs.set(null);
-            var stale = new org.json.JSONArray()
-                    .put(queuedAlert(MONDAY, 5, 0))
-                    .put(queuedAlert(next, 5, 0));
+            long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long oldFinancial = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
+            var stale = new org.json.JSONArray()
+                    .put(queuedAlert(MONDAY, alertGeneration, oldFinancial + 1))
+                    .put(queuedAlert(next, alertGeneration, oldFinancial));
             if (!state.edit().putLong(ScanWorker.FINANCIAL_ALERT_GENERATION, oldFinancial + 1)
                     .putString("jpx_watch_pending", stale.toString()).commit()) {
                 throw new AssertionError("Cannot save stale JPX queue fixture");
@@ -335,11 +336,12 @@ final class JpxWatchDeliveryProbe {
         }
     }
 
-    private static org.json.JSONObject queuedAlert(LocalDate day, int id, long financialGeneration)
+    private static org.json.JSONObject queuedAlert(LocalDate day, long alertGeneration, long financialGeneration)
             throws org.json.JSONException {
-        return new org.json.JSONObject().put("day", day.toString()).put("id", id)
+        return new org.json.JSONObject().put("day", day.toString()).put("id", 5)
                 .put("title", "古いテスト通知").put("detail", "古い条件").put("codes", new org.json.JSONArray())
-                .put("error", "古い通知を投稿した").put("financialGeneration", financialGeneration);
+                .put("error", "古い通知を投稿した").put("alertGeneration", alertGeneration)
+                .put("financialGeneration", financialGeneration);
     }
 
     private static void checkFreshness(Context context, WorkerFactory factory, MarketFreshness.Phase phase,
