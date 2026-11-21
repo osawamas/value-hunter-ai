@@ -104,6 +104,26 @@ final class UsMarketCoverage {
         }
     }
 
+    static java.util.Map<String, String> sessionExchanges(JSONObject snapshot, LocalDate day) {
+        if (!hasSessionEvidence(snapshot, day)) return java.util.Map.of();
+        var nyse = snapshot.optJSONObject("nyse");
+        var nasdaq = snapshot.optJSONObject("nasdaq");
+        if (nyse == null || nasdaq == null) return java.util.Map.of();
+        var exchanges = new java.util.HashMap<String, String>();
+        var overlap = new HashSet<String>();
+        for (var rows : java.util.List.of(nyse, nasdaq)) {
+            String exchange = rows == nyse ? "NYSE" : "Nasdaq";
+            var symbols = rows.keys();
+            while (symbols.hasNext()) {
+                String symbol = symbols.next();
+                if (SYMBOL.matcher(symbol).matches() && rows.opt(symbol) instanceof String name && !name.isEmpty()
+                        && exchanges.put(symbol, exchange) != null) overlap.add(symbol);
+            }
+        }
+        exchanges.keySet().removeAll(overlap);
+        return java.util.Map.copyOf(exchanges);
+    }
+
     static Set<String> verifiedSupplementSymbols(JSONObject before, JSONObject after, LocalDate previous, LocalDate day) {
         if (!hasSessionEvidence(before, previous) || !hasSessionEvidence(after, day)) {
             return Set.of();

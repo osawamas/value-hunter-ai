@@ -40,7 +40,7 @@ public final class UsSecFinanceWorker extends Worker {
     private static final String STATE = "us-sec-financials.json";
     private static final String QUOTES = "us-daily-closes.json";
     private static final String SEC_FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK%010d.json";
-    private static final String FX = "https://api.frankfurter.dev/v2/rates?base=USD&quotes=JPY";
+    static final String FX = "https://api.frankfurter.dev/v2/rates?base=USD&quotes=JPY";
     private static final int BUDGET_NOTIFICATION_ID = 8;
     private static final int MAX_NASDAQ_CHECKS = 24;
     private static final int MAX_BUDGET_RETRIES = 3;

@@ -579,7 +579,7 @@ JDK 17以上とJSONライブラリ（既存のJVMテストと同じ `org.json:js
 ```bash
 src=app/src/main/java/jp/valuehunter/privatewatch
 javac --release 17 -cp "$US_REPLAY_JSON_JAR" -d "$US_REPLAY_CLASSES" \
-  "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory}.java \
+  "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget}.java \
   tools/UsRetryReplay.java
 java -cp "$US_REPLAY_CLASSES:$US_REPLAY_JSON_JAR" jp.valuehunter.privatewatch.UsRetryReplay \
   "$US_REPLAY_INPUT" 2026-11-16 2026-11-17 INTC CSCO
@@ -598,3 +598,5 @@ java -cp "$US_REPLAY_CLASSES:$US_REPLAY_JSON_JAR" jp.valuehunter.privatewatch.Us
 監査JSONだけで実行すると、保留・除外理由を再集計する。株価配信元に参考終値があった記録があっても、元の上場一覧を照合できるまでは補完に数えない。終値や正式判定の件数は監査対象銘柄の中での件数。
 
 上場一覧と終値などの原本を確保できた場合は、第2引数にその原本を置いた非公開ディレクトリを渡す。日付別の上場一覧は `YYYY-MM-DD-nyse.txt` と `YYYY-MM-DD-nasdaq.txt` を比較日・当日分用意する。`closes.json` には補完前の比較日・当日の終値、`supplement.json` には補完時の当日終値を入れる。`sec.json`、`fx.json`、`splits.json` は上と同じ形式で、SEC財務は `CIK0000012345.json` のようにCIKを10桁で表したファイル名にする。照合に通った銘柄だけを計算し、結果JSONには件数・銘柄コード・保留理由を出す。通知候補の再処理も検証できる。通知の送信は行わない。
+
+`--single-session` を監査JSONの前に付けると、比較日の上場資料・終値やSEC財務を使わず、当日の上場一覧、DoltHubの当日参考終値、当日為替で100株の円換算額を確認する。私用ディレクトリで必要なのは当日の両市場一覧、`supplement.json`、`fx.json`。Androidでは「当日の予算チェック」として集計し、割安判定数や通知候補には加えない。対象日の上場原本がなければ比較日だけを緩和しても保留になる。

@@ -35,11 +35,75 @@ public final class UsDatedRetryReplay {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length < 1 || args.length > 2) {
-            throw new IllegalArgumentException("Usage: UsDatedRetryReplay AUDIT_JSON [PRIVATE_INPUT_DIR]");
+        boolean single = args.length > 0 && "--single-session".equals(args[0]);
+        int start = single ? 1 : 0;
+        if (args.length < start + 1 || args.length > start + 2) {
+            throw new IllegalArgumentException("Usage: UsDatedRetryReplay [--single-session] AUDIT_JSON [PRIVATE_INPUT_DIR]");
         }
-        var audit = new JSONObject(Files.readString(Path.of(args[0])));
-        System.out.println(run(audit, args.length == 2 ? Path.of(args[1]) : null).toString(2));
+        var audit = new JSONObject(Files.readString(Path.of(args[start])));
+        var input = args.length == start + 2 ? Path.of(args[start + 1]) : null;
+        var report = single ? singleSession(audit, input) : run(audit, input);
+        System.out.println(report.toString(2));
+    }
+
+    private static JSONObject singleSession(JSONObject audit, Path input) throws IOException {
+        var day = LocalDate.parse(audit.getString("trading_date_et"));
+        if (!UsDailyCloses.tradingDay(day)) throw new IllegalArgumentException("Expected a US trading day");
+        var listings = input == null ? Map.<String, String>of()
+                : UsMarketCoverage.sessionExchanges(listings(input, day).snapshot(day), day);
+        var rows = audit.getJSONArray("rows");
+        var seen = new HashSet<String>();
+        var eligible = new HashSet<String>();
+        var held = new TreeMap<String, String>();
+        var excluded = new TreeMap<String, String>();
+        for (int i = 0; i < rows.length(); i++) {
+            var row = rows.getJSONObject(i);
+            String symbol = row.getString("symbol");
+            if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}") || !seen.add(symbol)) {
+                throw new IllegalArgumentException("Invalid or duplicate audited symbol");
+            }
+            String reason = row.getString("primary_reason");
+            String disposition = row.getString("disposition");
+            if ("excluded".equals(disposition)) excluded.put(symbol, reason);
+            else if (!"held".equals(disposition)) throw new IllegalArgumentException("Unknown audit disposition");
+            else if (!LISTING_HOLD.equals(reason) && !"class_specific_financials_pending".equals(reason)) {
+                held.put(symbol, reason);
+            } else if (!row.optString("exchange").equals(listings.get(symbol))) {
+                held.put(symbol, "same_day_listing_unverified");
+            } else {
+                eligible.add(symbol);
+            }
+        }
+
+        var outcomes = new TreeMap<String, String>();
+        if (!eligible.isEmpty()) {
+            var rates = new JSONArray(Files.readString(input.resolve("fx.json")));
+            var fx = UsScreen.readFx(rates, day);
+            var supplement = UsRetryReplay.response(input, "supplement.json").getJSONArray("rows");
+            var bySymbol = new HashMap<String, JSONArray>();
+            for (int i = 0; i < supplement.length(); i++) {
+                var row = supplement.getJSONObject(i);
+                String symbol = row.getString("symbol");
+                if (eligible.contains(symbol)) bySymbol.computeIfAbsent(symbol, unused -> new JSONArray()).put(row);
+            }
+            for (String symbol : eligible) {
+                var bars = bySymbol.get(symbol);
+                if (bars == null) {
+                    held.put(symbol, "trade_date_close_unavailable");
+                    continue;
+                }
+                var reply = new JSONObject().put("query_execution_status", "Success").put("rows", bars);
+                var validated = UsDoltCloses.supplement(day, Set.of(symbol), unused -> reply);
+                var verdict = UsSingleSessionBudget.check(day, fx, UsDeviceFinancials.prices(validated).get(symbol));
+                if (verdict == UsSingleSessionBudget.Verdict.HELD) held.put(symbol, "trade_date_fx_unavailable");
+                else outcomes.put(symbol, verdict.name());
+            }
+        }
+        long within = outcomes.values().stream().filter("WITHIN"::equals).count();
+        return new JSONObject().put("trading_date_et", day.toString()).put("audited_symbols", rows.length())
+                .put("within_budget", within).put("outside_budget", outcomes.size() - within)
+                .put("results", new JSONObject(outcomes)).put("held", new JSONObject(held))
+                .put("excluded", new JSONObject(excluded));
     }
 
     static JSONObject run(JSONObject audit, Path input) throws IOException {

@@ -124,9 +124,15 @@ public final class UsListingArchiveWorker extends Worker {
     private static void recheck(Context app, SharedPreferences prefs, File directory, Instant now)
             throws JSONException, ExecutionException, InterruptedException, TimeoutException {
         var day = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(now));
-        if (!day.equals(MarketCoverage.US.day(prefs)) || day.toString().equals(prefs.getString(RECHECK, ""))) return;
+        if (!day.equals(MarketCoverage.US.day(prefs))) return;
+        var groups = MarketCoverage.US.groups(prefs);
         var verified = UsListingHistory.verifiedSupplementSymbols(directory, day);
-        if (!hasVerifiedPending(MarketCoverage.US.groups(prefs), verified)) return;
+        var single = UsListingHistory.sessionExchanges(directory, day).keySet();
+        if (groups.values().stream().flatMap(List::stream).anyMatch(single::contains)) {
+            UsDailyWorker.recheckSingleSessionBudget(app, day);
+        }
+        if (day.toString().equals(prefs.getString(RECHECK, ""))) return;
+        if (!hasVerifiedPending(groups, verified)) return;
         UsDailyWorker.recheckAfterArchive(app, day).getResult().get(10, TimeUnit.SECONDS);
         prefs.edit().putString(RECHECK, day.toString()).apply();
     }

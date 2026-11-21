@@ -22,6 +22,16 @@ class DatedReplayTests(unittest.TestCase):
             "java", "-cp", CLASSPATH, "jp.valuehunter.privatewatch.UsDatedRetryReplay", audit, *inputs
         ], text=True)
 
+    def test_single_session_keeps_saved_audit_on_hold_without_trade_date_listings(self):
+        audit = ROOT / "docs/us-dated-listing-audit-20261117.json"
+        report = json.loads(self.replay("--single-session", audit))
+        self.assertEqual(report["audited_symbols"], 24)
+        self.assertEqual(report["within_budget"], 0)
+        self.assertEqual(report["outside_budget"], 0)
+        self.assertEqual(len(report["held"]), 23)
+        self.assertEqual(len(report["excluded"]), 1)
+        self.assertEqual(Counter(report["held"].values())["same_day_listing_unverified"], 20)
+
     def test_saved_audit_replays_all_reasons_with_no_unproven_admissions(self):
         audit = ROOT / "docs/us-dated-listing-audit-20261117.json"
         output = self.replay(audit)
@@ -96,6 +106,22 @@ class DatedReplayTests(unittest.TestCase):
             self.assertEqual(report["additional_alert_candidates"], ["FIX"])
             self.assertEqual(report["repeated_alert_candidates"], 0)
             self.assertEqual(report["held"], {"CHANGE": "exact_dated_listing_pair_unavailable"})
+
+            # Reuse only today's inputs. Neither comparison listings nor SEC data is needed.
+            for path in [root / f"{PRIOR}-nyse.txt", root / f"{PRIOR}-nasdaq.txt", root / "sec.json",
+                         root / "CIK0000012345.json", root / "closes.json"]:
+                path.unlink()
+            write("supplement.json", response([close("FIX", DAY, 5), close("CHANGE", DAY, 10)]))
+            single = json.loads(self.replay("--single-session", audit, root))
+            self.assertEqual(single["results"], {"FIX": "WITHIN", "CHANGE": "OUTSIDE"})
+            self.assertEqual(single["within_budget"], 1)
+            self.assertEqual(single["outside_budget"], 1)
+            self.assertEqual(single["held"], {})
+            write("fx.json", [{"date": PRIOR, "base": "USD", "quote": "JPY", "rate": 150}])
+            stale = json.loads(self.replay("--single-session", audit, root))
+            self.assertEqual(stale["results"], {})
+            self.assertEqual(stale["held"], {"FIX": "trade_date_fx_unavailable",
+                                              "CHANGE": "trade_date_fx_unavailable"})
 
 
 if __name__ == "__main__":

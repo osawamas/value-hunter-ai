@@ -10,6 +10,7 @@ on:
       - 'android-private/tools/*us_monitor_*.py'
       - 'android-private/tools/UsRetryReplay.java'
       - 'android-private/tools/UsDatedRetryReplay.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSingleSessionBudget.java'
       - 'android-private/tools/test_us_dated_retry_replay.py'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsMarketCoverage.java'
       - 'docs/us-dated-listing-audit-20261117.json'
@@ -35,6 +36,7 @@ on:
       - 'android-private/tools/*us_monitor_*.py'
       - 'android-private/tools/UsRetryReplay.java'
       - 'android-private/tools/UsDatedRetryReplay.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSingleSessionBudget.java'
       - 'android-private/tools/test_us_dated_retry_replay.py'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsMarketCoverage.java'
       - 'docs/us-dated-listing-audit-20261117.json'
@@ -76,6 +78,6 @@ jobs:
             https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
           src=app/src/main/java/jp/valuehunter/privatewatch
           javac --release 17 -cp "$dir/json.jar" -d "$dir/classes" \
-            "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory}.java \
+            "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget}.java \
             tools/{UsRetryReplay,UsDatedRetryReplay}.java
           python3 tools/test_us_dated_retry_replay.py "$dir/classes:$dir/json.jar"

@@ -105,6 +105,16 @@ public final class UsDailyWorker extends Worker {
         WorkManager.getInstance(context).enqueueUniqueWork(ON_WIFI, ExistingWorkPolicy.KEEP, request);
     }
 
+    static void recheckSingleSessionBudget(Context context, LocalDate day) {
+        var data = new androidx.work.Data.Builder().putString("single_session_budget_day", day.toString()).build();
+        var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
+                .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
+                .setInputData(data).build();
+        WorkManager.getInstance(context).enqueueUniqueWork("us-single-session-budget-" + day,
+                ExistingWorkPolicy.KEEP, request);
+    }
+
     static androidx.work.Data archiveRecheckData(LocalDate day) {
         return new androidx.work.Data.Builder().putString(ARCHIVE_RECHECK_DAY, day.toString()).build();
     }
@@ -156,6 +166,8 @@ public final class UsDailyWorker extends Worker {
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
+        String single = UsSingleSessionBudgetCheck.display(state, day, state.getString(PROVIDER, ""));
+        if (!single.isEmpty()) result += "\n\n" + single;
         String repair = repairStatus(state, day);
         return repair.isEmpty() ? result : result + "\n\n" + repair;
     }
@@ -182,6 +194,16 @@ public final class UsDailyWorker extends Worker {
         synchronized (CHECK_LOCK) {
             networkGeneration = MarketNetwork.generation();
             if (networkStopped()) return paused();
+            String singleSession = getInputData().getString("single_session_budget_day");
+            if (singleSession != null) {
+                try {
+                    UsSingleSessionBudgetCheck.run(getApplicationContext(), LocalDate.parse(singleSession),
+                            this::networkStopped, repairSource);
+                    return networkStopped() ? paused() : Result.success();
+                } catch (IOException | JSONException unavailable) {
+                    return networkStopped() ? paused() : Result.retry();
+                }
+            }
             MarketUpdate.US_CLOSE.started();
             try {
                 return check();
