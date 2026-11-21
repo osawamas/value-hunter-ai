@@ -172,8 +172,7 @@ public final class MainActivity extends Activity {
         var unitedStates = section(content, SURFACE, true);
         label(unitedStates, "米国株  ·  NYSE / Nasdaq", 17, INK, true, 0);
         usCoverage = label(unitedStates, "", 13, MUTED, false, 5);
-        usCoverageButton = button(unitedStates, "未判定の内訳", PAGE, 4);
-        usCoverageButton.setContentDescription("米国株の未判定の内訳");
+        usCoverageButton = button(unitedStates, "米国株の未判定の内訳", PAGE, 4);
         usCoverageButton.setOnClickListener(view -> showCoverage(MarketCoverage.US, "米国株"));
         usDailyStatus = label(unitedStates, "", 13, MUTED, false, 4);
 
@@ -184,8 +183,7 @@ public final class MainActivity extends Activity {
         var result = section(content, SURFACE, true);
         label(result, "最新の確認", 19, INK, true, 0);
         jpxCoverage = label(result, "", 13, MUTED, false, 5);
-        jpxCoverageButton = button(result, "未判定の内訳", PAGE, 4);
-        jpxCoverageButton.setContentDescription("東証の未判定の内訳");
+        jpxCoverageButton = button(result, "東証の未判定の内訳", PAGE, 4);
         jpxCoverageButton.setOnClickListener(view -> showCoverage(MarketCoverage.JPX, "東証"));
         lastCheck = label(result, "", 14, MUTED, false, 5);
         showDetail = button(result, "終値と判定の詳細", PAGE, 10);
