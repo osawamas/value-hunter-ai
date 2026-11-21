@@ -46,6 +46,8 @@ final class NotificationDeliveryProbe {
         if ("restore".equals(phase)) {
             require("60,75,90".equals(ScanWorker.prefs(context).getString(ValueAlertPreview.SETTINGS, "")),
                     "Saved alert thresholds did not survive reboot");
+            require(DiagnosticLog.read(context).contains("テスト通知をAndroidに投稿"),
+                    "Diagnostic events did not survive reboot");
             require(!MarketNetwork.allowed(), "Market communication was re-enabled by reboot");
             require(MarketNetwork.wifiOnly(), "Wi-Fi-only choice did not survive reboot");
             requireBlocked();
@@ -78,6 +80,8 @@ final class NotificationDeliveryProbe {
         require(ScanWorker.postNotification(context, JAPAN, JP_TITLE, JP_DETAIL), "JPX notification submission failed");
         require(await(() -> active(manager, JAPAN) != null), "JPX notification did not appear");
         require(await(power::isInteractive), "Screen did not wake for a new JPX notification");
+        require(await(() -> DiagnosticLog.read(context).contains("点灯を観測")),
+                "Diagnostic log did not distinguish the wake request from the observation");
         var posted = active(manager, JAPAN);
         require(posted != null && posted.getGroupAlertBehavior() == Notification.GROUP_ALERT_SUMMARY
                 && posted.fullScreenIntent == null, "Notification did not preserve silent group policy");
@@ -426,11 +430,32 @@ final class NotificationDeliveryProbe {
                 network.performClick();
             });
             exerciseValueMeter(instrumentation, activity);
+            exerciseDiagnosticCopy(instrumentation, activity);
             requireBlocked();
         } finally {
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
+    }
+
+    private static void exerciseDiagnosticCopy(Instrumentation instrumentation, android.app.Activity activity) {
+        var context = instrumentation.getTargetContext();
+        instrumentation.runOnMainSync(() -> {
+            var button = control(activity.getWindow().getDecorView(), "診断ログ", Button.class);
+            require(button != null && button.performClick(), "Cannot open diagnostics offline");
+        });
+        require(await(() -> findDialogText(instrumentation, "診断ログをコピー") != null), "Diagnostics dialog is not visible");
+        var copy = findDialogText(instrumentation, "診断ログをコピー");
+        require(copy != null && copy.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot copy the diagnostic report");
+        var clipboard = context.getSystemService(android.content.ClipboardManager.class);
+        require(await(() -> {
+            var clip = clipboard.getPrimaryClip();
+            if (clip == null) return false;
+            var report = clip.getItemAt(0).getText().toString();
+            return report.contains("現在の通信状態: 相場通信オフ")
+                    && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
+                    && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
+        }), "Offline diagnostic copy was missing stages or included notification details");
     }
 
     private static <T extends TextView> T control(View view, String text, Class<T> type) {

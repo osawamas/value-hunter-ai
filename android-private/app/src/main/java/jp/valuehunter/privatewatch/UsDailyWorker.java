@@ -96,6 +96,7 @@ public final class UsDailyWorker extends Worker {
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                 .build();
         workManager.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_CLOSE, "定期更新");
     }
 
     static void checkNow(Context context) {
@@ -103,6 +104,7 @@ public final class UsDailyWorker extends Worker {
         var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED)).build();
         WorkManager.getInstance(context).enqueueUniqueWork(ON_WIFI, ExistingWorkPolicy.KEEP, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_CLOSE, "追加の更新");
     }
 
     static void recheckSingleSessionBudget(Context context, LocalDate day) {
@@ -111,6 +113,7 @@ public final class UsDailyWorker extends Worker {
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                 .setInputData(data).build();
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_BUDGET, "上場一覧との再照合");
         WorkManager.getInstance(context).enqueueUniqueWork("us-single-session-budget-" + day,
                 ExistingWorkPolicy.KEEP, request);
     }
@@ -124,6 +127,7 @@ public final class UsDailyWorker extends Worker {
         var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
                 .setInputData(data).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES).build();
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_CLOSE, "日付別の終値補完");
         return WorkManager.getInstance(context).enqueueUniqueWork(
                 "us-listing-recheck-" + day, ExistingWorkPolicy.KEEP, request);
     }
@@ -191,6 +195,12 @@ public final class UsDailyWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        var area = getInputData().getString("single_session_budget_day") != null
+                ? DiagnosticLog.Area.US_BUDGET : DiagnosticLog.Area.US_CLOSE;
+        return DiagnosticLog.work(getApplicationContext(), area, getRunAttemptCount(), this::runUpdate);
+    }
+
+    private Result runUpdate() {
         synchronized (CHECK_LOCK) {
             networkGeneration = MarketNetwork.generation();
             if (networkStopped()) return paused();
@@ -450,8 +460,11 @@ public final class UsDailyWorker extends Worker {
                 pending = "";
             }
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
+            var entrants = UsReferenceAlerts.entrantRows(anchor, screen, sent);
+            String notificationState = ScanWorker.alertBlockReason(context);
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
+                    + entrants.size() + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
             if (pending.isEmpty() && alertsRequested) {
-                var entrants = UsReferenceAlerts.entrantRows(anchor, screen, sent);
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
                             + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());

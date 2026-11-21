@@ -210,6 +210,7 @@ final class MarketNetwork {
         }
         if (!notify || events == null || wasAllowed == allowed) return;
         events.post(() -> {
+            DiagnosticLog.record(application, DiagnosticLog.Area.NETWORK, "経路変更 · " + DiagnosticLog.route());
             LISTENERS.forEach(Runnable::run);
             if (allowed && wifiOnly && allowed()) {
                 JpxWatchWorker.checkNow(application);

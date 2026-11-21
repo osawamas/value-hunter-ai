@@ -91,6 +91,8 @@ public final class UsSecFinanceWorker extends Worker {
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS).build();
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
+        DiagnosticLog.requested(context, DiagnosticLog.Area.US_FINANCE,
+                delay == 0 ? "SEC財務の取得" : "SEC財務の再確認・待機 " + TimeUnit.MILLISECONDS.toMinutes(delay) + "分");
     }
 
     private long networkGeneration;
@@ -104,6 +106,11 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        var area = DiagnosticLog.Area.US_FINANCE;
+        return DiagnosticLog.work(getApplicationContext(), area, getRunAttemptCount(), this::runUpdate);
+    }
+
+    private Result runUpdate() {
         synchronized (CHECK_LOCK) {
             networkGeneration = MarketNetwork.generation();
             if (networkStopped()) return paused();
@@ -587,7 +594,10 @@ public final class UsSecFinanceWorker extends Worker {
                     + String.join("、", entries.stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
         }
         status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary).apply();
-        if (!ScanWorker.alertsEnabled(context)) return true;
+        String blocked = ScanWorker.alertBlockReason(context);
+        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の参考予算条件入り "
+                + entries.size() + "件 · " + (blocked.isEmpty() ? "通知許可あり" : blocked));
+        if (!blocked.isEmpty()) return true;
         var sent = sentBudgetSymbols(state, day);
         var progress = state.edit().putString(BUDGET_CURSOR_DAY, date).putString(BUDGET_CURSOR, check.cursor());
         var pending = pendingBudgetEntries(entries, sent);
