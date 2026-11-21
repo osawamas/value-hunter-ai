@@ -183,7 +183,7 @@ final class UsReferenceDeliveryProbe {
         UsDailyWorker.writeSnapshot(close, prices);
     }
 
-    private static String payload(String url, AtomicInteger factRequests, AtomicInteger indexRequests)
+    static String payload(String url, AtomicInteger factRequests, AtomicInteger indexRequests)
             throws IOException {
         if (url.equals(UsSecFilingIndex.address(FIRST)) || url.equals(UsSecFilingIndex.address(SECOND))) {
             indexRequests.incrementAndGet();
@@ -217,7 +217,7 @@ final class UsReferenceDeliveryProbe {
         throw new AssertionError("Unexpected source " + url);
     }
 
-    private static String facts() {
+    static String facts() {
         return """
                     {"cik":12345,"facts":{
                      "us-gaap":{"StockholdersEquity":{"units":{"USD":[
@@ -229,7 +229,7 @@ final class UsReferenceDeliveryProbe {
                     """;
     }
 
-    private static void expectQuiet(NotificationManager manager) throws InterruptedException {
+    static void expectQuiet(NotificationManager manager) throws InterruptedException {
         Thread.sleep(300);
         if (manager.getActiveNotifications().length != 0) {
             throw new AssertionError("US watch posted a baseline, incomplete, or duplicate notification");
@@ -240,7 +240,7 @@ final class UsReferenceDeliveryProbe {
         verifySilentNotice(manager, "TEST", SECOND);
     }
 
-    private static void verifySilentNotice(NotificationManager manager, String ticker, LocalDate day)
+    static void verifySilentNotice(NotificationManager manager, String ticker, LocalDate day)
             throws InterruptedException {
         var channel = manager.getNotificationChannel(ScanWorker.CHANNEL);
         if (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_LOW

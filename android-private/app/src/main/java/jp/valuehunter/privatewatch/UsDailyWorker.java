@@ -62,6 +62,10 @@ public final class UsDailyWorker extends Worker {
     private static final String PRIVATE_SENT = "us_private_sec_sent";
     private static final String QUOTE_REPAIR_DAY = "us_quote_repair_day";
     private static final String QUOTE_REPAIR_CURSOR = "us_quote_repair_cursor";
+    private static final String REPAIRED_SYMBOLS = "supplemented_symbols";
+    private static final String REPAIR_CLOSES = "us_listing_repair_closes";
+    private static final String REPAIR_SCREENED = "us_listing_repair_screened";
+    private static final String REPAIR_METRICS_DAY = "us_listing_repair_metrics_day";
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final int US_NOTIFICATION_ID = 6;
@@ -73,8 +77,15 @@ public final class UsDailyWorker extends Worker {
     private static final String ENDPOINT =
             "https://api.massive.com/v2/aggs/grouped/locale/us/market/stocks/";
 
+    private final UsDoltCloses.Download repairSource;
+
     public UsDailyWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
+        this(context, parameters, address -> fetch(address, ""));
+    }
+
+    UsDailyWorker(Context context, WorkerParameters parameters, UsDoltCloses.Download repairSource) {
         super(context, parameters);
+        this.repairSource = repairSource;
     }
 
     static void schedule(Context context) {
@@ -94,11 +105,15 @@ public final class UsDailyWorker extends Worker {
         WorkManager.getInstance(context).enqueueUniqueWork(ON_WIFI, ExistingWorkPolicy.KEEP, request);
     }
 
+    static androidx.work.Data archiveRecheckData(LocalDate day) {
+        return new androidx.work.Data.Builder().putString(ARCHIVE_RECHECK_DAY, day.toString()).build();
+    }
+
     static androidx.work.Operation recheckAfterArchive(Context context, LocalDate day) {
-        var data = new androidx.work.Data.Builder().putString(ARCHIVE_RECHECK_DAY, day.toString()).build();
+        var data = archiveRecheckData(day);
         var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
-                .setInputData(data).build();
+                .setInputData(data).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES).build();
         return WorkManager.getInstance(context).enqueueUniqueWork(
                 "us-listing-recheck-" + day, ExistingWorkPolicy.KEEP, request);
     }
@@ -141,7 +156,16 @@ public final class UsDailyWorker extends Worker {
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
-        return result;
+        String repair = repairStatus(state, day);
+        return repair.isEmpty() ? result : result + "\n\n" + repair;
+    }
+
+    static String repairStatus(SharedPreferences state, String day) {
+        if (!day.equals(state.getString(REPAIR_METRICS_DAY, ""))) return "";
+        int closed = state.getInt(REPAIR_CLOSES, 0);
+        if (closed == 0) return "";
+        return day + " 分の再取得 · 終値補完 " + closed + "銘柄 · 割安判定まで完了 "
+                + state.getInt(REPAIR_SCREENED, 0) + "銘柄";
     }
 
     private long networkGeneration;
@@ -170,13 +194,15 @@ public final class UsDailyWorker extends Worker {
     private Result check() {
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
-        LocalDate target = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
+        String archived = getInputData().getString(ARCHIVE_RECHECK_DAY);
+        LocalDate target = archived == null
+                ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()))
+                : LocalDate.parse(archived);
         try {
             String key = readKey(context);
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
             LocalDate previous = cachedDate(file, state, provider);
-            String archived = getInputData().getString(ARCHIVE_RECHECK_DAY);
             if (archived != null) {
                 if (key.isEmpty() && previous != null && archived.equals(previous.toString())) {
                     supplementCloses(state, file, previous);
@@ -254,8 +280,9 @@ public final class UsDailyWorker extends Worker {
             return Result.retry();
         } catch (JSONException e) {
             if (networkStopped()) return paused();
-            report(state, "終値を取得できず（配信形式を要確認）", MarketFreshness.Phase.NEXT_CHECK, target);
-            return Result.success();
+            var phase = archived == null ? MarketFreshness.Phase.NEXT_CHECK : MarketFreshness.Phase.ERROR;
+            report(state, "終値を取得できず（配信形式を要確認）", phase, target);
+            return archived == null ? Result.success() : Result.retry();
         }
     }
 
@@ -298,7 +325,7 @@ public final class UsDailyWorker extends Worker {
         var targets = missing.subList(0, Math.min(100, missing.size()));
         var found = UsDoltCloses.supplement(day, Set.copyOf(targets), address -> {
             if (networkStopped()) throw new IOException("Worker stopped");
-            return fetch(address, "");
+            return repairSource.get(address);
         });
         if (networkStopped()) return;
         var progress = state.edit().putString(QUOTE_REPAIR_DAY, date)
@@ -308,13 +335,19 @@ public final class UsDailyWorker extends Worker {
             progress.apply();
             return;
         }
-        for (int index = 0; index < found.length(); index++) closes.put(found.getJSONObject(index));
-        snapshot.put("supplement_base_sha", UsReferenceAlerts.sha256(original));
+        var repaired = repairedSymbols(snapshot);
+        for (int index = 0; index < found.length(); index++) {
+            var row = found.getJSONObject(index);
+            closes.put(row);
+            repaired.add(row.getString("symbol"));
+        }
+        snapshot.put("supplement_base_sha", UsReferenceAlerts.sha256(original))
+                .put(REPAIRED_SYMBOLS, new JSONArray(new java.util.TreeSet<>(repaired)));
         synchronized (QUOTE_LOCK) {
             if (networkStopped()) return;
             writeSnapshot(file, snapshot);
-            MarketFreshness.US_FINANCE.waiting(progress.putInt(COUNT, closes.length()),
-                    MarketFreshness.Phase.FINANCE, day).apply();
+            var savedProgress = closeRepairProgress(state, progress.putInt(COUNT, closes.length()), snapshot, day);
+            MarketFreshness.US_FINANCE.waiting(savedProgress, MarketFreshness.Phase.FINANCE, day).apply();
         }
     }
 
@@ -551,13 +584,44 @@ public final class UsDailyWorker extends Worker {
             var snapshot = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
             var date = LocalDate.parse(snapshot.getString("trading_date_et"));
             String storedProvider = snapshot.getString("source");
-            state.edit().putString(DATE, date.toString()).putString(PROVIDER, storedProvider)
-                    .putInt(COUNT, snapshot.getJSONArray("closes").length()).apply();
+            var update = state.edit().putString(DATE, date.toString()).putString(PROVIDER, storedProvider)
+                    .putInt(COUNT, snapshot.getJSONArray("closes").length());
+            closeRepairProgress(state, update, snapshot, date).apply();
             return provider.equals(storedProvider) ? date : null;
         } catch (IOException | JSONException | DateTimeParseException e) {
             state.edit().remove(DATE).remove(COUNT).remove(PROVIDER).apply();
             return null;
         }
+    }
+
+    private static Set<String> repairedSymbols(JSONObject snapshot) {
+        var result = new HashSet<String>();
+        var entries = snapshot.optJSONArray(REPAIRED_SYMBOLS);
+        if (entries != null) {
+            for (int index = 0; index < entries.length(); index++) {
+                var symbol = entries.optString(index);
+                if (!symbol.isEmpty()) result.add(symbol);
+            }
+        }
+        return result;
+    }
+
+    private static SharedPreferences.Editor closeRepairProgress(SharedPreferences state, SharedPreferences.Editor edit,
+                                                                JSONObject snapshot, LocalDate day) {
+        int count = repairedSymbols(snapshot).size();
+        if (count == 0) return edit;
+        if (!day.toString().equals(state.getString(REPAIR_METRICS_DAY, ""))) edit.putInt(REPAIR_SCREENED, 0);
+        return edit.putString(REPAIR_METRICS_DAY, day.toString()).putInt(REPAIR_CLOSES, count);
+    }
+
+    static void screenRepairProgress(SharedPreferences state, JSONObject snapshot, JSONObject ledger, LocalDate day)
+            throws JSONException {
+        var symbols = repairedSymbols(snapshot);
+        if (symbols.isEmpty()) return;
+        int closed = symbols.size();
+        symbols.retainAll(UsReferenceAlerts.read(ledger).rows().keySet());
+        state.edit().putString(REPAIR_METRICS_DAY, day.toString()).putInt(REPAIR_CLOSES, closed)
+                .putInt(REPAIR_SCREENED, symbols.size()).apply();
     }
 
     static byte[] readQuote(AtomicFile file) throws IOException {

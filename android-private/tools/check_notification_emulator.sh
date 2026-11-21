@@ -25,3 +25,14 @@ tr -d '\r' < "$RUNNER_TEMP/alert-reboot.txt" | grep -x 'US_LISTING_ARCHIVE_AFTER
 
 adb shell am instrument -w -e alert_phase recovery "$runner" | tee "$RUNNER_TEMP/market-recovery.txt"
 tr -d '\r' < "$RUNNER_TEMP/market-recovery.txt" | grep -x 'MARKET_WIFI_RECOVERY_OK'
+
+adb shell am instrument -w -e alert_phase archive_repair_prep "$runner" | tee "$RUNNER_TEMP/archive-repair-prep.txt"
+tr -d '\r' < "$RUNNER_TEMP/archive-repair-prep.txt" | grep -x 'US_ARCHIVE_REPAIR_BEFORE_REBOOT_OK'
+
+adb reboot
+timeout 120 adb wait-for-device
+timeout 180 bash -c 'until [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r") == 1 ]]; do sleep 2; done'
+adb shell input keyevent KEYCODE_WAKEUP
+adb shell wm dismiss-keyguard
+adb shell am instrument -w -e alert_phase archive_repair_resume "$runner" | tee "$RUNNER_TEMP/archive-repair-resume.txt"
+tr -d '\r' < "$RUNNER_TEMP/archive-repair-resume.txt" | grep -x 'US_ARCHIVE_REPAIR_AFTER_REBOOT_OK'
