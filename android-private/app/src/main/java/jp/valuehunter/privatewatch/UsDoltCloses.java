@@ -13,6 +13,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -68,6 +69,29 @@ final class UsDoltCloses {
                 }
                 closes.put(new JSONObject().put("symbol", symbol).put("close_usd", price));
             }
+        }
+        return closes;
+    }
+
+    static JSONArray supplement(LocalDate day, Set<String> symbols, Download download)
+            throws IOException, JSONException {
+        if (symbols.isEmpty() || symbols.size() > 100) throw new JSONException("Invalid quote repair size");
+        var codes = new java.util.ArrayList<String>();
+        for (String symbol : new java.util.TreeSet<>(symbols)) {
+            if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}")) throw new JSONException("Invalid quote repair ticker");
+            codes.add("'" + symbol + "'");
+        }
+        var rows = query(download, "SELECT act_symbol AS symbol, date AS trading_date, close FROM ohlcv"
+                + " WHERE date = '" + day + "' AND close > 0 AND act_symbol IN (" + String.join(",", codes) + ")");
+        var closes = new JSONArray();
+        var remaining = new HashSet<>(symbols);
+        for (int index = 0; index < rows.length(); index++) {
+            var row = rows.getJSONObject(index);
+            String symbol = row.getString("symbol");
+            double close = row.getDouble("close");
+            if (!remaining.remove(symbol) || !day.toString().equals(row.getString("trading_date"))
+                    || !Double.isFinite(close) || close <= 0) throw new JSONException("Invalid quote repair response");
+            closes.put(new JSONObject().put("symbol", symbol).put("close_usd", close));
         }
         return closes;
     }

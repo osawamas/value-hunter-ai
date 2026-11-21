@@ -123,7 +123,7 @@ final class UsReferenceDeliveryProbe {
         }
         var next = SECOND.plusDays(1);
         var scan = new JSONObject(new String(checkpoint.readFully(), java.nio.charset.StandardCharsets.UTF_8));
-        var ledger = scan.getJSONObject("ledger").put("trading_date_et", next.toString());
+        var ledger = new JSONObject(scan.getJSONObject("ledger").toString()).put("trading_date_et", next.toString());
         var screen = ledger.getJSONObject("reference_screen").put("fx_date", next.toString());
         var rows = screen.getJSONArray("observations");
         String hash = ledger.getString("close_sha256");
@@ -133,11 +133,40 @@ final class UsReferenceDeliveryProbe {
                 || !UsDailyWorker.displayStatus(state).contains(SECOND + " の取引分 · 判定済み")) {
             throw new AssertionError("An incomplete US screen replaced the previous result");
         }
-        screen.put("observations", rows);
-        UsDailyWorker.applyFinancialScreen(context, state, ledger, next, PROVIDER, hash, () -> false);
-        if (!next.equals(market.day(state)) || market.phase(state) != null) {
-            throw new AssertionError("US freshness did not advance after validation");
+        var test = new JSONObject();
+        var recovered = new JSONObject();
+        for (int index = 0; index < rows.length(); index++) {
+            var row = rows.getJSONObject(index);
+            if ("TEST".equals(row.getString("symbol"))) test = row;
+            if ("AAA".equals(row.getString("symbol"))) recovered = row;
         }
+        var scope = java.util.Set.of("TEST", "AAA");
+        var marketCoverage = MarketCoverage.US;
+        screen.put("observations", new JSONArray(java.util.List.of(test)));
+        UsDailyWorker.applyFinancialScreen(context, state, ledger, next, PROVIDER, hash, () -> false);
+        marketCoverage.track(state, state.edit(), MarketCoverage.build(next, next, scope, scope,
+                java.util.Set.of("TEST"), java.util.Map.of()), true).commit();
+
+        recovered.put("status", "priority").put("quantity", 100);
+        screen.put("observations", new JSONArray(java.util.List.of(test, recovered)));
+        UsDailyWorker.applyFinancialScreen(context, state, ledger, next, PROVIDER, hash, () -> false);
+        marketCoverage.track(state, state.edit(), MarketCoverage.build(next, next, scope, scope, scope,
+                java.util.Map.of()), true).commit();
+        if (!next.equals(market.day(state)) || market.phase(state) != null
+                || !marketCoverage.summary(state).contains("同日初回の判定比 +1銘柄")) {
+            throw new AssertionError("US same-day repair did not advance the verified result");
+        }
+
+        var manager = context.getSystemService(NotificationManager.class);
+        verifySilentNotice(manager, "AAA", next);
+        manager.cancelAll();
+        UsDailyWorker.applyFinancialScreen(context, state, ledger, next, PROVIDER, hash, () -> false);
+        expectQuiet(manager);
+
+        // Keep the worker-produced coverage snapshot for the independent coverage UI probe.
+        var original = UsSecFinanceWorker.coverage(scan, java.util.Set.of("TEST", "AAA"));
+        marketCoverage.save(state.edit(), original).commit();
+
     }
 
     private static void verifyResult(Context context, WorkerFactory factory, ListenableWorker.Result expected) {
@@ -208,6 +237,11 @@ final class UsReferenceDeliveryProbe {
     }
 
     private static void verifySilentNotice(NotificationManager manager) throws InterruptedException {
+        verifySilentNotice(manager, "TEST", SECOND);
+    }
+
+    private static void verifySilentNotice(NotificationManager manager, String ticker, LocalDate day)
+            throws InterruptedException {
         var channel = manager.getNotificationChannel(ScanWorker.CHANNEL);
         if (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_LOW
                 || channel.getSound() != null || channel.shouldVibrate()) {
@@ -218,8 +252,8 @@ final class UsReferenceDeliveryProbe {
                 var note = active.getNotification();
                 String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
                 String detail = note.extras.getCharSequence(Notification.EXTRA_BIG_TEXT, "").toString();
-                if (title.equals("米国株の参考条件入り 1銘柄") && detail.contains("TEST · 100株 · 優先候補")
-                        && detail.contains(SECOND.toString()) && ScanWorker.CHANNEL.equals(note.getChannelId())) {
+                if (title.equals("米国株の参考条件入り 1銘柄") && detail.contains(ticker + " · 100株 · 優先候補")
+                        && detail.contains(day.toString()) && ScanWorker.CHANNEL.equals(note.getChannelId())) {
                     return;
                 }
             }

@@ -37,6 +37,8 @@ final class JpxAutomaticFinance {
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
     private static final String RETRY_PREFIX = "retry-after-";
+    private static final String MISSING_RETRY_PREFIX = "repair-after-";
+    private static final long SAME_DAY_RECHECK = TimeUnit.HOURS.toMillis(2);
     private static final String ARCHIVE_RETRY = "archive-retry-after";
 
     record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
@@ -203,7 +205,10 @@ final class JpxAutomaticFinance {
         }
         var pending = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
-                .filter(code -> due(entries.get(code), code, through, report.date(), updates))
+                .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now)
+                .filter(code -> due(entries.get(code), code, through, report.date(), updates)
+                        || state.getLong(RETRY_PREFIX + code, Long.MAX_VALUE) <= now
+                        || state.getLong(MISSING_RETRY_PREFIX + code, Long.MAX_VALUE) <= now)
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
                         // Finish first-time coverage before routine rechecks so the one-share queue can advance.
                         .thenComparingInt(code -> entries.containsKey(code) ? 1 : 0)
@@ -243,7 +248,13 @@ final class JpxAutomaticFinance {
             try {
                 var entry = acquire(code, through, entries.get(code), sources);
                 if (stopped.getAsBoolean()) break;
-                state.edit().putString(PREFIX + code, encode(entry).toString()).remove(RETRY_PREFIX + code).apply();
+                var edit = state.edit().putString(PREFIX + code, encode(entry).toString()).remove(RETRY_PREFIX + code);
+                if (entry.annual() == null || !entry.hold().isEmpty()) {
+                    edit.putLong(MISSING_RETRY_PREFIX + code, now + SAME_DAY_RECHECK);
+                } else {
+                    edit.remove(MISSING_RETRY_PREFIX + code);
+                }
+                edit.apply();
                 entries.put(code, entry);
                 checked++;
                 consecutiveFailures = 0;
@@ -264,7 +275,8 @@ final class JpxAutomaticFinance {
             } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
                 canExtendInitial = false;
                 var entry = new Entry(through, null, "東証の決算開示を確認できなかった");
-                state.edit().putString(PREFIX + code, encode(entry).toString()).apply();
+                state.edit().putString(PREFIX + code, encode(entry).toString()).remove(RETRY_PREFIX + code)
+                        .putLong(MISSING_RETRY_PREFIX + code, now + SAME_DAY_RECHECK).apply();
                 entries.put(code, entry);
                 checked++;
             }
@@ -295,7 +307,7 @@ final class JpxAutomaticFinance {
 
     private static boolean urgent(Entry entry, String code, LocalDate day,
                                   Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
-        if (entry == null || entry.annual() == null || !entry.hold().isEmpty()) return false;
+        if (entry == null) return false;
         for (var update : updates.entrySet()) {
             if (update.getKey().isAfter(entry.checkedThrough()) && !update.getKey().isAfter(day)
                     && (update.getValue().annual().contains(code) || update.getValue().rights().contains(code))) return true;

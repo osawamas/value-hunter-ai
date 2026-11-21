@@ -289,6 +289,32 @@ public class JpxAutomaticFinanceTest {
         assertEquals(List.of("1419", CODE), checks);
     }
 
+    @Test public void retriesPendingFinancialsOnTheSameDayAfterCooldown() {
+        var prefs = preferences(new HashMap<>());
+        var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/",
+                Map.of("1419", new JpxCloseTable.Sessions(null, new BigDecimal("900")),
+                        CODE, new JpxCloseTable.Sessions(null, new BigDecimal("890"))), Set.of());
+        var good = sources(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var checks = new java.util.ArrayList<String>();
+        var now = new java.util.concurrent.atomic.AtomicLong(1L);
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                checks.add(code);
+                return "1419".equals(code) && now.get() == 1 ? null : good.archive(code);
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                return good.financial(disclosure);
+            }
+        };
+
+        JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false, now::get);
+        assertEquals(0, JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false, now::get).fetched());
+        now.addAndGet(java.util.concurrent.TimeUnit.HOURS.toMillis(2));
+        assertEquals(1, JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false, now::get).fetched());
+        assertEquals(List.of("1419", CODE, "1419"), checks);
+    }
+
     @Test public void fullListingQueueContinuesFromSavedEntriesAfterRateLimit() {
         var quotes = new HashMap<String, JpxCloseTable.Sessions>();
         for (int code = 1000; code < 4686; code++)
