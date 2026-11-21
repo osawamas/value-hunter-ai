@@ -38,20 +38,24 @@ final class NotificationHistory {
         if (history.stream().anyMatch(entry -> entry.receipt().equals(receipt))) return true;
 
         long postedAt = existingDelivery.getAsLong();
+        boolean existingWakeNeeded = postedAt <= 0;
         if (postedAt <= 0) {
             post.run();
             postedAt = now;
-            // Screen wake is optional; failure must not lose the successful post receipt.
-            try {
-                wake.run();
-            } catch (RuntimeException unavailable) {
-                // Continue to persist the posted notification for replay deduplication.
-            }
         }
 
         history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
         history.sort(Comparator.comparingLong(Entry::postedAt).reversed());
         save(file, history.subList(0, Math.min(history.size(), MAX_ENTRIES)));
+        // Persist the receipt before optional screen wake, minimizing the crash window.
+        // A wake failure must never turn a submitted notification into a retry.
+        if (existingWakeNeeded) {
+            try {
+                wake.run();
+            } catch (RuntimeException unavailable) {
+                // Posting and durable history succeeded; wake is best-effort.
+            }
+        }
         return true;
     }
 
