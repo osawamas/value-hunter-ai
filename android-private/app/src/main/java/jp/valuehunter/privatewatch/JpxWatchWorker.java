@@ -393,7 +393,7 @@ public final class JpxWatchWorker extends Worker {
             var market = ValueAlertPreview.Market.JPX;
             var rows = comparison.meterRows(screen, finance, rights);
             var expected = market.expectedPrior(date);
-            JSONObject priorRows = comparison.previous() != null && expected.equals(comparison.previous().date())
+            JSONObject priorRows = comparison.previous() != null && comparison.previous().date().equals(expected)
                     ? comparison.previousMeterRows(screen, finance, rights) : null;
             ValueAlertPreview.save(state, edit, market, date, "JPX", rows, priorRows);
             var prior = priorRows == null ? null : ValueAlertPreview.session(expected, "JPX", priorRows);

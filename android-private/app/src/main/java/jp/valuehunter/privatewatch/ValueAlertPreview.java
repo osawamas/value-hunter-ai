@@ -52,7 +52,7 @@ final class ValueAlertPreview {
     static Map<String, Entry> entries(SharedPreferences state, Market market, LocalDate day, String source,
                                       JSONObject rows, Session prior, Set<String> sent,
                                       Function<String, String> verifiedCode) throws JSONException {
-        if (prior == null || !source.equals(prior.source()) || !market.expectedPrior(day).equals(prior.day())) {
+        if (prior == null || !source.equals(prior.source()) || !prior.day().equals(market.expectedPrior(day))) {
             return Map.of();
         }
         var current = session(day, source, rows);
@@ -121,7 +121,8 @@ final class ValueAlertPreview {
             }
         }
         if (verifiedPriorRows != null) {
-            saved.put("previous", snapshot(market.expectedPrior(day), source, verifiedPriorRows));
+            var priorDay = market.expectedPrior(day);
+            if (priorDay != null) saved.put("previous", snapshot(priorDay, source, verifiedPriorRows));
         }
         edit.putString(market.key, saved.put("latest", version).toString());
     }
