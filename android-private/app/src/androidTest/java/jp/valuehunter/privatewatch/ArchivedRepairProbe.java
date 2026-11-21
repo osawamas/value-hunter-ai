@@ -117,6 +117,7 @@ final class ArchivedRepairProbe {
     }
 
     private static void initialize(Context context) throws Exception {
+        require(MarketNetwork.setAllowed(context, false), "Could not stop live work before the archive fixture");
         WorkManager.getInstance(context).cancelAllWork().getResult().get(10, TimeUnit.SECONDS);
         WorkManagerTestInitHelper.initializeTestWorkManager(context,
                 new Configuration.Builder().setExecutor(new SynchronousExecutor()).build());
@@ -144,7 +145,10 @@ final class ArchivedRepairProbe {
     private static void verifyClose(Context context, WorkerFactory factory, ListenableWorker.Result result) {
         var worker = TestWorkerBuilder.from(context, UsDailyWorker.class, new SynchronousExecutor())
                 .setWorkerFactory(factory).setInputData(UsDailyWorker.archiveRecheckData(DAY)).build();
-        require(result.equals(worker.doWork()), "Unexpected archived close retry result");
+        var actual = worker.doWork();
+        require(result.equals(actual), "Unexpected archived close retry result: expected " + result + ", received "
+                + actual + " · " + DiagnosticLog.route() + " · coverage day "
+                + MarketCoverage.US.day(ScanWorker.prefs(context)));
     }
 
     private static void verifyFinance(Context context, AtomicInteger missing, AtomicInteger stable) {

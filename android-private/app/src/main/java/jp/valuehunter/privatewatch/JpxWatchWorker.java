@@ -218,7 +218,7 @@ public final class JpxWatchWorker extends Worker {
         try {
             synchronized (STATE_LOCK) {
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
-                Result waiting = deliverPending(context, state, pendingAlerts(state));
+                Result waiting = deliverPending(context, state, pendingAlerts(state), expected);
                 if (waiting != null) return waiting;
             }
             var evidence = rights.apply(context);
@@ -278,6 +278,8 @@ public final class JpxWatchWorker extends Worker {
                 }
                 var alerted = date.equals(last)
                         ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
+                long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
+                long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
                 boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, false);
                 var added = notifyEnabled && !useMeter ? pending(baseline, last, date, screen.entered(), ValueAlertPreview.previouslyNotified(alerted))
@@ -336,7 +338,7 @@ public final class JpxWatchWorker extends Worker {
                 }
                 var meterRows = saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 var pending = pendingAlerts(state);
-                queueAlerts(pending, date, added, budgetAdded, rapidAdded);
+                queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
                 if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meterRows != null) {
                     var held = screen.holds().stream().map(JpxDailyCheck.Held::code).collect(Collectors.toSet());
                     try {
@@ -347,7 +349,8 @@ public final class JpxWatchWorker extends Worker {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
                             for (var entry : entries.values()) detail.append("\n").append(entry.summary());
                             queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
-                                    detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった");
+                                    detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった",
+                                    alertGeneration, financialGeneration);
                         }
                     } catch (JSONException invalid) {
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度を比較できず");
@@ -362,7 +365,7 @@ public final class JpxWatchWorker extends Worker {
                         getInputData().getBoolean(FINANCE_PASS, false),
                         getInputData().getBoolean(PERIODIC_FINANCE, false), finance);
                 if (nextFinance > 0) scheduleFinance(WorkManager.getInstance(context), nextFinance);
-                Result waiting = deliverPending(context, state, pending);
+                Result waiting = deliverPending(context, state, pending, expected);
                 if (waiting != null) return waiting;
                 if (pending.length() == 0 && !state.edit().putString(PROCESSED, processed).commit()) {
                     return Result.retry();
@@ -405,7 +408,8 @@ public final class JpxWatchWorker extends Worker {
         }
     }
 
-    private Result deliverPending(Context context, SharedPreferences state, JSONArray pending) throws IOException {
+    private Result deliverPending(Context context, SharedPreferences state, JSONArray pending, LocalDate expected)
+            throws IOException {
         if (networkStopped()) return paused();
         if (pending.length() == 0) return null;
         if (!ScanWorker.notificationsRequested(context)) {
@@ -413,12 +417,22 @@ public final class JpxWatchWorker extends Worker {
             while (pending.length() > 0) pending.remove(pending.length() - 1);
             return null;
         }
-        if (!ScanWorker.alertsEnabled(context)) return null;
         try {
             while (pending.length() > 0) {
                 if (networkStopped()) return paused();
                 var alert = pending.getJSONObject(0);
-                if (!alerts.post(context, alert.getInt("id"), alert.getString("title"), alert.getString("detail"))) {
+                int id = alert.getInt("id");
+                var day = dateOrNull(alert.getString("day"));
+                if (day == null || (expected != null && day.isBefore(expected))
+                        || alert.optLong("alertGeneration", 0) != state.getLong(ScanWorker.ALERT_GENERATION, 0)
+                        || (id == NOTIFICATION_ID && alert.optLong("financialGeneration", 0)
+                        != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0))) {
+                    pending.remove(0);
+                    if (!state.edit().putString(PENDING, pending.toString()).commit()) return Result.retry();
+                    continue;
+                }
+                if (!ScanWorker.alertsEnabled(context)) return null;
+                if (!alerts.post(context, id, alert.getString("title"), alert.getString("detail"))) {
                     return networkStopped() ? paused() : retryReport(state, alert.getString("error"));
                 }
                 var sent = new HashSet<>(state.getStringSet(ALERTED, Set.of()));
@@ -441,13 +455,14 @@ public final class JpxWatchWorker extends Worker {
     private static void queueAlerts(JSONArray pending, LocalDate day,
                                     List<JpxDailyCheck.Candidate> added,
                                     List<PriceOnlyScreen.BudgetEntry> budget,
-                                    List<PriceOnlyScreen.RapidMove> rapid) {
+                                    List<PriceOnlyScreen.RapidMove> rapid,
+                                    long alertGeneration, long financialGeneration) {
         if (!added.isEmpty()) {
             var detail = new StringBuilder(day + "の終値（参考）");
             for (var entry : added) detail.append("\n").append(entry.summary());
             queueAlert(pending, day, NOTIFICATION_ID, "東証日報で参考条件入り " + added.size() + "銘柄",
                     detail, added.stream().map(JpxDailyCheck.Candidate::code).collect(Collectors.toList()),
-                    "無音通知を送信できなかった");
+                    "無音通知を送信できなかった", alertGeneration, financialGeneration);
         }
         if (!budget.isEmpty()) {
             var detail = new StringBuilder(day + "の終値で100株の購入額を計算（手数料別）");
@@ -458,7 +473,7 @@ public final class JpxWatchWorker extends Worker {
             queueAlert(pending, day, PRICE_NOTIFICATION_ID,
                     "東証・参考 100株10万円以下に入った " + budget.size() + "銘柄", detail,
                     budget.stream().map(entry -> PRICE_ALERT_PREFIX + entry.code()).collect(Collectors.toList()),
-                    "予算入りの無音通知を送信できなかった");
+                    "予算入りの無音通知を送信できなかった", alertGeneration, financialGeneration);
         }
         if (!rapid.isEmpty()) {
             var detail = new StringBuilder(day + "の東証終値 · 分割・併合・配当落ち等を除外");
@@ -468,14 +483,16 @@ public final class JpxWatchWorker extends Worker {
             }
             queueAlert(pending, day, RAPID_NOTIFICATION_ID, "東証・参考 株価急変 " + rapid.size() + "銘柄",
                     detail, rapid.stream().map(entry -> RAPID_ALERT_PREFIX + entry.code()).collect(Collectors.toList()),
-                    "急変の無音通知を送信できなかった");
+                    "急変の無音通知を送信できなかった", alertGeneration, financialGeneration);
         }
     }
 
     private static void queueAlert(JSONArray pending, LocalDate day, int id, String title,
-                                   StringBuilder detail, List<String> codes, String error) {
+                                   StringBuilder detail, List<String> codes, String error,
+                                   long alertGeneration, long financialGeneration) {
         pending.put(new JSONObject(java.util.Map.of("day", day.toString(), "id", id, "title", title,
-                "detail", detail.toString(), "codes", new JSONArray(codes), "error", error)));
+                "detail", detail.toString(), "codes", new JSONArray(codes), "error", error,
+                "alertGeneration", alertGeneration, "financialGeneration", financialGeneration)));
     }
 
     private MarketFreshness.Phase failedPhase() {

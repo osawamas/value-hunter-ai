@@ -68,6 +68,8 @@ public final class UsDailyWorker extends Worker {
     private static final String REPAIR_METRICS_DAY = "us_listing_repair_metrics_day";
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
+    private static final String PENDING_ALERT_GENERATION = "us_private_pending_alert_generation";
+    private static final String PENDING_FINANCIAL_GENERATION = "us_private_pending_financial_generation";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
     static final String PRICE_ONLY_STATUS = "us_price_only_status";
@@ -457,8 +459,17 @@ public final class UsDailyWorker extends Worker {
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
-            if (alertsRequested && !pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
-                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending)) return;
+            long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
+            long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
+            if (!pending.isEmpty() && (!sameDay || !alertsRequested
+                    || !pending.startsWith(day + "の終値（参考）\n", pending.indexOf('\n') + 1)
+                    || state.getLong(PENDING_ALERT_GENERATION, 0) != alertGeneration
+                    || state.getLong(PENDING_FINANCIAL_GENERATION, 0) != financialGeneration)) {
+                if (!state.edit().remove(PRIVATE_PENDING).commit()) return;
+                pending = "";
+            }
+            if (!pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
+                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration)) return;
                 pending = "";
             }
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
@@ -494,7 +505,9 @@ public final class UsDailyWorker extends Worker {
                             new String[]{"provider", "close_sha256", "fx_date", "observations"}));
             if (!alertsRequested || !pending.contains("\n")) pending = "";
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
+                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status)
+                    .putLong(PENDING_ALERT_GENERATION, alertGeneration)
+                    .putLong(PENDING_FINANCIAL_GENERATION, financialGeneration);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
             if (meter != null) {
                 try {
@@ -507,7 +520,7 @@ public final class UsDailyWorker extends Worker {
             MarketFreshness.US_FINANCE.waiting(update, null, day);
             if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
             if (!pending.isEmpty() && !stopped.getAsBoolean()) {
-                if (!deliverFinancialAlert(context, state, pending) && !stopped.getAsBoolean()) {
+                if (!deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration) && !stopped.getAsBoolean()) {
                     state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
                 }
             }
@@ -517,9 +530,16 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
-    private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending) {
+    static boolean hasPendingFinancialAlert(SharedPreferences state) {
+        return !state.getString(PRIVATE_PENDING, "").isEmpty();
+    }
+
+    private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending,
+                                                  long alertGeneration, long financialGeneration) {
         int separator = pending.indexOf('\n');
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
+                || alertGeneration != state.getLong(ScanWorker.ALERT_GENERATION, 0)
+                || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)
                 || ScanWorker.postNotification(context, US_NOTIFICATION_ID,
                         pending.substring(0, separator), pending.substring(separator + 1))) {
             return state.edit().remove(PRIVATE_PENDING).commit();

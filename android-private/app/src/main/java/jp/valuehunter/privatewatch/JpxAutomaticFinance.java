@@ -274,7 +274,7 @@ final class JpxAutomaticFinance {
                 if (++consecutiveFailures >= 3) break;
             } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
                 canExtendInitial = false;
-                var entry = new Entry(through, null, "東証の決算開示を確認できなかった");
+                var entry = held(through, entries.get(code), "東証の決算開示を確認できなかった");
                 state.edit().putString(PREFIX + code, encode(entry).toString()).remove(RETRY_PREFIX + code)
                         .putLong(MISSING_RETRY_PREFIX + code, now + SAME_DAY_RECHECK).apply();
                 entries.put(code, entry);
@@ -328,26 +328,26 @@ final class JpxAutomaticFinance {
             return fromPublicFiling(code, through, old, sources);
         } catch (JpxIssuerArchive.HttpFailure missing) {
             if (missing.status != 404 && missing.status != 410) throw missing;
-            return new Entry(through, null, "公開の通期決算を取得できなかった");
+            return held(through, old, "公開の通期決算を取得できなかった");
         }
     }
 
     private static Entry fromPublicFiling(String code, LocalDate through, Entry old, Sources sources) throws IOException {
         var page = sources.archive(code);
-        if (page == null) return new Entry(through, null, "東証の決算開示一覧を確認できなかった");
+        if (page == null) return held(through, old, "東証の決算開示一覧を確認できなかった");
         LocalDate followingDay = through.plusDays(1);
         var filing = page.annualOn(followingDay);
-        if (filing == null) return new Entry(through, null, "通期決算の開示を特定できなかった");
+        if (filing == null) return held(through, old, "通期決算の開示を特定できなかった");
         if (filing.annualLink() == null) {
             String reason = filing.corrected() ? "訂正版のiXBRLなし" : "通期資料のiXBRLなし";
-            return new Entry(through, null, reason);
+            return held(through, old, reason);
         }
         String source = filing.annualLink().toString();
         var annual = old != null && old.annual() != null && source.equals(old.annual().source())
                 && filing.day().equals(old.annual().released()) ? old.annual()
                 : JpxAnnualSummary.read(sources.financial(filing), code, filing.day(), source, filing.corrected());
         if (annual == null || !annual.usable(followingDay)
-                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return new Entry(through, null, "通期EPS・BPSを照合できなかった");
+                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return held(through, old, "通期EPS・BPSを照合できなかった");
         JpxAnnualSummary.Annual previous = null;
         if (old != null) {
             // A session must only be valued with a filing that was already public.
@@ -360,6 +360,11 @@ final class JpxAutomaticFinance {
         if (previous != null) previous = withShareBasis(code, page, previous, sources);
         return resolved == null ? new Entry(through, annual, "株式分割・併合等の開示を確認中", previous)
                 : new Entry(through, resolved, "", previous);
+    }
+
+    private static Entry held(LocalDate through, Entry old, String reason) {
+        var previous = old == null ? null : old.annual() != null ? old.annual() : old.previousAnnual();
+        return new Entry(through, null, reason, previous);
     }
 
     private static JpxAnnualSummary.Annual withShareBasis(String code, JpxIssuerArchive.Page page,

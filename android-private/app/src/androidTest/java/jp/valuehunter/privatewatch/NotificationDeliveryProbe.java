@@ -184,7 +184,10 @@ final class NotificationDeliveryProbe {
                     "The missing-close group did not show its ticker");
             return "MARKET_WIFI_RECOVERY_OK";
         } finally {
+            // Leave the next instrumentation process offline until its test scheduler is installed.
+            require(MarketNetwork.setAllowed(context, false), "Could not isolate the next market probe");
             shell(instrumentation, "svc wifi enable");
+            shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
@@ -192,12 +195,24 @@ final class NotificationDeliveryProbe {
 
     private static void changeWifi(Instrumentation instrumentation, boolean connected) {
         try {
-            shell(instrumentation, connected ? "svc wifi enable" : "svc wifi disable");
+            if (connected) {
+                shell(instrumentation, "svc wifi enable");
+                if (!await(MarketNetwork::allowed, 10_000)) {
+                    // Some emulator images prefer their cellular transport after reconnecting.
+                    // Force route selection for the fixture, then require the normal Wi-Fi gate to open.
+                    shell(instrumentation, "svc data disable");
+                }
+                require(await(MarketNetwork::allowed, 40_000),
+                        "Wi-Fi connection did not enable the market path: "
+                                + wifiDiagnostics(instrumentation.getTargetContext()));
+            } else {
+                shell(instrumentation, "svc data enable");
+                shell(instrumentation, "svc wifi disable");
+                require(await(MarketNetwork::waitingForWifi, 40_000), "Recovery probe did not lose Wi-Fi");
+            }
         } catch (IOException error) {
             throw new AssertionError("Cannot toggle Wi-Fi in the recovery probe", error);
         }
-        require(await(connected ? MarketNetwork::allowed : MarketNetwork::waitingForWifi, 40_000),
-                connected ? "Recovery probe did not restore Wi-Fi" : "Recovery probe did not lose Wi-Fi");
     }
 
     private static void exerciseWifiOnly(Instrumentation instrumentation, PowerManager power) throws Exception {
@@ -223,15 +238,10 @@ final class NotificationDeliveryProbe {
             require(await(MarketNetwork::waitingForWifi, 25_000), "App did not wait while Wi-Fi was disabled");
             requireBlocked();
 
-            shell(instrumentation, "svc wifi enable");
-            // On API 35 the emulator may report Wi-Fi enabled before its default route is ready.
-            // Do not relax the production Wi-Fi-only gate: require a real eligible route.
-            require(await(MarketNetwork::allowed, 60_000),
-                    "Wi-Fi connection did not enable the market path: " + wifiDiagnostics(context));
+            changeWifi(instrumentation, true);
             var bound = MarketNetwork.open(new URL("https://127.0.0.1:1/"));
             try {
-                shell(instrumentation, "svc wifi disable");
-                require(await(MarketNetwork::waitingForWifi, 25_000), "Wi-Fi loss did not close the gate");
+                changeWifi(instrumentation, false);
                 requireBlocked();
                 try {
                     MarketNetwork.response(bound);
@@ -244,8 +254,7 @@ final class NotificationDeliveryProbe {
                 MarketNetwork.close(bound);
             }
 
-            shell(instrumentation, "svc wifi enable");
-            require(await(MarketNetwork::allowed, 25_000), "Market traffic did not resume after Wi-Fi returned");
+            changeWifi(instrumentation, true);
             require(!androidx.work.WorkManager.getInstance(context)
                             .getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS).isEmpty(),
                     "Restoring Wi-Fi did not queue the US update");
@@ -257,6 +266,7 @@ final class NotificationDeliveryProbe {
             require(MarketNetwork.wifiOnly() && !MarketNetwork.requested(), "OFF did not keep the Wi-Fi preference");
         } finally {
             shell(instrumentation, "svc wifi enable");
+            shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
@@ -312,8 +322,8 @@ final class NotificationDeliveryProbe {
         var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         try {
-            require(await(() -> findDialogText(instrumentation, "通信量について") != null),
-                    "First-open communication notice was not visible");
+            require(await(() -> findDialogText(instrumentation, "通信量について") != null, 12_000),
+                    "First-open communication notice was not visible for " + choice);
             require(await(() -> findDialogText(instrumentation, "従量制のモバイル回線") != null
                     && findDialogText(instrumentation, "データ無制限") != null),
                     "The warning did not describe affected plans and recommended networks");
@@ -472,6 +482,12 @@ final class NotificationDeliveryProbe {
             var retry = ValueAlertPreview.entries(state, market, today, "JPX", current, qualified.keySet(),
                     code -> !code.equals("4444"));
             require(retry.isEmpty(), "Same-day retry lowered or duplicated a delivered tier");
+            var corrupted = new org.json.JSONObject().put("latest", new org.json.JSONObject().put("day", "unknown"));
+            require(state.edit().putString(market.key, corrupted.toString()).commit(), "Cannot write damaged meter metadata");
+            edit = state.edit();
+            ValueAlertPreview.save(state, edit, market, today, "JPX", current);
+            require(edit.commit() && today.equals(ValueAlertPreview.history(state, market).latest().day()),
+                    "Valid meter evidence did not recover from damaged metadata");
         } catch (org.json.JSONException invalid) {
             throw new AssertionError(invalid);
         }

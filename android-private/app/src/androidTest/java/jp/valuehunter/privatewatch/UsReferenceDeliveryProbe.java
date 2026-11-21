@@ -110,6 +110,7 @@ final class UsReferenceDeliveryProbe {
             }
             if (wifi) {
                 verifyMeterDelivery(context, notifications);
+                verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
             }
         } finally {
@@ -140,6 +141,31 @@ final class UsReferenceDeliveryProbe {
         notifications.cancelAll();
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
+    }
+
+    private static void verifyOutdatedNotificationIgnored(Context context, NotificationManager notifications) throws Exception {
+        var state = context.getSharedPreferences("us-stale-alert-probe", Context.MODE_PRIVATE);
+        String hash = "a".repeat(64);
+        String old = "古いテスト通知\n" + FIRST + "の終値（参考）\n過去の条件";
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Cannot prepare stale alert settings");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 50), FIRST, PROVIDER, hash, () -> false);
+        if (!state.edit().putString("us_private_sec_pending", old).commit()) {
+            throw new AssertionError("Cannot save old delivery fixture");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(SECOND, hash, 50), SECOND, PROVIDER, hash, () -> false);
+        expectQuiet(notifications);
+        if (UsDailyWorker.hasPendingFinancialAlert(state)) throw new AssertionError("Old trading day stayed queued");
+        ScanWorker.setNotificationsRequested(state, false);
+        ScanWorker.setNotificationsRequested(state, true);
+        String muted = "オフにする前の通知\n" + SECOND + "の終値（参考）\n過去の条件";
+        if (!state.edit().putString("us_private_sec_pending", muted).commit()) {
+            throw new AssertionError("Cannot save old settings fixture");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(SECOND, hash, 50), SECOND, PROVIDER, hash, () -> false);
+        expectQuiet(notifications);
+        if (UsDailyWorker.hasPendingFinancialAlert(state)) throw new AssertionError("Muted alert stayed queued");
     }
 
     private static JSONObject meterLedger(LocalDate day, String hash, int score) throws Exception {

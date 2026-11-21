@@ -96,9 +96,15 @@ final class ValueAlertPreview {
         var latest = saved.optJSONObject("latest");
         var version = new JSONObject().put("day", day.toString()).put("source", source).put("rows", rows);
         if (latest != null) {
-            String oldDay = latest.optString("day");
-            if (oldDay.compareTo(day.toString()) > 0) return;
-            if (oldDay.compareTo(day.toString()) < 0) saved.put("previous", latest);
+            try {
+                LocalDate oldDay = LocalDate.parse(latest.getString("day"));
+                if (latest.getString("source").isBlank()) throw new JSONException("Missing meter source");
+                latest.getJSONObject("rows");
+                if (oldDay.isAfter(day)) return;
+                if (oldDay.isBefore(day)) saved.put("previous", latest);
+            } catch (JSONException | java.time.DateTimeException invalid) {
+                // Replace invalid metadata while retaining any separately stored previous session.
+            }
         }
         edit.putString(market.key, saved.put("latest", version).toString());
     }

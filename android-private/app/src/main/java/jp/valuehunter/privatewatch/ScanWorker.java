@@ -203,6 +203,16 @@ public final class ScanWorker extends Worker {
         return postNotification(context, TEST_NOTIFICATION_ID, "VALUE HUNTER AI 無音通知テスト", "無音通知と画面点灯のテスト");
     }
 
+    static final String ALERT_GENERATION = "public_alert_generation";
+    static final String FINANCIAL_ALERT_GENERATION = "public_financial_alert_generation";
+
+    static void setNotificationsRequested(android.content.SharedPreferences state, boolean enabled) {
+        if (state.getBoolean(NOTIFICATIONS_ENABLED, true) == enabled) return;
+        var edit = state.edit().putBoolean(NOTIFICATIONS_ENABLED, enabled);
+        if (!enabled) edit.putLong(ALERT_GENERATION, state.getLong(ALERT_GENERATION, 0) + 1);
+        edit.apply();
+    }
+
     static boolean notificationsRequested(Context context) {
         return prefs(context).getBoolean(NOTIFICATIONS_ENABLED, true);
     }
