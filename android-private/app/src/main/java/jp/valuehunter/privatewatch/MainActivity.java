@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -115,6 +117,9 @@ public final class MainActivity extends Activity {
         networkSwitch.setOnClickListener(view -> applyMarketNetworkPreference(networkSwitch.isChecked()));
         wifiSwitch.setOnClickListener(view -> {
             communicationPreferenceSaved = MarketNetwork.setWifiOnly(this, wifiSwitch.isChecked());
+            DiagnosticLog.record(this, DiagnosticLog.Area.NETWORK,
+                    "Wi-Fi限定の設定" + (communicationPreferenceSaved ? "を変更" : "を保存できず")
+                            + " · " + DiagnosticLog.route());
             // Replace saved jobs so their network constraint matches the selected mode.
             androidx.work.WorkManager.getInstance(this).cancelAllWork();
             scheduleMarketChecks();
@@ -125,12 +130,16 @@ public final class MainActivity extends Activity {
         var notifications = section(content, SURFACE, true);
         label(notifications, "通知", 19, INK, true, 0);
         var notificationSwitch = optionSwitch(notifications, "無音通知", ScanWorker.notificationsRequested(this));
-        notificationSwitch.setOnCheckedChangeListener((view, checked) ->
-                state.edit().putBoolean(ScanWorker.NOTIFICATIONS_ENABLED, checked).apply());
+        notificationSwitch.setOnCheckedChangeListener((view, checked) -> {
+            state.edit().putBoolean(ScanWorker.NOTIFICATIONS_ENABLED, checked).apply();
+            DiagnosticLog.record(this, DiagnosticLog.Area.ALERT, checked ? "設定で通知オン" : "設定で通知オフ");
+        });
         var wakeScreen = optionSwitch(notifications, "通知時に画面を点灯",
                 state.getBoolean(NotificationScreenWake.ENABLED, true));
-        wakeScreen.setOnCheckedChangeListener((view, checked) ->
-                state.edit().putBoolean(NotificationScreenWake.ENABLED, checked).apply());
+        wakeScreen.setOnCheckedChangeListener((view, checked) -> {
+            state.edit().putBoolean(NotificationScreenWake.ENABLED, checked).apply();
+            DiagnosticLog.record(this, DiagnosticLog.Area.WAKE, checked ? "設定で点灯オン" : "設定で点灯オフ");
+        });
         notificationStatus = label(notifications, "", 13, MUTED, false, 5);
         notificationButton = button(notifications, "", PAGE, 7);
         notificationButton.setOnClickListener(view -> {
@@ -154,6 +163,7 @@ public final class MainActivity extends Activity {
                 .setOnClickListener(view -> showNotificationHistory());
         button(notifications, "割安アラートの境界", PAGE, 5)
                 .setOnClickListener(view -> showValueAlertMeter());
+        button(notifications, "診断ログ", PAGE, 5).setOnClickListener(view -> showDiagnostics());
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
@@ -224,6 +234,9 @@ public final class MainActivity extends Activity {
 
     private void applyMarketNetworkPreference(boolean allowed) {
         communicationPreferenceSaved = MarketNetwork.setAllowed(this, allowed);
+        DiagnosticLog.record(this, DiagnosticLog.Area.NETWORK,
+                "相場通信の設定" + (communicationPreferenceSaved ? "を変更" : "を保存できず")
+                        + " · " + DiagnosticLog.route());
         if (MarketNetwork.requested()) {
             scheduleMarketChecks();
         } else {
@@ -495,6 +508,27 @@ public final class MainActivity extends Activity {
             });
         });
         dialog.show();
+    }
+
+    private void showDiagnostics() {
+        var report = DiagnosticLog.report(this);
+        var scroll = new ScrollView(this);
+        var text = new TextView(this);
+        text.setPadding(dp(20), dp(10), dp(20), dp(12));
+        text.setTextColor(INK);
+        text.setTextSize(13);
+        text.setTextIsSelectable(true);
+        text.setText(report);
+        scroll.addView(text);
+        new AlertDialog.Builder(this).setTitle("診断ログ").setView(scroll)
+                .setNegativeButton("閉じる", null)
+                .setPositiveButton("診断ログをコピー", (dialog, which) -> {
+                    var clipboard = getSystemService(ClipboardManager.class);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("VALUE HUNTER AI 診断ログ", DiagnosticLog.report(this)));
+                        Toast.makeText(this, "診断ログをコピーした", Toast.LENGTH_SHORT).show();
+                    }
+                }).show();
     }
 
     private void showNotificationHistory() {

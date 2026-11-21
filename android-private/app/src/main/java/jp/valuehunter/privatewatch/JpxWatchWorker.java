@@ -125,6 +125,7 @@ public final class JpxWatchWorker extends Worker {
                 var request = new PeriodicWorkRequest.Builder(JpxWatchWorker.class, 6, TimeUnit.HOURS)
                         .setConstraints(connected()).build();
                 work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+                DiagnosticLog.requested(context, DiagnosticLog.Area.JPX, "日報・財務の定期更新");
                 scheduleFinance(work, 0);
             } else {
                 var reset = state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
@@ -149,6 +150,7 @@ public final class JpxWatchWorker extends Worker {
             var request = new OneTimeWorkRequest.Builder(JpxWatchWorker.class)
                     .setConstraints(connected()).setInputData(financePass()).build();
             WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP, request);
+            DiagnosticLog.requested(context, DiagnosticLog.Area.JPX, "追加の更新");
             return true;
         }
     }
@@ -188,6 +190,11 @@ public final class JpxWatchWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
+        var area = DiagnosticLog.Area.JPX;
+        return DiagnosticLog.work(getApplicationContext(), area, getRunAttemptCount(), this::runUpdate);
+    }
+
+    private Result runUpdate() {
         synchronized (CHECK_LOCK) {
             networkGeneration = MarketNetwork.generation();
             if (networkStopped()) return paused();
@@ -282,6 +289,10 @@ public final class JpxWatchWorker extends Worker {
                 var rapid = rapidCandidates(comparison, screen, finance, exclusions);
                 var rapidAdded = notifyEnabled ? pendingRapid(baseline, last, date, rapid, alerted)
                         : List.<PriceOnlyScreen.RapidMove>of();
+                DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の条件入り: 財務 "
+                        + screen.entered().size() + "件・予算 " + priceOnly.entered().size() + "件・急変 "
+                        + rapid.size() + "件 · 通知待ち " + (added.size() + budgetAdded.size() + rapidAdded.size())
+                        + "件" + (notifyEnabled ? "" : " · " + ScanWorker.alertBlockReason(context)));
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
@@ -458,6 +469,8 @@ public final class JpxWatchWorker extends Worker {
 
     private Result retryReport(SharedPreferences state, String message, MarketFreshness.Phase phase, LocalDate target) {
         boolean retry = getRunAttemptCount() < 2;
+        DiagnosticLog.record(getApplicationContext(), DiagnosticLog.Area.JPX,
+                phase == null ? "日報の確認を保留" : "更新保留: " + phase.label);
         var edit = recordCheck(state.edit(), retry ? message + " · 再試行を予約した" : message);
         if (phase != null) MarketFreshness.JPX.waiting(edit, phase, target);
         edit.apply();
