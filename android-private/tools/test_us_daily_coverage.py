@@ -96,25 +96,25 @@ class DailyCoverageTest(unittest.TestCase):
             snapshot = root / "2026-11-16"
             snapshot.mkdir()
             (snapshot / "nasdaqlisted.txt").write_text(
-                "Symbol|Security Name|Test Issue|ETF|NextShares\\n"
-                "AAPL|Common Stock|N|N|N\\nFile Creation Time: 1116202612:00||||\\n"
+                "Symbol|Security Name|Test Issue|ETF|NextShares\n"
+                "AAPL|Common Stock|N|N|N\nFile Creation Time: 1116202612:00||||\n"
             )
             (snapshot / "otherlisted.txt").write_text(
-                "ACT Symbol|Security Name|Exchange|Test Issue|ETF\\n"
-                "BIO.B|Common Stock|N|N|N\\nFile Creation Time: 1116202612:00||||\\n"
+                "ACT Symbol|Security Name|Exchange|Test Issue|ETF\n"
+                "BIO.B|Common Stock|N|N|N\nFile Creation Time: 1116202612:00||||\n"
             )
             current = root / "2026-11-17"
             current.mkdir()
             (current / "nasdaqlisted.txt").write_text(
-                "Symbol|Security Name|Test Issue|ETF|NextShares\\n"
-                "AAPL|Common Stock|N|N|N\\nFile Creation Time: 1117202612:00||||\\n"
+                "Symbol|Security Name|Test Issue|ETF|NextShares\n"
+                "AAPL|Common Stock|N|N|N\nFile Creation Time: 1117202612:00||||\n"
             )
             (current / "otherlisted.txt").write_text(
-                "ACT Symbol|Security Name|Exchange|Test Issue|ETF\\n"
-                "BIO.B|Common Stock|N|N|N\\nFile Creation Time: 1117202612:00||||\\n"
+                "ACT Symbol|Security Name|Exchange|Test Issue|ETF\n"
+                "BIO.B|Common Stock|N|N|N\nFile Creation Time: 1117202612:00||||\n"
             )
             report = snapshot / "dolt-coverage.json"
-            report.write_bytes(b'{"verified_previous": true}\\n')
+            report.write_bytes(b'{"verified_previous": true}\n')
             for failure in ("cached_after_timeout", "cached_after_rate_limit", "cached_after_os_error"):
                 with self.subTest(failure=failure):
                     sync.return_value = failure
@@ -122,7 +122,7 @@ class DailyCoverageTest(unittest.TestCase):
                     self.assertEqual("dolt_stale_cache", outcome["status"])
                     self.assertEqual(["2026-11-16"], outcome["pending_sessions"])
                     self.assertEqual([], outcome["sessions"])
-                    self.assertEqual(b'{"verified_previous": true}\\n', report.read_bytes())
+                    self.assertEqual(b'{"verified_previous": true}\n', report.read_bytes())
             prices.assert_not_called()
 
     def test_reports_symbol_changes_even_with_unchanged_market_totals(self):
