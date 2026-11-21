@@ -163,6 +163,28 @@ public class NotificationHistoryTest {
         assertEquals(NOW - 1000, entries.get(0).postedAt());
         assertEquals("新しい", entries.get(0).title());
     }
+    @Test public void fullHistoryKeepsNewReceiptAfterClockRollback() throws Exception {
+        var file = history();
+        var rows = new org.json.JSONArray();
+        for (int i = 0; i < 256; i++) {
+            rows.put(new org.json.JSONObject().put("receipt", "old-" + i)
+                    .put("at", NOW - 256 + i)
+                    .put("title", "旧候補").put("detail", "保存済み"));
+        }
+        Files.write(file.toPath(), rows.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var posts = new AtomicInteger();
+        // Simulate a newly submitted alert with an earlier system clock than stored receipts.
+        assertTrue(NotificationHistory.deliver(file, "new-after-rollback", "新候補", "1001",
+                NOW - 1000, () -> 0, posts::incrementAndGet, () -> {}));
+        assertEquals(1, posts.get());
+        assertEquals(256, NotificationHistory.recent(file, NOW).size());
+        assertTrue(NotificationHistory.recent(file, NOW).stream()
+                .anyMatch(entry -> entry.receipt().equals("new-after-rollback")));
+        assertTrue(NotificationHistory.deliver(file, "new-after-rollback", "新候補", "1001",
+                NOW, () -> 0, UNEXPECTED, UNEXPECTED));
+        assertEquals(1, posts.get());
+    }
+
     @Test public void durableReceiptExistsBeforeOptionalWakeAndSurvivesWakeFailure() throws Exception {
         var file = history();
         var posts = new AtomicInteger();
