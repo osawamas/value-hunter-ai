@@ -131,6 +131,7 @@ public final class UsSecFinanceWorker extends Worker {
             attemptedDay = day;
             var provider = quote.getString("source");
             var prices = UsDeviceFinancials.prices(quote.getJSONArray("closes"));
+            var verifiedListings = UsListingHistory.verifiedSupplementSymbols(directory, day);
             var scan = resume(checkpoint);
             if (scan == null || !hash.equals(scan.optString("hash"))) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
@@ -150,13 +151,13 @@ public final class UsSecFinanceWorker extends Worker {
                         .put("supplement_recheck", true);
                 saveCoverageScope(scan, scope);
                 if (targets.length() == 0) {
-                    publishCoverage(preferences, closeFile, scan, prices.keySet());
+                    publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
                     throw new IOException("No listed issuers matched the SEC directory");
                 }
                 int reused = scan.getInt("reused");
                 updateProgress(day, 0, scan.getJSONArray("targets").length(), reused, reused);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
-                publishCoverage(preferences, closeFile, scan, prices.keySet());
+                publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
             } else if (!scan.has("coverage_listing_date")) {
                 // Add a dated scope to a checkpoint created before coverage was available.
                 saveCoverageScope(scan, UsListingHistory.retainedScope(directory, day));
@@ -201,7 +202,7 @@ public final class UsSecFinanceWorker extends Worker {
                 } finally {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
                     updateProgress(day, position, targets.length(), results.length(), reused);
-                    publishCoverage(preferences, closeFile, scan, prices.keySet());
+                    publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
                 }
                 if (networkStopped()) return paused();
                 if (position < targets.length()) {
@@ -245,7 +246,7 @@ public final class UsSecFinanceWorker extends Worker {
                     if (!networkStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
                 }
-                publishCoverage(preferences, closeFile, scan, prices.keySet());
+                publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
                 UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::networkStopped);
                 if (!networkStopped()) {
                     if (!applyBudget(context, preferences, day, budget)) return networkStopped() ? paused() : Result.retry();
@@ -347,10 +348,10 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     private static void publishCoverage(android.content.SharedPreferences preferences, AtomicFile closeFile,
-                                        JSONObject scan, Set<String> closes) {
+                                        JSONObject scan, Set<String> closes, Set<String> verified) {
         try {
             if (scan.optBoolean("supplement_recheck") && scan.optJSONObject("ledger") == null) return;
-            var snapshot = coverage(scan, closes);
+            var snapshot = coverage(scan, closes, verified);
             if (snapshot == null) return;
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 if (!scan.getString("hash").equals(UsReferenceAlerts.sha256(closeFile.readFully()))) return;
@@ -363,6 +364,10 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     static MarketCoverage.Snapshot coverage(JSONObject scan, Set<String> closes) throws JSONException {
+        return coverage(scan, closes, null);
+    }
+
+    static MarketCoverage.Snapshot coverage(JSONObject scan, Set<String> closes, Set<String> verified) throws JSONException {
         var scope = scan.optJSONArray("coverage_symbols");
         if (scope == null) return null;
         var ordinary = new HashSet<String>();
@@ -401,6 +406,13 @@ public final class UsSecFinanceWorker extends Worker {
 
         var failed = scan.optString("coverage_failed");
         if (!failed.isEmpty()) reasons.put(failed, MarketCoverage.Reason.DOWNLOAD);
+        if (verified != null) {
+            for (String symbol : ordinary) {
+                if (!closes.contains(symbol) && !verified.contains(symbol)) {
+                    reasons.put(symbol, MarketCoverage.Reason.DATED_LISTING);
+                }
+            }
+        }
         return MarketCoverage.build(day, LocalDate.parse(scan.getString("coverage_listing_date")),
                 ordinary, closes, screened, reasons);
     }

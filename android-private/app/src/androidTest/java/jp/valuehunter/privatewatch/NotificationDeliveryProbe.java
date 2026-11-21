@@ -165,9 +165,9 @@ final class NotificationDeliveryProbe {
                 var button = control(activity.getWindow().getDecorView(), "米国株の未判定の内訳", Button.class);
                 require(button != null && button.isEnabled() && button.performClick(), "Cannot open US market coverage");
             });
-            require(await(() -> findDialogText(instrumentation, "終値待ち · 1銘柄") != null),
+            require(await(() -> findDialogText(instrumentation, "当日・比較日の上場市場と株式の種類を確認待ち · 1銘柄") != null),
                     "US coverage did not present the missing-close group");
-            var group = findDialogText(instrumentation, "終値待ち · 1銘柄");
+            var group = findDialogText(instrumentation, "当日・比較日の上場市場と株式の種類を確認待ち · 1銘柄");
             require(group != null && group.performAction(AccessibilityNodeInfo.ACTION_CLICK),
                     "Could not open the missing-close group");
             require(await(() -> findDialogText(instrumentation, "OTHER") != null),

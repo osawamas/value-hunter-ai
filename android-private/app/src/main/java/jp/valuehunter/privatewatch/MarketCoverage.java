@@ -25,6 +25,7 @@ enum MarketCoverage {
         CORPORATE_ACTION("分割・併合などの確認待ち"),
         DOWNLOAD("取得エラー"),
         IDENTIFICATION("上場銘柄とSECの照合待ち"),
+        DATED_LISTING("当日・比較日の上場市場と株式の種類を確認待ち"),
         VALUATION("為替など判定資料の確認待ち"),
         NON_POSITIVE_FINANCIALS("利益または自己資本がゼロ以下"),
         OUTSIDE_BUDGET("終値で予算外と確認");
@@ -106,7 +107,8 @@ enum MarketCoverage {
                 screened++;
                 continue;
             }
-            Reason reason = hasClose ? reasons.getOrDefault(code, Reason.FINANCIALS) : Reason.CLOSE;
+            Reason reason = hasClose ? reasons.getOrDefault(code, Reason.FINANCIALS)
+                    : reasons.get(code) == Reason.DATED_LISTING ? Reason.DATED_LISTING : Reason.CLOSE;
             groups.computeIfAbsent(reason, ignored -> new ArrayList<>()).add(code);
         }
         groups.replaceAll((reason, codes) -> List.copyOf(codes));

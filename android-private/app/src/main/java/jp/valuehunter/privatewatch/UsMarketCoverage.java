@@ -5,6 +5,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
@@ -16,7 +17,8 @@ import java.util.regex.Pattern;
 final class UsMarketCoverage {
     static final String DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/";
     static final String ASSET = "us-monitor-universe.json";
-    private static final Pattern FOOTER = Pattern.compile("File Creation Time: ([0-9]{8})[0-9]{2}:[0-9]{2}\\|+");
+    private static final Pattern FOOTER = Pattern.compile("File Creation Time: ([0-9]{8})([0-9]{2}:[0-9]{2})\\|+");
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
     private static final Pattern SYMBOL = Pattern.compile("[A-Z0-9.$+^=/_-]{1,24}");
     private static final Pattern COMMON = Pattern.compile("\\b(?:common|ordinary)\\s+(?:stock|shares?)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern OTHER = Pattern.compile("\\b(?:depositary|depository|preferred|preference|warrants?|rights?|units?|"
@@ -24,7 +26,12 @@ final class UsMarketCoverage {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MMdduuuu")
             .withResolverStyle(ResolverStyle.STRICT);
 
-    record Directory(LocalDate date, Set<String> symbols, Set<String> listed, Set<String> other) {}
+    record Directory(LocalDate date, Set<String> symbols, Set<String> listed, Set<String> other,
+                     LocalTime timestamp, java.util.Map<String, String> ordinaryNames) {
+        Directory(LocalDate date, Set<String> symbols, Set<String> listed, Set<String> other) {
+            this(date, symbols, listed, other, null, java.util.Map.of());
+        }
+    }
 
     static Directory directory(String file, boolean nasdaq) throws JSONException {
         String[] lines = file.replaceFirst("^\\uFEFF", "").trim().split("\\r?\\n");
@@ -41,8 +48,10 @@ final class UsMarketCoverage {
         var footer = FOOTER.matcher(lines[lines.length - 1]);
         if (!footer.matches()) throw new JSONException("Missing listing directory date");
         LocalDate date;
+        LocalTime time;
         try {
             date = LocalDate.parse(footer.group(1), DATE_FORMAT);
+            time = LocalTime.parse(footer.group(2));
         } catch (DateTimeParseException invalid) {
             throw new JSONException("Invalid listing directory date");
         }
@@ -50,6 +59,7 @@ final class UsMarketCoverage {
         var symbols = new HashSet<String>();
         var listed = new HashSet<String>();
         var other = new HashSet<String>();
+        var names = new java.util.HashMap<String, String>();
         for (int i = 1; i < lines.length - 1; i++) {
             var row = lines[i].split("\\|", -1);
             if (row.length != header.size() || !SYMBOL.matcher(row[symbol]).matches()
@@ -64,10 +74,11 @@ final class UsMarketCoverage {
                 other.add(ticker);
             } else if ((nasdaq || row[market].equals("N")) && COMMON.matcher(row[name]).find()) {
                 symbols.add(ticker);
+                names.put(ticker, WHITESPACE.matcher(row[name].trim()).replaceAll(" ").toUpperCase(java.util.Locale.ROOT));
             }
         }
         if (symbols.isEmpty()) throw new JSONException("No ordinary stock symbols");
-        return new Directory(date, symbols, listed, other);
+        return new Directory(date, symbols, listed, other, time, java.util.Map.copyOf(names));
     }
 
     static String summarize(Directory nyse, Directory nasdaq, JSONArray closes,
