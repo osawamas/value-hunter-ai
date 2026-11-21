@@ -62,7 +62,8 @@ final class NotificationDeliveryProbe {
             require(ScanWorker.postNotification(context, JAPAN, JP_TITLE, JP_DETAIL), "Replay was not acknowledged");
             SystemClock.sleep(350);
             require(active(manager, JAPAN) == null && !power.isInteractive(), "Replay posted or woke again after reboot");
-            return "ALERT_HISTORY_AFTER_REBOOT_OK";
+            ListingArchiveProbe.checkAfterReboot(context);
+            return "ALERT_HISTORY_AFTER_REBOOT_OK\nUS_LISTING_ARCHIVE_AFTER_REBOOT_OK";
         }
         if (!"post".equals(phase)) throw new IllegalArgumentException("Unknown alert probe phase");
         exerciseCommunicationNotice(instrumentation, power);
@@ -127,6 +128,7 @@ final class NotificationDeliveryProbe {
         require(NotificationHistory.recent(history, System.currentTimeMillis()).size() == 2,
                 "A suppressed notification changed history");
         exerciseWifiOnly(instrumentation, power);
+        ListingArchiveProbe.prepare(context);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
     }
 

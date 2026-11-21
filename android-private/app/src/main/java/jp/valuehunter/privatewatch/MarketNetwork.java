@@ -214,6 +214,7 @@ final class MarketNetwork {
             if (allowed && wifiOnly && allowed()) {
                 JpxWatchWorker.checkNow(application);
                 UsDailyWorker.checkNow(application);
+                UsListingArchiveWorker.checkNow(application);
                 UsSecFinanceWorker.ensureScheduled(application);
             }
         });

@@ -58,11 +58,18 @@ final class UsListingHistory {
         return new AtomicFile(new File(directory, "us-listing-identity-" + day + ".json"));
     }
 
-    static synchronized boolean needsIdentityCapture(File directory, java.time.Instant now) {
-        var local = now.atZone(UsDailyCloses.NEW_YORK);
-        var day = local.toLocalDate();
-        return UsDailyCloses.tradingDay(day) && sessionSnapshot(local.toLocalTime())
-                && !day.toString().equals(read(identityFile(directory, day)).optString("day"));
+    static synchronized boolean hasIdentity(File directory, LocalDate day) {
+        return hasSessionEvidence(read(identityFile(directory, day)), day);
+    }
+
+    static synchronized boolean capture(File directory, LocalDate day, java.time.LocalTime now,
+                                        UsMarketCoverage.Directory nyse, UsMarketCoverage.Directory nasdaq)
+            throws JSONException {
+        if (!day.equals(nyse.date()) || !day.equals(nasdaq.date())
+                || !sessionSnapshot(nyse.timestamp()) || !sessionSnapshot(nasdaq.timestamp())
+                || nyse.timestamp().isAfter(now) || nasdaq.timestamp().isAfter(now)) return false;
+        remember(directory, nyse, nasdaq);
+        return hasIdentity(directory, day);
     }
 
     private static boolean sessionSnapshot(java.time.LocalTime time) {
