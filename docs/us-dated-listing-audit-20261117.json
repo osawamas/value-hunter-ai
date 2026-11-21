@@ -1,0 +1,388 @@
+{
+  "trading_date_et": "2026-11-17",
+  "comparison_date_et": "2026-11-16",
+  "listing_and_sec_reference_snapshot": "2026-11-20",
+  "reference_sources": {
+    "NYSE": "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt",
+    "Nasdaq": "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt",
+    "SEC": "https://www.sec.gov/files/company_tickers_exchange.json",
+    "prices": "https://www.dolthub.com/repositories/post-no-preference/stocks"
+  },
+  "summary": {
+    "symbols_reviewed": 24,
+    "same_session_provider_closes": 24,
+    "exact_dated_listing_pairs_verified": 0,
+    "newly_admitted_prices": 0,
+    "additional_financial_screens": 0,
+    "additional_alert_candidates": 0,
+    "held": 23,
+    "excluded": 1
+  },
+  "notes": [
+    "The November 20 directory and issuer filings identify securities at their own dates only.",
+    "The SENEB form filed November 17 reports a five-for-one split action. It does not establish that the price and share count are on the same basis.",
+    "No raw prices are stored in this audit."
+  ],
+  "rows": [
+    {
+      "symbol": "BEBE",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2079933,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-16",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2079933/000121390026120620/ea0312375-10q_tgevalue.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "BPAC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2064177,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-05",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2064177/000118518526005211/bpac10q093026.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "DNMX",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2081125,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-06",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2081125/000121390026116916/ea0310298-10q_dynamix3.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "EGHA",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2052547,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2052547/000110465926127053/egha-20260930x10q.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "GPAC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2085408,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-09",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2085408/000114036126042717/ef20080547_10q.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "HACQ",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2089982,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2089982/000121390026119710/ea0310539-10q_hcm4.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "HVMC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2070602,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2070602/000118518526005390/hvmc10q093026.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "IGAC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2075068,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-16",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2075068/000121390026120157/ea0311817-10q_invest.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "JONE",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2129056,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-12",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2129056/000121390026118208/ea0310112-10q_jones1.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "KRSP",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2074872,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-12",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2074872/000121390026118966/ea0311053-10q_rice3.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "LFAC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2084563,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-05",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2084563/000118518526005198/lfacu10q093026.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "MOG.B",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "class_specific_financials_pending",
+      "cik": 67887,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-20",
+        "form": "10-K",
+        "source": "https://www.sec.gov/Archives/edgar/data/67887/000162828026075202/mog-20261003.htm",
+        "security_class": "class_b_common"
+      }
+    },
+    {
+      "symbol": "MTAL",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2107724,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2107724/000121390026119881/ea0309836-10q_metals2.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "MXE",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "excluded",
+      "primary_reason": "outside_ordinary_operating_company_scope_closed_end_fund",
+      "cik": 863900,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "source": "https://mxefund.com/",
+        "security_class": "closed_end_fund_common_stock"
+      }
+    },
+    {
+      "symbol": "MYX",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2080087,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-12",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2080087/000147793226006878/mayau_10q.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "MZYX",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2097376,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2097376/000121390026119775/ea0311856-10q_mozayyx.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "OACC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "standalone_share_evidence_pending",
+      "cik": 2029769,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2029769/000119312526460799/d108709d10q.htm",
+        "security_class": "class_a_ordinary_listed_as_part_of_units"
+      }
+    },
+    {
+      "symbol": "OCAC",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 1926314,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-16",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/1926314/000149315226052353/form10-q.htm",
+        "security_class": "ordinary_shares"
+      }
+    },
+    {
+      "symbol": "OCLT",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2137679,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-09-11",
+        "form": "8-K",
+        "source": "https://www.sec.gov/Archives/edgar/data/2137679/000182912626010007/oceanlightacq_8k.htm",
+        "security_class": "ordinary_shares",
+        "event_date": "2026-09-10"
+      }
+    },
+    {
+      "symbol": "SBXE",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2081909,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-11-10",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2081909/000110465926125143/sbxe-20260930x10q.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "SENEB",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "split_basis_and_class_specific_shares_pending",
+      "cik": 88948,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-17",
+        "form": "8-K",
+        "source": "https://www.sec.gov/Archives/edgar/data/88948/000143774926037390/senea20261113_8k.htm",
+        "security_class": "class_b_common"
+      }
+    },
+    {
+      "symbol": "TCXB",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "exact_dated_listing_pair_unavailable",
+      "cik": 2149916,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-10-19",
+        "form": "8-K",
+        "source": "https://www.sec.gov/Archives/edgar/data/2149916/000119312526425355/tcxb-20261015.htm",
+        "security_class": "class_a_ordinary_shares"
+      }
+    },
+    {
+      "symbol": "VNME",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "standalone_share_evidence_pending",
+      "cik": 2055879,
+      "exchange": "Nasdaq",
+      "supporting_evidence": {
+        "date": "2026-11-13",
+        "form": "10-Q",
+        "source": "https://www.sec.gov/Archives/edgar/data/2055879/000114036126043810/ef20080641_10q.htm",
+        "security_class": "class_a_ordinary_listed_as_part_of_units"
+      }
+    },
+    {
+      "symbol": "WLYB",
+      "provider_close_on_trading_date": true,
+      "exact_listing_pair_verified": false,
+      "disposition": "held",
+      "primary_reason": "class_specific_financials_pending",
+      "cik": 107140,
+      "exchange": "NYSE",
+      "supporting_evidence": {
+        "date": "2026-09-29",
+        "form": "8-K",
+        "source": "https://www.sec.gov/Archives/edgar/data/107140/000162828026063848/jwa-20260924.htm",
+        "security_class": "class_b_common",
+        "event_date": "2026-09-24"
+      }
+    }
+  ]
+}

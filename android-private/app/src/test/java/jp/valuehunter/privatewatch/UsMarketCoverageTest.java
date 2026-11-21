@@ -39,6 +39,16 @@ public class UsMarketCoverageTest {
         assertThrows(JSONException.class, () -> UsMarketCoverage.summarize(nyse, differentDay, closes, session, null));
     }
 
+    @Test public void anIdentifiedClosedEndFundIsExcludedWithoutBlacklistingItsTicker() throws Exception {
+        var fund = UsMarketCoverage.directory(OTHER.replace("BBB|B Corp. Ordinary Shares|N|N|N",
+                "BBB|B Corp. Ordinary Shares|N|N|N\nMXE|Mexico Equity and Income Fund, Inc. Common Stock|N|N|N"), false);
+        assertTrue(fund.other().contains("MXE"));
+        assertFalse(fund.symbols().contains("MXE"));
+        var reused = UsMarketCoverage.directory(OTHER.replace("BBB|B Corp. Ordinary Shares|N|N|N",
+                "MXE|New Issuer Common Stock|N|N|N"), false);
+        assertTrue(reused.symbols().contains("MXE"));
+    }
+
     @Test public void acceptsNumericAndPaddedSecCiksAndRejectsOtherIdentities() throws Exception {
         assertTrue(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", 123), 123));
         assertTrue(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000123"), 123));

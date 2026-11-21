@@ -92,7 +92,7 @@ final class UsReferenceDeliveryProbe {
                 String coverage = MarketCoverage.US.summary(coverageState);
                 if (!coverage.contains("監視対象 3銘柄") || !coverage.contains("終値確認 2 / 3銘柄")
                         || !coverage.contains("割安判定 2 / 3銘柄")
-                        || !MarketCoverage.US.groups(coverageState).getOrDefault(MarketCoverage.Reason.CLOSE, java.util.List.of())
+                        || !MarketCoverage.US.groups(coverageState).getOrDefault(MarketCoverage.Reason.DATED_LISTING, java.util.List.of())
                                 .equals(java.util.List.of("OTHER"))) {
                     throw new AssertionError("US coverage lost an unpriced listing: " + coverage);
                 }
@@ -164,7 +164,7 @@ final class UsReferenceDeliveryProbe {
         expectQuiet(manager);
 
         // Keep the worker-produced coverage snapshot for the independent coverage UI probe.
-        var original = UsSecFinanceWorker.coverage(scan, java.util.Set.of("TEST", "AAA"));
+        var original = UsSecFinanceWorker.coverage(scan, java.util.Set.of("TEST", "AAA"), java.util.Set.of());
         marketCoverage.save(state.edit(), original).commit();
 
     }

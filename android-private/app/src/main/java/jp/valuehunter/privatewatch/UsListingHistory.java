@@ -21,9 +21,10 @@ final class UsListingHistory {
 
     private UsListingHistory() {}
 
-    static JSONObject remember(File directory, UsMarketCoverage.Directory nyse, UsMarketCoverage.Directory nasdaq)
+    static synchronized JSONObject remember(File directory, UsMarketCoverage.Directory nyse, UsMarketCoverage.Directory nasdaq)
             throws JSONException {
         UsPriceOnlyBudget.ordinary(nyse, nasdaq, nyse.date());
+        preserveIdentities(directory, nyse, nasdaq);
         var file = new AtomicFile(new File(directory, "us-listing-dates.json"));
         var saved = read(file);
         var newest = nyse.date();
@@ -31,7 +32,10 @@ final class UsListingHistory {
         while (keys.hasNext()) {
             try {
                 var day = LocalDate.parse(keys.next());
-                if (day.isBefore(newest.minusDays(14))) keys.remove();
+                if (day.isBefore(newest.minusDays(14))) {
+                    keys.remove();
+                    identityFile(directory, day).delete();
+                }
             } catch (DateTimeException invalid) {
                 keys.remove();
             }
@@ -48,6 +52,82 @@ final class UsListingHistory {
             // Current authoritative data can still be used in this run.
         }
         return saved;
+    }
+
+    private static AtomicFile identityFile(File directory, LocalDate day) {
+        return new AtomicFile(new File(directory, "us-listing-identity-" + day + ".json"));
+    }
+
+    static synchronized boolean needsIdentityCapture(File directory, java.time.Instant now) {
+        var local = now.atZone(UsDailyCloses.NEW_YORK);
+        var day = local.toLocalDate();
+        return UsDailyCloses.tradingDay(day) && sessionSnapshot(local.toLocalTime())
+                && !day.toString().equals(read(identityFile(directory, day)).optString("day"));
+    }
+
+    private static boolean sessionSnapshot(java.time.LocalTime time) {
+        // The evening distribution describes the upcoming session.
+        return time != null && !time.isBefore(java.time.LocalTime.of(9, 30))
+                && time.isBefore(java.time.LocalTime.of(20, 45));
+    }
+
+    private static void preserveIdentities(File directory, UsMarketCoverage.Directory nyse,
+                                           UsMarketCoverage.Directory nasdaq) {
+        if (!sessionSnapshot(nyse.timestamp()) || !sessionSnapshot(nasdaq.timestamp())
+                || !UsDailyCloses.tradingDay(nyse.date())
+                || !nyse.ordinaryNames().keySet().equals(nyse.symbols())
+                || !nasdaq.ordinaryNames().keySet().equals(nasdaq.symbols())) return;
+        var file = identityFile(directory, nyse.date());
+        try {
+            var timestamp = nyse.timestamp().isBefore(nasdaq.timestamp()) ? nyse.timestamp() : nasdaq.timestamp();
+            String latest = read(file).optString("time");
+            if (!latest.isEmpty() && timestamp.isBefore(java.time.LocalTime.parse(latest))) return;
+            var snapshot = new JSONObject().put("day", nyse.date().toString()).put("time", timestamp.toString())
+                    .put("nyse", new JSONObject(nyse.ordinaryNames())).put("nasdaq", new JSONObject(nasdaq.ordinaryNames()));
+            UsDailyWorker.writeSnapshot(file, snapshot);
+        } catch (IOException | JSONException | DateTimeException unavailable) {
+            // The general coverage counts still use the verified listing sets.
+        }
+    }
+
+    static synchronized Set<String> verifiedSupplementSymbols(File directory, LocalDate day) {
+        var previous = UsPriceOnlyBudget.previousSession(day);
+        return verifiedSupplementSymbols(read(identityFile(directory, previous)), read(identityFile(directory, day)),
+                previous, day);
+    }
+
+    private static boolean hasSessionEvidence(JSONObject snapshot, LocalDate day) {
+        if (!day.toString().equals(snapshot.optString("day"))) return false;
+        try {
+            return sessionSnapshot(java.time.LocalTime.parse(snapshot.optString("time")));
+        } catch (DateTimeException invalid) {
+            return false;
+        }
+    }
+
+    static Set<String> verifiedSupplementSymbols(JSONObject before, JSONObject after, LocalDate previous, LocalDate day) {
+        if (!hasSessionEvidence(before, previous) || !hasSessionEvidence(after, day)) {
+            return Set.of();
+        }
+        var result = new HashSet<String>();
+        for (String exchange : java.util.List.of("nyse", "nasdaq")) {
+            String other = "nyse".equals(exchange) ? "nasdaq" : "nyse";
+            var old = before.optJSONObject(exchange);
+            var current = after.optJSONObject(exchange);
+            var oldOther = before.optJSONObject(other);
+            var currentOther = after.optJSONObject(other);
+            if (old == null || current == null || oldOther == null || currentOther == null) return Set.of();
+            var tickers = current.keys();
+            while (tickers.hasNext()) {
+                String ticker = tickers.next();
+                var identity = current.opt(ticker);
+                if (identity instanceof String name && !name.isEmpty() && ticker.matches("[A-Z0-9.$+^=/_-]{1,24}")
+                        && !oldOther.has(ticker) && !currentOther.has(ticker) && name.equals(old.opt(ticker))) {
+                    result.add(ticker);
+                }
+            }
+        }
+        return Set.copyOf(result);
     }
 
     static Scope scope(JSONObject dates, LocalDate previous, LocalDate latest,

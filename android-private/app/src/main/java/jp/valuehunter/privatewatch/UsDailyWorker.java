@@ -178,6 +178,7 @@ public final class UsDailyWorker extends Worker {
                         if (count) updateCoverage(state, closes, previous, provider);
                         if (assess) assess(state, closes, previous, provider);
                     }
+                    if (!count) captureListingIdentity(context);
                     if (previous.equals(target)) {
                         try {
                             if (key.isEmpty()) supplementCloses(state, file, previous);
@@ -268,8 +269,10 @@ public final class UsDailyWorker extends Worker {
         var snapshot = new JSONObject(new String(original, StandardCharsets.UTF_8));
         var closes = snapshot.getJSONArray("closes");
         var saved = UsDeviceFinancials.prices(closes).keySet();
-        var missing = new ArrayList<>(MarketCoverage.US.groups(state)
-                .getOrDefault(MarketCoverage.Reason.CLOSE, List.of()));
+        var groups = MarketCoverage.US.groups(state);
+        var missing = new ArrayList<>(groups.getOrDefault(MarketCoverage.Reason.CLOSE, List.of()));
+        missing.addAll(groups.getOrDefault(MarketCoverage.Reason.DATED_LISTING, List.of()));
+        missing.retainAll(UsListingHistory.verifiedSupplementSymbols(getApplicationContext().getNoBackupFilesDir(), day));
         missing.removeAll(saved);
         if (missing.isEmpty()) return;
         String cursor = sameDay ? state.getString(QUOTE_REPAIR_CURSOR, "") : "";
@@ -432,6 +435,18 @@ public final class UsDailyWorker extends Worker {
                 || !provider.equals(state.getString(MARKET_SOURCE, ""));
     }
 
+    private void captureListingIdentity(Context context) {
+        var directory = context.getNoBackupFilesDir();
+        if (networkStopped() || !UsListingHistory.needsIdentityCapture(directory, Instant.now())) return;
+        try {
+            var nasdaq = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "nasdaqlisted.txt", ""), true);
+            var nyse = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "otherlisted.txt", ""), false);
+            if (!networkStopped()) UsListingHistory.remember(directory, nyse, nasdaq);
+        } catch (IOException | JSONException unavailable) {
+            // An unavailable directory is never replaced by another session's identity evidence.
+        }
+    }
+
     private void updateCoverage(SharedPreferences state, JSONArray closes, LocalDate day, String provider) {
         if (networkStopped()) return;
         try {
@@ -443,6 +458,8 @@ public final class UsDailyWorker extends Worker {
             } catch (FileNotFoundException absent) {
                 // Close monitoring uses the live exchange directories even without a private SEC ledger.
             }
+            var context = getApplicationContext();
+            if (!networkStopped()) UsListingHistory.remember(context.getNoBackupFilesDir(), nyse, nasdaq);
             String summary = UsMarketCoverage.summarize(nyse, nasdaq, closes, day, ledger);
             if (!networkStopped()) state.edit().putString(MARKET_DATE, day.toString())
                     .putString(MARKET_SOURCE, provider).putString(MARKET_TEXT, summary).apply();
