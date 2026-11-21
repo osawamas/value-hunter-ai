@@ -312,7 +312,7 @@ public final class JpxWatchWorker extends Worker {
                 MarketFreshness.JPX.waiting(update, phase, phase == MarketFreshness.Phase.PUBLICATION ? expected : date);
                 var coverage = coverage(comparison.latest(), screen,
                         automaticFinance ? JpxAutomaticFinance.failedAcquisitions(context) : Set.of());
-                MarketCoverage.JPX.save(update, coverage);
+                MarketCoverage.JPX.track(state, update, coverage, true);
                 if (screen.assessed() > 0) {
                     String candidates = screen.candidates().stream().map(JpxDailyCheck.Candidate::summary)
                             .collect(Collectors.joining("\n"));

@@ -30,6 +30,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 
@@ -54,6 +57,11 @@ public final class UsDailyWorker extends Worker {
     static final Object QUOTE_LOCK = new Object();
     static final String PRIVATE_STATUS = "us_private_sec_status";
     private static final String PRIVATE_BASELINE = "us_private_sec_baseline";
+    private static final String PRIVATE_PRIOR_BASELINE = "us_private_sec_prior_baseline";
+    private static final String PRIVATE_SENT = "us_private_sec_sent";
+    private static final String QUOTE_REPAIR_DAY = "us_quote_repair_day";
+    private static final String QUOTE_REPAIR_CURSOR = "us_quote_repair_cursor";
+    private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
@@ -170,7 +178,10 @@ public final class UsDailyWorker extends Worker {
                         if (count) updateCoverage(state, closes, previous, provider);
                         if (assess) assess(state, closes, previous, provider);
                     }
-                    if (previous.equals(target)) backfillPrevious(context, previous, provider, key);
+                    if (previous.equals(target)) {
+                        if (key.isEmpty()) supplementCloses(state, file, previous);
+                        backfillPrevious(context, previous, provider, key);
+                    }
                     UsSecFinanceWorker.ensureScheduled(context);
                     updateHistory(state, previous);
                     if (networkStopped()) return paused();
@@ -239,6 +250,47 @@ public final class UsDailyWorker extends Worker {
             if (networkStopped()) throw new IOException("Worker stopped");
             return fetch(address, "");
         });
+    }
+
+    private void supplementCloses(SharedPreferences state, AtomicFile file, LocalDate day)
+            throws IOException, JSONException {
+        if (!day.equals(MarketCoverage.US.day(state))) return;
+        String date = day.toString();
+        boolean sameDay = date.equals(state.getString(QUOTE_REPAIR_DAY, ""));
+        long now = System.currentTimeMillis();
+        if (sameDay && state.getLong(QUOTE_REPAIR_AFTER, 0) > now) return;
+        byte[] original = readQuote(file);
+        var snapshot = new JSONObject(new String(original, StandardCharsets.UTF_8));
+        var closes = snapshot.getJSONArray("closes");
+        var saved = UsDeviceFinancials.prices(closes).keySet();
+        var missing = new ArrayList<>(MarketCoverage.US.groups(state)
+                .getOrDefault(MarketCoverage.Reason.CLOSE, List.of()));
+        missing.removeAll(saved);
+        if (missing.isEmpty()) return;
+        String cursor = sameDay ? state.getString(QUOTE_REPAIR_CURSOR, "") : "";
+        missing.sort(java.util.Comparator.comparing((String code) -> code.compareTo(cursor) <= 0)
+                .thenComparing(java.util.Comparator.naturalOrder()));
+        var targets = missing.subList(0, Math.min(100, missing.size()));
+        var found = UsDoltCloses.supplement(day, Set.copyOf(targets), address -> {
+            if (networkStopped()) throw new IOException("Worker stopped");
+            return fetch(address, "");
+        });
+        if (networkStopped()) return;
+        var progress = state.edit().putString(QUOTE_REPAIR_DAY, date)
+                .putLong(QUOTE_REPAIR_AFTER, now + TimeUnit.HOURS.toMillis(1))
+                .putString(QUOTE_REPAIR_CURSOR, targets.get(targets.size() - 1));
+        if (found.length() == 0) {
+            progress.apply();
+            return;
+        }
+        for (int index = 0; index < found.length(); index++) closes.put(found.getJSONObject(index));
+        snapshot.put("supplement_base_sha", UsReferenceAlerts.sha256(original));
+        synchronized (QUOTE_LOCK) {
+            if (networkStopped()) return;
+            writeSnapshot(file, snapshot);
+            MarketFreshness.US_FINANCE.waiting(progress.putInt(COUNT, closes.length()),
+                    MarketFreshness.Phase.FINANCE, day).apply();
+        }
     }
 
     private static JSONObject quoteSnapshot(LocalDate day, String provider, String key, JSONArray closes)
@@ -310,24 +362,28 @@ public final class UsDailyWorker extends Worker {
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
             status += " · 条件該当 " + count + "銘柄";
             String pending = state.getString(PRIVATE_PENDING, "");
-            if (previous != null && day.isAfter(previous.day()) && !pending.isEmpty()
-                    && ScanWorker.alertsEnabled(context)) {
-                // Recover a saved delivery before a newer session can replace its payload.
+            boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
+            boolean alertsRequested = ScanWorker.notificationsRequested(context);
+            var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
+            if (alertsRequested && !pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
                 if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending)) return;
                 pending = "";
             }
-            if (previous == null || day.isAfter(previous.day()) || !provider.equals(previous.provider())) {
-                var entrants = UsReferenceAlerts.entrants(previous, screen);
-                pending = entrants.isEmpty() ? "" : "米国株の参考条件入り " + entrants.size() + "銘柄"
-                        + "\n" + day + "の終値（参考）\n"
-                        + String.join("\n", entrants);
+            var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
+            if (pending.isEmpty() && alertsRequested) {
+                var entrants = UsReferenceAlerts.entrantRows(anchor, screen, sent);
+                if (!entrants.isEmpty()) {
+                    pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
+                            + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
+                    sent.addAll(entrants.keySet());
+                }
             }
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", ledger.getJSONObject("reference_screen"));
-            if (previous != null && day.equals(previous.day()) && !closeHash.equals(previous.hash())) pending = "";
-            if (!ScanWorker.notificationsRequested(context) || !pending.contains("\n")) pending = "";
+            if (!alertsRequested || !pending.contains("\n")) pending = "";
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status);
+                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
+            if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
             MarketFreshness.US_FINANCE.verified(update, day, screen.rows().size(), (int) count, "");
             MarketFreshness.US_FINANCE.waiting(update, null, day);
             if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
@@ -353,7 +409,11 @@ public final class UsDailyWorker extends Worker {
     }
 
     private static UsReferenceAlerts.Screen readPrivateBaseline(SharedPreferences state) {
-        String saved = state.getString(PRIVATE_BASELINE, "");
+        return readPrivateScreen(state, PRIVATE_BASELINE);
+    }
+
+    private static UsReferenceAlerts.Screen readPrivateScreen(SharedPreferences state, String key) {
+        String saved = state.getString(key, "");
         if (saved.isEmpty()) return null;
         try {
             return UsReferenceAlerts.read(new JSONObject(saved));

@@ -47,12 +47,36 @@ enum MarketCoverage {
 
     boolean available(SharedPreferences state) { return state.contains(key + "_details"); }
     String summary(SharedPreferences state) { return state.getString(key + "_summary", "監視範囲を集計待ち"); }
-    void clear(SharedPreferences.Editor edit) { edit.remove(key + "_summary").remove(key + "_details"); }
+    void clear(SharedPreferences.Editor edit) {
+        edit.remove(key + "_summary").remove(key + "_details").remove(key + "_day").remove(key + "_progress_day").remove(key + "_initial");
+    }
+
+    LocalDate day(SharedPreferences state) {
+        String day = state.getString(key + "_day", "");
+        try {
+            return day.isEmpty() ? null : LocalDate.parse(day);
+        } catch (java.time.DateTimeException invalid) {
+            return null;
+        }
+    }
+
+    SharedPreferences.Editor track(SharedPreferences state, SharedPreferences.Editor edit, Snapshot snapshot,
+                                   boolean finished) {
+        save(edit, snapshot);
+        if (!finished) return edit;
+        String date = snapshot.day().toString();
+        int initial = date.equals(state.getString(key + "_progress_day", ""))
+                ? state.getInt(key + "_initial", snapshot.assessed()) : snapshot.assessed();
+        int change = snapshot.assessed() - initial;
+        return edit.putString(key + "_progress_day", date).putInt(key + "_initial", initial)
+                .putString(key + "_summary", snapshot.summary() + "\n同日初回の判定比 "
+                        + (change > 0 ? "+" : "") + change + "銘柄");
+    }
 
     SharedPreferences.Editor save(SharedPreferences.Editor edit, Snapshot snapshot) {
         var groups = new HashMap<String, JSONArray>();
         snapshot.unassessed().forEach((reason, codes) -> groups.put(reason.name(), new JSONArray(codes)));
-        return edit.putString(key + "_summary", snapshot.summary())
+        return edit.putString(key + "_day", snapshot.day().toString()).putString(key + "_summary", snapshot.summary())
                 .putString(key + "_details", new JSONObject(groups).toString());
     }
 

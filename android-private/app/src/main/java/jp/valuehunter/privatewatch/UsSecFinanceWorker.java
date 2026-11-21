@@ -52,6 +52,8 @@ public final class UsSecFinanceWorker extends Worker {
     private static final String NOCP_RECEIPTS = "us_nocp_receipts";
     private static final Object CHECK_LOCK = new Object();
     private static final int BATCH = 40;
+    private static final long REPAIR_DELAY = TimeUnit.HOURS.toMillis(1);
+    private static final int REPAIR_ROUNDS = 2;
     private static final long BATCH_MILLIS = 45_000;
     private static final long BETWEEN_REQUESTS_MILLIS = 350;
 
@@ -79,11 +81,15 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     private static void enqueue(Context context, ExistingWorkPolicy policy) {
+        enqueue(context, policy, 0);
+    }
+
+    private static void enqueue(Context context, ExistingWorkPolicy policy, long delay) {
         if (!MarketNetwork.requested()) return;
         var request = new OneTimeWorkRequest.Builder(UsSecFinanceWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.UNMETERED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .build();
+                .setInitialDelay(delay, TimeUnit.MILLISECONDS).build();
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
     }
 
@@ -132,9 +138,16 @@ public final class UsSecFinanceWorker extends Worker {
                 var scope = coverageScope(directory, day, nyse, nasdaq);
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
                 var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
-                var changed = targets.length() == 0 ? null : changedIssuers(UsDeviceFinancials.reuseFrom(scan, day), day);
+                var reuse = UsDeviceFinancials.reuseFrom(scan, day);
+                boolean supplement = reuse != null && reuse.equals(day)
+                        && scan.getString("hash").equals(quote.optString("supplement_base_sha"));
+                var changed = targets.length() == 0 ? null : supplement ? Set.<Integer>of() : changedIssuers(reuse, day);
+                var cachedEvidence = supplement ? scan.optJSONObject("valuation_evidence") : null;
+                int repairRound = supplement ? scan.optInt("repair_round") : 0;
                 if (networkStopped()) return paused();
                 scan = UsDeviceFinancials.startScan(hash, day, targets, scan, changed);
+                if (supplement) scan.put("valuation_evidence", cachedEvidence).put("repair_round", repairRound)
+                        .put("supplement_recheck", true);
                 saveCoverageScope(scan, scope);
                 if (targets.length() == 0) {
                     publishCoverage(preferences, closeFile, scan, prices.keySet());
@@ -147,6 +160,13 @@ public final class UsSecFinanceWorker extends Worker {
             } else if (!scan.has("coverage_listing_date")) {
                 // Add a dated scope to a checkpoint created before coverage was available.
                 saveCoverageScope(scan, UsListingHistory.retainedScope(directory, day));
+                UsDailyWorker.writeSnapshot(checkpoint, scan);
+            }
+            boolean latestSession = day.equals(UsDailyCloses.onOrBeforeTradingDay(
+                    UsDailyCloses.mostRecentEligibleDay(Instant.now())));
+            long repairAfter = scan.optLong("repair_after");
+            if (latestSession && repairAfter > 0 && repairAfter <= System.currentTimeMillis()
+                    && prepareRepair(scan)) {
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
@@ -193,12 +213,25 @@ public final class UsSecFinanceWorker extends Worker {
             if (networkStopped()) return paused();
             var ledger = scan.optJSONObject("ledger");
             if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)) {
-                var rates = new JSONArray(download.get(
-                        FX + "&from=" + day.minusDays(UsScreen.FX_LOOKBACK_DAYS) + "&to=" + day));
-                var fx = tradeDateFx(rates, day);
-                var splits = UsDoltCloses.allSplits(day.minusDays(150), day, url -> new JSONObject(download.get(url)));
+                var evidence = scan.optJSONObject("valuation_evidence");
+                if (evidence == null) {
+                    var rates = new JSONArray(download.get(
+                            FX + "&from=" + day.minusDays(UsScreen.FX_LOOKBACK_DAYS) + "&to=" + day));
+                    var fx = tradeDateFx(rates, day);
+                    var splits = UsDoltCloses.allSplits(day.minusDays(150), day,
+                            url -> new JSONObject(download.get(url)));
+                    var dates = new JSONObject();
+                    for (var entry : splits.entrySet()) dates.put(entry.getKey(), entry.getValue().toString());
+                    evidence = new JSONObject().put("fx_rate", fx.yenPerDollar()).put("splits", dates);
+                    scan.put("valuation_evidence", evidence);
+                }
+                var fx = new UsScreen.Fx(day, evidence.getDouble("fx_rate"));
+                var splitDates = evidence.getJSONObject("splits");
+                var splits = new java.util.HashMap<String, LocalDate>();
+                for (var symbol : splitDates.keySet()) splits.put(symbol, LocalDate.parse(splitDates.getString(symbol)));
                 ledger = UsDeviceFinancials.screen(day, provider, hash, results, prices, fx, splits);
-                scan.put("ledger", ledger);
+                scan.put("ledger", ledger).remove("retained_ledger");
+                scan.remove("supplement_recheck");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var budget = prepareBudget(quote, ledger, directory, day, hash, preferences);
@@ -220,6 +253,12 @@ public final class UsSecFinanceWorker extends Worker {
                 }
             }
             if (networkStopped()) return paused();
+            if (latestSession && scan.optLong("repair_after") == 0 && scan.optInt("repair_round") < REPAIR_ROUNDS
+                    && repairTargets(scan).length() > 0) {
+                scan.put("repair_after", System.currentTimeMillis() + REPAIR_DELAY);
+                UsDailyWorker.writeSnapshot(checkpoint, scan);
+                enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE, REPAIR_DELAY);
+            }
             return Result.success();
         } catch (FileNotFoundException absent) {
             return Result.success();
@@ -245,6 +284,48 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
+    static JSONArray repairTargets(JSONObject scan) throws JSONException {
+        var results = scan.getJSONArray("results");
+        var targets = scan.getJSONArray("targets");
+        var ledger = scan.optJSONObject("ledger");
+        var holds = ledger == null ? null : ledger.optJSONArray("split_holds");
+        var splitHolds = new HashSet<String>();
+        if (holds != null) {
+            for (int index = 0; index < holds.length(); index++) splitHolds.add(holds.getString(index));
+        }
+        var ready = new HashSet<String>();
+        var repair = new JSONArray();
+        for (int index = 0; index < results.length(); index++) {
+            var row = results.getJSONObject(index);
+            var symbol = row.getString("symbol");
+            ready.add(symbol);
+            if (splitHolds.contains(symbol)) repair.put(row);
+        }
+        for (int index = 0; index < targets.length(); index++) {
+            var target = targets.getJSONObject(index);
+            if (!ready.contains(target.getString("symbol"))) repair.put(target);
+        }
+        return repair;
+    }
+
+    static boolean prepareRepair(JSONObject scan) throws JSONException {
+        if (scan.optJSONObject("ledger") == null || scan.optInt("repair_round") >= REPAIR_ROUNDS) return false;
+        var repair = repairTargets(scan);
+        if (repair.length() == 0) return false;
+        var wanted = new HashSet<String>();
+        for (int index = 0; index < repair.length(); index++) wanted.add(repair.getJSONObject(index).getString("symbol"));
+        var rows = scan.getJSONArray("results");
+        var retained = new JSONArray();
+        for (int index = 0; index < rows.length(); index++) {
+            var row = rows.getJSONObject(index);
+            if (!wanted.contains(row.getString("symbol"))) retained.put(row);
+        }
+        scan.put("targets", repair).put("results", retained).put("cursor", 0).put("reused", retained.length())
+                .put("repair_round", scan.optInt("repair_round") + 1).remove("repair_after");
+        scan.put("retained_ledger", scan.getJSONObject("ledger")).remove("ledger");
+        return true;
+    }
+
     private static UsListingHistory.DatedScope coverageScope(File directory, LocalDate day,
                                                             UsMarketCoverage.Directory nyse,
                                                             UsMarketCoverage.Directory nasdaq) {
@@ -264,11 +345,13 @@ public final class UsSecFinanceWorker extends Worker {
     private static void publishCoverage(android.content.SharedPreferences preferences, AtomicFile closeFile,
                                         JSONObject scan, Set<String> closes) {
         try {
+            if (scan.optBoolean("supplement_recheck") && scan.optJSONObject("ledger") == null) return;
             var snapshot = coverage(scan, closes);
             if (snapshot == null) return;
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 if (!scan.getString("hash").equals(UsReferenceAlerts.sha256(closeFile.readFully()))) return;
-                MarketCoverage.US.save(preferences.edit(), snapshot).apply();
+                MarketCoverage.US.track(preferences, preferences.edit(), snapshot,
+                        scan.optJSONObject("ledger") != null).apply();
             }
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             // The previous dated coverage remains available while this snapshot cannot be verified.
@@ -292,6 +375,7 @@ public final class UsSecFinanceWorker extends Worker {
         }
 
         var ledger = scan.optJSONObject("ledger");
+        if (ledger == null) ledger = scan.optJSONObject("retained_ledger");
         Set<String> screened = Set.of();
         var day = LocalDate.parse(scan.getString("day"));
         if (UsReferenceAlerts.hasTradeDateFx(ledger, day)

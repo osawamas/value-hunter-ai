@@ -7,7 +7,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,16 +66,21 @@ final class UsReferenceAlerts {
     }
 
     static List<String> entrants(Screen previous, Screen current) {
+        return List.copyOf(entrantRows(previous, current, Set.of()).values());
+    }
+
+    static Map<String, String> entrantRows(Screen previous, Screen current, Set<String> alreadyQueued) {
         if (previous == null || !current.provider.equals(previous.provider) || !current.day.isAfter(previous.day)
-                || previous.day.isBefore(current.day.minusDays(7))) return List.of();
-        var alerts = new ArrayList<String>();
+                || previous.day.isBefore(current.day.minusDays(7))) return Map.of();
+        var alerts = new java.util.LinkedHashMap<String, String>();
         current.rows.entrySet().stream()
-                .filter(row -> row.getValue().enteredFrom(previous.rows.get(row.getKey())))
+                .filter(row -> !alreadyQueued.contains(row.getKey())
+                        && row.getValue().enteredFrom(previous.rows.get(row.getKey())))
                 .sorted(java.util.Comparator.<Map.Entry<String, Observation>>comparingInt(
                                 row -> -row.getValue().quantity)
                         .thenComparing(row -> !"priority".equals(row.getValue().status))
                         .thenComparing(Map.Entry::getKey))
-                .forEach(row -> alerts.add(row.getKey() + " · " + row.getValue().quantity + "株"
+                .forEach(row -> alerts.put(row.getKey(), row.getKey() + " · " + row.getValue().quantity + "株"
                         + ("priority".equals(row.getValue().status) ? " · 優先候補" : " · 参考候補")));
         return alerts;
     }
