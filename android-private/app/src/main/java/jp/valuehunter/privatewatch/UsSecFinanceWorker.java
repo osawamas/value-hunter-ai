@@ -146,9 +146,7 @@ public final class UsSecFinanceWorker extends Worker {
                 publishCoverage(preferences, closeFile, scan, prices.keySet());
             } else if (!scan.has("coverage_listing_date")) {
                 // Add a dated scope to a checkpoint created before coverage was available.
-                var nasdaq = listings("nasdaqlisted.txt", true);
-                var nyse = listings("otherlisted.txt", false);
-                saveCoverageScope(scan, coverageScope(directory, day, nyse, nasdaq));
+                saveCoverageScope(scan, UsListingHistory.retainedScope(directory, day));
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
