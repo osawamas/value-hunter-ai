@@ -161,6 +161,12 @@ public final class MainActivity extends Activity {
         });
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
+        var useMeter = optionSwitch(notifications, "割安メーターで通知", state.getBoolean(ValueAlertPreview.LIVE, false));
+        useMeter.setOnCheckedChangeListener((view, checked) -> {
+            state.edit().putBoolean(ValueAlertPreview.LIVE, checked).apply();
+            DiagnosticLog.record(this, DiagnosticLog.Area.ALERT, checked ? "割安メーター通知オン" : "割安メーター通知オフ");
+        });
+        label(notifications, "オンで新規入り・昇格を3段階で通知。比較資料のある銘柄が対象。", 13, MUTED, false, 5);
         button(notifications, "割安アラートの境界", PAGE, 5)
                 .setOnClickListener(view -> showValueAlertMeter());
         button(notifications, "診断ログ", PAGE, 5).setOnClickListener(view -> showDiagnostics());
@@ -420,7 +426,7 @@ public final class MainActivity extends Activity {
         controls.setPadding(dp(20), dp(8), dp(20), dp(12));
         scroll.addView(controls);
         label(controls, "0〜100点の境界を変更。下の件数は端末に保存された取引日の試算。", 14, INK, false, 0);
-        label(controls, "利益の急減や必要な資料の不足がある場合、点数に届いても段階を上げない。", 13, MUTED, false, 5);
+        label(controls, "利益の急減や資料不足があると段階を抑える。同業比較と財務余力は取得前のため、超割安は保留。", 13, MUTED, false, 5);
         var band = new LinearLayout(this);
         band.setOrientation(LinearLayout.HORIZONTAL);
         place(controls, band, 12);
@@ -458,7 +464,9 @@ public final class MainActivity extends Activity {
                 captions[i].setText(caption);
                 sliders[i].setContentDescription("下限スライダー " + caption);
             }
-            preview.setText("実データによる試算（実際の通知には未適用）\n\n"
+            preview.setText("保存済みデータによる試算 · "
+                    + (state.getBoolean(ValueAlertPreview.LIVE, false)
+                    ? "通知は保存した境界で判定" : "割安メーター通知はオフ") + "\n\n"
                     + ValueAlertPreview.summary(ValueAlertPreview.Market.JPX, jpx, thresholds) + "\n\n"
                     + ValueAlertPreview.summary(ValueAlertPreview.Market.US, us, thresholds));
         };

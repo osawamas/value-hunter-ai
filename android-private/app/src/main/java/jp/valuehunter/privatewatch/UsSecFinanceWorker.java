@@ -282,6 +282,8 @@ public final class UsSecFinanceWorker extends Worker {
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             if (networkStopped()) return paused();
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "財務の更新失敗: " + unavailable.getClass().getSimpleName());
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 var market = MarketFreshness.US_FINANCE;

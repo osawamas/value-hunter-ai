@@ -140,7 +140,8 @@ public final class UsListingArchiveWorker extends Worker {
         var groups = MarketCoverage.US.groups(prefs);
         var verified = UsListingHistory.verifiedSupplementSymbols(directory, day);
         var single = UsListingHistory.sessionExchanges(directory, day).keySet();
-        if (groups.values().stream().flatMap(List::stream).anyMatch(single::contains)) {
+        if (UsSingleSessionBudgetCheck.hasPublishedResult(prefs, day)
+                || groups.values().stream().flatMap(List::stream).anyMatch(single::contains)) {
             UsDailyWorker.recheckSingleSessionBudget(app, day);
         }
         if (day.toString().equals(prefs.getString(RECHECK, ""))) return;

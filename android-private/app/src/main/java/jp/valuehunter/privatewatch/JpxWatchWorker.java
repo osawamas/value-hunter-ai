@@ -279,7 +279,8 @@ public final class JpxWatchWorker extends Worker {
                 var alerted = date.equals(last)
                         ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
-                var added = notifyEnabled ? pending(baseline, last, date, screen.entered(), alerted)
+                boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, false);
+                var added = notifyEnabled && !useMeter ? pending(baseline, last, date, screen.entered(), ValueAlertPreview.previouslyNotified(alerted))
                         : List.<JpxDailyCheck.Candidate>of();
                 var priceOnly = comparison.priceOnly(screen);
                 var budgetAdded = notifyEnabled && automaticFinance
@@ -333,9 +334,25 @@ public final class JpxWatchWorker extends Worker {
                             .collect(Collectors.joining("\n"));
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
-                saveMeter(state, update, comparison, screen, finance, evidence.rights());
+                var meterRows = saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded);
+                if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meterRows != null) {
+                    var held = screen.holds().stream().map(JpxDailyCheck.Held::code).collect(Collectors.toSet());
+                    try {
+                        var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, date, "JPX",
+                                meterRows, alerted, code -> !held.contains(code));
+                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
+                        if (!entries.isEmpty()) {
+                            var detail = new StringBuilder(date + "の東証終値（参考）");
+                            for (var entry : entries.values()) detail.append("\n").append(entry.summary());
+                            queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
+                                    detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった");
+                        }
+                    } catch (JSONException invalid) {
+                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度を比較できず");
+                    }
+                }
                 String processed = notifyEnabled ? comparison.processedKey(revision) : "";
                 // Commit the alert payload with its comparison before attempting Android delivery.
                 update.putString(PROCESSED, pending.length() == 0 ? processed : "")
@@ -354,6 +371,7 @@ public final class JpxWatchWorker extends Worker {
             return Result.success();
         } catch (IOException error) {
             if (networkStopped()) return paused();
+            DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "日報の取得失敗: " + error.getClass().getSimpleName());
             synchronized (STATE_LOCK) {
                 if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
@@ -364,15 +382,16 @@ public final class JpxWatchWorker extends Worker {
         }
     }
 
-    private static void saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
+    private static JSONObject saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
                                   JpxDailyCheck.Comparison comparison, JpxDailyCheck.Screening screen,
                                   JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
         try {
             var rows = comparison.meterRows(screen, finance, rights);
             ValueAlertPreview.save(state, edit, ValueAlertPreview.Market.JPX,
                     comparison.latest().date(), "JPX", rows);
+            return rows;
         } catch (JSONException unavailable) {
-            // A preview formatting failure must not affect the existing alert queue.
+            return null;
         }
     }
 
