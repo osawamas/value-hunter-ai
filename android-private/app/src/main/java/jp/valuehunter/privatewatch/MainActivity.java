@@ -59,6 +59,10 @@ public final class MainActivity extends Activity {
     private boolean notificationTestPending;
     private Button checkNow;
     private Button showDetail;
+    private Button jpxCoverageButton;
+    private Button usCoverageButton;
+    private TextView jpxCoverage;
+    private TextView usCoverage;
     private Thread detailThread;
     private boolean communicationPreferenceSaved = true;
 
@@ -167,6 +171,10 @@ public final class MainActivity extends Activity {
 
         var unitedStates = section(content, SURFACE, true);
         label(unitedStates, "米国株  ·  NYSE / Nasdaq", 17, INK, true, 0);
+        usCoverage = label(unitedStates, "", 13, MUTED, false, 5);
+        usCoverageButton = button(unitedStates, "未判定の内訳", PAGE, 4);
+        usCoverageButton.setContentDescription("米国株の未判定の内訳");
+        usCoverageButton.setOnClickListener(view -> showCoverage(MarketCoverage.US, "米国株"));
         usDailyStatus = label(unitedStates, "", 13, MUTED, false, 4);
 
         var singapore = section(content, SURFACE, true);
@@ -175,6 +183,10 @@ public final class MainActivity extends Activity {
 
         var result = section(content, SURFACE, true);
         label(result, "最新の確認", 19, INK, true, 0);
+        jpxCoverage = label(result, "", 13, MUTED, false, 5);
+        jpxCoverageButton = button(result, "未判定の内訳", PAGE, 4);
+        jpxCoverageButton.setContentDescription("東証の未判定の内訳");
+        jpxCoverageButton.setOnClickListener(view -> showCoverage(MarketCoverage.JPX, "東証"));
         lastCheck = label(result, "", 14, MUTED, false, 5);
         showDetail = button(result, "終値と判定の詳細", PAGE, 10);
         detail = label(result, "", 14, INK, false, 8);
@@ -259,6 +271,10 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
+        jpxCoverage.setText(MarketCoverage.JPX.summary(state));
+        usCoverage.setText(MarketCoverage.US.summary(state));
+        jpxCoverageButton.setEnabled(MarketCoverage.JPX.available(state));
+        usCoverageButton.setEnabled(MarketCoverage.US.available(state));
         var usStatus = new StringBuilder();
         appendUpdateStatus(usStatus, "終値", MarketUpdate.US_CLOSE.display(state));
         appendUpdateStatus(usStatus, "財務", MarketUpdate.US_FINANCE.display(state));
@@ -331,6 +347,32 @@ public final class MainActivity extends Activity {
             });
         }, "jpx-daily-detail");
         detailThread.start();
+    }
+
+    private void showCoverage(MarketCoverage market, String name) {
+        var summary = market.summary(state);
+        var dialog = new AlertDialog.Builder(this).setTitle(name + "の未判定").setNegativeButton("閉じる", null);
+        try {
+            var groups = market.groups(state);
+            var reasons = java.util.Arrays.stream(MarketCoverage.Reason.values()).filter(groups::containsKey).toList();
+            if (reasons.isEmpty()) {
+                dialog.setMessage(summary + "\n\n未判定の銘柄なし").show();
+                return;
+            }
+            var labels = reasons.stream().map(reason -> reason.label + " · " + groups.get(reason).size() + "銘柄")
+                    .toArray(String[]::new);
+            // Keep the cohort date and the counts visible while the user picks a reason.
+            dialog.setTitle(name + "の未判定\n" + summary.split("\n", 2)[0]);
+            dialog.setItems(labels, (list, index) -> {
+                var reason = reasons.get(index);
+                new AlertDialog.Builder(this).setTitle(reason.label + " · " + groups.get(reason).size() + "銘柄")
+                        .setItems(groups.get(reason).toArray(String[]::new), null)
+                        .setNeutralButton("内訳に戻る", (detail, which) -> showCoverage(market, name))
+                        .setNegativeButton("閉じる", null).show();
+            }).show();
+        } catch (org.json.JSONException invalid) {
+            dialog.setMessage("未判定の内訳を読み込めなかった").show();
+        }
     }
 
     private void showNotificationHistory() {

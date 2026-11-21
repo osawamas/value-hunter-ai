@@ -304,6 +304,11 @@ final class JpxWatchDeliveryProbe {
             unavailable.set(false);
             inputs.set(new JpxDailyCheck.Comparison(sample(next, "920.00"), sample(MONDAY, "900.00")));
             checkFreshness(context, factory, MarketFreshness.Phase.FINANCE, next);
+            if (!MarketCoverage.JPX.summary(state).contains("終値確認 1 / 1銘柄")
+                    || !MarketCoverage.JPX.summary(state).contains("割安判定 1 / 1銘柄")
+                    || !MarketCoverage.JPX.groups(state).isEmpty()) {
+                throw new AssertionError("JPX coverage does not match the assessed fixture: " + MarketCoverage.JPX.summary(state));
+            }
             expectQuiet(manager);
         } finally {
             JpxWatchWorker.setEnabled(context, false);

@@ -81,7 +81,7 @@ final class UsDeviceFinancials {
             if (issuerSymbols.getOrDefault(cik, Set.of()).size() != 1) continue;
             result.put(new JSONObject().put("cik", cik).put("exchange", exchange).put("symbol", symbol));
         }
-        if (result.length() == 0 || result.length() > 12_000) throw new JSONException("No eligible SEC issuers");
+        if (result.length() > 12_000) throw new JSONException("Too many eligible SEC issuers");
         return result;
     }
 
@@ -152,6 +152,7 @@ final class UsDeviceFinancials {
         int nyse = 0;
         int nasdaq = 0;
         var observations = new JSONArray();
+        var splitHolds = new JSONArray();
         var rate = BigDecimal.valueOf(fx.yenPerDollar());
         for (int index = 0; index < records.length(); index++) {
             var row = records.getJSONObject(index);
@@ -162,7 +163,10 @@ final class UsDeviceFinancials {
             if ("NYSE".equals(exchange)) nyse++;
             else nasdaq++;
             var split = splits.get(symbol);
-            if (split != null && !split.isBefore(LocalDate.parse(row.getString("share_date")))) continue;
+            if (split != null && !split.isBefore(LocalDate.parse(row.getString("share_date")))) {
+                splitHolds.put(symbol);
+                continue;
+            }
             var cap = close.multiply(new BigDecimal(row.getString("shares")));
             var level = ValueCandidateScreen.assess(cap, new BigDecimal(row.getString("profit")),
                     new BigDecimal(row.getString("equity")));
@@ -179,7 +183,7 @@ final class UsDeviceFinancials {
         }
         var coverage = new JSONObject().put("NYSE", coverage(nyse)).put("Nasdaq", coverage(nasdaq));
         return new JSONObject().put("trading_date_et", day.toString()).put("close_provider", provider)
-                .put("close_sha256", hash).put("coverage", coverage)
+                .put("close_sha256", hash).put("coverage", coverage).put("split_holds", splitHolds)
                 .put("reference_screen", new JSONObject().put("provider", provider).put("close_sha256", hash)
                         .put("fx_date", fx.date().toString()).put("observations", observations));
     }

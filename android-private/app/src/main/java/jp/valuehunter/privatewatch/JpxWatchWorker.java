@@ -130,6 +130,7 @@ public final class JpxWatchWorker extends Worker {
                 var reset = state.edit().remove(TOKEN).remove(BASELINE).remove(LATEST).remove(ALERTED).remove(PROCESSED)
                         .remove(STATUS).remove(CHECKED_AT).remove(OUTCOME).remove(PENDING).remove(FINANCE_PENDING).remove(MarketUpdate.JPX.lastUpdate);
                 MarketFreshness.JPX.clear(reset);
+                MarketCoverage.JPX.clear(reset);
                 reset.apply();
                 work.cancelUniqueWork(WORK);
                 work.cancelUniqueWork(MANUAL);
@@ -309,6 +310,9 @@ public final class JpxWatchWorker extends Worker {
                 var phase = expected != null && date.isBefore(expected) ? MarketFreshness.Phase.PUBLICATION
                         : financePending ? MarketFreshness.Phase.FINANCE : null;
                 MarketFreshness.JPX.waiting(update, phase, phase == MarketFreshness.Phase.PUBLICATION ? expected : date);
+                var coverage = coverage(comparison.latest(), screen,
+                        automaticFinance ? JpxAutomaticFinance.failedAcquisitions(context) : Set.of());
+                MarketCoverage.JPX.save(update, coverage);
                 if (screen.assessed() > 0) {
                     String candidates = screen.candidates().stream().map(JpxDailyCheck.Candidate::summary)
                             .collect(Collectors.joining("\n"));
@@ -460,6 +464,32 @@ public final class JpxWatchWorker extends Worker {
             check.append(summary);
         }
         return check.toString();
+    }
+
+    static MarketCoverage.Snapshot coverage(JpxDailyCheck.Report report, JpxDailyCheck.Screening screen,
+                                            Set<String> failed) {
+        var universe = report.universe();
+        var scope = universe == null ? report.quotes().keySet() : universe.codes();
+        var closes = new HashSet<String>();
+        var reasons = new java.util.HashMap<String, MarketCoverage.Reason>();
+        for (String code : scope) {
+            var close = report.close(code);
+            if (close == null) continue;
+            closes.add(code);
+            if (JpxDailyCheck.budgetQuantity(close) == 0) {
+                reasons.put(code, MarketCoverage.Reason.OUTSIDE_BUDGET);
+            } else if (failed.contains(code)) {
+                reasons.put(code, MarketCoverage.Reason.DOWNLOAD);
+            }
+        }
+        for (var hold : screen.holds()) {
+            var reason = hold.reason();
+            if (reason.contains("分割") || reason.contains("併合") || reason.contains("権利落")) {
+                reasons.putIfAbsent(hold.code(), MarketCoverage.Reason.CORPORATE_ACTION);
+            }
+        }
+        return MarketCoverage.build(report.date(), universe == null ? report.date() : universe.asOf(),
+                scope, closes, screen.assessedCodes(), reasons);
     }
 
     static String displayFreshness(SharedPreferences state) {

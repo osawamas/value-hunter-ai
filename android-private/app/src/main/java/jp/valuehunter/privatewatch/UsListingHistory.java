@@ -72,6 +72,15 @@ final class UsListingHistory {
         return new Scope(union(nyse, nasdaq), Set.copyOf(nasdaq), true);
     }
 
+    record DatedScope(LocalDate day, Set<String> symbols) {}
+
+    static DatedScope coverageScope(JSONObject dates, LocalDate tradeDay, UsMarketCoverage.Directory nyse,
+                                    UsMarketCoverage.Directory nasdaq) throws JSONException {
+        var exact = markets(dates.optJSONObject(tradeDay.toString()));
+        if (exact != null) return new DatedScope(tradeDay, union(exact.nyse(), exact.nasdaq()));
+        return new DatedScope(nyse.date(), UsPriceOnlyBudget.ordinary(nyse, nasdaq, tradeDay));
+    }
+
     private static Markets markets(JSONObject saved) {
         if (saved == null) return null;
         try {
