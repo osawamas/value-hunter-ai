@@ -64,7 +64,7 @@ final class NotificationHistory {
         if (!file.exists()) return entries;
         try {
             var stored = new JSONArray(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
-            var receipts = new java.util.HashSet<String>();
+            var latest = new java.util.HashMap<String, Entry>();
             for (int i = 0; i < stored.length(); i++) {
                 var row = stored.optJSONObject(i);
                 if (row == null) continue;
@@ -72,10 +72,13 @@ final class NotificationHistory {
                 String receipt = row.optString("receipt");
                 String title = row.optString("title");
                 if (at > 0 && (at > now || now - at < RETENTION)
-                        && !receipt.isEmpty() && !title.isEmpty() && receipts.add(receipt)) {
-                    entries.add(new Entry(receipt, at, title, row.optString("detail")));
+                        && !receipt.isEmpty() && !title.isEmpty()) {
+                    var entry = new Entry(receipt, at, title, row.optString("detail"));
+                    latest.merge(receipt, entry, (previous, candidate) ->
+                            candidate.postedAt() > previous.postedAt() ? candidate : previous);
                 }
             }
+            entries.addAll(latest.values());
         } catch (JSONException invalid) {
             // An invalid file has no reliable delivery records.
         }
