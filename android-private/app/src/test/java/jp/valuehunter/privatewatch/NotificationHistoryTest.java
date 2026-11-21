@@ -123,4 +123,22 @@ public class NotificationHistoryTest {
                 .stream().map(NotificationHistory.Entry::receipt).toList());
         assertThrows(IOException.class, () -> NotificationHistory.recent(directory.getRoot(), NOW));
     }
+    @Test public void unsortedLegacyHistoryKeepsNewestBeyondFirst256Rows() throws Exception {
+        var file = history();
+        var rows = new org.json.JSONArray();
+        for (int i = 0; i < 300; i++) {
+            rows.put(new org.json.JSONObject().put("receipt", "old-" + i)
+                    .put("at", NOW - 300_000 + i * 1000L)
+                    .put("title", "候補" + i).put("detail", "過去の通知"));
+        }
+        Files.writeString(file.toPath(), rows.toString());
+        var recent = NotificationHistory.recent(file, NOW);
+        assertEquals(256, recent.size());
+        assertEquals("old-299", recent.get(0).receipt());
+        assertEquals("old-44", recent.get(255).receipt());
+        assertFalse(recent.stream().anyMatch(row -> row.receipt().equals("old-0")));
+        assertTrue(NotificationHistory.deliver(file, "old-299", "候補299", "過去の通知",
+                NOW + 1000, () -> 0, UNEXPECTED, UNEXPECTED));
+    }
+
 }
