@@ -40,6 +40,8 @@ def audit(document):
                     and SHA256.fullmatch(record["source_sha256"]) is not None)
         eligible = record.get("financial_eligible") is True
         hold = record.get("on_hold") is True
+        if evidence and not eligible and record.get("on_hold") is False:
+            raise ValueError("retrieved ineligible original cannot explicitly deny hold")
         reason = record.get("hold_reason")
         if reason is not None:
             if (not isinstance(reason, str) or not reason.strip()
