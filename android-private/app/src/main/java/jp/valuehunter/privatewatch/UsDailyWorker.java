@@ -69,6 +69,7 @@ public final class UsDailyWorker extends Worker {
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PENDING_CODES = "us_private_sec_pending_codes";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
+    private static final String PRIVATE_PENDING_CLOSE_HASH = "us_private_sec_pending_close_hash";
     private static final String PENDING_ALERT_GENERATION = "us_private_pending_alert_generation";
     private static final String PENDING_FINANCIAL_GENERATION = "us_private_pending_financial_generation";
     private static final int US_NOTIFICATION_ID = 6;
@@ -476,9 +477,10 @@ public final class UsDailyWorker extends Worker {
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
             if (!pending.isEmpty() && (!sameDay || !alertsRequested
                     || !pending.startsWith(day + "の終値（参考）\n", pending.indexOf('\n') + 1)
+                    || !UsReferenceAlerts.pendingMatchesClose(state.getString(PRIVATE_PENDING_CLOSE_HASH, ""), closeHash)
                     || state.getLong(PENDING_ALERT_GENERATION, 0) != alertGeneration
                     || state.getLong(PENDING_FINANCIAL_GENERATION, 0) != financialGeneration)) {
-                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES).commit()) return false;
+                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES).remove(PRIVATE_PENDING_CLOSE_HASH).commit()) return false;
                 pending = "";
                 queued.clear();
             }
@@ -522,6 +524,7 @@ public final class UsDailyWorker extends Worker {
             }
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putStringSet(PENDING_CODES, queued)
+                    .putString(PRIVATE_PENDING_CLOSE_HASH, pending.isEmpty() ? "" : closeHash)
                     .putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status)
                     .putLong(PENDING_ALERT_GENERATION, alertGeneration)
                     .putLong(PENDING_FINANCIAL_GENERATION, financialGeneration);
@@ -558,7 +561,7 @@ public final class UsDailyWorker extends Worker {
                                                   long alertGeneration, long financialGeneration,
                                                   Set<String> sent, Set<String> queued, FinancialAlertSender sender) {
         int separator = pending.indexOf('\n');
-        var edit = state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES);
+        var edit = state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES).remove(PRIVATE_PENDING_CLOSE_HASH);
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
                 || alertGeneration != state.getLong(ScanWorker.ALERT_GENERATION, 0)
                 || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)) {
