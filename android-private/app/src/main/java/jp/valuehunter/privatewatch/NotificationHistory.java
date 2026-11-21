@@ -44,6 +44,9 @@ final class NotificationHistory {
             postedAt = now;
         }
 
+        // Evict the oldest existing record before adding the new receipt.
+        // A clock rollback can otherwise sort the new receipt below the cap.
+        if (history.size() >= MAX_ENTRIES) history.remove(history.size() - 1);
         history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
         history.sort(Comparator.comparingLong(Entry::postedAt).reversed());
         save(file, history.subList(0, Math.min(history.size(), MAX_ENTRIES)));
