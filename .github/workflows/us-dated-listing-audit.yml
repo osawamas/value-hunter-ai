@@ -1,0 +1,25 @@
+name: US dated listing audit regression
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/test_us_dated_listing_audit.py'
+      - 'docs/us-market-audit-20261117.json'
+      - 'docs/us-dated-listing-audit-20261117.json'
+      - '.github/workflows/us-dated-listing-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check dated listing audit invariants
+        run: python -m unittest discover -s scripts -p 'test_us_dated_listing_audit.py' -v
