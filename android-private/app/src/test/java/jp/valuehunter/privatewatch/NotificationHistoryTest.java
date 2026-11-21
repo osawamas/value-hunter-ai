@@ -143,7 +143,7 @@ public class NotificationHistoryTest {
                     .put("at", NOW - 300_000 + i * 1000L)
                     .put("title", "候補" + i).put("detail", "過去の通知"));
         }
-        Files.writeString(file.toPath(), rows.toString());
+        Files.write(file.toPath(), rows.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var recent = NotificationHistory.recent(file, NOW);
         assertEquals(256, recent.size());
         assertEquals("old-299", recent.get(0).receipt());
@@ -155,9 +155,9 @@ public class NotificationHistoryTest {
 
     @Test public void duplicateLegacyReceiptsKeepNewestTimestampRegardlessOfRowOrder() throws Exception {
         var file = history();
-        Files.writeString(file.toPath(), "[{\"receipt\":\"same\",\"at\":" + (NOW - 5000)
+        Files.write(file.toPath(), ("[{\"receipt\":\"same\",\"at\":" + (NOW - 5000)
                 + ",\"title\":\"古い\"},{\"receipt\":\"same\",\"at\":" + (NOW - 1000)
-                + ",\"title\":\"新しい\"}]");
+                + ",\"title\":\"新しい\"}]").getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var entries = NotificationHistory.recent(file, NOW);
         assertEquals(1, entries.size());
         assertEquals(NOW - 1000, entries.get(0).postedAt());
