@@ -146,6 +146,27 @@ final class UsDeviceFinancials {
         }
     }
 
+    static JSONObject financialRow(JSONObject target, JSONObject payload, LocalDate day) throws JSONException {
+        int cik = target.getInt("cik");
+        var figures = UsFinancialFacts.read(payload, cik, day);
+        if (figures == null) return null;
+        return new JSONObject().put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
+                .put("cik", cik).put("share_date", figures.shareDate().toString())
+                .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
+                .put("profit_basis", figures.profitBasis())
+                .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
+                .put("equity", figures.equity().toPlainString());
+    }
+
+    static boolean nonPositiveFinancials(JSONObject row) {
+        try {
+            return new BigDecimal(row.optString("profit")).signum() <= 0
+                    || new BigDecimal(row.optString("equity")).signum() <= 0;
+        } catch (NumberFormatException incomplete) {
+            return false;
+        }
+    }
+
     static JSONObject screen(LocalDate day, String provider, String hash, JSONArray records,
                              Map<String, BigDecimal> prices, UsScreen.Fx fx, Map<String, LocalDate> splits)
             throws JSONException {

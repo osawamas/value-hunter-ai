@@ -564,3 +564,23 @@ python tools/us_monitor_ledger.py 2026-11-17 \
 アプリを起動し、無音通知を許可する。終値の取得後、Wi-Fiなど従量制でない回線につながると、AndroidがNYSE・Nasdaqの上場銘柄一覧をSEC発行体一覧に照合する。SECから財務元データを銘柄ごとに取得し、進捗と照合済みの件数を表示する。通信が途切れても、同じ終値データなら途中から再開する。取得した元データは処理後に破棄し、端末内には照合結果だけを保存する。次の取引日はSECの日次提出一覧を照合して、変更のない発行体の結果を再利用する。一覧が不足した場合や前回の全件取得から7日以上経った場合は、対象を再取得する。
 
 財務・株数・為替・分割を確認できた銘柄を参考判定に使う。最初の判定は比較の基準として保存する。後の取引日に、新しく条件に入った銘柄や参考候補から優先候補へ変わった銘柄を無音で知らせる。Apple製コンピューターの設定、同期、USBデバッグ、APIキーの入力は不要。取得状況は通信速度とAndroidのバックグラウンド実行に依存する。
+
+### 米国株の同日再試行を過去データで再生する
+
+`tools/UsRetryReplay.java` はアプリの終値再取得、SEC財務、判定、通知候補抽出のロジックをJVM上で使う。入力をローカルの作業ディレクトリに置き、取引日の終値を1銘柄、SEC財務を別の1銘柄だけ初回から除外して、再取得前後の件数を比べる。当日上場一覧がないときは実際に使用した一覧の日付を出力する。
+
+- `closes.json` は比較日と当日のDoltHub API応答。各行に `symbol`、`trading_date`、`close` を含める。
+- `supplement.json` は当日の除外ティッカーを指定して再取得したDoltHub API応答。 `splits.json` は同じ対象の分割照会結果。
+- `nyse.txt` と `nasdaq.txt` はNasdaq Traderの `otherlisted.txt` と `nasdaqlisted.txt`。 `sec.json` はSECの `company_tickers_exchange.json`。 `fx.json` は比較日・当日のUSD/JPY。
+- 銘柄ごとのSEC Company Factsは `TICKER.json` とし、再取得対象のCompany Factsを `TICKER-retry.json` とする。入力・株価原本はGitに入れない。
+
+JDK 17以上とJSONライブラリ（既存のJVMテストと同じ `org.json:json:20240303`）で、リポジトリの `android-private` 直下から実行する。
+
+```bash
+src=app/src/main/java/jp/valuehunter/privatewatch
+javac --release 17 -cp "$US_REPLAY_JSON_JAR" -d "$US_REPLAY_CLASSES" \
+  "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory}.java \
+  tools/UsRetryReplay.java
+java -cp "$US_REPLAY_CLASSES:$US_REPLAY_JSON_JAR" jp.valuehunter.privatewatch.UsRetryReplay \
+  "$US_REPLAY_INPUT" 2026-11-16 2026-11-17 INTC CSCO
+```
