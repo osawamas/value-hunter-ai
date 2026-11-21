@@ -41,6 +41,8 @@ final class NotificationDeliveryProbe {
         var history = NotificationHistory.file(context);
         var prefs = ScanWorker.prefs(context);
         if ("recovery".equals(phase)) return exerciseMarketRecovery(instrumentation);
+        if ("archive_repair_prep".equals(phase)) return ArchivedRepairProbe.prepare(context);
+        if ("archive_repair_resume".equals(phase)) return ArchivedRepairProbe.resume(context);
         if ("restore".equals(phase)) {
             require(!MarketNetwork.allowed(), "Market communication was re-enabled by reboot");
             require(MarketNetwork.wifiOnly(), "Wi-Fi-only choice did not survive reboot");
