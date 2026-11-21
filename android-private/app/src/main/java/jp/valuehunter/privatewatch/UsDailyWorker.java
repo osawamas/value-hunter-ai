@@ -117,7 +117,7 @@ public final class UsDailyWorker extends Worker {
 
     @NonNull @Override public Result doWork() {
         synchronized (CHECK_LOCK) {
-            if (!MarketNetwork.allowed()) return MarketNetwork.waitingForWifi() ? Result.retry() : Result.success();
+            if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
             return check();
         }
     }
@@ -179,7 +179,7 @@ public final class UsDailyWorker extends Worker {
             report(state, "終値を取得できず（HTTP " + e.code + "）");
             return e.code == 429 || e.code >= 500 ? Result.retry() : Result.success();
         } catch (IOException e) {
-            if (networkStopped()) return Result.success();
+            if (networkStopped()) return MarketNetwork.pausedWork();
             report(state, "終値を取得できず（通信または保存エラー）");
             return Result.retry();
         } catch (JSONException e) {

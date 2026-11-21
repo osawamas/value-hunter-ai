@@ -88,7 +88,7 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return MarketNetwork.waitingForWifi() ? Result.retry() : Result.success();
+        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
         var context = getApplicationContext();
         var preferences = ScanWorker.prefs(context);
         var directory = context.getNoBackupFilesDir();
@@ -183,7 +183,7 @@ public final class UsSecFinanceWorker extends Worker {
             Thread.currentThread().interrupt();
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
-            if (networkStopped()) return Result.success();
+            if (networkStopped()) return MarketNetwork.pausedWork();
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             if (!progress.endsWith(" · 再試行待ち")) {
                 preferences.edit().putString(UsDailyWorker.PRIVATE_STATUS,

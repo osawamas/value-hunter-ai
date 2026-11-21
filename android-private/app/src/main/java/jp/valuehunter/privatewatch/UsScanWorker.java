@@ -31,7 +31,7 @@ public final class UsScanWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return MarketNetwork.waitingForWifi() ? Result.retry() : Result.success();
+        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
         if (!getInputData().getBoolean(ScanWorker.LEGACY_API_REQUEST, false)) return Result.success();
         synchronized (LOCK) {
             return scan();

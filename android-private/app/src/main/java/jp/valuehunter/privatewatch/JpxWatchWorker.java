@@ -165,14 +165,14 @@ public final class JpxWatchWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return MarketNetwork.waitingForWifi() ? Result.retry() : Result.success();
+        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
         synchronized (CHECK_LOCK) {
             return check();
         }
     }
 
     private Result check() {
-        if (networkStopped()) return Result.success();
+        if (networkStopped()) return MarketNetwork.pausedWork();
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
         String token = state.getString(TOKEN, "");
@@ -182,11 +182,11 @@ public final class JpxWatchWorker extends Worker {
             var evidence = rights.apply(context);
             var rapidEvidence = automaticFinance ? JpxRapidEvidence.refresh() : JpxRapidEvidence.unavailable();
             String revision = automaticFinance ? evidence.revision() + "|" + rapidEvidence.revision() : evidence.revision();
-            if (networkStopped()) return Result.success();
+            if (networkStopped()) return MarketNetwork.pausedWork();
             String processedKey = ScanWorker.alertsEnabled(context) ? state.getString(PROCESSED, "") : "";
             if (automaticFinance && getInputData().getBoolean(FINANCE_PASS, false)) processedKey = "";
             var comparison = comparisons.load(context, processedKey, revision);
-            if (networkStopped()) return Result.success();
+            if (networkStopped()) return MarketNetwork.pausedWork();
             if (comparison != null) {
                 synchronized (STATE_LOCK) {
                     if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
@@ -201,7 +201,8 @@ public final class JpxWatchWorker extends Worker {
                     ? JpxAutomaticFinance.refresh(context, comparison, evidence.rights(), this::networkStopped)
                     : JpxAutomaticFinance.Batch.empty();
             synchronized (STATE_LOCK) {
-                if (networkStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();
+                if (networkStopped()) return MarketNetwork.pausedWork();
+                if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
                 if (comparison == null) {
                     recordCheck(state.edit(), "日報と照合資料の版に変更なし · PDFの再取得を省略").apply();
                     return Result.success();
@@ -316,9 +317,10 @@ public final class JpxWatchWorker extends Worker {
             }
             return Result.success();
         } catch (IOException error) {
-            if (networkStopped()) return Result.success();
+            if (networkStopped()) return MarketNetwork.pausedWork();
             synchronized (STATE_LOCK) {
-                if (networkStopped() || !token.equals(state.getString(TOKEN, ""))) return Result.success();
+                if (networkStopped()) return MarketNetwork.pausedWork();
+                if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
                 return retryReport(state, "日報を取得できなかった");
             }
         }

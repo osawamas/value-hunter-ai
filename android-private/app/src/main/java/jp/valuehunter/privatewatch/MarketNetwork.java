@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 import androidx.work.Constraints;
+import androidx.work.ListenableWorker;
 import androidx.work.NetworkType;
 
 import java.io.FilterInputStream;
@@ -111,6 +112,11 @@ final class MarketNetwork {
 
     static boolean waitingForWifi() {
         return requested && wifiOnly && !allowed();
+    }
+
+    static ListenableWorker.Result pausedWork() {
+        // Leave interrupted acquisitions pending even when the app process is killed before Wi-Fi returns.
+        return waitingForWifi() ? ListenableWorker.Result.retry() : ListenableWorker.Result.success();
     }
 
     static synchronized boolean setAllowed(Context context, boolean allowed) {
