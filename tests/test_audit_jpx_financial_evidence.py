@@ -5,6 +5,26 @@ HASH = "a" * 64
 
 
 class EvidenceAuditTests(unittest.TestCase):
+    def test_hold_reason_ticker_mapping_is_sorted_and_accounted(self):
+        result = audit({"universe": ["1234", "5678", "9012"], "records": [
+            {"ticker": "5678", "on_hold": True, "hold_reason": "split review"},
+            {"ticker": "1234", "on_hold": True, "hold_reason": "split review"},
+            {"ticker": "9012", "on_hold": True}
+        ]})
+        self.assertEqual(result["codes_by_hold_reason"], {"split review": ["1234", "5678"]})
+        self.assertEqual(result["hold_reasons"], {"split review": 2})
+        self.assertEqual(result["hold_reason_unclassified"], 1)
+        self.assertEqual(result["on_hold"], 3)
+
+    def test_reason_without_hold_or_with_eligible_rejected(self):
+        for record in (
+            {"ticker": "1234", "hold_reason": "split review"},
+            {"ticker": "1234", "financial_eligible": True, "hold_reason": "split review"},
+            {"ticker": "1234", "on_hold": True, "hold_reason": " "}
+        ):
+            with self.assertRaises(ValueError):
+                audit({"universe": ["1234"], "records": [record]})
+
     def test_missing_original_never_counts_as_retrieved(self):
         result = audit({"universe": ["1234", "5678"], "records": [
             {"ticker": "1234", "financial_eligible": False, "on_hold": True}
