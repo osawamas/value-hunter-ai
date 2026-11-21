@@ -224,11 +224,16 @@ final class JpxWatchDeliveryProbe {
         var rights = new JpxShareRights(Set.of("3861"), months, List.of(), Map.of("3861", review));
         var inputs = new AtomicReference<>(new JpxDailyCheck.Comparison(
                 sample(FRIDAY, "920.00"), sample(FRIDAY.minusDays(1), "920.00")));
+        var expected = new AtomicReference<>(FRIDAY);
+        var unavailable = new AtomicBoolean();
         var interrupt = new AtomicBoolean();
         var resumed = new AtomicInteger();
         var factory = new WorkerFactory() {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
-                return new JpxWatchWorker(app, parameters, (ignored, key, revision) -> inputs.get(),
+                return new JpxWatchWorker(app, parameters, (ignored, key, revision) -> {
+                    if (unavailable.get()) throw new java.io.IOException("Fixture delivery failed");
+                    return inputs.get();
+                },
                         ignored -> new JpxShareRights.Selection(rights, "", "wifi-recovery-probe"),
                         (target, id, title, detail) -> {
                             if (interrupt.getAndSet(false)) {
@@ -240,7 +245,7 @@ final class JpxWatchDeliveryProbe {
                                 return true;
                             }
                             return false;
-                        });
+                        }, expected::get);
             }
         };
         var manager = context.getSystemService(NotificationManager.class);
@@ -252,6 +257,7 @@ final class JpxWatchDeliveryProbe {
             if (!initial.equals(ListenableWorker.Result.success())) throw new AssertionError("JPX baseline failed");
 
             inputs.set(new JpxDailyCheck.Comparison(sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")));
+            expected.set(MONDAY);
             interrupt.set(true);
             long oldRoute = MarketNetwork.generation();
             var lost = TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
@@ -284,9 +290,36 @@ final class JpxWatchDeliveryProbe {
                     .stream().filter(row -> row.title().equals("東証日報で参考条件入り 1銘柄")
                             && row.detail().contains("3861") && row.detail().contains(MONDAY.toString())).count();
             if (receipts != 1 || resumed.get() != 1) throw new AssertionError("JPX recovery lost or repeated the alert");
+            if (!JpxWatchWorker.displayFreshness(state).contains(MONDAY + " の取引分 · 判定済み")) {
+                throw new AssertionError("JPX did not display the screened trading day");
+            }
+
+            LocalDate next = MONDAY.plusDays(1);
+            expected.set(next);
+            checkFreshness(context, factory, MarketFreshness.Phase.PUBLICATION, MONDAY);
+            inputs.set(new JpxDailyCheck.Comparison(sample(next, "920.00"), sample(FRIDAY, "920.00")));
+            checkFreshness(context, factory, MarketFreshness.Phase.COMPARISON, MONDAY);
+            unavailable.set(true);
+            checkFreshness(context, factory, MarketFreshness.Phase.ERROR, MONDAY);
+            unavailable.set(false);
+            inputs.set(new JpxDailyCheck.Comparison(sample(next, "920.00"), sample(MONDAY, "900.00")));
+            checkFreshness(context, factory, MarketFreshness.Phase.FINANCE, next);
+            expectQuiet(manager);
         } finally {
             JpxWatchWorker.setEnabled(context, false);
             manager.cancelAll();
+        }
+    }
+
+    private static void checkFreshness(Context context, WorkerFactory factory, MarketFreshness.Phase phase,
+                                       LocalDate screenedDay) {
+        TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
+                .setWorkerFactory(factory).build().doWork();
+        var state = ScanWorker.prefs(context);
+        var market = MarketFreshness.JPX;
+        if (phase != market.phase(state) || !screenedDay.equals(market.day(state))
+                || !JpxWatchWorker.displayFreshness(state).contains(screenedDay + " の取引分 · 判定済み")) {
+            throw new AssertionError("Unexpected JPX freshness: " + JpxWatchWorker.displayFreshness(state));
         }
     }
 

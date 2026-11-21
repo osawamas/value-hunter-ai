@@ -291,6 +291,7 @@ public final class MainActivity extends Activity {
         testNotificationButton.setEnabled(requested && permitted && !notificationTestPending);
         testNotificationButton.setText(notificationTestPending ? "テスト通知を予約中" : "5秒後にテスト通知");
         String report = JpxWatchWorker.displayStatus(state);
+        if (active) report = JpxWatchWorker.displayFreshness(state) + (report.isEmpty() ? "" : "\n" + report);
         String update = active ? MarketUpdate.JPX.display(state) : "";
         if (!update.isEmpty()) report = update + (report.isEmpty() ? "" : "\n" + report);
         lastCheck.setText(!report.isEmpty() ? report : !connected ? "保存済みの確認結果はまだない"

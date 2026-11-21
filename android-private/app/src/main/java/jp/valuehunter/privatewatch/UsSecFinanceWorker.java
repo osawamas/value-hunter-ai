@@ -116,11 +116,13 @@ public final class UsSecFinanceWorker extends Worker {
         var directory = context.getNoBackupFilesDir();
         var closeFile = new AtomicFile(new File(directory, QUOTES));
         var checkpoint = new AtomicFile(new File(directory, STATE));
+        LocalDate attemptedDay = null;
         try {
             byte[] bytes = UsDailyWorker.readQuote(closeFile);
             JSONObject quote = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
             String hash = UsReferenceAlerts.sha256(bytes);
             var day = LocalDate.parse(quote.getString("trading_date_et"));
+            attemptedDay = day;
             var provider = quote.getString("source");
             var prices = UsDeviceFinancials.prices(quote.getJSONArray("closes"));
             var scan = resume(checkpoint);
@@ -138,7 +140,7 @@ public final class UsSecFinanceWorker extends Worker {
                 if (networkStopped()) return paused();
                 scan = UsDeviceFinancials.startScan(hash, day, targets, scan, changed);
                 int reused = scan.getInt("reused");
-                updateProgress(0, scan.getJSONArray("targets").length(), reused, reused);
+                updateProgress(day, 0, scan.getJSONArray("targets").length(), reused, reused);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
@@ -165,7 +167,7 @@ public final class UsSecFinanceWorker extends Worker {
                     }
                 } finally {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
-                    updateProgress(position, targets.length(), results.length(), reused);
+                    updateProgress(day, position, targets.length(), results.length(), reused);
                 }
                 if (networkStopped()) return paused();
                 if (position < targets.length()) {
@@ -212,9 +214,17 @@ public final class UsSecFinanceWorker extends Worker {
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             if (networkStopped()) return paused();
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
-            if (!progress.endsWith(" · 再試行待ち")) {
-                preferences.edit().putString(UsDailyWorker.PRIVATE_STATUS,
-                        (progress.isEmpty() ? "米国株の財務データ待ち" : progress) + " · 再試行待ち").apply();
+            synchronized (UsDailyWorker.QUOTE_LOCK) {
+                var market = MarketFreshness.US_FINANCE;
+                var latest = market.target(preferences);
+                if (latest == null || attemptedDay == null || !latest.isAfter(attemptedDay)) {
+                    var edit = market.waiting(preferences.edit(), MarketFreshness.Phase.ERROR, attemptedDay);
+                    if (!progress.endsWith(" · 再試行待ち")) {
+                        edit.putString(UsDailyWorker.PRIVATE_STATUS,
+                                (progress.isEmpty() ? "米国株の財務データ待ち" : progress) + " · 再試行待ち");
+                    }
+                    edit.apply();
+                }
             }
             return Result.retry();
         }
@@ -472,9 +482,16 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    private void updateProgress(int position, int total, int verified, int reused) {
-        ScanWorker.prefs(getApplicationContext()).edit().putString(UsDailyWorker.PRIVATE_STATUS,
-                "SEC財務を取得中 " + (position + reused) + " / " + (total + reused)
-                        + "銘柄 · 財務・株数照合 " + verified + "銘柄").apply();
+    private void updateProgress(LocalDate day, int position, int total, int verified, int reused) {
+        var preferences = ScanWorker.prefs(getApplicationContext());
+        synchronized (UsDailyWorker.QUOTE_LOCK) {
+            var market = MarketFreshness.US_FINANCE;
+            var latest = market.target(preferences);
+            if (latest != null && latest.isAfter(day)) return;
+            market.waiting(preferences.edit(), MarketFreshness.Phase.FINANCE, day)
+                    .putString(UsDailyWorker.PRIVATE_STATUS,
+                            "SEC財務を取得中 " + (position + reused) + " / " + (total + reused)
+                                    + "銘柄 · 財務・株数照合 " + verified + "銘柄").apply();
+        }
     }
 }
