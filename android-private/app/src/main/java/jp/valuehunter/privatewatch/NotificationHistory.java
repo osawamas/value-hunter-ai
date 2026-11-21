@@ -38,15 +38,24 @@ final class NotificationHistory {
         if (history.stream().anyMatch(entry -> entry.receipt().equals(receipt))) return true;
 
         long postedAt = existingDelivery.getAsLong();
+        boolean existingWakeNeeded = postedAt <= 0;
         if (postedAt <= 0) {
             post.run();
             postedAt = now;
-            wake.run();
         }
 
         history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
         history.sort(Comparator.comparingLong(Entry::postedAt).reversed());
         save(file, history.subList(0, Math.min(history.size(), MAX_ENTRIES)));
+        // Persist the receipt before optional screen wake, minimizing the crash window.
+        // A wake failure must never turn a submitted notification into a retry.
+        if (existingWakeNeeded) {
+            try {
+                wake.run();
+            } catch (RuntimeException unavailable) {
+                // Posting and durable history succeeded; wake is best-effort.
+            }
+        }
         return true;
     }
 
@@ -59,22 +68,26 @@ final class NotificationHistory {
         if (!file.exists()) return entries;
         try {
             var stored = new JSONArray(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
-            var receipts = new java.util.HashSet<String>();
-            for (int i = 0; i < stored.length() && entries.size() < MAX_ENTRIES; i++) {
+            var latest = new java.util.HashMap<String, Entry>();
+            for (int i = 0; i < stored.length(); i++) {
                 var row = stored.optJSONObject(i);
                 if (row == null) continue;
                 long at = row.optLong("at", 0);
                 String receipt = row.optString("receipt");
                 String title = row.optString("title");
                 if (at > 0 && (at > now || now - at < RETENTION)
-                        && !receipt.isEmpty() && !title.isEmpty() && receipts.add(receipt)) {
-                    entries.add(new Entry(receipt, at, title, row.optString("detail")));
+                        && !receipt.isEmpty() && !title.isEmpty()) {
+                    var entry = new Entry(receipt, at, title, row.optString("detail"));
+                    latest.merge(receipt, entry, (previous, candidate) ->
+                            candidate.postedAt() > previous.postedAt() ? candidate : previous);
                 }
             }
+            entries.addAll(latest.values());
         } catch (JSONException invalid) {
             // An invalid file has no reliable delivery records.
         }
         entries.sort(Comparator.comparingLong(Entry::postedAt).reversed());
+        if (entries.size() > MAX_ENTRIES) entries.subList(MAX_ENTRIES, entries.size()).clear();
         return entries;
     }
 
