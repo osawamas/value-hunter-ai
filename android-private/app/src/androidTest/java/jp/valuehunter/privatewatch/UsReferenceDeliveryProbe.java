@@ -141,7 +141,10 @@ final class UsReferenceDeliveryProbe {
             return facts();
         }
         if (url.contains("frankfurter.dev")) {
-            return "[{\"date\":\"2026-11-16\",\"base\":\"USD\",\"quote\":\"JPY\",\"rate\":150}]";
+            return """
+                    [{"date":"2026-11-16","base":"USD","quote":"JPY","rate":150},
+                     {"date":"2026-11-17","base":"USD","quote":"JPY","rate":150}]
+                    """;
         }
         if (url.contains("DOLT_HASHOF")) {
             return "{\"query_execution_status\":\"Success\",\"rows\":[{\"revision\":\"" + "a".repeat(32) + "\"}]}";
