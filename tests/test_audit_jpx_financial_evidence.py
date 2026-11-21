@@ -25,6 +25,23 @@ class EvidenceAuditTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 audit({"universe": ["1234"], "records": [record]})
 
+    def test_mixed_evidence_hold_reasons_reconcile_without_inventing_codes(self):
+        result = audit({"universe": ["1234", "5678", "9012", "3456"], "records": [
+            {"ticker": "1234", "on_hold": True, "hold_reason": "split review",
+             "source_url": "https://www2.jpx.co.jp/disc/12340/123_tse-ace-original-ixbrl.htm",
+             "source_sha256": HASH},
+            {"ticker": "5678", "on_hold": True, "hold_reason": "missing correction"},
+            {"ticker": "9012", "on_hold": True}
+        ]})
+        self.assertEqual(result["source_retrieved"], 1)
+        self.assertEqual(result["on_hold"], 3)
+        self.assertEqual(result["not_started"], 1)
+        self.assertEqual(sum(result["hold_reasons"].values()) +
+                         result["hold_reason_unclassified"], result["on_hold"])
+        self.assertEqual(result["codes_by_hold_reason"],
+                         {"missing correction": ["5678"], "split review": ["1234"]})
+        self.assertNotIn("9012", sum(result["codes_by_hold_reason"].values(), []))
+
     def test_missing_original_never_counts_as_retrieved(self):
         result = audit({"universe": ["1234", "5678"], "records": [
             {"ticker": "1234", "financial_eligible": False, "on_hold": True}
