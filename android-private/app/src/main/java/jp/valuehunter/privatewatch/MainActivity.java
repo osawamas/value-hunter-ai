@@ -49,6 +49,7 @@ public final class MainActivity extends Activity {
     private TextView notificationStatus;
     private TextView communicationStatus;
     private Switch networkSwitch;
+    private Switch wifiSwitch;
     private AlertDialog communicationNotice;
     private TextView lastCheck;
     private TextView detail;
@@ -62,6 +63,7 @@ public final class MainActivity extends Activity {
     private boolean communicationPreferenceSaved = true;
 
     private final SharedPreferences.OnSharedPreferenceChangeListener onChange = (prefs, name) -> render();
+    private final Runnable onRouteChange = this::render;
 
     private final Runnable sendTestNotification = () -> {
         notificationTestPending = false;
@@ -99,9 +101,17 @@ public final class MainActivity extends Activity {
         label(hero, "新しく条件に入った銘柄を無音で通知", 13, LIGHT_TEXT, false, 5);
 
         var communication = section(content, SURFACE, true);
-        networkSwitch = optionSwitch(communication, "相場データの通信", MarketNetwork.allowed());
+        networkSwitch = optionSwitch(communication, "相場データの通信", MarketNetwork.requested());
+        wifiSwitch = optionSwitch(communication, "Wi-Fi接続時のみ更新", MarketNetwork.wifiOnly());
         communicationStatus = label(communication, "", 13, MUTED, false, 5);
         networkSwitch.setOnClickListener(view -> applyMarketNetworkPreference(networkSwitch.isChecked()));
+        wifiSwitch.setOnClickListener(view -> {
+            communicationPreferenceSaved = MarketNetwork.setWifiOnly(this, wifiSwitch.isChecked());
+            // Replace saved jobs so their network constraint matches the selected mode.
+            androidx.work.WorkManager.getInstance(this).cancelAllWork();
+            scheduleMarketChecks();
+            render();
+        });
         button(communication, "通信量について", PAGE, 5).setOnClickListener(view -> showCommunicationNotice(false));
 
         var notifications = section(content, SURFACE, true);
@@ -179,13 +189,14 @@ public final class MainActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         state.registerOnSharedPreferenceChangeListener(onChange);
+        MarketNetwork.addListener(onRouteChange);
         if (MarketNetwork.noticeRequired(this)) showCommunicationNotice(true);
         scheduleMarketChecks();
     }
 
     private void applyMarketNetworkPreference(boolean allowed) {
         communicationPreferenceSaved = MarketNetwork.setAllowed(this, allowed);
-        if (MarketNetwork.allowed()) {
+        if (MarketNetwork.requested()) {
             scheduleMarketChecks();
         } else {
             androidx.work.WorkManager.getInstance(this).cancelAllWork();
@@ -214,7 +225,7 @@ public final class MainActivity extends Activity {
     }
 
     private void scheduleMarketChecks() {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         UsDailyWorker.schedule(this);
         if (monitorSwitch.isChecked() || JpxWatchWorker.enabled(this)) {
             JpxWatchWorker.setEnabled(this, monitorSwitch.isChecked());
@@ -228,6 +239,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onStop() {
         state.unregisterOnSharedPreferenceChangeListener(onChange);
+        MarketNetwork.removeListener(onRouteChange);
         super.onStop();
     }
 
@@ -247,12 +259,18 @@ public final class MainActivity extends Activity {
     private void render() {
         usDailyStatus.setText(UsDailyWorker.displayStatus(state));
         boolean connected = MarketNetwork.allowed();
-        networkSwitch.setChecked(connected);
-        networkSwitch.setEnabled(!MarketNetwork.noticeRequired(this));
+        boolean awaitingNotice = MarketNetwork.noticeRequired(this);
+        networkSwitch.setChecked(MarketNetwork.requested());
+        networkSwitch.setEnabled(!awaitingNotice);
+        wifiSwitch.setChecked(MarketNetwork.wifiOnly());
+        wifiSwitch.setEnabled(!awaitingNotice);
         boolean active = monitorSwitch.isChecked();
-        String status = connected ? "相場データの取得を許可" : "通信オフ · 自動更新・手動更新を停止中";
+        String status = !MarketNetwork.requested() ? "通信オフ · 自動更新・手動更新を停止中"
+                : MarketNetwork.waitingForWifi() ? "Wi-Fi接続待ち · 更新を一時停止中"
+                : MarketNetwork.wifiOnly() ? "Wi-Fi接続中 · 相場データの取得を許可" : "相場データの取得を許可";
         communicationStatus.setText(communicationPreferenceSaved ? status : status + "\n設定を保存できなかった");
-        monitorStatus.setText(!connected ? "○  通信オフ · 保存済みの結果を表示中" : active ? "●  東証日報の自動監視中"
+        monitorStatus.setText(MarketNetwork.waitingForWifi() ? "○  Wi-Fi接続待ち · 保存済みの結果を表示中"
+                : !connected ? "○  通信オフ · 保存済みの結果を表示中" : active ? "●  東証日報の自動監視中"
                 + (Build.VERSION.SDK_INT < 35 ? "（互換モード）" : "") : "○  日本株の自動監視を停止中");
         checkNow.setEnabled(connected && active);
         showDetail.setEnabled(connected && detailThread == null);

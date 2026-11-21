@@ -42,8 +42,10 @@ final class NotificationDeliveryProbe {
         var prefs = ScanWorker.prefs(context);
         if ("restore".equals(phase)) {
             require(!MarketNetwork.allowed(), "Market communication was re-enabled by reboot");
+            require(MarketNetwork.wifiOnly(), "Wi-Fi-only choice did not survive reboot");
             requireBlocked();
-            require(MarketNetwork.setAllowed(context, true), "Cannot restore communication for the alert replay");
+            require(MarketNetwork.setWifiOnly(context, false) && MarketNetwork.setAllowed(context, true),
+                    "Cannot restore communication for the alert replay");
             require(!ScanWorker.notificationsRequested(context)
                     && prefs.getBoolean(NotificationScreenWake.ENABLED, false),
                     "The two switch settings did not survive reboot");
@@ -123,7 +125,67 @@ final class NotificationDeliveryProbe {
                 "Notifications off should block posts and screen wake even with wake preference on");
         require(NotificationHistory.recent(history, System.currentTimeMillis()).size() == 2,
                 "A suppressed notification changed history");
-        return "ALERT_SILENT_WAKE_AND_HISTORY_OK";
+        exerciseWifiOnly(instrumentation, power);
+        return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static void exerciseWifiOnly(Instrumentation instrumentation, PowerManager power) throws Exception {
+        var context = instrumentation.getTargetContext();
+        shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
+        shell(instrumentation, "wm dismiss-keyguard");
+        shell(instrumentation, "svc data enable");
+        shell(instrumentation, "svc wifi disable");
+        require(await(power::isInteractive), "Screen could not turn on for the Wi-Fi test");
+        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try {
+            instrumentation.runOnMainSync(() -> {
+                var root = activity.getWindow().getDecorView();
+                var wifi = control(root, "Wi-Fi接続時のみ更新", Switch.class);
+                var network = control(root, "相場データの通信", Switch.class);
+                require(wifi != null && network != null && !network.isChecked(), "Communication options missing");
+                wifi.performClick();
+                network.performClick();
+                require(wifi.isChecked() && network.isChecked() && MarketNetwork.requested()
+                        && MarketNetwork.wifiOnly(), "Wi-Fi wait changed the user's ON setting");
+            });
+            require(await(MarketNetwork::waitingForWifi, 25_000), "App did not wait while Wi-Fi was disabled");
+            requireBlocked();
+
+            shell(instrumentation, "svc wifi enable");
+            require(await(MarketNetwork::allowed, 25_000), "Wi-Fi connection did not enable the market path");
+            var bound = MarketNetwork.open(new URL("https://127.0.0.1:1/"));
+            try {
+                shell(instrumentation, "svc wifi disable");
+                require(await(MarketNetwork::waitingForWifi, 25_000), "Wi-Fi loss did not close the gate");
+                requireBlocked();
+                try {
+                    MarketNetwork.response(bound);
+                    throw new AssertionError("Old Wi-Fi connection remained active after Wi-Fi loss");
+                } catch (IOException stopped) {
+                    require("Market data communication stopped".equals(stopped.getMessage()),
+                            "Lost-Wi-Fi request reached the transport");
+                }
+            } finally {
+                MarketNetwork.close(bound);
+            }
+
+            shell(instrumentation, "svc wifi enable");
+            require(await(MarketNetwork::allowed, 25_000), "Market traffic did not resume after Wi-Fi returned");
+            require(!androidx.work.WorkManager.getInstance(context)
+                            .getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS).isEmpty(),
+                    "Restoring Wi-Fi did not queue the US update");
+            instrumentation.runOnMainSync(() -> {
+                var network = control(activity.getWindow().getDecorView(), "相場データの通信", Switch.class);
+                require(network.isChecked(), "Wi-Fi loss changed the requested communication state");
+                network.performClick();
+            });
+            require(MarketNetwork.wifiOnly() && !MarketNetwork.requested(), "OFF did not keep the Wi-Fi preference");
+        } finally {
+            shell(instrumentation, "svc wifi enable");
+            instrumentation.runOnMainSync(activity::finish);
+            instrumentation.waitForIdleSync();
+        }
     }
 
     private static void exerciseCommunicationNotice(Instrumentation instrumentation, PowerManager power)
@@ -304,7 +366,11 @@ final class NotificationDeliveryProbe {
     }
 
     private static boolean await(BooleanSupplier condition) {
-        long until = SystemClock.elapsedRealtime() + 3500;
+        return await(condition, 3500);
+    }
+
+    private static boolean await(BooleanSupplier condition, long timeout) {
+        long until = SystemClock.elapsedRealtime() + timeout;
         do {
             if (condition.getAsBoolean()) return true;
             SystemClock.sleep(50);

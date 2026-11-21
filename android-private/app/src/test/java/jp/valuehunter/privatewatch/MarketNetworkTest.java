@@ -39,6 +39,15 @@ public class MarketNetworkTest {
         });
     }
 
+    @Test public void wifiOnlyRejectsCellularAmbiguousAndUnidentifiedRoutes() {
+        assertTrue(MarketNetwork.wifiRoute(true, false, false, true));
+        assertFalse(MarketNetwork.wifiRoute(false, true, false, true));
+        assertFalse(MarketNetwork.wifiRoute(true, true, false, true));
+        assertFalse(MarketNetwork.wifiRoute(true, false, true, true));
+        assertFalse(MarketNetwork.wifiRoute(true, false, false, false));
+        assertFalse(MarketNetwork.wifiRoute(false, false, false, true));
+    }
+
     @Test public void appStartupRequiresAReviewedNoticeAndAnExplicitOnSetting() {
         assertFalse(MarketNetwork.atStartup(0, false));
         assertFalse(MarketNetwork.atStartup(0, true));

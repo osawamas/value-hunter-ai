@@ -6,8 +6,9 @@ import android.util.AtomicFile;
 
 import androidx.annotation.NonNull;
 import androidx.work.BackoffPolicy;
-import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -48,6 +49,8 @@ public final class UsDailyWorker extends Worker {
     private static final String STATUS = "us_massive_daily_status";
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = UsDailyCloses.MASSIVE_SOURCE;
+    private static final Object CHECK_LOCK = new Object();
+    static final String ON_WIFI = "us-daily-closes-wifi-resume";
     static final Object QUOTE_LOCK = new Object();
     static final String PRIVATE_STATUS = "us_private_sec_status";
     private static final String PRIVATE_BASELINE = "us_private_sec_baseline";
@@ -66,13 +69,20 @@ public final class UsDailyWorker extends Worker {
     }
 
     static void schedule(Context context) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         var workManager = WorkManager.getInstance(context);
         var request = new PeriodicWorkRequest.Builder(UsDailyWorker.class, 6, TimeUnit.HOURS)
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                 .build();
         workManager.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request);
+    }
+
+    static void checkNow(Context context) {
+        if (!MarketNetwork.allowed()) return;
+        var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
+                .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED)).build();
+        WorkManager.getInstance(context).enqueueUniqueWork(ON_WIFI, ExistingWorkPolicy.KEEP, request);
     }
 
     static String displayStatus(SharedPreferences state) {
@@ -106,7 +116,13 @@ public final class UsDailyWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return Result.success();
+        synchronized (CHECK_LOCK) {
+            if (!MarketNetwork.allowed()) return MarketNetwork.waitingForWifi() ? Result.retry() : Result.success();
+            return check();
+        }
+    }
+
+    private Result check() {
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
         try {
