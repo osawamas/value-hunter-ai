@@ -50,6 +50,7 @@ public final class UsSecFinanceWorker extends Worker {
     private static final String BUDGET_SENT_SYMBOLS = "us_budget_sent_symbols";
     private static final String NOCP_PAIR_KEY = "us_nocp_quote_pair";
     private static final String NOCP_RECEIPTS = "us_nocp_receipts";
+    private static final Object CHECK_LOCK = new Object();
     private static final int BATCH = 40;
     private static final long BATCH_MILLIS = 45_000;
     private static final long BETWEEN_REQUESTS_MILLIS = 350;
@@ -67,7 +68,10 @@ public final class UsSecFinanceWorker extends Worker {
 
     UsSecFinanceWorker(Context context, WorkerParameters parameters, Download download) {
         super(context, parameters);
-        this.download = download;
+        this.download = address -> {
+            if (networkStopped()) throw new IOException("Worker stopped");
+            return download.get(address);
+        };
     }
 
     static void ensureScheduled(Context context) {
@@ -83,12 +87,30 @@ public final class UsSecFinanceWorker extends Worker {
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
     }
 
+    private long networkGeneration;
+
     private boolean networkStopped() {
-        return isStopped() || !MarketNetwork.allowed();
+        return isStopped() || MarketNetwork.interrupted(networkGeneration);
+    }
+
+    private Result paused() {
+        return MarketNetwork.pausedWork(networkGeneration);
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
+        synchronized (CHECK_LOCK) {
+            networkGeneration = MarketNetwork.generation();
+            if (networkStopped()) return paused();
+            MarketUpdate.US_FINANCE.started();
+            try {
+                return check();
+            } finally {
+                MarketUpdate.US_FINANCE.finished();
+            }
+        }
+    }
+
+    private Result check() {
         var context = getApplicationContext();
         var preferences = ScanWorker.prefs(context);
         var directory = context.getNoBackupFilesDir();
@@ -113,6 +135,7 @@ public final class UsSecFinanceWorker extends Worker {
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
                 var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
                 var changed = changedIssuers(UsDeviceFinancials.reuseFrom(scan, day), day);
+                if (networkStopped()) return paused();
                 scan = UsDeviceFinancials.startScan(hash, day, targets, scan, changed);
                 int reused = scan.getInt("reused");
                 updateProgress(0, scan.getJSONArray("targets").length(), reused, reused);
@@ -135,6 +158,7 @@ public final class UsSecFinanceWorker extends Worker {
                     while (position < end && !networkStopped() && SystemClock.elapsedRealtime() < deadline) {
                         var target = targets.getJSONObject(position);
                         var row = facts(target, day);
+                        if (networkStopped()) break;
                         if (row != null) results.put(row);
                         scan.put("cursor", ++position);
                         if (position < end) Thread.sleep(BETWEEN_REQUESTS_MILLIS);
@@ -143,13 +167,14 @@ public final class UsSecFinanceWorker extends Worker {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
                     updateProgress(position, targets.length(), results.length(), reused);
                 }
-                if (networkStopped()) return Result.retry();
+                if (networkStopped()) return paused();
                 if (position < targets.length()) {
                     enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
                 }
             }
 
+            if (networkStopped()) return paused();
             var ledger = scan.optJSONObject("ledger");
             if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)) {
                 var rates = new JSONArray(download.get(
@@ -162,13 +187,14 @@ public final class UsSecFinanceWorker extends Worker {
             }
             var budget = prepareBudget(quote, ledger, directory, day, hash, preferences);
             synchronized (UsDailyWorker.QUOTE_LOCK) {
+                if (networkStopped()) return paused();
                 if (!hash.equals(UsReferenceAlerts.sha256(closeFile.readFully()))) {
                     if (!networkStopped()) enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                     return Result.success();
                 }
                 UsDailyWorker.applyFinancialScreen(context, preferences, ledger, day, provider, hash, this::networkStopped);
                 if (!networkStopped()) {
-                    if (!applyBudget(context, preferences, day, budget)) return Result.retry();
+                    if (!applyBudget(context, preferences, day, budget)) return networkStopped() ? paused() : Result.retry();
                     if (budget != null && budget.retry() && getRunAttemptCount() < MAX_BUDGET_RETRIES) {
                         return Result.retry();
                     }
@@ -176,6 +202,7 @@ public final class UsSecFinanceWorker extends Worker {
                         enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
                 }
             }
+            if (networkStopped()) return paused();
             return Result.success();
         } catch (FileNotFoundException absent) {
             return Result.success();
@@ -183,7 +210,7 @@ public final class UsSecFinanceWorker extends Worker {
             Thread.currentThread().interrupt();
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
-            if (networkStopped()) return MarketNetwork.pausedWork();
+            if (networkStopped()) return paused();
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             if (!progress.endsWith(" · 再試行待ち")) {
                 preferences.edit().putString(UsDailyWorker.PRIVATE_STATUS,

@@ -217,6 +217,79 @@ final class JpxWatchDeliveryProbe {
         }
     }
 
+    static void verifyWifiRecovery(Context context, Runnable disconnect, Runnable reconnect) throws Exception {
+        var months = new HashSet<YearMonth>();
+        for (int month = 4; month <= 9; month++) months.add(YearMonth.of(2026, month));
+        var review = new JpxIssuerArchive.Review(LocalDate.of(2026, 10, 1), MONDAY.plusDays(4));
+        var rights = new JpxShareRights(Set.of("3861"), months, List.of(), Map.of("3861", review));
+        var inputs = new AtomicReference<>(new JpxDailyCheck.Comparison(
+                sample(FRIDAY, "920.00"), sample(FRIDAY.minusDays(1), "920.00")));
+        var interrupt = new AtomicBoolean();
+        var resumed = new AtomicInteger();
+        var factory = new WorkerFactory() {
+            @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
+                return new JpxWatchWorker(app, parameters, (ignored, key, revision) -> inputs.get(),
+                        ignored -> new JpxShareRights.Selection(rights, "", "wifi-recovery-probe"),
+                        (target, id, title, detail) -> {
+                            if (interrupt.getAndSet(false)) {
+                                disconnect.run();
+                                return false;
+                            }
+                            if (ScanWorker.postNotification(target, id, title, detail)) {
+                                resumed.incrementAndGet();
+                                return true;
+                            }
+                            return false;
+                        });
+            }
+        };
+        var manager = context.getSystemService(NotificationManager.class);
+        var state = ScanWorker.prefs(context);
+        try {
+            JpxWatchWorker.setEnabled(context, true);
+            var initial = TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
+                    .setWorkerFactory(factory).build().doWork();
+            if (!initial.equals(ListenableWorker.Result.success())) throw new AssertionError("JPX baseline failed");
+
+            inputs.set(new JpxDailyCheck.Comparison(sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")));
+            interrupt.set(true);
+            long oldRoute = MarketNetwork.generation();
+            var lost = TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
+                    .setWorkerFactory(factory).build().doWork();
+            if (!lost.equals(ListenableWorker.Result.retry()) || resumed.get() != 0 || interrupt.get()) {
+                throw new AssertionError("JPX did not suspend the old run");
+            }
+            expectQuiet(manager);
+            reconnect.run();
+            if (!MarketNetwork.interrupted(oldRoute)) {
+                throw new AssertionError("The interrupted run could continue on the restored route");
+            }
+
+            // A later refresh can see a different report edition. Delivery must use the queued old result.
+            inputs.set(null);
+            for (int attempt = 0; attempt < 2; attempt++) {
+                var result = TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
+                        .setWorkerFactory(factory).build().doWork();
+                if (!result.equals(ListenableWorker.Result.success())) throw new AssertionError("JPX recovery failed");
+                if (attempt == 0) {
+                    if (!MarketUpdate.JPX.display(state).contains("最終更新")) {
+                        throw new AssertionError("JPX completion time was not saved");
+                    }
+                    verifySilentNotification(manager);
+                    manager.cancelAll();
+                }
+            }
+            expectQuiet(manager);
+            long receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
+                    .stream().filter(row -> row.title().equals("東証日報で参考条件入り 1銘柄")
+                            && row.detail().contains("3861") && row.detail().contains(MONDAY.toString())).count();
+            if (receipts != 1 || resumed.get() != 1) throw new AssertionError("JPX recovery lost or repeated the alert");
+        } finally {
+            JpxWatchWorker.setEnabled(context, false);
+            manager.cancelAll();
+        }
+    }
+
     private static UUID pendingManual(WorkManager work) throws Exception {
         var jobs = work.getWorkInfosForUniqueWork(JpxWatchWorker.MANUAL).get(15, TimeUnit.SECONDS)
                 .stream().filter(info -> !info.getState().isFinished()).toList();

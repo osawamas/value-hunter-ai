@@ -20,3 +20,6 @@ adb shell input keyevent KEYCODE_WAKEUP
 adb shell wm dismiss-keyguard
 adb shell am instrument -w -e alert_phase restore "$runner" | tee "$RUNNER_TEMP/alert-reboot.txt"
 tr -d '\r' < "$RUNNER_TEMP/alert-reboot.txt" | grep -x 'ALERT_HISTORY_AFTER_REBOOT_OK'
+
+adb shell am instrument -w -e alert_phase recovery "$runner" | tee "$RUNNER_TEMP/market-recovery.txt"
+tr -d '\r' < "$RUNNER_TEMP/market-recovery.txt" | grep -x 'MARKET_WIFI_RECOVERY_OK'

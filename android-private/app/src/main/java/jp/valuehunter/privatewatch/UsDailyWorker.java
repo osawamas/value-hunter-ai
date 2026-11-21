@@ -111,14 +111,26 @@ public final class UsDailyWorker extends Worker {
         return result;
     }
 
+    private long networkGeneration;
+
     private boolean networkStopped() {
-        return isStopped() || !MarketNetwork.allowed();
+        return isStopped() || MarketNetwork.interrupted(networkGeneration);
+    }
+
+    private Result paused() {
+        return MarketNetwork.pausedWork(networkGeneration);
     }
 
     @NonNull @Override public Result doWork() {
         synchronized (CHECK_LOCK) {
-            if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
-            return check();
+            networkGeneration = MarketNetwork.generation();
+            if (networkStopped()) return paused();
+            MarketUpdate.US_CLOSE.started();
+            try {
+                return check();
+            } finally {
+                MarketUpdate.US_CLOSE.finished();
+            }
         }
     }
 
@@ -132,7 +144,7 @@ public final class UsDailyWorker extends Worker {
             LocalDate previous = cachedDate(file, state, provider);
             LocalDate target = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()));
             for (int offset = 0; offset < 7; offset++) {
-                if (networkStopped()) return Result.retry();
+                if (networkStopped()) return paused();
                 LocalDate day = target.minusDays(offset);
                 if (previous != null && !day.isAfter(previous)) {
                     boolean assess = needsValuation(state, previous, provider);
@@ -146,7 +158,9 @@ public final class UsDailyWorker extends Worker {
                     if (previous.equals(target)) backfillPrevious(context, previous, provider, key);
                     UsSecFinanceWorker.ensureScheduled(context);
                     updateHistory(state, previous);
-                    report(state, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち");
+                    if (networkStopped()) return paused();
+                    MarketUpdate.US_CLOSE.completed(state.edit())
+                            .putString(STATUS, day.equals(target) ? "終値を取得済み" : "新しい終値の公開待ち").apply();
                     return Result.success();
                 }
                 if (!UsDailyCloses.tradingDay(day)) continue;
@@ -154,7 +168,7 @@ public final class UsDailyWorker extends Worker {
                 var closes = fetchCloses(day, key);
                 if (closes.length() == 0) continue;
                 var snapshot = quoteSnapshot(day, provider, key, closes);
-                if (networkStopped()) return Result.retry();
+                if (networkStopped()) return paused();
                 synchronized (QUOTE_LOCK) {
                     if (UsPriceOnlyBudget.previousSession(day).equals(previous)) {
                         var old = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
@@ -171,15 +185,18 @@ public final class UsDailyWorker extends Worker {
                 updateCoverage(state, closes, day, provider);
                 assess(state, closes, day, provider);
                 updateHistory(state, day);
+                if (networkStopped()) return paused();
+                MarketUpdate.US_CLOSE.completed(state.edit()).apply();
                 return Result.success();
             }
             report(state, "直近7日間の終値を取得できず");
             return Result.success();
         } catch (HttpStatus e) {
+            if (networkStopped()) return paused();
             report(state, "終値を取得できず（HTTP " + e.code + "）");
             return e.code == 429 || e.code >= 500 ? Result.retry() : Result.success();
         } catch (IOException e) {
-            if (networkStopped()) return MarketNetwork.pausedWork();
+            if (networkStopped()) return paused();
             report(state, "終値を取得できず（通信または保存エラー）");
             return Result.retry();
         } catch (JSONException e) {
@@ -261,6 +278,12 @@ public final class UsDailyWorker extends Worker {
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
             status += " · 条件該当 " + count + "銘柄";
             String pending = state.getString(PRIVATE_PENDING, "");
+            if (previous != null && day.isAfter(previous.day()) && !pending.isEmpty()
+                    && ScanWorker.alertsEnabled(context)) {
+                // Recover a saved delivery before a newer session can replace its payload.
+                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending)) return;
+                pending = "";
+            }
             if (previous == null || day.isAfter(previous.day()) || !provider.equals(previous.provider())) {
                 var entrants = UsReferenceAlerts.entrants(previous, screen);
                 pending = entrants.isEmpty() ? "" : "米国株の参考条件入り " + entrants.size() + "銘柄"
@@ -271,22 +294,27 @@ public final class UsDailyWorker extends Worker {
                     .put("reference_screen", ledger.getJSONObject("reference_screen"));
             if (previous != null && day.equals(previous.day()) && !closeHash.equals(previous.hash())) pending = "";
             if (!ScanWorker.notificationsRequested(context) || !pending.contains("\n")) pending = "";
-            if (stopped.getAsBoolean() || !state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status).commit()) return;
+            var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
+                    .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status);
+            if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
             if (!pending.isEmpty() && !stopped.getAsBoolean()) {
-                int separator = pending.indexOf('\n');
-                if (ScanWorker.postNotification(context, US_NOTIFICATION_ID,
-                        pending.substring(0, separator), pending.substring(separator + 1))) {
-                    state.edit().remove(PRIVATE_PENDING).commit();
-                } else if (!ScanWorker.notificationsRequested(context)) {
-                    state.edit().remove(PRIVATE_PENDING).apply();
-                } else {
+                if (!deliverFinancialAlert(context, state, pending) && !stopped.getAsBoolean()) {
                     state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
                 }
             }
         } catch (JSONException | DateTimeParseException e) {
             state.edit().putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
         }
+    }
+
+    private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending) {
+        int separator = pending.indexOf('\n');
+        if (separator < 0 || !ScanWorker.notificationsRequested(context)
+                || ScanWorker.postNotification(context, US_NOTIFICATION_ID,
+                        pending.substring(0, separator), pending.substring(separator + 1))) {
+            return state.edit().remove(PRIVATE_PENDING).commit();
+        }
+        return false;
     }
 
     private static UsReferenceAlerts.Screen readPrivateBaseline(SharedPreferences state) {

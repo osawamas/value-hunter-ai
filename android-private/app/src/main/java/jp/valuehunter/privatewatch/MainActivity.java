@@ -190,6 +190,7 @@ public final class MainActivity extends Activity {
         super.onStart();
         state.registerOnSharedPreferenceChangeListener(onChange);
         MarketNetwork.addListener(onRouteChange);
+        MarketUpdate.addListener(onRouteChange);
         if (MarketNetwork.noticeRequired(this)) showCommunicationNotice(true);
         scheduleMarketChecks();
     }
@@ -240,6 +241,7 @@ public final class MainActivity extends Activity {
     @Override protected void onStop() {
         state.unregisterOnSharedPreferenceChangeListener(onChange);
         MarketNetwork.removeListener(onRouteChange);
+        MarketUpdate.removeListener(onRouteChange);
         super.onStop();
     }
 
@@ -257,7 +259,10 @@ public final class MainActivity extends Activity {
     }
 
     private void render() {
-        usDailyStatus.setText(UsDailyWorker.displayStatus(state));
+        var usStatus = new StringBuilder();
+        appendUpdateStatus(usStatus, "終値", MarketUpdate.US_CLOSE.display(state));
+        appendUpdateStatus(usStatus, "財務", MarketUpdate.US_FINANCE.display(state));
+        usDailyStatus.setText(usStatus.append(UsDailyWorker.displayStatus(state)));
         boolean connected = MarketNetwork.allowed();
         boolean awaitingNotice = MarketNetwork.noticeRequired(this);
         networkSwitch.setChecked(MarketNetwork.requested());
@@ -286,8 +291,14 @@ public final class MainActivity extends Activity {
         testNotificationButton.setEnabled(requested && permitted && !notificationTestPending);
         testNotificationButton.setText(notificationTestPending ? "テスト通知を予約中" : "5秒後にテスト通知");
         String report = JpxWatchWorker.displayStatus(state);
+        String update = active ? MarketUpdate.JPX.display(state) : "";
+        if (!update.isEmpty()) report = update + (report.isEmpty() ? "" : "\n" + report);
         lastCheck.setText(!report.isEmpty() ? report : !connected ? "保存済みの確認結果はまだない"
                 : active ? "初回の東証日報を確認待ち" : "自動監視をオンにすると確認を開始");
+    }
+
+    private static void appendUpdateStatus(StringBuilder target, String label, String status) {
+        if (!status.isEmpty()) target.append(label).append(" · ").append(status).append('\n');
     }
 
     private void checkDetails() {

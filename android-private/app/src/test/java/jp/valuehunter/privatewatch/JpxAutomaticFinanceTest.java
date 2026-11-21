@@ -235,6 +235,37 @@ public class JpxAutomaticFinanceTest {
                 "/tseHpFront/StockSearch.do", "/tseHpFront/JJK010030Action.do"), visits);
     }
 
+    @Test public void flushesCompletedIssuersBeforeResumingAnInterruptedBatch() {
+        var commits = new java.util.concurrent.atomic.AtomicInteger();
+        var disconnected = new java.util.concurrent.atomic.AtomicBoolean();
+        var prefs = preferences(new HashMap<>(), () -> { commits.incrementAndGet(); return true; });
+        var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/",
+                Map.of("1419", new JpxCloseTable.Sessions(null, new BigDecimal("900")),
+                        CODE, new JpxCloseTable.Sessions(null, new BigDecimal("890"))), Set.of());
+        var good = sources(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var checks = new java.util.ArrayList<String>();
+        var network = new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                checks.add(code);
+                if (CODE.equals(code) && !disconnected.get()) {
+                    disconnected.set(true);
+                    throw new IOException("Wi-Fi disconnected");
+                }
+                return good.archive(code);
+            }
+
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
+                return good.financial(disclosure);
+            }
+        };
+        var first = JpxAutomaticFinance.refresh(prefs, report, DAY, network, disconnected::get);
+        assertEquals(Set.of("1419"), first.entries().keySet());
+        assertEquals(1, commits.get());
+        var resumed = JpxAutomaticFinance.refresh(prefs, report, DAY, network, () -> false);
+        assertEquals(Set.of("1419", CODE), resumed.entries().keySet());
+        assertEquals(List.of("1419", CODE, CODE), checks);
+    }
+
     @Test public void resumesPastAnIndividualIssuerWithATransientNetworkError() {
         var prefs = preferences(new HashMap<>());
         var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/",
