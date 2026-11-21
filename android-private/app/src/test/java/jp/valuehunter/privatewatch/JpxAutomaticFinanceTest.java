@@ -49,6 +49,12 @@ public class JpxAutomaticFinanceTest {
         assertNull(missing.annual());
         assertEquals(valid.annual(), missing.previousAnnual());
         assertFalse(missing.failure(CODE, DAY, Map.of()).isEmpty());
+        var pair = new JpxDailyCheck.Comparison(report(DAY, "600"), report(DAY.minusDays(1), "950"));
+        var finance = new JpxAutomaticFinance.Batch(Map.of(CODE, missing), Map.of(), 1, 1);
+        var screen = pair.screen(new JpxShareRights(Set.of(), Set.of(), List.of()), finance);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        assertTrue(screen.holds().stream().anyMatch(hold -> CODE.equals(hold.code())
+                && missing.hold().equals(hold.reason())));
         var retried = JpxAutomaticFinance.acquire(CODE, DAY, missing,
                 sources(archive("決算短信〔日本基準〕(連結)", PATH), filing()));
         assertEquals(valid.annual(), retried.annual());
@@ -83,7 +89,7 @@ public class JpxAutomaticFinanceTest {
         var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
         var comparison = new JpxDailyCheck.Comparison(report(DAY, "600"), report(priorDay, "950"));
         var screen = comparison.screen(rights, finance);
-        assertTrue(screen.holds().isEmpty());
+        assertTrue(screen.holds().stream().noneMatch(hold -> CODE.equals(hold.code())));
         assertNull(ValueAlertPreview.history(state, ValueAlertPreview.Market.JPX).latest());
 
         var edit = state.edit();

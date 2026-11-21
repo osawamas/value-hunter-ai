@@ -177,7 +177,9 @@ final class JpxDailyCheck {
         private Set<String> screenCodes(JpxAutomaticFinance.Batch finance) {
             var codes = new LinkedHashSet<>(WATCH_CODES);
             for (var entry : finance.entries().entrySet()) {
-                if (entry.getValue().annual() != null) codes.add(entry.getKey());
+                if (entry.getValue().annual() != null || entry.getValue().previousAnnual() != null) {
+                    codes.add(entry.getKey());
+                }
             }
             return codes;
         }
