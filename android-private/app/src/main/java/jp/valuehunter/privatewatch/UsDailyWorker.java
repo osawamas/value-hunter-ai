@@ -458,14 +458,22 @@ public final class UsDailyWorker extends Worker {
                     sent.addAll(entrants.keySet());
                 }
             }
+            var reference = ledger.getJSONObject("reference_screen");
             var baseline = new JSONObject().put("trading_date_et", day.toString())
-                    .put("reference_screen", ledger.getJSONObject("reference_screen"));
+                    .put("reference_screen", new JSONObject(reference,
+                            new String[]{"provider", "close_sha256", "fx_date", "observations"}));
             if (!alertsRequested || !pending.contains("\n")) pending = "";
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
-            var meter = ledger.getJSONObject("reference_screen").optJSONObject("meter_rows");
-            if (meter != null) ValueAlertPreview.save(state, update, ValueAlertPreview.Market.US, day, provider, meter);
+            var meter = reference.optJSONObject("meter_rows");
+            if (meter != null) {
+                try {
+                    ValueAlertPreview.save(state, update, ValueAlertPreview.Market.US, day, provider, meter);
+                } catch (JSONException unavailable) {
+                    // A preview formatting failure must not stop financial alerts.
+                }
+            }
             MarketFreshness.US_FINANCE.verified(update, day, screen.rows().size(), (int) count, "");
             MarketFreshness.US_FINANCE.waiting(update, null, day);
             if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;

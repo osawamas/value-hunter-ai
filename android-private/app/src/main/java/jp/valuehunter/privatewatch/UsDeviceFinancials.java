@@ -10,6 +10,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -195,8 +196,9 @@ final class UsDeviceFinancials {
                 continue;
             }
             var cap = close.multiply(new BigDecimal(row.getString("shares")));
-            var level = ValueCandidateScreen.assess(cap, new BigDecimal(row.getString("profit")),
-                    new BigDecimal(row.getString("equity")));
+            var profit = new BigDecimal(row.getString("profit"));
+            var equity = new BigDecimal(row.getString("equity"));
+            var level = ValueCandidateScreen.assess(cap, profit, equity);
             if (level == ValueCandidateScreen.Level.HELD) continue;
             var yen = close.multiply(rate);
             int quantity = yen.movePointRight(2).compareTo(BUDGET) <= 0 ? 100 : 1;
@@ -207,14 +209,7 @@ final class UsDeviceFinancials {
             };
             observations.put(new JSONObject().put("symbol", symbol).put("exchange", exchange)
                     .put("cik", row.getInt("cik")).put("status", status).put("quantity", quantity));
-            var eps = new ArrayList<BigDecimal>();
-            var history = row.optJSONArray("meter_eps");
-            if (history != null) {
-                for (int i = 0; i < Math.min(3, history.length()); i++) eps.add(new BigDecimal(history.getString(i)));
-            }
-            Integer cash = row.has("meter_cash") ? row.getInt("meter_cash") : null;
-            var score = ValueAlertMeter.assess(cap, new BigDecimal(row.getString("profit")),
-                    new BigDecimal(row.getString("equity")), eps, cash, null, null);
+            var score = ValueAlertMeter.assess(cap, profit, equity, meterEps(row), meterCash(row), null, null);
             meter.put(exchange + ":" + row.getInt("cik") + ":" + symbol,
                     new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed())
                             .put("outside_budget".equals(status) ? 0 : quantity));
@@ -224,6 +219,26 @@ final class UsDeviceFinancials {
                 .put("close_sha256", hash).put("coverage", coverage).put("split_holds", splitHolds)
                 .put("reference_screen", new JSONObject().put("provider", provider).put("close_sha256", hash)
                         .put("fx_date", fx.date().toString()).put("observations", observations).put("meter_rows", meter));
+    }
+
+    private static List<BigDecimal> meterEps(JSONObject row) {
+        var history = row.optJSONArray("meter_eps");
+        if (history == null || history.length() > 3) return List.of();
+        var eps = new ArrayList<BigDecimal>();
+        for (int index = 0; index < history.length(); index++) {
+            var value = history.optString(index, "");
+            try {
+                eps.add(new BigDecimal(value));
+            } catch (NumberFormatException invalid) {
+                return List.of();
+            }
+        }
+        return eps;
+    }
+
+    private static Integer meterCash(JSONObject row) {
+        int cash = row.optInt("meter_cash", -1);
+        return cash == 0 || cash == 50 || cash == 100 ? cash : null;
     }
 
     private static JSONObject coverage(int count) throws JSONException {

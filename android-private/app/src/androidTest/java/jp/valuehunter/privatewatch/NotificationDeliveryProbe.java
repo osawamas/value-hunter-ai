@@ -44,6 +44,8 @@ final class NotificationDeliveryProbe {
         if ("archive_repair_prep".equals(phase)) return ArchivedRepairProbe.prepare(context);
         if ("archive_repair_resume".equals(phase)) return ArchivedRepairProbe.resume(context);
         if ("restore".equals(phase)) {
+            require("60,75,90".equals(ScanWorker.prefs(context).getString(ValueAlertPreview.SETTINGS, "")),
+                    "Saved alert thresholds did not survive reboot");
             require(!MarketNetwork.allowed(), "Market communication was re-enabled by reboot");
             require(MarketNetwork.wifiOnly(), "Wi-Fi-only choice did not survive reboot");
             requireBlocked();
@@ -359,8 +361,17 @@ final class NotificationDeliveryProbe {
                 "Meter did not persist thresholds");
         openValueMeter(instrumentation, activity);
         require(await(() -> findDialogText(instrumentation, "超割安 · 90点以上") != null), "Saved threshold did not reopen");
+        var reset = findDialogText(instrumentation, "初期値に戻す");
+        require(reset != null && reset.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot reset the meter");
+        require(await(() -> findDialogText(instrumentation, "超割安 · 85点以上") != null), "Reset did not restore defaults");
+        var recreation = new android.os.Bundle();
+        instrumentation.runOnMainSync(() -> instrumentation.callActivityOnSaveInstanceState(activity, recreation));
+        require("60,75,85".equals(recreation.getString("valueMeterDraft")),
+                "Uncommitted thresholds were lost from the activity state");
         var cancel = findDialogText(instrumentation, "キャンセル");
         require(cancel != null && cancel.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot close the meter");
+        require("60,75,90".equals(state.getString(ValueAlertPreview.SETTINGS, "")),
+                "Cancel persisted the reset without saving");
     }
 
     private static void openValueMeter(Instrumentation instrumentation, android.app.Activity activity) {

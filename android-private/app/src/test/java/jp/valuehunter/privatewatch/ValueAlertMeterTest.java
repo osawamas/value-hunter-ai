@@ -76,6 +76,25 @@ public final class ValueAlertMeterTest {
         assertTrue(UsFinancialFacts.meterHistory(payload, LocalDate.of(2026, 2, 5)).annualEps().isEmpty());
     }
 
+    @Test public void malformedOptionalMeterFieldsLeaveUsFinanceAndNotificationEvidenceUsable() throws Exception {
+        var day = LocalDate.of(2026, 11, 19);
+        var row = new JSONObject().put("symbol", "TEST").put("exchange", "NYSE").put("cik", 123)
+                .put("share_date", "2026-10-31").put("profit", "100").put("equity", "1000").put("shares", "100");
+        var prices = Map.of("TEST", number("5"));
+        var fx = new UsScreen.Fx(day, 150);
+        var hash = "a".repeat(64);
+        var normal = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, hash, new JSONArray().put(row),
+                prices, fx, Map.of());
+        row.put("meter_eps", new JSONArray().put("1.5").put("broken")).put("meter_cash", "invalid");
+        var repaired = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, hash, new JSONArray().put(row),
+                prices, fx, Map.of());
+        assertEquals(UsReferenceAlerts.read(normal), UsReferenceAlerts.read(repaired));
+        var meter = repaired.getJSONObject("reference_screen").getJSONObject("meter_rows")
+                .getJSONArray("NYSE:123:TEST");
+        assertEquals(1, meter.getInt(1));
+        assertEquals(3, meter.getInt(2));
+    }
+
     private static JSONObject fact(int year, int value, String filed) throws Exception {
         return new JSONObject().put("start", year + "-01-01").put("end", year + "-12-31")
                 .put("val", value).put("filed", filed).put("form", "10-K")
