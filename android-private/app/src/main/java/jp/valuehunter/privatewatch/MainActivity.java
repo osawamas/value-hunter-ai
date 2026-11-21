@@ -238,6 +238,7 @@ public final class MainActivity extends Activity {
     private void scheduleMarketChecks() {
         if (!MarketNetwork.requested()) return;
         UsDailyWorker.schedule(this);
+        UsListingArchiveWorker.schedule(this);
         if (monitorSwitch.isChecked() || JpxWatchWorker.enabled(this)) {
             JpxWatchWorker.setEnabled(this, monitorSwitch.isChecked());
         }
@@ -273,7 +274,8 @@ public final class MainActivity extends Activity {
         usCoverage.setText(MarketCoverage.US.summary(state));
         jpxCoverageButton.setEnabled(MarketCoverage.JPX.available(state));
         usCoverageButton.setEnabled(MarketCoverage.US.available(state));
-        var usStatus = new StringBuilder();
+        var usStatus = new StringBuilder(UsListingArchiveWorker.displayStatus(state, java.time.Instant.now()))
+                .append('\n');
         appendUpdateStatus(usStatus, "終値", MarketUpdate.US_CLOSE.display(state));
         appendUpdateStatus(usStatus, "財務", MarketUpdate.US_FINANCE.display(state));
         usDailyStatus.setText(usStatus.append(UsDailyWorker.displayStatus(state)));

@@ -53,6 +53,7 @@ public final class UsDailyWorker extends Worker {
     private static final String PROVIDER = "us_daily_close_provider";
     private static final String MASSIVE = UsDailyCloses.MASSIVE_SOURCE;
     private static final Object CHECK_LOCK = new Object();
+    private static final String ARCHIVE_RECHECK_DAY = "listing_recheck_date";
     static final String ON_WIFI = "us-daily-closes-wifi-resume";
     static final Object QUOTE_LOCK = new Object();
     static final String PRIVATE_STATUS = "us_private_sec_status";
@@ -91,6 +92,15 @@ public final class UsDailyWorker extends Worker {
         var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED)).build();
         WorkManager.getInstance(context).enqueueUniqueWork(ON_WIFI, ExistingWorkPolicy.KEEP, request);
+    }
+
+    static androidx.work.Operation recheckAfterArchive(Context context, LocalDate day) {
+        var data = new androidx.work.Data.Builder().putString(ARCHIVE_RECHECK_DAY, day.toString()).build();
+        var request = new OneTimeWorkRequest.Builder(UsDailyWorker.class)
+                .setConstraints(MarketNetwork.constraints(NetworkType.CONNECTED))
+                .setInputData(data).build();
+        return WorkManager.getInstance(context).enqueueUniqueWork(
+                "us-listing-recheck-" + day, ExistingWorkPolicy.KEEP, request);
     }
 
     static String displayStatus(SharedPreferences state) {
@@ -166,6 +176,14 @@ public final class UsDailyWorker extends Worker {
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
             var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-daily-closes.json"));
             LocalDate previous = cachedDate(file, state, provider);
+            String archived = getInputData().getString(ARCHIVE_RECHECK_DAY);
+            if (archived != null) {
+                if (key.isEmpty() && previous != null && archived.equals(previous.toString())) {
+                    supplementCloses(state, file, previous);
+                    UsSecFinanceWorker.ensureScheduled(context);
+                }
+                return networkStopped() ? paused() : Result.success();
+            }
             for (int offset = 0; offset < 7; offset++) {
                 if (networkStopped()) return paused();
                 LocalDate day = target.minusDays(offset);
@@ -178,7 +196,6 @@ public final class UsDailyWorker extends Worker {
                         if (count) updateCoverage(state, closes, previous, provider);
                         if (assess) assess(state, closes, previous, provider);
                     }
-                    if (!count) captureListingIdentity(context);
                     if (previous.equals(target)) {
                         try {
                             if (key.isEmpty()) supplementCloses(state, file, previous);
@@ -433,18 +450,6 @@ public final class UsDailyWorker extends Worker {
     private static boolean needsCoverage(SharedPreferences state, LocalDate day, String provider) {
         return !day.toString().equals(state.getString(MARKET_DATE, ""))
                 || !provider.equals(state.getString(MARKET_SOURCE, ""));
-    }
-
-    private void captureListingIdentity(Context context) {
-        var directory = context.getNoBackupFilesDir();
-        if (networkStopped() || !UsListingHistory.needsIdentityCapture(directory, Instant.now())) return;
-        try {
-            var nasdaq = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "nasdaqlisted.txt", ""), true);
-            var nyse = UsMarketCoverage.directory(fetchText(UsMarketCoverage.DIRECTORY + "otherlisted.txt", ""), false);
-            if (!networkStopped()) UsListingHistory.remember(directory, nyse, nasdaq);
-        } catch (IOException | JSONException unavailable) {
-            // An unavailable directory is never replaced by another session's identity evidence.
-        }
     }
 
     private void updateCoverage(SharedPreferences state, JSONArray closes, LocalDate day, String provider) {
