@@ -475,18 +475,12 @@ public final class UsDailyWorker extends Worker {
             var queued = new HashSet<>(state.getStringSet(PENDING_CODES, Set.of()));
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
-            if (!pending.isEmpty() && (!sameDay || !alertsRequested
-                    || !pending.startsWith(day + "の終値（参考）\n", pending.indexOf('\n') + 1)
-                    || !UsReferenceAlerts.pendingMatchesClose(state.getString(PRIVATE_PENDING_CLOSE_HASH, ""), closeHash)
-                    || state.getLong(PENDING_ALERT_GENERATION, 0) != alertGeneration
-                    || state.getLong(PENDING_FINANCIAL_GENERATION, 0) != financialGeneration)) {
-                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES).remove(PRIVATE_PENDING_CLOSE_HASH).commit()) return false;
-                pending = "";
-                queued.clear();
-            }
-            if (!pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
-                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending, alertGeneration,
-                        financialGeneration, sent, queued, sender)) return false;
+            // Rebuild queued text from the current SEC screen on every replay.
+            // The close hash alone cannot detect same-day financial corrections.
+            // A queued alert is not a delivery receipt; only PRIVATE_SENT suppresses repeats.
+            if (!pending.isEmpty()) {
+                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES)
+                        .remove(PRIVATE_PENDING_CLOSE_HASH).commit()) return false;
                 pending = "";
                 queued.clear();
             }
