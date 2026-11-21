@@ -108,10 +108,89 @@ final class UsReferenceDeliveryProbe {
             if (factRequests.get() != 2 || indexRequests.get() != 2) {
                 throw new AssertionError("Unchanged issuer was not reused after checking the SEC index");
             }
+            if (wifi) {
+                verifyMeterDelivery(context, notifications);
+                verifyStaleBudgetClears(context);
+            }
         } finally {
             notifications.cancelAll();
             close.delete();
             checkpoint.delete();
+        }
+    }
+
+    private static void verifyMeterDelivery(Context context, NotificationManager notifications) throws Exception {
+        var state = context.getSharedPreferences("us-meter-delivery-probe", Context.MODE_PRIVATE);
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Could not prepare isolated meter settings");
+        }
+        String hash = "a".repeat(64);
+        var before = meterLedger(FIRST, hash, 50);
+        var after = meterLedger(SECOND, hash, 78);
+        UsDailyWorker.applyFinancialScreen(context, state, before, FIRST, PROVIDER, hash, () -> false);
+        expectQuiet(notifications);
+        UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
+        verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄",
+                "METER · 100株 · かなり割安 · 78点");
+        var receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis());
+        if (receipts.stream().noneMatch(row -> row.title().contains("かなり割安")
+                && row.detail().contains("METER · 100株 · かなり割安 · 78点"))) {
+            throw new AssertionError("US notification did not use the saved meter band");
+        }
+        notifications.cancelAll();
+        UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
+        expectQuiet(notifications);
+    }
+
+    private static JSONObject meterLedger(LocalDate day, String hash, int score) throws Exception {
+        var observations = new JSONArray().put(new JSONObject().put("symbol", "METER").put("cik", 12345)
+                .put("exchange", "NYSE").put("status", "priority").put("quantity", 100));
+        var scores = new JSONObject().put("METER", ValueAlertPreview.encode(new ValueAlertMeter.Score(score, 2, 4), 100));
+        var reference = new JSONObject().put("provider", PROVIDER).put("close_sha256", hash)
+                .put("fx_date", day.toString()).put("observations", observations).put("meter_rows", scores);
+        var coverage = new JSONObject();
+        for (var exchange : java.util.List.of("NYSE", "Nasdaq")) {
+            coverage.put(exchange, new JSONObject().put("with_close_and_reference_financials", 1));
+        }
+        return new JSONObject().put("trading_date_et", day.toString()).put("close_provider", PROVIDER)
+                .put("close_sha256", hash).put("coverage", coverage).put("reference_screen", reference);
+    }
+
+    private static void verifyStaleBudgetClears(Context context) throws Exception {
+        var folder = new File(context.getNoBackupFilesDir(), "budget-clear-probe");
+        if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Cannot create budget probe directory");
+        var isolated = new android.content.ContextWrapper(context) {
+            @Override public File getNoBackupFilesDir() { return folder; }
+
+            @Override public android.content.SharedPreferences getSharedPreferences(String name, int mode) {
+                return super.getSharedPreferences("budget-clear-probe-" + name, mode);
+            }
+        };
+        var quote = new AtomicFile(new File(folder, "us-daily-closes.json"));
+        var day = UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(java.time.Instant.now()));
+        var state = ScanWorker.prefs(isolated);
+        var edit = state.edit().clear();
+        MarketCoverage.US.save(edit, MarketCoverage.build(day, day, java.util.Set.of(), java.util.Set.of(),
+                java.util.Set.of(), java.util.Map.of()));
+        var old = new JSONObject().put("day", day.toString()).put("eligible", 1)
+                .put("results", new JSONObject().put("TEST", "WITHIN"));
+        if (!edit.putString("us_single_session_budget", old.toString()).commit()) {
+            throw new AssertionError("Cannot save stale budget fixture");
+        }
+        try {
+            writeClose(quote, day, 20, false);
+            if (!UsSingleSessionBudgetCheck.hasPublishedResult(state, day)) {
+                throw new AssertionError("Listing refresh would skip the previously published budget count");
+            }
+            UsSingleSessionBudgetCheck.run(isolated, day, () -> false,
+                    url -> { throw new AssertionError("Empty budget refresh should not download data"); });
+            if (UsSingleSessionBudgetCheck.hasPublishedResult(state, day)
+                    || !UsSingleSessionBudgetCheck.display(state, day.toString(), PROVIDER).isEmpty()) {
+                throw new AssertionError("A budget count survived removal of all eligible symbols");
+            }
+        } finally {
+            quote.delete();
+            state.edit().clear().commit();
         }
     }
 
@@ -242,6 +321,12 @@ final class UsReferenceDeliveryProbe {
 
     static void verifySilentNotice(NotificationManager manager, String ticker, LocalDate day)
             throws InterruptedException {
+        verifySilentNotice(manager, day, "米国株の参考条件入り 1銘柄", ticker + " · 100株 · 優先候補");
+    }
+
+    private static void verifySilentNotice(NotificationManager manager, LocalDate day, String expectedTitle,
+                                           String expectedDetail)
+            throws InterruptedException {
         var channel = manager.getNotificationChannel(ScanWorker.CHANNEL);
         if (channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_LOW
                 || channel.getSound() != null || channel.shouldVibrate()) {
@@ -252,7 +337,7 @@ final class UsReferenceDeliveryProbe {
                 var note = active.getNotification();
                 String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
                 String detail = note.extras.getCharSequence(Notification.EXTRA_BIG_TEXT, "").toString();
-                if (title.equals("米国株の参考条件入り 1銘柄") && detail.contains(ticker + " · 100株 · 優先候補")
+                if (title.equals(expectedTitle) && detail.contains(expectedDetail)
                         && detail.contains(day.toString()) && ScanWorker.CHANNEL.equals(note.getChannelId())) {
                     return;
                 }
