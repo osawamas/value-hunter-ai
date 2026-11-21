@@ -554,21 +554,40 @@ def load_listing_directories(directory=None):
 
 
 def save_listing_snapshot(root, day, originals):
+    # Validate both originals before touching the archive. A partial or cross-date
+    # capture must never become the durable evidence for a trading session.
+    if set(originals) != set(DIRECTORY_FILES):
+        raise ValueError("Incomplete Nasdaq directory pair")
+    observed = {}
+    symbols = set()
+    for name in DIRECTORY_FILES:
+        timestamp, entries = read_directory(originals[name], name == "nasdaqlisted.txt")
+        if symbols.intersection(entries):
+            raise ValueError("Directory files overlap; wait for a consistent refresh")
+        symbols.update(entries)
+        observed[name] = timestamp.isoformat()
+    require_listing_date(day, observed)
+
     root.mkdir(parents=True, exist_ok=True)
     target = root / day.isoformat()
+    # Never replace an existing (including empty or interrupted) archive directory.
+    # In particular, POSIX rename can replace an existing *empty* directory.
+    if target.exists():
+        previous, _, _ = load_listing_directories(target)
+        require_listing_date(day, previous)
+        return "already_saved"
     with TemporaryDirectory(prefix=".listing-", dir=root) as staging:
         snapshot = Path(staging) / "snapshot"
         snapshot.mkdir()
         for name in DIRECTORY_FILES:
             (snapshot / name).write_bytes(originals[name])
-        # A complete, nonempty destination directory wins if another capture finished first.
         try:
             os.rename(snapshot, target)
         except OSError:
             if not target.is_dir():
                 raise
-            observed, _, _ = load_listing_directories(target)
-            require_listing_date(day, observed)
+            previous, _, _ = load_listing_directories(target)
+            require_listing_date(day, previous)
             return "already_saved"
     return "saved"
 
