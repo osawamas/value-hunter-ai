@@ -210,6 +210,8 @@ public final class UsDailyWorker extends Worker {
                     UsSingleSessionBudgetCheck.run(getApplicationContext(), LocalDate.parse(singleSession),
                             this::networkStopped, repairSource);
                     return networkStopped() ? paused() : Result.success();
+                } catch (DateTimeParseException invalid) {
+                    return Result.failure();
                 } catch (IOException | JSONException unavailable) {
                     return networkStopped() ? paused() : Result.retry();
                 }
@@ -460,18 +462,33 @@ public final class UsDailyWorker extends Worker {
                 pending = "";
             }
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
-            var entrants = UsReferenceAlerts.entrantRows(anchor, screen, sent);
+            var reference = ledger.getJSONObject("reference_screen");
+            var meter = reference.optJSONObject("meter_rows");
+            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, false);
+            var ranks = useMeter && meter != null && anchor != null
+                    && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
+                    ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent, code -> {
+                        var before = anchor.rows().get(code);
+                        var now = screen.rows().get(code);
+                        return before != null && now != null && before.cik() == now.cik()
+                                && before.exchange().equals(now.exchange());
+                    }) : java.util.Map.<String, ValueAlertPreview.Entry>of();
+            var entrants = useMeter ? java.util.Map.<String, String>of() : UsReferenceAlerts.entrantRows(anchor, screen, ValueAlertPreview.previouslyNotified(sent));
             String notificationState = ScanWorker.alertBlockReason(context);
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
-                    + entrants.size() + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
+                    + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
             if (pending.isEmpty() && alertsRequested) {
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
                             + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
                     sent.addAll(entrants.keySet());
+                } else if (!ranks.isEmpty()) {
+                    pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
+                            + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
+                                    .collect(java.util.stream.Collectors.joining("\n"));
+                    sent.addAll(ranks.keySet());
                 }
             }
-            var reference = ledger.getJSONObject("reference_screen");
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", new JSONObject(reference,
                             new String[]{"provider", "close_sha256", "fx_date", "observations"}));
@@ -479,7 +496,6 @@ public final class UsDailyWorker extends Worker {
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
-            var meter = reference.optJSONObject("meter_rows");
             if (meter != null) {
                 try {
                     ValueAlertPreview.save(state, update, ValueAlertPreview.Market.US, day, provider, meter);

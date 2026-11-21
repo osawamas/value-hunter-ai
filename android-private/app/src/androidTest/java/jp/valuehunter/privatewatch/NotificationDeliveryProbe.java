@@ -430,11 +430,50 @@ final class NotificationDeliveryProbe {
                 network.performClick();
             });
             exerciseValueMeter(instrumentation, activity);
+            exerciseMeterEntries(context);
             exerciseDiagnosticCopy(instrumentation, activity);
             requireBlocked();
         } finally {
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
+        }
+    }
+
+    private static void exerciseMeterEntries(android.content.Context context) {
+        var state = context.getSharedPreferences("instrumented-meter", android.content.Context.MODE_PRIVATE);
+        var market = ValueAlertPreview.Market.JPX;
+        var today = java.time.LocalDate.of(2026, 11, 19);
+        var yesterday = today.minusDays(1);
+        try {
+            var prior = new org.json.JSONObject();
+            var current = new org.json.JSONObject();
+            for (var code : java.util.List.of("1111", "2222", "3333", "4444")) {
+                prior.put(code, ValueAlertPreview.encode(new ValueAlertMeter.Score(50, 3, 6), 100));
+            }
+            current.put("1111", ValueAlertPreview.encode(new ValueAlertMeter.Score(66, 1, 3), 100));
+            current.put("2222", ValueAlertPreview.encode(new ValueAlertMeter.Score(79, 2, 4), 100));
+            current.put("3333", ValueAlertPreview.encode(new ValueAlertMeter.Score(88, 3, 6), 1));
+            current.put("4444", ValueAlertPreview.encode(new ValueAlertMeter.Score(91, 3, 6), 100));
+            current.put("5555", ValueAlertPreview.encode(new ValueAlertMeter.Score(92, 3, 6), 100));
+            require(state.edit().clear().commit(), "Cannot reset meter alert test data");
+            require(ValueAlertPreview.entries(state, market, today, "JPX", current, java.util.Set.of(),
+                    code -> true).isEmpty(), "First session generated a meter alert");
+            var edit = state.edit();
+            ValueAlertPreview.save(state, edit, market, yesterday, "JPX", prior);
+            require(edit.commit(), "Cannot save previous day meter evidence");
+            var qualified = ValueAlertPreview.entries(state, market, today, "JPX", current,
+                    java.util.Set.of(), code -> !code.equals("4444"));
+            require(qualified.keySet().equals(java.util.Set.of("meter:1:1111", "meter:2:2222", "meter:3:3333")),
+                    "Meter bands, issuer filter, or previous evidence check failed: " + qualified.keySet());
+            require(ValueAlertPreview.title("東証", qualified).contains("超割安"), "Highest tier missing from heading");
+            edit = state.edit();
+            ValueAlertPreview.save(state, edit, market, today, "JPX", current);
+            require(edit.putString(ValueAlertPreview.SETTINGS, "60,75,90").commit(), "Cannot store revised boundaries");
+            var retry = ValueAlertPreview.entries(state, market, today, "JPX", current, qualified.keySet(),
+                    code -> !code.equals("4444"));
+            require(retry.isEmpty(), "Same-day retry lowered or duplicated a delivered tier");
+        } catch (org.json.JSONException invalid) {
+            throw new AssertionError(invalid);
         }
     }
 
@@ -452,7 +491,8 @@ final class NotificationDeliveryProbe {
             var clip = clipboard.getPrimaryClip();
             if (clip == null) return false;
             var report = clip.getItemAt(0).getText().toString();
-            return report.contains("現在の通信状態: 相場通信オフ")
+            return report.contains("アプリ: ") && report.contains("（ビルド ")
+                    && report.contains("現在の通信状態: 相場通信オフ")
                     && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
                     && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
         }), "Offline diagnostic copy was missing stages or included notification details");

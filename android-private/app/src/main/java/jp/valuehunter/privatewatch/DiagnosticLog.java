@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.util.Log;
 
@@ -19,7 +20,7 @@ final class DiagnosticLog {
     private static final String PREFS = "diagnostic-log";
     private static final String EVENTS = "events";
     private static final int LIMIT = 240;
-    private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss", Locale.JAPAN)
+    private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.JAPAN)
             .withZone(ZoneId.of("Asia/Tokyo"));
 
     enum Area {
@@ -60,8 +61,20 @@ final class DiagnosticLog {
         return "VALUE HUNTER AI 診断ログ（日本時間）\n"
                 + Build.MANUFACTURER + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
                 + "（API " + Build.VERSION.SDK_INT + "）\n"
+                + "アプリ: " + appVersion(context) + "\n"
                 + "現在の通信状態: " + route() + "\n\n"
                 + (events.isEmpty() ? "診断の記録はまだありません" : events);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static String appVersion(Context context) {
+        try {
+            var info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            long code = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+            return info.versionName + "（ビルド " + code + "）";
+        } catch (PackageManager.NameNotFoundException unavailable) {
+            return "ビルド情報を取得できず";
+        }
     }
 
     static void requested(Context context, Area area, String kind) {
