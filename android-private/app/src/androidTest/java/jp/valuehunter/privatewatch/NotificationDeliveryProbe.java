@@ -467,12 +467,12 @@ final class NotificationDeliveryProbe {
             current.put("5555", ValueAlertPreview.encode(new ValueAlertMeter.Score(92, 3, 6), 100));
             require(state.edit().clear().commit(), "Cannot reset meter alert test data");
             require(ValueAlertPreview.entries(state, market, today, "JPX", current, java.util.Set.of(),
-                    code -> true).isEmpty(), "First session generated a meter alert");
+                    code -> code).isEmpty(), "First session generated a meter alert");
             var edit = state.edit();
             ValueAlertPreview.save(state, edit, market, yesterday, "JPX", prior);
             require(edit.commit(), "Cannot save previous day meter evidence");
             var qualified = ValueAlertPreview.entries(state, market, today, "JPX", current,
-                    java.util.Set.of(), code -> !code.equals("4444"));
+                    java.util.Set.of(), code -> code.equals("4444") ? null : code);
             require(qualified.keySet().equals(java.util.Set.of("meter:1:1111", "meter:2:2222", "meter:3:3333")),
                     "Meter bands, issuer filter, or previous evidence check failed: " + qualified.keySet());
             require(ValueAlertPreview.title("東証", qualified).contains("超割安"), "Highest tier missing from heading");
@@ -480,7 +480,7 @@ final class NotificationDeliveryProbe {
             ValueAlertPreview.save(state, edit, market, today, "JPX", current);
             require(edit.putString(ValueAlertPreview.SETTINGS, "60,75,90").commit(), "Cannot store revised boundaries");
             var retry = ValueAlertPreview.entries(state, market, today, "JPX", current, qualified.keySet(),
-                    code -> !code.equals("4444"));
+                    code -> code.equals("4444") ? null : code);
             require(retry.isEmpty(), "Same-day retry lowered or duplicated a delivered tier");
             var corrupted = new org.json.JSONObject().put("latest", new org.json.JSONObject().put("day", "unknown"));
             require(state.edit().putString(market.key, corrupted.toString()).commit(), "Cannot write damaged meter metadata");

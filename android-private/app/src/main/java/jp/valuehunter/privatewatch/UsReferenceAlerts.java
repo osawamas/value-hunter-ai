@@ -20,15 +20,32 @@ final class UsReferenceAlerts {
             return "priority".equals(status) || "reference".equals(status);
         }
 
+        boolean sameSecurity(Observation previous) {
+            return previous != null && cik == previous.cik && exchange.equals(previous.exchange);
+        }
+
         boolean enteredFrom(Observation previous) {
-            return candidate() && previous != null && cik == previous.cik && exchange.equals(previous.exchange)
-                    && (!previous.candidate() || ("priority".equals(status) && "reference".equals(previous.status)));
+            return candidate() && sameSecurity(previous) && (!previous.candidate() || ("priority".equals(status) && "reference".equals(previous.status)));
         }
     }
 
     record Screen(LocalDate day, String provider, String hash, Map<String, Observation> rows) {}
 
     private UsReferenceAlerts() {}
+
+    static String meterKey(String exchange, int cik, String ticker) {
+        return exchange + ":" + cik + ":" + ticker;
+    }
+
+    static Map<String, String> comparableMeterSymbols(Screen previous, Screen current) {
+        var symbols = new HashMap<String, String>();
+        current.rows().forEach((ticker, observation) -> {
+            if (observation.sameSecurity(previous.rows().get(ticker))) {
+                symbols.put(meterKey(observation.exchange(), observation.cik(), ticker), ticker);
+            }
+        });
+        return symbols;
+    }
 
     static boolean hasTradeDateFx(JSONObject ledger, LocalDate day) {
         var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");

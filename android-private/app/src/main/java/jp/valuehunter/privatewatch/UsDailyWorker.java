@@ -478,12 +478,8 @@ public final class UsDailyWorker extends Worker {
             boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, false);
             var ranks = useMeter && meter != null && anchor != null
                     && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
-                    ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent, code -> {
-                        var before = anchor.rows().get(code);
-                        var now = screen.rows().get(code);
-                        return before != null && now != null && before.cik() == now.cik()
-                                && before.exchange().equals(now.exchange());
-                    }) : java.util.Map.<String, ValueAlertPreview.Entry>of();
+                    ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent,
+                            UsReferenceAlerts.comparableMeterSymbols(anchor, screen)::get) : java.util.Map.<String, ValueAlertPreview.Entry>of();
             var entrants = useMeter ? java.util.Map.<String, String>of() : UsReferenceAlerts.entrantRows(anchor, screen, ValueAlertPreview.previouslyNotified(sent));
             String notificationState = ScanWorker.alertBlockReason(context);
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
