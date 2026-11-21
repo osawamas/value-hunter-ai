@@ -44,7 +44,10 @@ final class NotificationHistory {
             postedAt = now;
         }
 
-        // Keep the just-submitted receipt even when the clock moved backwards and\n        // all retained entries have newer timestamps. Otherwise the 256-entry cap\n        // could drop it and allow the same notification to be submitted again.\n        if (history.size() >= MAX_ENTRIES) history.remove(history.size() - 1);\n        history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
+        // Evict the oldest existing record before adding the new receipt.
+        // A clock rollback can otherwise sort the new receipt below the cap.
+        if (history.size() >= MAX_ENTRIES) history.remove(history.size() - 1);
+        history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
         history.sort(Comparator.comparingLong(Entry::postedAt).reversed());
         save(file, history.subList(0, Math.min(history.size(), MAX_ENTRIES)));
         // Persist the receipt before optional screen wake, minimizing the crash window.
