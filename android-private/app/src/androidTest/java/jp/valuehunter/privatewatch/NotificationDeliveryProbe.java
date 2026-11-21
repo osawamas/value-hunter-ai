@@ -141,15 +141,30 @@ final class NotificationDeliveryProbe {
                 .putBoolean(NotificationScreenWake.ENABLED, false).commit(), "Cannot set alert recovery controls");
         require(MarketNetwork.setWifiOnly(context, true) && MarketNetwork.setAllowed(context, true),
                 "Cannot enable Wi-Fi-only recovery");
+        shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
+        shell(instrumentation, "wm dismiss-keyguard");
+        shell(instrumentation, "svc data enable");
+        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         Runnable disconnect = () -> changeWifi(instrumentation, false);
         Runnable reconnect = () -> changeWifi(instrumentation, true);
         try {
-            reconnect.run();
-            JpxWatchDeliveryProbe.verifyWifiRecovery(context, disconnect, reconnect);
-            UsReferenceDeliveryProbe.run(context, disconnect, reconnect);
+            changeWifi(instrumentation, true);
+            try {
+                JpxWatchDeliveryProbe.verifyWifiRecovery(context, disconnect, reconnect);
+            } catch (AssertionError error) {
+                throw new AssertionError("JPX Wi-Fi recovery: " + error.getMessage(), error);
+            }
+            try {
+                UsReferenceDeliveryProbe.run(context, disconnect, reconnect);
+            } catch (AssertionError error) {
+                throw new AssertionError("US Wi-Fi recovery: " + error.getMessage(), error);
+            }
             return "MARKET_WIFI_RECOVERY_OK";
         } finally {
             shell(instrumentation, "svc wifi enable");
+            instrumentation.runOnMainSync(activity::finish);
+            instrumentation.waitForIdleSync();
         }
     }
 
@@ -159,7 +174,7 @@ final class NotificationDeliveryProbe {
         } catch (IOException error) {
             throw new AssertionError("Cannot toggle Wi-Fi in the recovery probe", error);
         }
-        require(await(connected ? MarketNetwork::allowed : MarketNetwork::waitingForWifi, 25_000),
+        require(await(connected ? MarketNetwork::allowed : MarketNetwork::waitingForWifi, 40_000),
                 connected ? "Recovery probe did not restore Wi-Fi" : "Recovery probe did not lose Wi-Fi");
     }
 

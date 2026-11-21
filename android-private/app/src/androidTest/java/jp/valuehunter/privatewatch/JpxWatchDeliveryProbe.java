@@ -233,7 +233,6 @@ final class JpxWatchDeliveryProbe {
                         (target, id, title, detail) -> {
                             if (interrupt.getAndSet(false)) {
                                 disconnect.run();
-                                reconnect.run();
                                 return false;
                             }
                             if (ScanWorker.postNotification(target, id, title, detail)) {
@@ -254,12 +253,17 @@ final class JpxWatchDeliveryProbe {
 
             inputs.set(new JpxDailyCheck.Comparison(sample(MONDAY, "900.00"), sample(FRIDAY, "920.00")));
             interrupt.set(true);
+            long oldRoute = MarketNetwork.generation();
             var lost = TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
                     .setWorkerFactory(factory).build().doWork();
             if (!lost.equals(ListenableWorker.Result.retry()) || resumed.get() != 0 || interrupt.get()) {
-                throw new AssertionError("JPX did not suspend the old run after Wi-Fi had already returned");
+                throw new AssertionError("JPX did not suspend the old run");
             }
             expectQuiet(manager);
+            reconnect.run();
+            if (!MarketNetwork.interrupted(oldRoute)) {
+                throw new AssertionError("The interrupted run could continue on the restored route");
+            }
 
             // A later refresh can see a different report edition. Delivery must use the queued old result.
             inputs.set(null);
