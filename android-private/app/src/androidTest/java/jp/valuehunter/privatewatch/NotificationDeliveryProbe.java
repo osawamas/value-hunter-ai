@@ -339,7 +339,7 @@ final class NotificationDeliveryProbe {
         return null;
     }
 
-    private static void exerciseValueMeter(Instrumentation instrumentation, MainActivity activity) {
+    private static void exerciseValueMeter(Instrumentation instrumentation, android.app.Activity activity) {
         var state = ScanWorker.prefs(instrumentation.getTargetContext());
         require(state.edit().remove(ValueAlertPreview.SETTINGS).commit(), "Cannot reset the meter fixture");
         openValueMeter(instrumentation, activity);
@@ -363,7 +363,7 @@ final class NotificationDeliveryProbe {
         require(cancel != null && cancel.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot close the meter");
     }
 
-    private static void openValueMeter(Instrumentation instrumentation, MainActivity activity) {
+    private static void openValueMeter(Instrumentation instrumentation, android.app.Activity activity) {
         instrumentation.runOnMainSync(() -> {
             var button = control(activity.getWindow().getDecorView(), "割安アラートの境界", Button.class);
             require(button != null && button.performClick(), "Cannot open the threshold meter");
