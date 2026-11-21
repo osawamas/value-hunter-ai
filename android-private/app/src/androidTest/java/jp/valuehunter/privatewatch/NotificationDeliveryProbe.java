@@ -218,7 +218,10 @@ final class NotificationDeliveryProbe {
             requireBlocked();
 
             shell(instrumentation, "svc wifi enable");
-            require(await(MarketNetwork::allowed, 25_000), "Wi-Fi connection did not enable the market path");
+            // On API 35 the emulator may report Wi-Fi enabled before its default route is ready.
+            // Do not relax the production Wi-Fi-only gate: require a real eligible route.
+            require(await(MarketNetwork::allowed, 60_000),
+                    "Wi-Fi connection did not enable the market path: " + wifiDiagnostics(context));
             var bound = MarketNetwork.open(new URL("https://127.0.0.1:1/"));
             try {
                 shell(instrumentation, "svc wifi disable");
@@ -251,6 +254,21 @@ final class NotificationDeliveryProbe {
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
+    }
+
+    private static String wifiDiagnostics(android.content.Context context) {
+        var manager = context.getSystemService(android.net.ConnectivityManager.class);
+        if (manager == null) return "ConnectivityManager unavailable";
+        var network = manager.getActiveNetwork();
+        if (network == null) return "no active default network";
+        var caps = manager.getNetworkCapabilities(network);
+        if (caps == null) return "default network has no capabilities";
+        return "default transport wifi=" + caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+                + ", cellular=" + caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
+                + ", vpn=" + caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+                + ", internet=" + caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                + ", requested=" + MarketNetwork.requested()
+                + ", wifiOnly=" + MarketNetwork.wifiOnly();
     }
 
     private static void exerciseCommunicationNotice(Instrumentation instrumentation, PowerManager power)
@@ -304,10 +322,21 @@ final class NotificationDeliveryProbe {
     }
 
     private static AccessibilityNodeInfo findDialogText(Instrumentation instrumentation, String text) {
-        var root = instrumentation.getUiAutomation().getRootInActiveWindow();
-        if (root == null) return null;
-        var matches = root.findAccessibilityNodeInfosByText(text);
-        return matches.isEmpty() ? null : matches.get(0);
+        var automation = instrumentation.getUiAutomation();
+        var root = automation.getRootInActiveWindow();
+        if (root != null) {
+            var matches = root.findAccessibilityNodeInfosByText(text);
+            if (!matches.isEmpty()) return matches.get(0);
+        }
+        // API 35 may keep the launcher or permission window active briefly after startActivitySync.
+        // Search all accessible windows rather than assuming the foreground root is our dialog.
+        for (var window : automation.getWindows()) {
+            var candidate = window.getRoot();
+            if (candidate == null) continue;
+            var matches = candidate.findAccessibilityNodeInfosByText(text);
+            if (!matches.isEmpty()) return matches.get(0);
+        }
+        return null;
     }
 
     private static void exerciseSettings(Instrumentation instrumentation, PowerManager power) throws IOException {
