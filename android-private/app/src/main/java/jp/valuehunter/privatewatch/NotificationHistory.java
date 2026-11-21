@@ -41,7 +41,12 @@ final class NotificationHistory {
         if (postedAt <= 0) {
             post.run();
             postedAt = now;
-            wake.run();
+            // Screen wake is optional; failure must not lose the successful post receipt.
+            try {
+                wake.run();
+            } catch (RuntimeException unavailable) {
+                // Continue to persist the posted notification for replay deduplication.
+            }
         }
 
         history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
@@ -60,7 +65,7 @@ final class NotificationHistory {
         try {
             var stored = new JSONArray(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
             var receipts = new java.util.HashSet<String>();
-            for (int i = 0; i < stored.length() && entries.size() < MAX_ENTRIES; i++) {
+            for (int i = 0; i < stored.length(); i++) {
                 var row = stored.optJSONObject(i);
                 if (row == null) continue;
                 long at = row.optLong("at", 0);
@@ -75,6 +80,7 @@ final class NotificationHistory {
             // An invalid file has no reliable delivery records.
         }
         entries.sort(Comparator.comparingLong(Entry::postedAt).reversed());
+        if (entries.size() > MAX_ENTRIES) entries.subList(MAX_ENTRIES, entries.size()).clear();
         return entries;
     }
 
