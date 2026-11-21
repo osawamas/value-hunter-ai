@@ -10,6 +10,42 @@ from us_daily_coverage import archive_dia_holdings, compare_missing_symbols, com
 
 
 class DailyCoverageTest(unittest.TestCase):
+    def test_report_comparison_rejects_inconsistent_market_counts(self):
+        base = {
+            "trading_date": "2026-11-16",
+            "directory_observed_at": {"nasdaqlisted.txt": "2026-11-16T12:00:00"},
+            "directory_sha256": {"nasdaqlisted.txt": "a" * 64},
+            "sample_price_basis": "Dolt",
+            "common_or_ordinary_label_by_exchange": {
+                "Nasdaq": {"listed": 2, "with_close": 1, "without_close": 1}
+            },
+            "missing_close_symbols_by_exchange": {"Nasdaq": ["BBB"]},
+        }
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "previous.json"
+            path.write_text(json.dumps(base))
+            for invalid in (
+                {"listed": 2, "with_close": True, "without_close": 1},
+                {"listed": 2, "with_close": 2, "without_close": 1},
+                {"listed": 2, "with_close": 3, "without_close": -1},
+                {"listed": 2, "with_close": 1, "without_close": True},
+                {"listed": True, "with_close": 1, "without_close": 0},
+            ):
+                with self.subTest(invalid=invalid):
+                    current = json.loads(json.dumps(base))
+                    current["common_or_ordinary_label_by_exchange"]["Nasdaq"] = invalid
+                    self.assertEqual("no_comparable_markets", compare_previous_report(path, current)["status"])
+            current = json.loads(json.dumps(base))
+            current["missing_close_symbols_by_exchange"] = {}
+            compared = compare_previous_report(path, current)
+            self.assertEqual("compared", compared["status"])
+            self.assertNotIn("recovered_symbols", compared["markets"]["Nasdaq"])
+            current["common_or_ordinary_label_by_exchange"]["Nasdaq"]["with_close"] = 2
+            current["common_or_ordinary_label_by_exchange"]["Nasdaq"]["without_close"] = 0
+            current["missing_close_symbols_by_exchange"] = {"Nasdaq": []}
+            compared = compare_previous_report(path, current)
+            self.assertEqual(["BBB"], compared["markets"]["Nasdaq"]["recovered_symbols"])
+
     def test_current_missing_symbols_must_be_unique_and_canonical(self):
         previous = {"missing_close_symbols_by_exchange": {"NYSE": ["AAA", "BBB"]}}
         current = {"missing_close_symbols_by_exchange": {"NYSE": ["AAA", "AAA"]}}

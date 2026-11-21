@@ -1,5 +1,7 @@
 # VALUE HUNTER AI 米国株の開発ログ
 
+- 2026-11-21 13:19 JST | main d4307bd と #65統合済み・#70競合を確認。#70の件数整合性・欠損一覧ガードを#65の旧Doltキャッシュ保護を残した新ブランチへ移植、5種類の不正件数と一覧欠損・回復銘柄の回帰を追加（実装 ba1a42d、テスト 080a72d、PR #82）。テスト実行0件・CI結果未確認、実データ取得0・正式判定再測定0・通知候補未測定・実配信未検証。次回は#82のUS/Android CIとmain競合を確認し、成功なら統合、#70を重複として整理。完了条件は不正件数を比較せず、正常回復を保持し、#65の429/timeout退避を壊さないこと。APK・実機なし。 [PR #82](https://github.com/osawamas/value-hunter-ai/pull/82)
+
 - 2026-11-21 12:18 JST | PR #65 の US CI #44854655568 と Android CI #44854655458 の成功を確認し、古いDoltキャッシュ（429・timeout・OS error）で日別集計を上書きしない変更をmainへsquash統合 b4a7cb6。PR #70 は US CI #44835295873 成功だが、#65統合後にmerge競合で保留（未統合）。今回の追加実データ取得0、正式判定再測定0、通知候補未測定、実配信未検証。次回は #70 を最新mainへ移植して回帰CI成功後に統合する。完了条件は不正な件数・欠損一覧で回復銘柄を誤集計せず、#65の古いキャッシュ保護が維持されること。APK・実機テストなし。 [PR #65](https://github.com/osawamas/value-hunter-ai/pull/65) [PR #70](https://github.com/osawamas/value-hunter-ai/pull/70)
 
 

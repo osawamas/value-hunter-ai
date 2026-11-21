@@ -121,7 +121,8 @@ def run_cycle(archive, prices, now, calendar, *, with_dow=False, compare_marketp
 
 def compare_missing_symbols(previous, current, market, previous_count, current_count):
     previous_lists = previous.get(MISSING_SYMBOLS)
-    current_list = current[MISSING_SYMBOLS][market]
+    current_lists = current.get(MISSING_SYMBOLS)
+    current_list = current_lists.get(market) if isinstance(current_lists, dict) else None
     old_list = previous_lists.get(market) if isinstance(previous_lists, dict) else None
     if (not isinstance(old_list, list) or len(old_list) != previous_count
             or any(not isinstance(symbol, str) or not SYMBOL.fullmatch(symbol) for symbol in old_list)
@@ -157,12 +158,19 @@ def compare_previous_report(path, current):
     for market in FOCUS_MARKETS:
         old = previous_markets.get(market)
         new = current[MARKET_COUNTS].get(market)
-        if not isinstance(old, dict) or not new or old.get("listed") != new["listed"]:
+        if not isinstance(old, dict) or not isinstance(new, dict):
             continue
-        old_count = old.get("with_close")
-        if type(old_count) is not int or not 0 <= old_count <= new["listed"]:
+        listed = new.get("listed")
+        old_count, new_count = old.get("with_close"), new.get("with_close")
+        if (type(listed) is not int or listed < 0 or old.get("listed") != listed
+                or type(old_count) is not int or type(new_count) is not int
+                or not 0 <= old_count <= listed or not 0 <= new_count <= listed
+                or type(new.get("without_close")) is not int
+                or new["without_close"] != listed - new_count
+                or type(old.get("without_close")) is not int
+                or old["without_close"] != listed - old_count):
             continue
-        delta = new["with_close"] - old_count
+        delta = new_count - old_count
         changes[market] = {
             "previous_with_close": old_count,
             "current_with_close": new["with_close"],
