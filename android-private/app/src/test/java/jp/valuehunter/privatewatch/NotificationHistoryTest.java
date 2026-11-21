@@ -163,4 +163,22 @@ public class NotificationHistoryTest {
         assertEquals(NOW - 1000, entries.get(0).postedAt());
         assertEquals("新しい", entries.get(0).title());
     }
+    @Test public void durableReceiptExistsBeforeOptionalWakeAndSurvivesWakeFailure() throws Exception {
+        var file = history();
+        var posts = new AtomicInteger();
+        assertTrue(NotificationHistory.deliver(file, "wake-after-save", "候補", "1001", NOW,
+                () -> 0, posts::incrementAndGet, () -> {
+                    try {
+                        assertEquals("wake-after-save", NotificationHistory.recent(file, NOW).get(0).receipt());
+                    } catch (IOException e) {
+                        throw new AssertionError(e);
+                    }
+                    throw new IllegalStateException("wake unavailable");
+                }));
+        assertEquals(1, posts.get());
+        assertTrue(NotificationHistory.deliver(file, "wake-after-save", "候補", "1001", NOW + 1000,
+                () -> 0, UNEXPECTED, UNEXPECTED));
+        assertEquals(1, posts.get());
+    }
+
 }
