@@ -34,7 +34,7 @@ class DailyCoverageTest(unittest.TestCase):
         aapl = {"symbol": "AAPL", "asset_type": "Stock", "date": day, "close": 50.0}
         bio = dict(aapl, symbol="BIO.B")
         prices.side_effect = [[], [aapl], [], [aapl, bio], [], [aapl], [], []]
-        sync.return_value = "cached_after_rate_limit"
+        sync.return_value = "updated"
         with TemporaryDirectory() as directory:
             root = Path(directory)
             for stamp in ("2026-11-13", "2026-11-16", "2026-11-17"):
@@ -57,7 +57,7 @@ class DailyCoverageTest(unittest.TestCase):
             report_path = root / "2026-11-16/dolt-coverage.json"
             report = json.loads(report_path.read_text())
             self.assertEqual("same_day_directory_unverified", report["listing_snapshot_assessment"]["status"])
-            self.assertEqual("cached_after_rate_limit", report["dolt_sync"])
+            self.assertEqual("updated", report["dolt_sync"])
             self.assertNotIn("AAPL", json.dumps(report))
             self.assertEqual({"NYSE": ["BIO.B"], "Nasdaq": []}, report["missing_close_symbols_by_exchange"])
             self.assertEqual("observed_unverified", report["coverage_status"])
@@ -82,6 +82,48 @@ class DailyCoverageTest(unittest.TestCase):
                              run_cycle(root, root / "stocks", now.replace(hour=13), calendar)["status"])
             self.assertEqual(4, sync.call_count)
 
+
+    @patch("us_daily_coverage.sync")
+    @patch("us_daily_coverage.dolt_rows")
+    def test_stale_dolt_cache_does_not_overwrite_saved_coverage(self, prices, sync):
+        eastern = ZoneInfo("America/New_York")
+        now = datetime(2026, 11, 17, 12, 45, tzinfo=eastern)
+        calendar = Mock()
+        calendar.is_session.return_value = True
+        calendar.sessions_in_range.return_value = [datetime(2026, 11, 16)]
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            snapshot = root / "2026-11-16"
+            snapshot.mkdir()
+            (snapshot / "nasdaqlisted.txt").write_text(
+                "Symbol|Security Name|Test Issue|ETF|NextShares\n"
+                "AAPL|Common Stock|N|N|N\nFile Creation Time: 1116202612:00||||\n"
+            )
+            (snapshot / "otherlisted.txt").write_text(
+                "ACT Symbol|Security Name|Exchange|Test Issue|ETF\n"
+                "BIO.B|Common Stock|N|N|N\nFile Creation Time: 1116202612:00||||\n"
+            )
+            current = root / "2026-11-17"
+            current.mkdir()
+            (current / "nasdaqlisted.txt").write_text(
+                "Symbol|Security Name|Test Issue|ETF|NextShares\n"
+                "AAPL|Common Stock|N|N|N\nFile Creation Time: 1117202612:00||||\n"
+            )
+            (current / "otherlisted.txt").write_text(
+                "ACT Symbol|Security Name|Exchange|Test Issue|ETF\n"
+                "BIO.B|Common Stock|N|N|N\nFile Creation Time: 1117202612:00||||\n"
+            )
+            report = snapshot / "dolt-coverage.json"
+            report.write_bytes(b'{"verified_previous": true}\n')
+            for failure in ("cached_after_timeout", "cached_after_rate_limit", "cached_after_os_error"):
+                with self.subTest(failure=failure):
+                    sync.return_value = failure
+                    outcome = run_cycle(root, root / "stocks", now, calendar)
+                    self.assertEqual("dolt_stale_cache", outcome["status"])
+                    self.assertEqual(["2026-11-16"], outcome["pending_sessions"])
+                    self.assertEqual([], outcome["sessions"])
+                    self.assertEqual(b'{"verified_previous": true}\n', report.read_bytes())
+            prices.assert_not_called()
 
     def test_reports_symbol_changes_even_with_unchanged_market_totals(self):
         report = {"trading_date": "2026-11-16", "sample_price_basis": "Dolt",

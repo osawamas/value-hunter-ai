@@ -98,7 +98,13 @@ def run_cycle(archive, prices, now, calendar, *, with_dow=False, compare_marketp
 
     sync_state = sync(prices)
     result["dolt_sync"] = sync_state
-    if sync_state not in ("updated", "cloned", "cached_after_timeout", "cached_after_rate_limit"):
+    # A retained cache is not a successful daily refresh. Never overwrite a
+    # previously saved observation with potentially stale or partial prices.
+    if sync_state in ("cached_after_timeout", "cached_after_rate_limit", "cached_after_os_error"):
+        return dict(result, status="dolt_stale_cache", sessions=[], pending_sessions=[
+            day.isoformat() for day, _ in snapshots
+        ])
+    if sync_state not in ("updated", "cloned"):
         return dict(result, status="dolt_unavailable")
     sessions = []
     for day, snapshot in snapshots:
@@ -259,7 +265,7 @@ def main():
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f"US daily coverage: {error}\n")
     print(json.dumps(result))
-    if result["status"] == "dolt_unavailable" or any(
+    if result["status"] in ("dolt_unavailable", "dolt_stale_cache") or any(
         day["status"] not in ("compared", "refreshed") for day in result.get("sessions", ())
     ):
         raise SystemExit(1)
