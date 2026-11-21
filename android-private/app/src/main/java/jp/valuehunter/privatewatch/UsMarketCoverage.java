@@ -70,7 +70,7 @@ final class UsMarketCoverage {
             if (row[test].equals("Y") || row[etf].equals("Y") || (nasdaq && row[market].equals("Y"))) continue;
             String ticker = row[symbol];
             if (!listed.add(ticker)) throw new JSONException("Duplicate listing symbol");
-            if (OTHER.matcher(row[name]).find()) {
+            if (OTHER.matcher(row[name]).find() || isVerifiedClosedEndFund(ticker, row[name])) {
                 other.add(ticker);
             } else if ((nasdaq || row[market].equals("N")) && COMMON.matcher(row[name]).find()) {
                 symbols.add(ticker);
@@ -79,6 +79,13 @@ final class UsMarketCoverage {
         }
         if (symbols.isEmpty()) throw new JSONException("No ordinary stock symbols");
         return new Directory(date, symbols, listed, other, time, java.util.Map.copyOf(names));
+    }
+
+    private static boolean isVerifiedClosedEndFund(String ticker, String name) {
+        // Nasdaq Trader labels these fund shares "Common Stock". The issuer confirms the fund type.
+        // Match the name as well as the ticker so a subsequent reuse of MXE is not excluded.
+        return "MXE".equals(ticker) && name.toUpperCase(java.util.Locale.ROOT)
+                .contains("MEXICO EQUITY AND INCOME FUND");
     }
 
     static String summarize(Directory nyse, Directory nasdaq, JSONArray closes,
