@@ -13,6 +13,17 @@ class EvidenceAuditTests(unittest.TestCase):
         self.assertEqual(result["on_hold"], 1)
         self.assertEqual(result["not_started"], 1)
 
+    def test_attempted_without_original_is_held_not_unstarted(self):
+        result = audit({"universe": ["1234", "5678", "9012"], "records": [
+            {"ticker": "1234", "reason": "rate_limited_before_request"},
+            {"ticker": "5678", "reason": "source_unavailable", "on_hold": True}
+        ]})
+        self.assertEqual(result["source_retrieved"], 0)
+        self.assertEqual(result["financial_eligible"], 0)
+        self.assertEqual(result["on_hold"], 2)
+        self.assertEqual(result["not_started"], 1)
+        self.assertEqual(result["records_seen"], 2)
+
     def test_verified_original_and_hold(self):
         result = audit({"universe": ["1234", "5678"], "records": [
             {"ticker": "1234", "source_url": "https://www2.jpx.co.jp/disc/12340/123_tse-ace-original-ixbrl.htm",

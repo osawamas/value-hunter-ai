@@ -50,10 +50,10 @@ def audit(document):
             else:
                 counts["on_hold"] += 1
         else:
-            if hold:
-                counts["on_hold"] += 1
-            else:
-                counts["not_started"] += 1
+            # A present record means the ticker was attempted, even if a rate
+            # limit stopped it before an original could be downloaded.
+            # Only tickers absent from records are genuinely not started.
+            counts["on_hold"] += 1
     counts["not_started"] += len(universe) - len(seen)
     counts["universe"] = len(universe)
     counts["records_seen"] = len(seen)
