@@ -61,6 +61,39 @@ class PublicFilesTest(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 load_listing_directories(target)
 
+    def test_archive_rejects_mismatched_capture_without_writing(self):
+        day = date(2026, 11, 17)
+        other = (b"ACT Symbol|Security Name|Exchange|ETF|Test Issue\n"
+                 b"BIO.B|Class B Common Stock|N|N|N\n"
+                 b"File Creation Time: 1117202606:01||||\n")
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                save_listing_snapshot(root, day, {
+                    "nasdaqlisted.txt": NASDAQ.replace(b"11172026", b"11162026"),
+                    "otherlisted.txt": other,
+                })
+            self.assertFalse((root / day.isoformat()).exists())
+            with self.assertRaisesRegex(ValueError, "Incomplete"):
+                save_listing_snapshot(root, day, {"nasdaqlisted.txt": NASDAQ})
+            self.assertFalse((root / day.isoformat()).exists())
+
+    def test_archive_preserves_empty_interrupted_destination(self):
+        day = date(2026, 11, 17)
+        other = (b"ACT Symbol|Security Name|Exchange|ETF|Test Issue\n"
+                 b"BIO.B|Class B Common Stock|N|N|N\n"
+                 b"File Creation Time: 1117202606:01||||\n")
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / day.isoformat()
+            target.mkdir()
+            with self.assertRaises(FileNotFoundError):
+                save_listing_snapshot(root, day, {
+                    "nasdaqlisted.txt": NASDAQ, "otherlisted.txt": other,
+                })
+            self.assertTrue(target.is_dir())
+            self.assertEqual([], list(target.iterdir()))
+
     def test_listing_snapshot_date_is_not_historical_proof(self):
         observed = {"nasdaqlisted.txt": "2026-11-17T06:00:00",
                     "otherlisted.txt": "2026-11-17T06:00:00"}
