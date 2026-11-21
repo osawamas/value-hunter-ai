@@ -304,10 +304,21 @@ final class NotificationDeliveryProbe {
     }
 
     private static AccessibilityNodeInfo findDialogText(Instrumentation instrumentation, String text) {
-        var root = instrumentation.getUiAutomation().getRootInActiveWindow();
-        if (root == null) return null;
-        var matches = root.findAccessibilityNodeInfosByText(text);
-        return matches.isEmpty() ? null : matches.get(0);
+        var automation = instrumentation.getUiAutomation();
+        var root = automation.getRootInActiveWindow();
+        if (root != null) {
+            var matches = root.findAccessibilityNodeInfosByText(text);
+            if (!matches.isEmpty()) return matches.get(0);
+        }
+        // API 35 may keep the launcher or permission window active briefly after startActivitySync.
+        // Search all accessible windows rather than assuming the foreground root is our dialog.
+        for (var window : automation.getWindows()) {
+            var candidate = window.getRoot();
+            if (candidate == null) continue;
+            var matches = candidate.findAccessibilityNodeInfosByText(text);
+            if (!matches.isEmpty()) return matches.get(0);
+        }
+        return null;
     }
 
     private static void exerciseSettings(Instrumentation instrumentation, PowerManager power) throws IOException {
