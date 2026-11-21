@@ -34,6 +34,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 public final class MainActivity extends Activity {
+    private static final String METER_DRAFT = "valueMeterDraft";
     private static final String PAUSED = "public_jpx_watch_paused";
     private static final int PAGE = 0xfff3f5f0;
     private static final int SURFACE = 0xffffffff;
@@ -52,6 +53,8 @@ public final class MainActivity extends Activity {
     private Switch networkSwitch;
     private Switch wifiSwitch;
     private AlertDialog communicationNotice;
+    private AlertDialog valueMeterDialog;
+    private ValueAlertMeter.Thresholds valueMeterDraft;
     private TextView lastCheck;
     private TextView detail;
     private TextView usDailyStatus;
@@ -197,6 +200,17 @@ public final class MainActivity extends Activity {
         showDetail.setOnClickListener(view -> checkDetails());
 
         render();
+        String draft = saved == null ? null : saved.getString(METER_DRAFT);
+        if (draft != null && !MarketNetwork.noticeRequired(this)) {
+            showValueAlertMeter(ValueAlertMeter.Thresholds.read(draft));
+        }
+    }
+
+    @Override protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        if (valueMeterDialog != null && valueMeterDialog.isShowing() && valueMeterDraft != null) {
+            out.putString(METER_DRAFT, valueMeterDraft.encode());
+        }
     }
 
     @Override protected void onStart() {
@@ -262,6 +276,7 @@ public final class MainActivity extends Activity {
     @Override protected void onDestroy() {
         if (detailThread != null) detailThread.interrupt();
         if (communicationNotice != null) communicationNotice.dismiss();
+        if (valueMeterDialog != null) valueMeterDialog.dismiss();
         testNotificationButton.removeCallbacks(sendTestNotification);
         super.onDestroy();
     }
@@ -379,7 +394,11 @@ public final class MainActivity extends Activity {
     }
 
     private void showValueAlertMeter() {
-        var saved = ValueAlertMeter.Thresholds.read(state.getString(ValueAlertPreview.SETTINGS, ""));
+        showValueAlertMeter(ValueAlertMeter.Thresholds.read(state.getString(ValueAlertPreview.SETTINGS, "")));
+    }
+
+    private void showValueAlertMeter(ValueAlertMeter.Thresholds saved) {
+        if (valueMeterDialog != null && valueMeterDialog.isShowing()) return;
         var jpx = ValueAlertPreview.history(state, ValueAlertPreview.Market.JPX);
         var us = ValueAlertPreview.history(state, ValueAlertPreview.Market.US);
         var scroll = new ScrollView(this);
@@ -408,6 +427,7 @@ public final class MainActivity extends Activity {
         var preview = label(controls, "", 13, INK, false, 8);
         Runnable refresh = () -> {
             var thresholds = new ValueAlertMeter.Thresholds(values[0], values[1], values[2]);
+            valueMeterDraft = thresholds;
             band.removeAllViews();
             int from = 0;
             for (int i = 0; i < colors.length; i++) {
@@ -449,6 +469,13 @@ public final class MainActivity extends Activity {
         var dialog = new AlertDialog.Builder(this).setTitle("割安アラートの境界").setView(scroll)
                 .setNeutralButton("初期値に戻す", null).setNegativeButton("キャンセル", null)
                 .setPositiveButton("境界を保存", null).create();
+        valueMeterDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (valueMeterDialog == dialog) {
+                valueMeterDialog = null;
+                valueMeterDraft = null;
+            }
+        });
         dialog.setOnShowListener(ignored -> {
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> {
                 var defaults = ValueAlertMeter.DEFAULT;
