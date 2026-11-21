@@ -41,19 +41,17 @@ final class UsSingleSessionBudgetCheck {
         var pending = new HashSet<>(groups.getOrDefault(MarketCoverage.Reason.CLOSE, List.of()));
         pending.addAll(groups.getOrDefault(MarketCoverage.Reason.DATED_LISTING, List.of()));
         var sameDay = UsListingHistory.sessionExchanges(directory, day);
-        var eligible = UsSingleSessionBudget.targets(pending, sameDay,
-                UsListingHistory.verifiedSupplementSymbols(directory, day));
+        var paired = UsListingHistory.verifiedSupplementSymbols(directory, day);
+        var eligible = UsSingleSessionBudget.targets(pending, sameDay, paired);
         var prices = UsDeviceFinancials.prices(close.getJSONArray("closes"));
         eligible.removeAll(prices.keySet());
         var prior = priorPrices(directory, day);
         // Price-only comparison may lack its older close even when today's close is already saved.
         for (var reason : List.of(MarketCoverage.Reason.FINANCIALS, MarketCoverage.Reason.IDENTIFICATION,
                 MarketCoverage.Reason.DOWNLOAD, MarketCoverage.Reason.VALUATION)) {
-            for (var symbol : groups.getOrDefault(reason, List.of())) {
-                if (sameDay.containsKey(symbol) && prices.containsKey(symbol) && !prior.contains(symbol)) {
-                    eligible.add(symbol);
-                }
-            }
+            UsSingleSessionBudget.addUnpairedCurrentOnly(eligible,
+                    new HashSet<>(groups.getOrDefault(reason, List.of())), sameDay,
+                    paired, prices.keySet(), prior);
         }
         var saved = read(state, day.toString());
         var results = saved.optJSONObject("results");
