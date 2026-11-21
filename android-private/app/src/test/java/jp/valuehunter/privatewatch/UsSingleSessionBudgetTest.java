@@ -22,6 +22,15 @@ public final class UsSingleSessionBudgetTest {
         assertEquals(UsSingleSessionBudget.Verdict.HELD, UsSingleSessionBudget.check(DAY, fx, null));
     }
 
+    @Test public void currentOnlyFallbackCannotReintroducePairedSymbols() {
+        var eligible = new java.util.TreeSet<String>();
+        UsSingleSessionBudget.addUnpairedCurrentOnly(eligible,
+                Set.of("PAIRED", "CURRENT", "OLD", "GONE"),
+                Map.of("PAIRED", "Nasdaq", "CURRENT", "NYSE", "OLD", "NYSE"),
+                Set.of("PAIRED"), Set.of("PAIRED", "CURRENT", "OLD"), Set.of("OLD"));
+        assertEquals(Set.of("CURRENT"), eligible);
+    }
+
     @Test public void targetsRequireExactCurrentListingsAndAvoidDuplicatingPairedRecovery() throws Exception {
         var snapshot = new JSONObject().put("day", DAY.toString()).put("time", "16:08")
                 .put("nyse", new JSONObject(Map.of("KEEP", "Keep Corp", "MOVE", "Move Corp", "PAIR", "Pair Corp")))
