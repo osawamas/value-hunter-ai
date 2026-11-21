@@ -36,6 +36,26 @@ public class JpxAutomaticFinanceTest {
         assertEquals(Set.of(CODE), result.annual());
     }
 
+    @Test public void temporarilyUnavailableFilingKeepsVerifiedAnnualForRecovery() throws Exception {
+        var valid = acquire(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var missing = JpxAutomaticFinance.acquire(CODE, DAY, valid, new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
+                throw new JpxIssuerArchive.HttpFailure(404);
+            }
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) {
+                throw new AssertionError("Cannot read a missing filing");
+            }
+        });
+        assertNull(missing.annual());
+        assertEquals(valid.annual(), missing.previousAnnual());
+        assertFalse(missing.failure(CODE, DAY, Map.of()).isEmpty());
+        var retried = JpxAutomaticFinance.acquire(CODE, DAY, missing,
+                sources(archive("決算短信〔日本基準〕(連結)", PATH), filing()));
+        assertEquals(valid.annual(), retried.annual());
+        assertEquals("", retried.hold());
+        assertNull(retried.previousAnnual());
+    }
+
     @Test public void refreshedTdnetCorrectionInvalidatesAPreviouslyClearTradingDay() throws Exception {
         var cache = new HashMap<String, Object>();
         var older = DAY.minusDays(1);

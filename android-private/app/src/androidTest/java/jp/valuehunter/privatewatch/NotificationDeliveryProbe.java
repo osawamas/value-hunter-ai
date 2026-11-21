@@ -472,6 +472,12 @@ final class NotificationDeliveryProbe {
             var retry = ValueAlertPreview.entries(state, market, today, "JPX", current, qualified.keySet(),
                     code -> !code.equals("4444"));
             require(retry.isEmpty(), "Same-day retry lowered or duplicated a delivered tier");
+            var corrupted = new org.json.JSONObject().put("latest", new org.json.JSONObject().put("day", "unknown"));
+            require(state.edit().putString(market.key, corrupted.toString()).commit(), "Cannot write damaged meter metadata");
+            edit = state.edit();
+            ValueAlertPreview.save(state, edit, market, today, "JPX", current);
+            require(edit.commit() && today.equals(ValueAlertPreview.history(state, market).latest().day()),
+                    "Valid meter evidence did not recover from damaged metadata");
         } catch (org.json.JSONException invalid) {
             throw new AssertionError(invalid);
         }

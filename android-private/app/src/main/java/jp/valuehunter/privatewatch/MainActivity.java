@@ -63,6 +63,7 @@ public final class MainActivity extends Activity {
     private Button notificationButton;
     private Button testNotificationButton;
     private boolean notificationTestPending;
+    private boolean notificationWasBlocked;
     private Button checkNow;
     private Button showDetail;
     private Button jpxCoverageButton;
@@ -131,7 +132,7 @@ public final class MainActivity extends Activity {
         label(notifications, "通知", 19, INK, true, 0);
         var notificationSwitch = optionSwitch(notifications, "無音通知", ScanWorker.notificationsRequested(this));
         notificationSwitch.setOnCheckedChangeListener((view, checked) -> {
-            state.edit().putBoolean(ScanWorker.NOTIFICATIONS_ENABLED, checked).apply();
+            ScanWorker.setNotificationsRequested(state, checked);
             DiagnosticLog.record(this, DiagnosticLog.Area.ALERT, checked ? "設定で通知オン" : "設定で通知オフ");
         });
         var wakeScreen = optionSwitch(notifications, "通知時に画面を点灯",
@@ -163,7 +164,9 @@ public final class MainActivity extends Activity {
                 .setOnClickListener(view -> showNotificationHistory());
         var useMeter = optionSwitch(notifications, "割安メーターで通知", state.getBoolean(ValueAlertPreview.LIVE, false));
         useMeter.setOnCheckedChangeListener((view, checked) -> {
-            state.edit().putBoolean(ValueAlertPreview.LIVE, checked).apply();
+            state.edit().putBoolean(ValueAlertPreview.LIVE, checked)
+                    .putLong(ScanWorker.FINANCIAL_ALERT_GENERATION,
+                            state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0) + 1).apply();
             DiagnosticLog.record(this, DiagnosticLog.Area.ALERT, checked ? "割安メーター通知オン" : "割安メーター通知オフ");
         });
         label(notifications, "オンで新規入り・昇格を3段階で通知。比較資料のある銘柄が対象。", 13, MUTED, false, 5);
@@ -282,6 +285,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        resumePendingAlerts();
         render();
     }
 
@@ -302,8 +306,17 @@ public final class MainActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == 1 && ScanWorker.alertsEnabled(this)) JpxWatchWorker.checkNow(this);
+        if (requestCode == 1) resumePendingAlerts();
         render();
+    }
+
+    private void resumePendingAlerts() {
+        boolean blocked = !ScanWorker.systemAllowsAlerts(this);
+        if (notificationWasBlocked && !blocked && ScanWorker.notificationsRequested(this) && MarketNetwork.allowed()) {
+            JpxWatchWorker.checkNow(this);
+            if (UsDailyWorker.hasPendingFinancialAlert(state)) UsSecFinanceWorker.ensureScheduled(this);
+        }
+        notificationWasBlocked = blocked;
     }
 
     private void render() {
@@ -508,7 +521,13 @@ public final class MainActivity extends Activity {
             });
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 var thresholds = new ValueAlertMeter.Thresholds(values[0], values[1], values[2]);
-                if (state.edit().putString(ValueAlertPreview.SETTINGS, thresholds.encode()).commit()) {
+                var edit = state.edit().putString(ValueAlertPreview.SETTINGS, thresholds.encode());
+                if (state.getBoolean(ValueAlertPreview.LIVE, false)
+                        && !thresholds.equals(ValueAlertMeter.Thresholds.read(state.getString(ValueAlertPreview.SETTINGS, "")))) {
+                    edit.putLong(ScanWorker.FINANCIAL_ALERT_GENERATION,
+                            state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0) + 1);
+                }
+                if (edit.commit()) {
                     dialog.dismiss();
                 } else {
                     Toast.makeText(this, "境界を保存できなかった", Toast.LENGTH_SHORT).show();
