@@ -271,6 +271,7 @@ final class JpxWatchDeliveryProbe {
                     if (!MarketUpdate.JPX.display(state).contains("最終更新")) {
                         throw new AssertionError("JPX completion time was not saved");
                     }
+                    verifySilentNotification(manager);
                     manager.cancelAll();
                 }
             }

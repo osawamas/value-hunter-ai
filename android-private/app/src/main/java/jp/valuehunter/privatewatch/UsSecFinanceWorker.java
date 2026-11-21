@@ -203,7 +203,6 @@ public final class UsSecFinanceWorker extends Worker {
                 }
             }
             if (networkStopped()) return paused();
-            if (ledger.has("reference_screen")) MarketUpdate.US_FINANCE.completed(preferences.edit()).apply();
             return Result.success();
         } catch (FileNotFoundException absent) {
             return Result.success();

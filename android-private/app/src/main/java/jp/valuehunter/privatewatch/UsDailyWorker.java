@@ -294,8 +294,9 @@ public final class UsDailyWorker extends Worker {
                     .put("reference_screen", ledger.getJSONObject("reference_screen"));
             if (previous != null && day.equals(previous.day()) && !closeHash.equals(previous.hash())) pending = "";
             if (!ScanWorker.notificationsRequested(context) || !pending.contains("\n")) pending = "";
-            if (stopped.getAsBoolean() || !state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status).commit()) return;
+            var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
+                    .putString(PRIVATE_PENDING, pending).putString(PRIVATE_STATUS, status);
+            if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
             if (!pending.isEmpty() && !stopped.getAsBoolean()) {
                 if (!deliverFinancialAlert(context, state, pending) && !stopped.getAsBoolean()) {
                     state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
