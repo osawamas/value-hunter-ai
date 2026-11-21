@@ -185,6 +185,7 @@ final class NotificationDeliveryProbe {
             return "MARKET_WIFI_RECOVERY_OK";
         } finally {
             shell(instrumentation, "svc wifi enable");
+            shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
@@ -192,12 +193,24 @@ final class NotificationDeliveryProbe {
 
     private static void changeWifi(Instrumentation instrumentation, boolean connected) {
         try {
-            shell(instrumentation, connected ? "svc wifi enable" : "svc wifi disable");
+            if (connected) {
+                shell(instrumentation, "svc wifi enable");
+                if (!await(MarketNetwork::allowed, 10_000)) {
+                    // Some emulator images prefer their cellular transport after reconnecting.
+                    // Force route selection for the fixture, then require the normal Wi-Fi gate to open.
+                    shell(instrumentation, "svc data disable");
+                }
+                require(await(MarketNetwork::allowed, 40_000),
+                        "Wi-Fi connection did not enable the market path: "
+                                + wifiDiagnostics(instrumentation.getTargetContext()));
+            } else {
+                shell(instrumentation, "svc data enable");
+                shell(instrumentation, "svc wifi disable");
+                require(await(MarketNetwork::waitingForWifi, 40_000), "Recovery probe did not lose Wi-Fi");
+            }
         } catch (IOException error) {
             throw new AssertionError("Cannot toggle Wi-Fi in the recovery probe", error);
         }
-        require(await(connected ? MarketNetwork::allowed : MarketNetwork::waitingForWifi, 40_000),
-                connected ? "Recovery probe did not restore Wi-Fi" : "Recovery probe did not lose Wi-Fi");
     }
 
     private static void exerciseWifiOnly(Instrumentation instrumentation, PowerManager power) throws Exception {
@@ -223,15 +236,10 @@ final class NotificationDeliveryProbe {
             require(await(MarketNetwork::waitingForWifi, 25_000), "App did not wait while Wi-Fi was disabled");
             requireBlocked();
 
-            shell(instrumentation, "svc wifi enable");
-            // On API 35 the emulator may report Wi-Fi enabled before its default route is ready.
-            // Do not relax the production Wi-Fi-only gate: require a real eligible route.
-            require(await(MarketNetwork::allowed, 60_000),
-                    "Wi-Fi connection did not enable the market path: " + wifiDiagnostics(context));
+            changeWifi(instrumentation, true);
             var bound = MarketNetwork.open(new URL("https://127.0.0.1:1/"));
             try {
-                shell(instrumentation, "svc wifi disable");
-                require(await(MarketNetwork::waitingForWifi, 25_000), "Wi-Fi loss did not close the gate");
+                changeWifi(instrumentation, false);
                 requireBlocked();
                 try {
                     MarketNetwork.response(bound);
@@ -244,8 +252,7 @@ final class NotificationDeliveryProbe {
                 MarketNetwork.close(bound);
             }
 
-            shell(instrumentation, "svc wifi enable");
-            require(await(MarketNetwork::allowed, 25_000), "Market traffic did not resume after Wi-Fi returned");
+            changeWifi(instrumentation, true);
             require(!androidx.work.WorkManager.getInstance(context)
                             .getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS).isEmpty(),
                     "Restoring Wi-Fi did not queue the US update");
@@ -257,6 +264,7 @@ final class NotificationDeliveryProbe {
             require(MarketNetwork.wifiOnly() && !MarketNetwork.requested(), "OFF did not keep the Wi-Fi preference");
         } finally {
             shell(instrumentation, "svc wifi enable");
+            shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
             instrumentation.waitForIdleSync();
         }
