@@ -11,6 +11,7 @@ fi
 adb shell settings put global stay_on_while_plugged_in 0
 adb shell am instrument -w -e alert_phase post "$runner" | tee "$RUNNER_TEMP/alert-post.txt"
 tr -d '\r' < "$RUNNER_TEMP/alert-post.txt" | grep -x 'ALERT_SILENT_WAKE_AND_HISTORY_OK'
+tr -d '\r' < "$RUNNER_TEMP/alert-post.txt" | grep -x 'MARKET_WIFI_SWITCH_OK'
 
 adb reboot
 timeout 120 adb wait-for-device

@@ -67,7 +67,7 @@ public final class ScanWorker extends Worker {
     }
 
     static void schedule(Context context) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         var connected = connected();
         var work = WorkManager.getInstance(context);
         work.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP,
@@ -76,7 +76,7 @@ public final class ScanWorker extends Worker {
     }
 
     static void scheduleUs(Context context) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("us-watch", ExistingPeriodicWorkPolicy.KEEP,
                 new PeriodicWorkRequest.Builder(UsScanWorker.class, 6, TimeUnit.HOURS)
                         .setInitialDelay(6, TimeUnit.HOURS).setInputData(legacyApiRequest()).setConstraints(connected()).build());
@@ -85,14 +85,14 @@ public final class ScanWorker extends Worker {
     }
 
     static void checkSingapore(Context context) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         WorkManager.getInstance(context).enqueueUniqueWork("sg-check-now", ExistingWorkPolicy.REPLACE,
                 new OneTimeWorkRequest.Builder(SgCheckWorker.class).setInputData(legacyApiRequest()).setConstraints(connected())
                         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES).build());
     }
 
     static void scheduleSingaporeWatch(Context context) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("sg-watch", ExistingPeriodicWorkPolicy.KEEP,
                 new PeriodicWorkRequest.Builder(SgCheckWorker.class, 6, TimeUnit.HOURS)
                         .setInitialDelay(6, TimeUnit.HOURS).setInputData(legacyApiRequest()).setConstraints(connected())
@@ -104,18 +104,18 @@ public final class ScanWorker extends Worker {
     }
 
     private static Constraints connected() {
-        return new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        return MarketNetwork.constraints(NetworkType.CONNECTED);
     }
 
     static void checkNow(Context context) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         var connected = connected();
         WorkManager.getInstance(context).enqueueUniqueWork(MANUAL, ExistingWorkPolicy.KEEP,
                 new OneTimeWorkRequest.Builder(ScanWorker.class).setInputData(legacyApiRequest()).setConstraints(connected).build());
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return Result.success();
+        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
         if (!getInputData().getBoolean(LEGACY_API_REQUEST, false)) return Result.success();
         synchronized (SCAN_LOCK) {
             return scan();

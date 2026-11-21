@@ -8,4 +8,9 @@ public final class MarketWatchApplication extends Application {
         super.attachBaseContext(base);
         MarketNetwork.initialize(base);
     }
+
+    @Override public void onCreate() {
+        super.onCreate();
+        MarketNetwork.startTracking(this);
+    }
 }

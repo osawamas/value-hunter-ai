@@ -6,7 +6,6 @@ import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
 import androidx.work.BackoffPolicy;
-import androidx.work.Constraints;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
@@ -76,9 +75,9 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     private static void enqueue(Context context, ExistingWorkPolicy policy) {
-        if (!MarketNetwork.allowed()) return;
+        if (!MarketNetwork.requested()) return;
         var request = new OneTimeWorkRequest.Builder(UsSecFinanceWorker.class)
-                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build())
+                .setConstraints(MarketNetwork.constraints(NetworkType.UNMETERED))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build();
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
@@ -89,7 +88,7 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     @NonNull @Override public Result doWork() {
-        if (!MarketNetwork.allowed()) return Result.success();
+        if (!MarketNetwork.allowed()) return MarketNetwork.pausedWork();
         var context = getApplicationContext();
         var preferences = ScanWorker.prefs(context);
         var directory = context.getNoBackupFilesDir();
@@ -184,7 +183,7 @@ public final class UsSecFinanceWorker extends Worker {
             Thread.currentThread().interrupt();
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
-            if (networkStopped()) return Result.success();
+            if (networkStopped()) return MarketNetwork.pausedWork();
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             if (!progress.endsWith(" · 再試行待ち")) {
                 preferences.edit().putString(UsDailyWorker.PRIVATE_STATUS,
