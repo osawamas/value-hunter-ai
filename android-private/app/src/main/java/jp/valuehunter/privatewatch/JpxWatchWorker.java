@@ -371,6 +371,7 @@ public final class JpxWatchWorker extends Worker {
             return Result.success();
         } catch (IOException error) {
             if (networkStopped()) return paused();
+            DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "日報の取得失敗: " + error.getClass().getSimpleName());
             synchronized (STATE_LOCK) {
                 if (networkStopped()) return paused();
                 if (!token.equals(state.getString(TOKEN, ""))) return Result.success();
