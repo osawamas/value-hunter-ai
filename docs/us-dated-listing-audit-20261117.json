@@ -301,10 +301,11 @@
       "cik": 2137679,
       "exchange": "Nasdaq",
       "supporting_evidence": {
-        "date": "2026-09-10",
+        "date": "2026-09-11",
         "form": "8-K",
         "source": "https://www.sec.gov/Archives/edgar/data/2137679/000182912626010007/oceanlightacq_8k.htm",
-        "security_class": "ordinary_shares"
+        "security_class": "ordinary_shares",
+        "event_date": "2026-09-10"
       }
     },
     {
@@ -376,10 +377,11 @@
       "cik": 107140,
       "exchange": "NYSE",
       "supporting_evidence": {
-        "date": "2026-09-24",
+        "date": "2026-09-29",
         "form": "8-K",
         "source": "https://www.sec.gov/Archives/edgar/data/107140/000162828026063848/jwa-20260924.htm",
-        "security_class": "class_b_common"
+        "security_class": "class_b_common",
+        "event_date": "2026-09-24"
       }
     }
   ]
