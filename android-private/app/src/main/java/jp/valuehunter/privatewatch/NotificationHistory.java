@@ -44,6 +44,9 @@ final class NotificationHistory {
             postedAt = now;
         }
 
+        // Preserve the just-submitted receipt even if the device clock moved backwards.
+        // Drop the oldest existing receipt before adding the new one at capacity.
+        if (history.size() >= MAX_ENTRIES) history.remove(history.size() - 1);
         history.add(new Entry(receipt, Math.min(postedAt, now), title, detail));
         history.sort(Comparator.comparingLong(Entry::postedAt).reversed());
         save(file, history.subList(0, Math.min(history.size(), MAX_ENTRIES)));
