@@ -23,6 +23,7 @@ def audit(document):
         raise ValueError("invalid or duplicate universe ticker")
     universe = set(universe)
     seen = set()
+    codes_by_hold_reason = {}
     counts = Counter({"source_retrieved": 0, "financial_eligible": 0,
                       "on_hold": 0, "not_started": 0})
     for record in document["records"]:
@@ -39,6 +40,14 @@ def audit(document):
                     and SHA256.fullmatch(record["source_sha256"]) is not None)
         eligible = record.get("financial_eligible") is True
         hold = record.get("on_hold") is True
+        reason = record.get("hold_reason")
+        if reason is not None:
+            if (not isinstance(reason, str) or not reason.strip()
+                    or reason != reason.strip() or len(reason) > 160):
+                raise ValueError("invalid hold reason")
+            if not hold or eligible:
+                raise ValueError("hold reason requires on_hold")
+            codes_by_hold_reason.setdefault(reason, []).append(ticker)
         if eligible and hold:
             raise ValueError("eligible and on_hold are mutually exclusive")
         if eligible and not evidence:
@@ -57,7 +66,11 @@ def audit(document):
     counts["not_started"] += len(universe) - len(seen)
     counts["universe"] = len(universe)
     counts["records_seen"] = len(seen)
-    return dict(counts)
+    result = dict(counts)
+    result["hold_reasons"] = {reason: len(codes) for reason, codes in sorted(codes_by_hold_reason.items())}
+    result["codes_by_hold_reason"] = {reason: sorted(codes) for reason, codes in sorted(codes_by_hold_reason.items())}
+    result["hold_reason_unclassified"] = counts["on_hold"] - sum(result["hold_reasons"].values())
+    return result
 
 
 def main():
