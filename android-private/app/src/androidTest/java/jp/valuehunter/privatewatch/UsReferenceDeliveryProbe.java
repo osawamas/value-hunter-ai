@@ -110,6 +110,7 @@ final class UsReferenceDeliveryProbe {
             }
             if (wifi) {
                 verifyMeterDelivery(context, notifications);
+                verifyRejectedAlertCanBeRecalculated(context, notifications);
                 verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
             }
@@ -130,7 +131,16 @@ final class UsReferenceDeliveryProbe {
         var after = meterLedger(SECOND, hash, 9);
         UsDailyWorker.applyFinancialScreen(context, state, before, FIRST, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
-        UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
+        boolean done = UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash,
+                () -> false, (app, id, title, detail) -> false);
+        if (done || !UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("A failed submission did not keep the alert for retry");
+        }
+        expectQuiet(notifications);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false)
+                || UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Retry did not acknowledge delivery");
+        }
         verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄",
                 "METER · 100株 · かなり割安 · 84点");
         var receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis());
@@ -145,6 +155,30 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Cannot switch back to the conventional alert rules");
         }
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
+        expectQuiet(notifications);
+    }
+
+    private static void verifyRejectedAlertCanBeRecalculated(Context context, NotificationManager notifications)
+            throws Exception {
+        var state = context.getSharedPreferences("us-meter-rule-change-probe", Context.MODE_PRIVATE);
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Cannot prepare the rule-change probe");
+        }
+        String hash = "b".repeat(64);
+        var before = meterLedger(FIRST, hash, 15);
+        var after = meterLedger(SECOND, hash, 9);
+        UsDailyWorker.applyFinancialScreen(context, state, before, FIRST, PROVIDER, hash, () -> false);
+        if (UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false,
+                (app, id, title, detail) -> false)) {
+            throw new AssertionError("An unsent alert was acknowledged");
+        }
+        if (!state.edit().putBoolean(ValueAlertPreview.LIVE, false)
+                .putLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 1).commit()) {
+            throw new AssertionError("Cannot change the alert rules");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
+        verifySilentNotice(notifications, "METER", SECOND);
+        notifications.cancelAll();
         expectQuiet(notifications);
     }
 

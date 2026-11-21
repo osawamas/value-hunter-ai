@@ -239,26 +239,37 @@ final class JpxDailyCheck {
 
         JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
+            return meterRows(latest, screen.assessedCodes(), finance, rights);
+        }
+
+        JSONObject previousMeterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
+                throws JSONException {
+            var comparable = new HashSet<>(screen.assessedCodes());
+            for (var held : screen.holds()) comparable.remove(held.code());
+            return meterRows(previous, comparable, finance, rights);
+        }
+
+        private JSONObject meterRows(Report report, Set<String> codes, JpxAutomaticFinance.Batch finance,
+                                     JpxShareRights rights) throws JSONException {
             var rows = new JSONObject();
-            for (String code : screen.assessedCodes()) {
-                var close = latest.close(code);
+            var day = report.date();
+            for (String code : codes) {
+                var close = report.close(code);
                 int shares = budgetQuantity(close);
                 var entry = finance.entries().get(code);
-                var annual = entry == null ? null : entry.annualFor(latest.date());
-                var score = annual == null ? JpxReferenceFinancials.meterScore(code, latest.date(), close)
-                        : ValueAlertMeter.assess(annual.onShareBasis(latest.date(), close, true),
-                        annual.onShareBasis(latest.date(), annual.eps(), false),
-                        annual.onShareBasis(latest.date(), annual.bps(), false),
-                        recentEps(code, entry, annual, rights), null, null, null);
+                var annual = entry == null ? null : entry.annualFor(day);
+                var score = annual == null ? JpxReferenceFinancials.meterScore(code, day, close)
+                        : ValueAlertMeter.assess(annual.onShareBasis(day, close, true),
+                        annual.onShareBasis(day, annual.eps(), false), annual.onShareBasis(day, annual.bps(), false),
+                        recentEps(code, entry, annual, day, rights), null, null, null);
                 if (score != null && score.confirmed() > 0) rows.put(code, ValueAlertPreview.encode(score, shares));
             }
             return rows;
         }
 
         private List<BigDecimal> recentEps(String code, JpxAutomaticFinance.Entry entry,
-                                           JpxAnnualSummary.Annual annual, JpxShareRights rights) {
+                                           JpxAnnualSummary.Annual annual, LocalDate day, JpxShareRights rights) {
             var prior = entry.previousAnnual();
-            var day = latest.date();
             if (prior == null || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
             long gap = java.time.temporal.ChronoUnit.DAYS.between(prior.end(), annual.end());
             if (gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())

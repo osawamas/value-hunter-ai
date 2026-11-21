@@ -336,14 +336,13 @@ public final class JpxWatchWorker extends Worker {
                             .collect(Collectors.joining("\n"));
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
-                var meterRows = saveMeter(state, update, comparison, screen, finance, evidence.rights());
+                var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
-                if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meterRows != null) {
-                    var held = screen.holds().stream().map(JpxDailyCheck.Held::code).collect(Collectors.toSet());
+                if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meter != null) {
                     try {
                         var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, date, "JPX",
-                                meterRows, alerted, code -> held.contains(code) ? null : code);
+                                meter.rows(), meter.prior(), alerted, code -> code);
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
@@ -385,14 +384,20 @@ public final class JpxWatchWorker extends Worker {
         }
     }
 
-    private static JSONObject saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
-                                  JpxDailyCheck.Comparison comparison, JpxDailyCheck.Screening screen,
-                                  JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
+    record MeterPair(JSONObject rows, ValueAlertPreview.Session prior) {}
+
+    static MeterPair saveMeter(SharedPreferences state, SharedPreferences.Editor edit, JpxDailyCheck.Comparison comparison,
+                               JpxDailyCheck.Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
         try {
+            var date = comparison.latest().date();
+            var market = ValueAlertPreview.Market.JPX;
             var rows = comparison.meterRows(screen, finance, rights);
-            ValueAlertPreview.save(state, edit, ValueAlertPreview.Market.JPX,
-                    comparison.latest().date(), "JPX", rows);
-            return rows;
+            var expected = market.expectedPrior(date);
+            JSONObject priorRows = comparison.previous() != null && expected.equals(comparison.previous().date())
+                    ? comparison.previousMeterRows(screen, finance, rights) : null;
+            ValueAlertPreview.save(state, edit, market, date, "JPX", rows, priorRows);
+            var prior = priorRows == null ? null : ValueAlertPreview.session(expected, "JPX", priorRows);
+            return new MeterPair(rows, prior);
         } catch (JSONException unavailable) {
             return null;
         }

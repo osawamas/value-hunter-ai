@@ -67,6 +67,7 @@ public final class UsDailyWorker extends Worker {
     private static final String REPAIR_SCREENED = "us_listing_repair_screened";
     private static final String REPAIR_METRICS_DAY = "us_listing_repair_metrics_day";
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
+    private static final String PENDING_CODES = "us_private_sec_pending_codes";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final String PENDING_ALERT_GENERATION = "us_private_pending_alert_generation";
     private static final String PENDING_FINANCIAL_GENERATION = "us_private_pending_financial_generation";
@@ -423,14 +424,25 @@ public final class UsDailyWorker extends Worker {
                 && provider.equals(snapshot.optString("source")) && closes != null && closes.length() > 0;
     }
 
-    static void applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,
+    static boolean applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,
                                      LocalDate day, String provider, String closeHash,
                                      java.util.function.BooleanSupplier stopped) {
-        if (stopped.getAsBoolean()) return;
+        return applyFinancialScreen(context, state, ledger, day, provider, closeHash, stopped, ScanWorker::postNotification);
+    }
+
+    @FunctionalInterface
+    interface FinancialAlertSender {
+        boolean post(Context context, int id, String title, String detail);
+    }
+
+    static boolean applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,
+                                        LocalDate day, String provider, String closeHash,
+                                        java.util.function.BooleanSupplier stopped, FinancialAlertSender sender) {
+        if (stopped.getAsBoolean()) return false;
         try {
             if (!day.toString().equals(ledger.optString("trading_date_et"))
                     || !provider.equals(ledger.optString("close_provider"))
-                    || !closeHash.equals(ledger.optString("close_sha256"))) return;
+                    || !closeHash.equals(ledger.optString("close_sha256"))) return true;
             var coverage = ledger.getJSONObject("coverage");
             int financials = coverage.getJSONObject("NYSE").getInt("with_close_and_reference_financials")
                     + coverage.getJSONObject("Nasdaq").getInt("with_close_and_reference_financials");
@@ -438,18 +450,18 @@ public final class UsDailyWorker extends Worker {
             if (!ledger.has("reference_screen")) {
                 MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.FINANCE, day)
                         .putString(PRIVATE_STATUS, status + " · 為替・分割資料待ち").apply();
-                return;
+                return true;
             }
             var screen = UsReferenceAlerts.read(ledger);
             if (!provider.equals(screen.provider()) || !closeHash.equals(screen.hash())) {
                 throw new JSONException("Reference screen does not match the daily close");
             }
             var previous = readPrivateBaseline(state);
-            if (previous != null && day.isBefore(previous.day())) return;
+            if (previous != null && day.isBefore(previous.day())) return true;
             if (screen.rows().isEmpty()) {
                 MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.FINANCE, day)
                         .putString(PRIVATE_STATUS, status + " · 判定に使える財務・株数が未確認").apply();
-                return;
+                return true;
             }
             status += " · 参考判定 " + screen.rows().size() + "銘柄";
             long count = 0;
@@ -459,18 +471,22 @@ public final class UsDailyWorker extends Worker {
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
+            var queued = new HashSet<>(state.getStringSet(PENDING_CODES, Set.of()));
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
             if (!pending.isEmpty() && (!sameDay || !alertsRequested
                     || !pending.startsWith(day + "の終値（参考）\n", pending.indexOf('\n') + 1)
                     || state.getLong(PENDING_ALERT_GENERATION, 0) != alertGeneration
                     || state.getLong(PENDING_FINANCIAL_GENERATION, 0) != financialGeneration)) {
-                if (!state.edit().remove(PRIVATE_PENDING).commit()) return;
+                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES).commit()) return false;
                 pending = "";
+                queued.clear();
             }
             if (!pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
-                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration)) return;
+                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending, alertGeneration,
+                        financialGeneration, sent, queued, sender)) return false;
                 pending = "";
+                queued.clear();
             }
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
             var reference = ledger.getJSONObject("reference_screen");
@@ -485,23 +501,28 @@ public final class UsDailyWorker extends Worker {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
             if (pending.isEmpty() && alertsRequested) {
+                queued.clear();
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
                             + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
-                    sent.addAll(entrants.keySet());
+                    queued.addAll(entrants.keySet());
                 } else if (!ranks.isEmpty()) {
                     pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
                             + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
                                     .collect(java.util.stream.Collectors.joining("\n"));
-                    sent.addAll(ranks.keySet());
+                    queued.addAll(ranks.keySet());
                 }
             }
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", new JSONObject(reference,
                             new String[]{"provider", "close_sha256", "fx_date", "observations"}));
-            if (!alertsRequested || !pending.contains("\n")) pending = "";
+            if (!alertsRequested || !pending.contains("\n")) {
+                pending = "";
+                queued.clear();
+            }
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status)
+                    .putString(PRIVATE_PENDING, pending).putStringSet(PENDING_CODES, queued)
+                    .putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status)
                     .putLong(PENDING_ALERT_GENERATION, alertGeneration)
                     .putLong(PENDING_FINANCIAL_GENERATION, financialGeneration);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
@@ -514,15 +535,18 @@ public final class UsDailyWorker extends Worker {
             }
             MarketFreshness.US_FINANCE.verified(update, day, screen.rows().size(), (int) count, "");
             MarketFreshness.US_FINANCE.waiting(update, null, day);
-            if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return;
-            if (!pending.isEmpty() && !stopped.getAsBoolean()) {
-                if (!deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration) && !stopped.getAsBoolean()) {
-                    state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
-                }
+            if (stopped.getAsBoolean() || !MarketUpdate.US_FINANCE.completed(update).commit()) return false;
+            if (pending.isEmpty()) return true;
+            if (!ScanWorker.systemAllowsAlerts(context)) {
+                state.edit().putString(PRIVATE_STATUS, status + "\n無音通知は端末の通知許可待ち").apply();
+                return true;
             }
+            if (stopped.getAsBoolean()) return false;
+            return deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration, sent, queued, sender);
         } catch (JSONException | DateTimeParseException e) {
             MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.NEXT_CHECK, day)
                     .putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
+            return true;
         }
     }
 
@@ -531,16 +555,23 @@ public final class UsDailyWorker extends Worker {
     }
 
     private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending,
-                                                  long alertGeneration, long financialGeneration) {
+                                                  long alertGeneration, long financialGeneration,
+                                                  Set<String> sent, Set<String> queued, FinancialAlertSender sender) {
         int separator = pending.indexOf('\n');
+        var edit = state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES);
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
                 || alertGeneration != state.getLong(ScanWorker.ALERT_GENERATION, 0)
-                || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)
-                || ScanWorker.postNotification(context, US_NOTIFICATION_ID,
-                        pending.substring(0, separator), pending.substring(separator + 1))) {
-            return state.edit().remove(PRIVATE_PENDING).commit();
+                || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)) {
+            return edit.commit();
         }
-        return false;
+        if (!sender.post(context, US_NOTIFICATION_ID, pending.substring(0, separator), pending.substring(separator + 1))) {
+            return false;
+        }
+        var delivered = new HashSet<>(sent);
+        delivered.addAll(queued);
+        if (!edit.putStringSet(PRIVATE_SENT, delivered).commit()) return false;
+        sent.addAll(queued);
+        return true;
     }
 
     private static UsReferenceAlerts.Screen readPrivateBaseline(SharedPreferences state) {
