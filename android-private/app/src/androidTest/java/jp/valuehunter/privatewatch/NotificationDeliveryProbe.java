@@ -14,6 +14,7 @@ import android.widget.Switch;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -43,6 +44,8 @@ final class NotificationDeliveryProbe {
         if ("recovery".equals(phase)) return exerciseMarketRecovery(instrumentation);
         if ("archive_repair_prep".equals(phase)) return ArchivedRepairProbe.prepare(context);
         if ("archive_repair_resume".equals(phase)) return ArchivedRepairProbe.resume(context);
+        if ("interrupted_prepare".equals(phase)) return prepareInterruptedDelivery(context, manager, history);
+        if ("interrupted_resume".equals(phase)) return resumeInterruptedDelivery(context, manager, history);
         if ("restore".equals(phase)) {
             require("60,75,90".equals(ScanWorker.prefs(context).getString(ValueAlertPreview.SETTINGS, "")),
                     "Saved alert thresholds did not survive reboot");
@@ -138,6 +141,51 @@ final class NotificationDeliveryProbe {
         exerciseWifiOnly(instrumentation, power);
         ListingArchiveProbe.prepare(context);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static final int INTERRUPTED_ID = 54;
+    private static final String INTERRUPTED_TITLE = "米国株の通知中断テスト";
+    private static final String INTERRUPTED_DETAIL = "TEST · 100株 · かなり割安";
+
+    private static String prepareInterruptedDelivery(android.content.Context context, NotificationManager manager,
+                                                     File history) throws IOException {
+        boolean previous = MarketNetwork.requested();
+        require(MarketNetwork.setAllowed(context, true), "Cannot enable market alert fixture");
+        var writeBlock = new File(history.getParentFile(), history.getName() + ".tmp");
+        require(writeBlock.mkdir(), "Cannot block the notification history write");
+        try {
+            require(!ScanWorker.postNotification(context, INTERRUPTED_ID, INTERRUPTED_TITLE, INTERRUPTED_DETAIL),
+                    "Posting with a failed history write was acknowledged");
+            require(await(() -> active(manager, INTERRUPTED_ID) != null), "The test notification was not posted");
+            require(NotificationHistory.recent(history, System.currentTimeMillis()).stream()
+                    .noneMatch(row -> row.title().equals(INTERRUPTED_TITLE)), "History was unexpectedly written");
+            // The receipt must survive the loss of Android's live notification list as well as a device reboot.
+            manager.cancel(INTERRUPTED_ID);
+            require(await(() -> active(manager, INTERRUPTED_ID) == null), "Cannot remove the live notification");
+        } finally {
+            writeBlock.delete();
+            require(MarketNetwork.setAllowed(context, previous), "Cannot restore market fixture settings");
+        }
+        return "INTERRUPTED_NOTIFICATION_BEFORE_REBOOT_OK";
+    }
+
+    private static String resumeInterruptedDelivery(android.content.Context context, NotificationManager manager,
+                                                    File history) throws IOException {
+        require(active(manager, INTERRUPTED_ID) == null, "Live interrupted notification survived the reboot fixture");
+        boolean previous = MarketNetwork.requested();
+        try {
+            // A persisted receipt can be repaired with market communication off.
+            require(MarketNetwork.setAllowed(context, false), "Cannot pause the market in receipt replay");
+            require(ScanWorker.postNotification(context, INTERRUPTED_ID, INTERRUPTED_TITLE, INTERRUPTED_DETAIL),
+                    "The restarted app did not acknowledge the known delivery");
+        } finally {
+            require(MarketNetwork.setAllowed(context, previous), "Cannot restore market fixture settings");
+        }
+        require(active(manager, INTERRUPTED_ID) == null, "The restarted app posted the notification again");
+        require(NotificationHistory.recent(history, System.currentTimeMillis()).stream()
+                .filter(row -> row.title().equals(INTERRUPTED_TITLE)).count() == 1,
+                "Recovered history did not contain exactly one notification");
+        return "INTERRUPTED_NOTIFICATION_AFTER_REBOOT_OK";
     }
 
     private static String exerciseMarketRecovery(Instrumentation instrumentation) throws Exception {

@@ -261,12 +261,6 @@ public final class ScanWorker extends Worker {
     static boolean postNotification(Context context, int id, String title, String detail) {
         boolean trackInteraction = id != TEST_NOTIFICATION_ID;
         String kind = trackInteraction ? "相場通知" : "テスト通知";
-        String blocked = alertBlockReason(context);
-        if (!blocked.isEmpty() || (trackInteraction && !MarketNetwork.allowed())) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
-                    kind + "を投稿せず: " + (blocked.isEmpty() ? DiagnosticLog.route() : blocked));
-            return false;
-        }
         var manager = context.getSystemService(NotificationManager.class);
         String receipt = notificationReceipt(title, detail);
         String receiptKey = id + "-" + receipt;
@@ -277,12 +271,15 @@ public final class ScanWorker extends Worker {
         extras.putString(NOTIFICATION_RECEIPT, receipt);
         String preview = notificationPreview(detail);
         try {
-            createAlertChannel(manager);
             boolean[] submitted = {false};
             Runnable post = () -> {
-                if (!alertsEnabled(context) || (trackInteraction && !MarketNetwork.allowed())) {
+                String blocked = alertBlockReason(context);
+                if (!blocked.isEmpty() || (trackInteraction && !MarketNetwork.allowed())) {
+                    DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                            kind + "を投稿せず: " + (blocked.isEmpty() ? DiagnosticLog.route() : blocked));
                     throw new SecurityException("Notifications disabled before submission");
                 }
+                createAlertChannel(manager);
                 manager.notify(id, new Notification.Builder(context, CHANNEL)
                         .setSmallIcon(android.R.drawable.ic_dialog_info)
                         .setContentTitle(title)
@@ -294,6 +291,7 @@ public final class ScanWorker extends Worker {
                         .setVisibility(Notification.VISIBILITY_PRIVATE)
                         .addExtras(extras).setContentIntent(tap).setAutoCancel(true).setOnlyAlertOnce(true).build());
                 submitted[0] = true;
+                if (trackInteraction) NotificationDismissal.recordSubmission(context, receiptKey);
                 DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, kind + "をAndroidに投稿");
             };
             if (!trackInteraction) {
@@ -303,7 +301,7 @@ public final class ScanWorker extends Worker {
             }
             long now = System.currentTimeMillis();
             boolean delivered = NotificationHistory.deliver(NotificationHistory.file(context), receiptKey, title, detail, now, () -> {
-                for (var active : manager.getActiveNotifications()) {
+                if (manager != null) for (var active : manager.getActiveNotifications()) {
                     if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null
                             && receipt.equals(active.getNotification().extras.getString(NOTIFICATION_RECEIPT))) {
                         return active.getPostTime();

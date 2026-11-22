@@ -67,10 +67,7 @@ public final class UsDailyWorker extends Worker {
     private static final String REPAIR_SCREENED = "us_listing_repair_screened";
     private static final String REPAIR_METRICS_DAY = "us_listing_repair_metrics_day";
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
-    private static final String PENDING_CODES = "us_private_sec_pending_codes";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
-    private static final String PENDING_ALERT_GENERATION = "us_private_pending_alert_generation";
-    private static final String PENDING_FINANCIAL_GENERATION = "us_private_pending_financial_generation";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
     static final String PRICE_ONLY_STATUS = "us_price_only_status";
@@ -467,27 +464,15 @@ public final class UsDailyWorker extends Worker {
             long count = 0;
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
             status += " · 条件該当 " + count + "銘柄";
-            String pending = state.getString(PRIVATE_PENDING, "");
+            String pending = "";
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
-            var queued = new HashSet<>(state.getStringSet(PENDING_CODES, Set.of()));
+            var queued = new HashSet<String>();
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
-            if (!pending.isEmpty() && (!sameDay || !alertsRequested
-                    || !pending.startsWith(day + "の終値（参考）\n", pending.indexOf('\n') + 1)
-                    || state.getLong(PENDING_ALERT_GENERATION, 0) != alertGeneration
-                    || state.getLong(PENDING_FINANCIAL_GENERATION, 0) != financialGeneration)) {
-                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES).commit()) return false;
-                pending = "";
-                queued.clear();
-            }
-            if (!pending.isEmpty() && ScanWorker.alertsEnabled(context)) {
-                if (stopped.getAsBoolean() || !deliverFinancialAlert(context, state, pending, alertGeneration,
-                        financialGeneration, sent, queued, sender)) return false;
-                pending = "";
-                queued.clear();
-            }
+            // Recalculate from the current screen, including same-day corrections to SEC evidence.
+            // The queue only signals outstanding work; only the delivery receipt suppresses repeats.
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
             var reference = ledger.getJSONObject("reference_screen");
             var meter = reference.optJSONObject("meter_rows");
@@ -500,8 +485,7 @@ public final class UsDailyWorker extends Worker {
             String notificationState = ScanWorker.alertBlockReason(context);
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
-            if (pending.isEmpty() && alertsRequested) {
-                queued.clear();
+            if (alertsRequested) {
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
                             + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
@@ -516,15 +500,8 @@ public final class UsDailyWorker extends Worker {
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", new JSONObject(reference,
                             new String[]{"provider", "close_sha256", "fx_date", "observations"}));
-            if (!alertsRequested || !pending.contains("\n")) {
-                pending = "";
-                queued.clear();
-            }
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putStringSet(PENDING_CODES, queued)
-                    .putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status)
-                    .putLong(PENDING_ALERT_GENERATION, alertGeneration)
-                    .putLong(PENDING_FINANCIAL_GENERATION, financialGeneration);
+                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
             if (meter != null) {
                 try {
@@ -558,7 +535,7 @@ public final class UsDailyWorker extends Worker {
                                                   long alertGeneration, long financialGeneration,
                                                   Set<String> sent, Set<String> queued, FinancialAlertSender sender) {
         int separator = pending.indexOf('\n');
-        var edit = state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES);
+        var edit = state.edit().remove(PRIVATE_PENDING);
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
                 || alertGeneration != state.getLong(ScanWorker.ALERT_GENERATION, 0)
                 || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)) {
@@ -569,9 +546,7 @@ public final class UsDailyWorker extends Worker {
         }
         var delivered = new HashSet<>(sent);
         delivered.addAll(queued);
-        if (!edit.putStringSet(PRIVATE_SENT, delivered).commit()) return false;
-        sent.addAll(queued);
-        return true;
+        return edit.putStringSet(PRIVATE_SENT, delivered).commit();
     }
 
     private static UsReferenceAlerts.Screen readPrivateBaseline(SharedPreferences state) {
