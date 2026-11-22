@@ -213,13 +213,20 @@ final class AlertOutcomes {
         }
     }
 
+    static void recoverDeferred(Context context, Market market) {
+        try {
+            recoverDeferred(file(context, market), deferred(context, market), market, System.currentTimeMillis());
+        } catch (IOException | JSONException e) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の保留中の試験記録を保存できず · 次回確認");
+        }
+    }
+
     static void update(Context context, Market market, LocalDate latestClose, BooleanSupplier stopped,
                        Predicate<Window> evidenceReady, PriceLoader prices) {
         if (latestClose == null || stopped.getAsBoolean()) return;
+        recoverDeferred(context, market);
         try {
-            var file = file(context, market);
-            recoverDeferred(file, deferred(context, market), market, System.currentTimeMillis());
-            evaluate(file, market, latestClose, stopped, evidenceReady, prices);
+            evaluate(file(context, market), market, latestClose, stopped, evidenceReady, prices);
         } catch (IOException | JSONException | java.time.format.DateTimeParseException e) {
             var area = market == Market.US ? DiagnosticLog.Area.US_CLOSE : DiagnosticLog.Area.JPX;
             DiagnosticLog.record(context, area, market.label + "の試験比較を取得できず · 次回確認");

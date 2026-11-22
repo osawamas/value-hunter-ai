@@ -220,6 +220,7 @@ public final class JpxWatchWorker extends Worker {
         var state = ScanWorker.prefs(context);
         String token = state.getString(TOKEN, "");
         if (token.isEmpty()) return Result.success();
+        AlertOutcomes.recoverDeferred(context, AlertOutcomes.Market.JPX);
 
         LocalDate expected = expectedDay.get();
         try {
@@ -424,24 +425,21 @@ public final class JpxWatchWorker extends Worker {
             throws IOException {
         if (networkStopped()) return paused();
         if (pending.length() == 0) return null;
-        if (!ScanWorker.notificationsRequested(context)) {
-            if (!state.edit().remove(PENDING).commit()) return Result.retry();
-            while (pending.length() > 0) pending.remove(pending.length() - 1);
-            return null;
-        }
         try {
             while (pending.length() > 0) {
                 if (networkStopped()) return paused();
                 var alert = pending.getJSONObject(0);
                 int id = alert.getInt("id");
                 var day = dateOrNull(alert.getString("day"));
-                if (day == null || (expected != null && day.isBefore(expected))
+                if (!ScanWorker.notificationsRequested(context) || day == null
+                        || (expected != null && day.isBefore(expected))
                         || alert.optLong("alertGeneration", 0) != state.getLong(ScanWorker.ALERT_GENERATION, 0)
                         || (id == NOTIFICATION_ID && alert.optLong("financialGeneration", 0)
                         != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0))) {
                     // An obsolete notification can still have been submitted before the worker stopped.
-                    if (id == NOTIFICATION_ID && !JpxAlertOutcomes.recoverSubmitted(context, id,
-                            alert.getString("title"), alert.getString("detail"), alert.getJSONArray("codes"))) {
+                    var codes = alert.optJSONArray("codes");
+                    if (id == NOTIFICATION_ID && codes != null && !JpxAlertOutcomes.recoverSubmitted(context, id,
+                            alert.optString("title"), alert.optString("detail"), codes)) {
                         return Result.retry();
                     }
                     pending.remove(0);

@@ -126,6 +126,11 @@ public final class UsSecFinanceWorker extends Worker {
     private Result check() {
         var context = getApplicationContext();
         var preferences = ScanWorker.prefs(context);
+        AlertOutcomes.recoverDeferred(context, AlertOutcomes.Market.US);
+        synchronized (UsDailyWorker.QUOTE_LOCK) {
+            if (networkStopped()) return paused();
+            if (!UsDailyWorker.recoverSubmittedFinancialAlert(context, preferences)) return Result.retry();
+        }
         var directory = context.getNoBackupFilesDir();
         var closeFile = new AtomicFile(new File(directory, QUOTES));
         var checkpoint = new AtomicFile(new File(directory, STATE));

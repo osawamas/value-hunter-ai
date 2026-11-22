@@ -235,6 +235,7 @@ public final class UsDailyWorker extends Worker {
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
         String archived = getInputData().getString(ARCHIVE_RECHECK_DAY);
+        if (archived == null) AlertOutcomes.recoverDeferred(context, AlertOutcomes.Market.US);
         LocalDate target = archived == null
                 ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()))
                 : LocalDate.parse(archived);
@@ -443,7 +444,7 @@ public final class UsDailyWorker extends Worker {
     static boolean applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,
                                         LocalDate day, String provider, String closeHash,
                                         java.util.function.BooleanSupplier stopped, FinancialAlertSender sender) {
-        if (stopped.getAsBoolean()) return false;
+        if (stopped.getAsBoolean() || !recoverSubmittedFinancialAlert(context, state)) return false;
         try {
             if (!day.toString().equals(ledger.optString("trading_date_et"))
                     || !provider.equals(ledger.optString("close_provider"))
@@ -476,7 +477,6 @@ public final class UsDailyWorker extends Worker {
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
-            if (!recoverSubmittedFinancialAlert(context, state, sent, sameDay)) return false;
             var queued = new java.util.HashMap<String, String>();
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
@@ -565,8 +565,7 @@ public final class UsDailyWorker extends Worker {
         return edit.putStringSet(PRIVATE_SENT, delivered).commit();
     }
 
-    private static boolean recoverSubmittedFinancialAlert(Context context, SharedPreferences state, Set<String> sent,
-                                                           boolean sameDay) {
+    static boolean recoverSubmittedFinancialAlert(Context context, SharedPreferences state) {
         String pending = state.getString(PRIVATE_PENDING, "");
         int separator = pending.indexOf('\n');
         if (separator < 0) return true;
@@ -587,8 +586,10 @@ public final class UsDailyWorker extends Worker {
             if (!AlertOutcomes.record(context, AlertOutcomes.Market.US, delivered, outcomeSignals(queued), now)) {
                 return false;
             }
-            if (sameDay) sent.addAll(queued.keySet());
-            return true;
+            var sent = new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of()));
+            sent.addAll(queued.keySet());
+            return state.edit().putStringSet(PRIVATE_SENT, sent)
+                    .remove(PRIVATE_PENDING).remove(PRIVATE_PENDING_SIGNALS).commit();
         } catch (JSONException invalid) {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の保留通知の銘柄記録が不正");
             return true;
