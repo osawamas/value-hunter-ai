@@ -58,7 +58,7 @@ final class DiagnosticLog {
 
     static String report(Context context) {
         String events = read(context);
-        return "VALUE HUNTER AI 診断ログ（日本時間）\n"
+        return context.getString(R.string.app_name) + " 診断ログ（日本時間）\n"
                 + Build.MANUFACTURER + " " + Build.MODEL + " · Android " + Build.VERSION.RELEASE
                 + "（API " + Build.VERSION.SDK_INT + "）\n"
                 + "アプリ: " + appVersion(context) + "\n"

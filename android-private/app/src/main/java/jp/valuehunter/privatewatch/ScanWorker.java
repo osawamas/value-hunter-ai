@@ -200,7 +200,7 @@ public final class ScanWorker extends Worker {
     }
 
     static boolean testNotification(Context context) {
-        return postNotification(context, TEST_NOTIFICATION_ID, "VALUE HUNTER AI 無音通知テスト", "無音通知と画面点灯のテスト");
+        return postNotification(context, TEST_NOTIFICATION_ID, context.getString(R.string.app_name) + " 無音通知テスト", "無音通知と画面点灯のテスト");
     }
 
     static final String ALERT_GENERATION = "public_alert_generation";

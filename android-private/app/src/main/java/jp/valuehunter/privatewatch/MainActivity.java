@@ -105,7 +105,7 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
 
         var hero = section(content, FOREST, false);
-        var brand = label(hero, "VALUE HUNTER AI", 11, LIGHT_TEXT, true, 0);
+        var brand = label(hero, getString(R.string.app_name), 11, LIGHT_TEXT, true, 0);
         brand.setLetterSpacing(0.13f);
         label(hero, "株式モニター", 30, SURFACE, true, 7);
         monitorStatus = label(hero, "", 15, ACCENT, true, 10);
@@ -552,7 +552,7 @@ public final class MainActivity extends Activity {
                 .setPositiveButton("診断ログをコピー", (dialog, which) -> {
                     var clipboard = getSystemService(ClipboardManager.class);
                     if (clipboard != null) {
-                        clipboard.setPrimaryClip(ClipData.newPlainText("VALUE HUNTER AI 診断ログ", DiagnosticLog.report(this)));
+                        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name) + " 診断ログ", DiagnosticLog.report(this)));
                         Toast.makeText(this, "診断ログをコピーした", Toast.LENGTH_SHORT).show();
                     }
                 }).show();
