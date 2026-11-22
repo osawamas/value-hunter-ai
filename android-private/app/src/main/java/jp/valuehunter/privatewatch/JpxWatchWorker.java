@@ -439,6 +439,11 @@ public final class JpxWatchWorker extends Worker {
                         || alert.optLong("alertGeneration", 0) != state.getLong(ScanWorker.ALERT_GENERATION, 0)
                         || (id == NOTIFICATION_ID && alert.optLong("financialGeneration", 0)
                         != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0))) {
+                    // An obsolete notification can still have been submitted before the worker stopped.
+                    if (id == NOTIFICATION_ID && !JpxAlertOutcomes.recoverSubmitted(context, id,
+                            alert.getString("title"), alert.getString("detail"), alert.getJSONArray("codes"))) {
+                        return Result.retry();
+                    }
                     pending.remove(0);
                     if (!state.edit().putString(PENDING, pending.toString()).commit()) return Result.retry();
                     continue;
@@ -449,7 +454,9 @@ public final class JpxWatchWorker extends Worker {
                 if (!alerts.post(context, id, title, detail)) {
                     return networkStopped() ? paused() : retryReport(state, alert.getString("error"));
                 }
-                if (id == NOTIFICATION_ID) JpxAlertOutcomes.record(context, id, title, detail, alert.getJSONArray("codes"));
+                if (id == NOTIFICATION_ID && !JpxAlertOutcomes.record(context, id, title, detail, alert.getJSONArray("codes"))) {
+                    return Result.retry();
+                }
                 var sent = new HashSet<>(state.getStringSet(ALERTED, Set.of()));
                 if (alert.getString("day").equals(state.getString(LATEST, ""))) {
                     var codes = alert.getJSONArray("codes");

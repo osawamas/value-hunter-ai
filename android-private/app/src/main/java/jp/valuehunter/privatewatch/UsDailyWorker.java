@@ -558,7 +558,8 @@ public final class UsDailyWorker extends Worker {
         String title = pending.substring(0, separator);
         String detail = pending.substring(separator + 1);
         if (!sender.post(context, US_NOTIFICATION_ID, title, detail)) return false;
-        AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, outcomeSignals(queued));
+        if (!AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail,
+                outcomeSignals(queued))) return false;
         var delivered = new HashSet<>(sent);
         delivered.addAll(queued.keySet());
         return edit.putStringSet(PRIVATE_SENT, delivered).commit();
@@ -583,7 +584,9 @@ public final class UsDailyWorker extends Worker {
                 queued.put(key, stored.getString(key));
             }
             NotificationHistory.restore(NotificationHistory.file(context), delivered, now);
-            AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, outcomeSignals(queued));
+            if (!AlertOutcomes.record(context, AlertOutcomes.Market.US, delivered, outcomeSignals(queued), now)) {
+                return false;
+            }
             if (sameDay) sent.addAll(queued.keySet());
             return true;
         } catch (JSONException invalid) {

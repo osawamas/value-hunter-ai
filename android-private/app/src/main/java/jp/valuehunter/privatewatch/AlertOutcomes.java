@@ -92,13 +92,27 @@ final class AlertOutcomes {
         return date;
     }
 
-    static void record(Context context, Market market, int id, String title, String detail, Map<String, String> signals) {
+    static boolean record(Context context, Market market, int id, String title, String detail,
+                          Map<String, String> signals) {
         long now = System.currentTimeMillis();
         try {
-            var entry = deliveredEntry(context, id, title, detail, now);
-            if (entry != null) recordOrDefer(file(context, market), deferred(context, market), market, entry, signals, now);
+            return record(context, market, deliveredEntry(context, id, title, detail, now), signals, now);
+        } catch (IOException e) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の通知履歴を読めず · 次回確認");
+            return false;
+        }
+    }
+
+    static boolean record(Context context, Market market, NotificationHistory.Entry entry,
+                          Map<String, String> signals, long now) {
+        try {
+            if (entry != null && !signals.isEmpty()) {
+                recordOrDefer(file(context, market), deferred(context, market), market, entry, signals, now);
+            }
+            return true;
         } catch (IOException | JSONException e) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の試験記録を保存できず");
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の試験記録を保存できず · 次回確認");
+            return false;
         }
     }
 
@@ -185,6 +199,10 @@ final class AlertOutcomes {
             if (i >= MAX_EVENTS || now - ledger.getJSONObject(key).getLong("at")
                     >= java.util.concurrent.TimeUnit.DAYS.toMillis(RETENTION_DAYS)) ledger.remove(key);
         }
+        writeLedger(file, ledger);
+    }
+
+    private static void writeLedger(AtomicFile file, JSONObject ledger) throws IOException {
         UsDailyWorker.writeSnapshot(file, ledger);
         // AtomicFile can log a failed rename without throwing from finishWrite().
         if (!ledger.toString().equals(new String(file.readFully(), StandardCharsets.UTF_8))) {
@@ -262,7 +280,7 @@ final class AlertOutcomes {
                 row.put("status", MISSING);
             }
         }
-        UsDailyWorker.writeSnapshot(file, latest);
+        writeLedger(file, latest);
     }
 
     private static synchronized JSONObject read(AtomicFile file) throws IOException, JSONException {
