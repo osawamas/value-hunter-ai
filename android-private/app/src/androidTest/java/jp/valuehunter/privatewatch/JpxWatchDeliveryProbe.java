@@ -363,7 +363,19 @@ final class JpxWatchDeliveryProbe {
             inputs.set(null);
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long oldFinancial = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
+            var posted = queuedAlert(MONDAY, alertGeneration, oldFinancial)
+                    .put("title", "前の取引日に投稿した東証通知").put("detail", "前の取引日の成績復元 3861")
+                    .put("codes", new org.json.JSONArray().put("3861"));
+            if (!ScanWorker.postNotification(context, posted.getInt("id"), posted.getString("title"),
+                    posted.getString("detail"))) {
+                throw new AssertionError("Cannot prepare a submitted JPX alert from the previous session");
+            }
+            var original = AlertOutcomes.deliveredEntry(context, posted.getInt("id"), posted.getString("title"),
+                    posted.getString("detail"), System.currentTimeMillis());
+            if (original == null) throw new AssertionError("Missing original JPX delivery receipt");
+            manager.cancelAll();
             var stale = new org.json.JSONArray()
+                    .put(posted)
                     .put(queuedAlert(MONDAY, alertGeneration, oldFinancial + 1))
                     .put(queuedAlert(next, alertGeneration, oldFinancial));
             if (!state.edit().putLong(ScanWorker.FINANCIAL_ALERT_GENERATION, oldFinancial + 1)
@@ -376,6 +388,12 @@ final class JpxWatchDeliveryProbe {
                 if (!pass.equals(ListenableWorker.Result.success()) || resumed.get() != 1
                         || !"[]".equals(state.getString("jpx_watch_pending", ""))) {
                     throw new AssertionError("Old JPX trading day or old financial rules stayed queued");
+                }
+                var file = new android.util.AtomicFile(new File(context.getNoBackupFilesDir(),
+                        "jpx-alert-outcomes-v1.json"));
+                var ledger = new org.json.JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+                if (ledger.getJSONObject(original.receipt() + ":3861").getLong("at") != original.postedAt()) {
+                    throw new AssertionError("Old JPX delivery lost its original timestamp or outcome");
                 }
             } finally {
                 state.edit().putLong(ScanWorker.FINANCIAL_ALERT_GENERATION, oldFinancial).commit();

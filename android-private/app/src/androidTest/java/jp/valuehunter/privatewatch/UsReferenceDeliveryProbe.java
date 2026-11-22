@@ -114,6 +114,7 @@ final class UsReferenceDeliveryProbe {
                 verifyRetriedAlertUsesCorrectedLedger(context, notifications);
                 verifyDeliveredAlertWithNewText(context, notifications);
                 verifyDeliveryRecoveryOnNextSession(context, notifications);
+                verifyBothOutcomeStoresFail(context, notifications);
                 verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
             }
@@ -480,6 +481,72 @@ final class UsReferenceDeliveryProbe {
         var outcomes = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
         if (!outcomes.has(original.get(0).receipt() + ":METER")) {
             throw new AssertionError("The next session lost the original alert outcome");
+        }
+        expectQuiet(notifications);
+    }
+
+    private static void verifyBothOutcomeStoresFail(Context context, NotificationManager notifications)
+            throws Exception {
+        var state = context.getSharedPreferences("us-outcome-storage-probe", Context.MODE_PRIVATE);
+        String hash = "f".repeat(64);
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Cannot prepare outcome storage recovery probe");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
+        var current = meterLedger(SECOND, hash, 9);
+        current.getJSONObject("reference_screen").getJSONObject("meter_rows").getJSONArray("NYSE:12345:METER").put(0, 83);
+        String retryName = "us-deferred-alert-outcomes";
+        var retry = context.getSharedPreferences(retryName, Context.MODE_PRIVATE);
+        var ledger = new File(context.getNoBackupFilesDir(), "us-alert-outcomes-v1.json").toPath();
+        var xml = context.getDataDir().toPath().resolve("shared_prefs").resolve(retryName + ".xml");
+        var backup = java.nio.file.Files.createTempDirectory(context.getCacheDir().toPath(), "blocked-outcomes");
+        var blocked = new java.util.ArrayList<java.nio.file.Path>();
+        String detail = "METER · 100株 · かなり割安 · 83点";
+        try {
+            // The SDK 28 ledger uses .bak and later SDKs use .new; preferences also use .bak.
+            for (var path : java.util.List.of(ledger, ledger.resolveSibling(ledger.getFileName() + ".bak"),
+                    ledger.resolveSibling(ledger.getFileName() + ".new"), xml,
+                    xml.resolveSibling(xml.getFileName() + ".bak"))) {
+                if (java.nio.file.Files.exists(path)) java.nio.file.Files.move(path, backup.resolve(path.getFileName()));
+                blocked.add(path);
+                java.nio.file.Files.createDirectories(path);
+                java.nio.file.Files.createFile(path.resolve("blocker"));
+            }
+            if (UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false)
+                    || !UsDailyWorker.hasPendingFinancialAlert(state)) {
+                throw new AssertionError("Posted alert was acknowledged even though both outcome stores failed");
+            }
+            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄", detail);
+            notifications.cancelAll();
+            if (UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false,
+                    (app, id, title, message) -> { throw new AssertionError("Failed storage repeated the alert"); })
+                    || !UsDailyWorker.hasPendingFinancialAlert(state)) {
+                throw new AssertionError("The second storage failure lost the submitted alert");
+            }
+        } finally {
+            for (var path : blocked) {
+                java.nio.file.Files.deleteIfExists(path.resolve("blocker"));
+                java.nio.file.Files.deleteIfExists(path);
+                var original = backup.resolve(path.getFileName());
+                if (java.nio.file.Files.exists(original)) java.nio.file.Files.move(original, path);
+            }
+            java.nio.file.Files.delete(backup);
+            notifications.cancelAll();
+        }
+        var next = SECOND.plusDays(1);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, meterLedger(next, hash, 15), next, PROVIDER, hash, () -> false,
+                (app, id, title, message) -> { throw new AssertionError("Recovery reposted the old alert"); })
+                || UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Both outcome stores recovered but the delivered alert stayed queued");
+        }
+        long now = System.currentTimeMillis();
+        var file = new AtomicFile(ledger.toFile());
+        AlertOutcomes.recoverDeferred(file, retry, AlertOutcomes.Market.US, now);
+        var original = NotificationHistory.recent(NotificationHistory.file(context), now).stream()
+                .filter(row -> row.detail().contains(detail)).findFirst().orElseThrow();
+        var outcomes = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+        if (outcomes.getJSONObject(original.receipt() + ":METER").getLong("at") != original.postedAt()) {
+            throw new AssertionError("Restored outcome lost its original posting time");
         }
         expectQuiet(notifications);
     }

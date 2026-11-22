@@ -15,7 +15,23 @@ import java.util.function.BooleanSupplier;
 final class JpxAlertOutcomes {
     private JpxAlertOutcomes() {}
 
-    static void record(Context context, int id, String title, String detail, JSONArray codes) {
+    static boolean record(Context context, int id, String title, String detail, JSONArray codes) {
+        var signals = signals(codes);
+        return signals.isEmpty() || AlertOutcomes.record(context, AlertOutcomes.Market.JPX, id, title, detail, signals);
+    }
+
+    static boolean recoverSubmitted(Context context, int id, String title, String detail, JSONArray codes)
+            throws IOException {
+        var signals = signals(codes);
+        if (signals.isEmpty()) return true;
+        long now = System.currentTimeMillis();
+        var delivered = AlertOutcomes.deliveredEntry(context, id, title, detail, now);
+        if (delivered == null) return true;
+        NotificationHistory.restore(NotificationHistory.file(context), delivered, now);
+        return AlertOutcomes.record(context, AlertOutcomes.Market.JPX, delivered, signals, now);
+    }
+
+    private static Map<String, String> signals(JSONArray codes) {
         var signals = new HashMap<String, String>();
         for (int i = 0; i < codes.length(); i++) {
             String key = codes.optString(i);
@@ -25,7 +41,7 @@ final class JpxAlertOutcomes {
                 signals.put(key, "従来条件");
             }
         }
-        if (!signals.isEmpty()) AlertOutcomes.record(context, AlertOutcomes.Market.JPX, id, title, detail, signals);
+        return signals;
     }
 
     static void update(Context context, LocalDate latestClose, BooleanSupplier stopped) {
