@@ -112,6 +112,7 @@ final class UsReferenceDeliveryProbe {
                 verifyMeterDelivery(context, notifications);
                 verifyRejectedAlertCanBeRecalculated(context, notifications);
                 verifyRetriedAlertUsesCorrectedLedger(context, notifications);
+                verifyDeliveredAlertWithNewText(context, notifications);
                 verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
             }
@@ -301,6 +302,8 @@ final class UsReferenceDeliveryProbe {
         String hash = "b".repeat(64);
         var before = meterLedger(FIRST, hash, 15);
         var after = meterLedger(SECOND, hash, 9);
+        // This unsubmitted fixture must not match a receipt from another probe.
+        after.getJSONObject("reference_screen").getJSONObject("meter_rows").getJSONArray("NYSE:12345:METER").put(0, 85);
         UsDailyWorker.applyFinancialScreen(context, state, before, FIRST, PROVIDER, hash, () -> false);
         if (UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false,
                 (app, id, title, detail) -> false)) {
@@ -325,6 +328,7 @@ final class UsReferenceDeliveryProbe {
         }
         UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
         var rises = meterLedger(SECOND, hash, 9);
+        rises.getJSONObject("reference_screen").getJSONObject("meter_rows").getJSONArray("NYSE:12345:METER").put(0, 83);
         if (UsDailyWorker.applyFinancialScreen(context, state, rises, SECOND, PROVIDER, hash, () -> false,
                 (app, id, title, detail) -> false) || !UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Unsubmitted meter alert was not queued");
@@ -335,6 +339,48 @@ final class UsReferenceDeliveryProbe {
         if (!UsDailyWorker.applyFinancialScreen(context, state, corrected, SECOND, PROVIDER, hash, () -> false)
                 || UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Corrected financial data did not invalidate the queued alert");
+        }
+        expectQuiet(notifications);
+    }
+
+    private static void verifyDeliveredAlertWithNewText(Context context, NotificationManager notifications)
+            throws Exception {
+        var state = context.getSharedPreferences("us-delivered-alert-recovery-probe", Context.MODE_PRIVATE);
+        String hash = "d".repeat(64);
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Cannot set up delivery recovery");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
+        var current = meterLedger(SECOND, hash, 9);
+        var scores = current.getJSONObject("reference_screen").getJSONObject("meter_rows");
+        var meter = scores.getJSONArray("NYSE:12345:METER");
+        meter.put(0, 81);
+        if (UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false,
+                (app, id, title, detail) -> {
+                    if (!detail.contains("81点") || !ScanWorker.postNotification(app, id, title, detail)) {
+                        throw new AssertionError("Could not post the original alert");
+                    }
+                    // The worker stops after submission but before returning success and saving the sent set.
+                    return false;
+                }) || !UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Expected posted but unacknowledged alert");
+        }
+        notifications.cancelAll();
+        expectQuiet(notifications);
+        meter.put(0, 82);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false,
+                (app, id, title, detail) -> { throw new AssertionError("Updated text reposted the same alert"); })
+                || UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Could not reconcile the posted alert");
+        }
+        var posted = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
+                .stream().filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 81点"))
+                .findFirst().orElseThrow(() -> new AssertionError("Original receipt missing"));
+        var outcomeFile = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(),
+                "us-alert-outcomes-v1.json"));
+        var outcomes = new JSONObject(new String(outcomeFile.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+        if (!outcomes.has(posted.receipt() + ":METER")) {
+            throw new AssertionError("Recovered delivery is missing from alert outcomes");
         }
         expectQuiet(notifications);
     }
@@ -597,6 +643,6 @@ final class UsReferenceDeliveryProbe {
             }
             Thread.sleep(100);
         }
-        throw new AssertionError("Android did not receive the US reference notification");
+        throw new AssertionError("Android did not receive the US reference notification: " + expectedDetail);
     }
 }
