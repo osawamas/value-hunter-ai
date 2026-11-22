@@ -6,6 +6,7 @@ import android.util.AtomicFile;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -146,9 +147,13 @@ final class UsAlertOutcomes {
 
     private static synchronized JSONObject read(AtomicFile file) throws IOException, JSONException {
         try (var input = file.openRead()) {
-            byte[] bytes = input.readNBytes(512_000 + 1);
-            if (bytes.length > 512_000) throw new IOException("US alert pilot ledger too large");
-            return new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+            var output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            for (int count; (count = input.read(buffer)) != -1;) {
+                if (output.size() + count > 512_000) throw new IOException("US alert pilot ledger too large");
+                output.write(buffer, 0, count);
+            }
+            return new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
         } catch (FileNotFoundException absent) {
             return new JSONObject();
         }
