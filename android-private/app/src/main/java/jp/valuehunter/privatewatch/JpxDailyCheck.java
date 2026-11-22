@@ -463,6 +463,17 @@ final class JpxDailyCheck {
         });
     }
 
+    static Report outcomeReport(Context context, LocalDate day, Set<String> codes) throws IOException {
+        var pdf = File.createTempFile("jpx-outcome-", ".pdf", context.getCacheDir());
+        try {
+            var response = download(reportUrl(day), pdf);
+            if (!response.exists()) return null;
+            return readReport(context, pdf, day, new JpxStockUniverse(day, codes), response.version(), false);
+        } finally {
+            pdf.delete();
+        }
+    }
+
     static Report cachedReport(LocalDate day, JpxStockUniverse universe, JSONObject saved,
                                EditionLoader editions, ReportLoader download) throws IOException {
         if (saved != null) {
@@ -574,6 +585,11 @@ final class JpxDailyCheck {
 
     static Report readReport(Context context, File pdf, LocalDate day, JpxStockUniverse universe,
                              String edition) throws IOException {
+        return readReport(context, pdf, day, universe, edition, true);
+    }
+
+    private static Report readReport(Context context, File pdf, LocalDate day, JpxStockUniverse universe,
+                                     String edition, boolean requireUsable) throws IOException {
         try {
             var table = Build.VERSION.SDK_INT >= 35
                     ? JpxAndroidPdfReader.read(pdf, universe.codes(), day)
@@ -582,7 +598,7 @@ final class JpxDailyCheck {
             var ambiguous = table.ambiguousCodes();
             // A valid PDF header does not guarantee a usable equity table. A layout
             // change or a partial CDN response must not advance the watch baseline.
-            if (!hasUsableClose(quotes, ambiguous)) {
+            if (requireUsable && !hasUsableClose(quotes, ambiguous)) {
                 throw new IOException("東証日報から普通株の有効な終値を取得できなかった");
             }
             return new Report(day, reportUrl(day), quotes, ambiguous, edition, universe);

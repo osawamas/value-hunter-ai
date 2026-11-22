@@ -163,7 +163,9 @@ public final class MainActivity extends Activity {
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
         button(notifications, "米国株の通知成績（試験）", PAGE, 5)
-                .setOnClickListener(view -> showUsAlertOutcomes());
+                .setOnClickListener(view -> showAlertOutcomes(AlertOutcomes.Market.US));
+        button(notifications, "東証株の通知成績（試験）", PAGE, 5)
+                .setOnClickListener(view -> showAlertOutcomes(AlertOutcomes.Market.JPX));
         var useMeter = optionSwitch(notifications, "割安メーターで通知", state.getBoolean(ValueAlertPreview.LIVE, false));
         useMeter.setOnCheckedChangeListener((view, checked) -> {
             state.edit().putBoolean(ValueAlertPreview.LIVE, checked)
@@ -560,10 +562,10 @@ public final class MainActivity extends Activity {
                 }).show();
     }
 
-    private void showUsAlertOutcomes() {
+    private void showAlertOutcomes(AlertOutcomes.Market market) {
         String report;
         try {
-            report = UsAlertOutcomes.report(this);
+            report = AlertOutcomes.report(this, market);
         } catch (IOException | org.json.JSONException unavailable) {
             report = "試験記録を読み込めなかった";
         }
@@ -575,7 +577,7 @@ public final class MainActivity extends Activity {
         message.setPadding(dp(22), dp(8), dp(22), dp(12));
         message.setTextIsSelectable(true);
         scroll.addView(message);
-        new AlertDialog.Builder(this).setTitle("米国株の通知成績（試験）").setView(scroll)
+        new AlertDialog.Builder(this).setTitle(market.label + "の通知成績（試験）").setView(scroll)
                 .setPositiveButton("閉じる", null).show();
     }
 

@@ -149,7 +149,7 @@ final class UsReferenceDeliveryProbe {
                 && row.detail().contains("METER · 100株 · かなり割安 · 84点"))) {
             throw new AssertionError("US notification did not use the saved meter band");
         }
-        var pilot = UsAlertOutcomes.report(context);
+        var pilot = AlertOutcomes.report(context, AlertOutcomes.Market.US);
         if (!pilot.contains("METER · かなり割安") || !pilot.contains("計測待ち")) {
             throw new AssertionError("Delivered meter alert was not recorded for the forward test");
         }
@@ -172,15 +172,15 @@ final class UsReferenceDeliveryProbe {
             long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
             var entry = new NotificationHistory.Entry("pilot-test", posted, "test", "test");
             var signals = java.util.Map.of("METER", "かなり割安", "ABSENT", "割安");
-            UsAlertOutcomes.add(file, entry, signals, posted);
-            UsAlertOutcomes.add(file, entry, signals, posted);
-            var window = UsAlertOutcomes.window(posted);
+            AlertOutcomes.add(file, AlertOutcomes.Market.US, entry, signals, posted);
+            AlertOutcomes.add(file, AlertOutcomes.Market.US, entry, signals, posted);
+            var window = AlertOutcomes.window(AlertOutcomes.Market.US, posted);
             if (!window.entry().toString().equals("2026-11-27")
                     || !window.exit().toString().equals("2026-12-28")) {
                 throw new AssertionError("US pilot window failed to skip Thanksgiving or Christmas");
             }
-            UsAlertOutcomes.evaluate(file, window.exit().minusDays(1), () -> false,
-                    unused -> { throw new AssertionError("An immature cohort requested prices"); });
+            AlertOutcomes.evaluate(file, AlertOutcomes.Market.US, window.exit().minusDays(1), () -> false, range -> true,
+                    (range, symbols) -> { throw new AssertionError("An immature cohort requested prices"); });
             var rows = new JSONArray();
             for (String ticker : java.util.List.of("METER", "IWV")) {
                 rows.put(new JSONObject().put("symbol", ticker).put("trading_date", window.entry().toString()).put("close", 100));
@@ -188,13 +188,13 @@ final class UsReferenceDeliveryProbe {
                         .put("close", ticker.equals("IWV") ? 103 : 110));
             }
             var response = new JSONObject().put("query_execution_status", "Success").put("rows", rows);
-            UsAlertOutcomes.evaluate(file, window.exit(), () -> false, unused -> response);
-            if (!UsAlertOutcomes.report(file).contains("計測済み 1件 · 待ち 1件 · 集計対象外 0件")) {
+            AlertOutcomes.evaluate(file, AlertOutcomes.Market.US, window.exit(), () -> false, range -> true,
+                    (range, symbols) -> UsDoltCloses.outcomePrices(range, symbols, unused -> response));
+            if (!AlertOutcomes.report(file, AlertOutcomes.Market.US).contains("計測済み 1件 · 待ち 1件 · 集計対象外 0件")) {
                 throw new AssertionError("Missing closing prices were counted as a completed comparison");
             }
-            UsAlertOutcomes.evaluate(file, window.exit().plusDays(7), () -> false, unused ->
-                    new JSONObject().put("query_execution_status", "Success").put("rows", new JSONArray()));
-            var result = UsAlertOutcomes.report(file);
+            AlertOutcomes.evaluate(file, AlertOutcomes.Market.US, window.exit().plusDays(7), () -> false, range -> true, (range, symbols) -> java.util.Map.of());
+            var result = AlertOutcomes.report(file, AlertOutcomes.Market.US);
             if (!result.contains("計測済み 1件 · 待ち 0件 · 集計対象外 1件")
                     || !result.contains("差 +7.00ポイント")) {
                 throw new AssertionError("Outcome did not persist fair close-to-close comparison: " + result);

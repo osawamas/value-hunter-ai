@@ -57,6 +57,25 @@ record JpxShareRights(Set<String> coveredCodes, Set<YearMonth> months, List<Noti
         return asset == null ? empty() : asset.rights();
     }
 
+    static synchronized JpxShareRights cached(Context context) {
+        var cache = new AtomicFile(new File(context.getFilesDir(), ASSET));
+        Snapshot saved = null;
+        try (var input = cache.openRead()) {
+            saved = read(input);
+        } catch (IOException | JSONException | DateTimeException unavailable) {
+            // Use the bundled copy if the downloaded snapshot cannot be read.
+        }
+        var selected = cachedOrBundled(saved, readBundled(context));
+        return selected == null ? empty() : selected.rights();
+    }
+
+    boolean splitMonthsCovered(LocalDate from, LocalDate to) {
+        for (var month = YearMonth.from(from.plusDays(1)); !month.isAfter(YearMonth.from(to)); month = month.plusMonths(1)) {
+            if (!months.contains(month)) return false;
+        }
+        return true;
+    }
+
     @FunctionalInterface
     interface FetchSnapshot {
         String fetch() throws IOException;

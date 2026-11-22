@@ -13,15 +13,17 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
 import java.util.function.BooleanSupplier;
 
-/** A local forward test of delivered US financial alerts against the IWV ETF. */
-final class UsAlertOutcomes {
-    static final String BENCHMARK = "IWV";
+/** On-device forward measurements of delivered financial alerts against a market ETF. */
+final class AlertOutcomes {
     private static final int RETENTION_DAYS = 120;
     private static final int MAX_EVENTS = 500;
     static final int MAX_BATCH = 32;
@@ -29,50 +31,90 @@ final class UsAlertOutcomes {
     private static final String MISSING = "missing";
     private static final String COMPLETE = "complete";
 
+    enum Market {
+        US("us", "米国株", "ドル", "IWV", "Russell 3000", UsDailyCloses.NEW_YORK, 7, MAX_BATCH),
+        JPX("jpx", "東証株", "円", "1306", "TOPIX", ZoneId.of("Asia/Tokyo"), 45, MAX_EVENTS + 1);
+
+        final String filePrefix;
+        final String label;
+        final String currency;
+        final String benchmark;
+        final String indexName;
+        final ZoneId zone;
+        final int missingGraceDays;
+        final int batchSize;
+
+        Market(String filePrefix, String label, String currency, String benchmark, String indexName, ZoneId zone,
+               int missingGraceDays, int batchSize) {
+            this.filePrefix = filePrefix;
+            this.label = label;
+            this.currency = currency;
+            this.benchmark = benchmark;
+            this.indexName = indexName;
+            this.zone = zone;
+            this.missingGraceDays = missingGraceDays;
+            this.batchSize = batchSize;
+        }
+    }
+
+    @FunctionalInterface
+    interface PriceLoader {
+        Map<String, Prices> load(Window range, Set<String> symbols) throws IOException, JSONException;
+    }
+
     record Window(LocalDate entry, LocalDate exit) {}
     record Prices(double entry, double exit) {
         double percent() { return 100 * (exit / entry - 1); }
     }
 
-    private UsAlertOutcomes() {}
+    private AlertOutcomes() {}
 
-    static Window window(long postedAt) {
-        var date = Instant.ofEpochMilli(postedAt).atZone(UsDailyCloses.NEW_YORK).toLocalDate();
-        LocalDate entry = advance(date, 1);
-        return new Window(entry, advance(entry, 20));
+    static Window window(Market market, long postedAt) {
+        var date = Instant.ofEpochMilli(postedAt).atZone(market.zone).toLocalDate();
+        LocalDate entry = advance(market, date, 1);
+        if (entry == null) return null;
+        LocalDate exit = advance(market, entry, 20);
+        return exit == null ? null : new Window(entry, exit);
     }
 
-    private static LocalDate advance(LocalDate date, int sessions) {
+    private static LocalDate advance(Market market, LocalDate date, int sessions) {
         while (sessions > 0) {
             date = date.plusDays(1);
-            if (UsDailyCloses.tradingDay(date)) sessions--;
+            if (market == Market.US) {
+                if (UsDailyCloses.tradingDay(date)) sessions--;
+            } else {
+                var trading = JpxTradingDays.onOrBefore(date);
+                if (trading == null) return null;
+                if (trading.equals(date)) sessions--;
+            }
         }
         return date;
     }
 
-    static void record(Context context, int id, String title, String detail, Map<String, String> signals) {
+    static void record(Context context, Market market, int id, String title, String detail, Map<String, String> signals) {
         long now = System.currentTimeMillis();
         try {
             String receipt = id + "-" + ScanWorker.notificationReceipt(title, detail);
             for (var entry : NotificationHistory.recent(NotificationHistory.file(context), now)) {
                 if (receipt.equals(entry.receipt())) {
-                    add(file(context), entry, signals, now);
+                    add(file(context, market), market, entry, signals, now);
                     return;
                 }
             }
         } catch (IOException | JSONException e) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の試験記録を保存できず");
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の試験記録を保存できず");
         }
     }
 
-    private static AtomicFile file(Context context) {
-        return new AtomicFile(new File(context.getNoBackupFilesDir(), "us-alert-outcomes-v1.json"));
+    private static AtomicFile file(Context context, Market market) {
+        return new AtomicFile(new File(context.getNoBackupFilesDir(), market.filePrefix + "-alert-outcomes-v1.json"));
     }
 
-    static synchronized void add(AtomicFile file, NotificationHistory.Entry alert, Map<String, String> signals,
+    static synchronized void add(AtomicFile file, Market market, NotificationHistory.Entry alert, Map<String, String> signals,
                                  long now) throws IOException, JSONException {
         var ledger = read(file);
-        var dates = window(alert.postedAt());
+        var dates = window(market, alert.postedAt());
+        if (dates == null) return;
         for (var signal : signals.entrySet()) {
             String symbol = signal.getKey();
             if (!validSymbol(symbol)) continue;
@@ -93,43 +135,50 @@ final class UsAlertOutcomes {
         UsDailyWorker.writeSnapshot(file, ledger);
     }
 
-    static void update(Context context, LocalDate latestClose, BooleanSupplier stopped) {
-        if (stopped.getAsBoolean()) return;
+    static void update(Context context, Market market, LocalDate latestClose, BooleanSupplier stopped,
+                       Predicate<Window> evidenceReady, PriceLoader prices) {
+        if (latestClose == null || stopped.getAsBoolean()) return;
         try {
-            evaluate(file(context), latestClose, stopped, address -> UsDailyWorker.fetch(address, ""));
+            evaluate(file(context, market), market, latestClose, stopped, evidenceReady, prices);
         } catch (IOException | JSONException | java.time.format.DateTimeParseException e) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.US_CLOSE, "米国株の試験比較を取得できず · 次回確認");
+            var area = market == Market.US ? DiagnosticLog.Area.US_CLOSE : DiagnosticLog.Area.JPX;
+            DiagnosticLog.record(context, area, market.label + "の試験比較を取得できず · 次回確認");
         }
     }
 
-    static void evaluate(AtomicFile file, LocalDate latestClose, BooleanSupplier stopped, UsDoltCloses.Download download)
-            throws IOException, JSONException {
+    static void evaluate(AtomicFile file, Market market, LocalDate latestClose, BooleanSupplier stopped,
+                         Predicate<Window> evidenceReady, PriceLoader loader) throws IOException, JSONException {
         JSONObject batch = new JSONObject();
         Window range = null;
         var ledger = read(file);
         var symbols = new HashSet<String>();
-        symbols.add(BENCHMARK);
-        for (String key : keys(ledger)) {
+        symbols.add(market.benchmark);
+        var ordered = keys(ledger);
+        ordered.sort(java.util.Comparator.comparing(key -> ledger.optJSONObject(key).optString("exit")));
+        for (String key : ordered) {
             var row = ledger.getJSONObject(key);
             if (!WAITING.equals(row.optString("status")) || latestClose.toString().equals(row.optString("checked"))) continue;
             var exit = LocalDate.parse(row.getString("exit"));
             if (exit.isAfter(latestClose)) continue;
             var candidate = new Window(LocalDate.parse(row.getString("entry")), exit);
-            if (range == null) range = candidate;
+            if (range == null) {
+                if (!evidenceReady.test(candidate) && latestClose.isBefore(exit.plusDays(market.missingGraceDays))) continue;
+                range = candidate;
+            }
             if (!range.equals(candidate)) continue;
             symbols.add(row.getString("symbol"));
             batch.put(key, row);
-            if (symbols.size() >= MAX_BATCH) break;
+            if (symbols.size() >= market.batchSize) break;
         }
         if (range == null || stopped.getAsBoolean()) return;
-        var prices = UsDoltCloses.outcomePrices(range, symbols, download);
-        if (!stopped.getAsBoolean()) saveResults(file, latestClose, range, batch, prices);
+        var prices = evidenceReady.test(range) ? loader.load(range, symbols) : Map.<String, Prices>of();
+        if (!stopped.getAsBoolean()) saveResults(file, market, latestClose, range, batch, prices);
     }
 
-    private static synchronized void saveResults(AtomicFile file, LocalDate latestClose, Window range, JSONObject batch,
+    private static synchronized void saveResults(AtomicFile file, Market market, LocalDate latestClose, Window range, JSONObject batch,
                                                  Map<String, Prices> prices) throws IOException, JSONException {
         var latest = read(file);
-        var benchmark = prices.get(BENCHMARK);
+        var benchmark = prices.get(market.benchmark);
         for (String key : keys(batch)) {
             var row = latest.optJSONObject(key);
             if (row == null || !WAITING.equals(row.optString("status"))) continue;
@@ -138,7 +187,7 @@ final class UsAlertOutcomes {
             if (stock != null && benchmark != null) {
                 row.put("status", COMPLETE).put("stockReturn", stock.percent())
                         .put("benchmarkReturn", benchmark.percent());
-            } else if (!latestClose.isBefore(range.exit().plusDays(7))) {
+            } else if (!latestClose.isBefore(range.exit().plusDays(market.missingGraceDays))) {
                 row.put("status", MISSING);
             }
         }
@@ -169,17 +218,20 @@ final class UsAlertOutcomes {
         return keys;
     }
 
-    static String report(Context context) throws IOException, JSONException {
-        return report(file(context));
+    static String report(Context context, Market market) throws IOException, JSONException {
+        return report(file(context, market), market);
     }
 
-    static String report(AtomicFile file) throws IOException, JSONException {
+    static String report(AtomicFile file, Market market) throws IOException, JSONException {
         var ledger = read(file);
         var keys = keys(ledger);
         keys.sort(java.util.Comparator.comparingLong((String key) -> ledger.optJSONObject(key).optLong("at")).reversed());
-        if (keys.isEmpty()) return "これから届く米国株の財務条件・割安メーターの通知を記録する。";
-        var report = new StringBuilder("通知後の次の取引日の終値から、20取引日後の終値まで。ドル建て・配当と手数料は含めない。\n"
-                + "比較対象はRussell 3000連動ETFのIWV。分割・終値欠けなどは集計対象外。\n\n");
+        if (keys.isEmpty()) return "これから届く" + market.label + "の財務条件・割安メーターの通知を記録する。";
+        var report = new StringBuilder("通知後の次の取引日の終値から、20取引日後の終値まで。"
+                + market.currency + "建て・配当と手数料は含めない。\n比較対象は"
+                + market.indexName + "連動ETFの" + market.benchmark + "。分割・終値欠けなどは集計対象外。\n");
+        if (market == Market.JPX) report.append("20取引日後も、分割・併合の月報が出るまで待つ場合がある。比較には当該2日の日報を取得する。\n");
+        report.append("\n");
         int completed = 0;
         int outperformed = 0;
         int excluded = 0;
@@ -195,8 +247,8 @@ final class UsAlertOutcomes {
         }
         report.append("計測済み ").append(completed).append("件 · 待ち ").append(keys.size() - completed - excluded)
                 .append("件 · 集計対象外 ").append(excluded).append("件\n");
-        if (completed > 0) report.append(String.format(Locale.JAPAN, "IWVを上回った通知 %d/%d件 · 平均差 %+.2fポイント\n",
-                outperformed, completed, totalExcess / completed));
+        if (completed > 0) report.append(String.format(Locale.JAPAN, "%sを上回った通知 %d/%d件 · 平均差 %+.2fポイント\n",
+                market.benchmark, outperformed, completed, totalExcess / completed));
         report.append("\n直近の通知（最大50件）\n");
         for (int i = 0; i < Math.min(keys.size(), 50); i++) {
             var row = ledger.getJSONObject(keys.get(i));
@@ -206,8 +258,8 @@ final class UsAlertOutcomes {
                 case COMPLETE -> {
                     double stock = row.getDouble("stockReturn");
                     double index = row.getDouble("benchmarkReturn");
-                    report.append(String.format(Locale.JAPAN, "銘柄 %+.2f%% · IWV %+.2f%% · 差 %+.2fポイント\n",
-                            stock, index, stock - index));
+                    report.append(String.format(Locale.JAPAN, "銘柄 %+.2f%% · %s %+.2f%% · 差 %+.2fポイント\n",
+                            stock, market.benchmark, index, stock - index));
                 }
                 case MISSING -> report.append("集計対象外（終値欠け・分割など）\n");
                 default -> report.append("計測待ち\n");

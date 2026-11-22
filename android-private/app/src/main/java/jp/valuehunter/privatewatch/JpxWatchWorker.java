@@ -200,7 +200,14 @@ public final class JpxWatchWorker extends Worker {
             if (networkStopped()) return paused();
             MarketUpdate.JPX.started();
             try {
-                return check();
+                var result = check();
+                var context = getApplicationContext();
+                if (automaticFinance && !getInputData().getBoolean(PERIODIC_FINANCE, false)
+                        && Result.success().equals(result) && !networkStopped() && enabled(context)) {
+                    var day = dateOrNull(ScanWorker.prefs(context).getString(LATEST, ""));
+                    JpxAlertOutcomes.update(context, day, this::networkStopped);
+                }
+                return result;
             } finally {
                 MarketUpdate.JPX.finished();
             }
@@ -437,9 +444,12 @@ public final class JpxWatchWorker extends Worker {
                     continue;
                 }
                 if (!ScanWorker.alertsEnabled(context)) return null;
-                if (!alerts.post(context, id, alert.getString("title"), alert.getString("detail"))) {
+                String title = alert.getString("title");
+                String detail = alert.getString("detail");
+                if (!alerts.post(context, id, title, detail)) {
                     return networkStopped() ? paused() : retryReport(state, alert.getString("error"));
                 }
+                if (id == NOTIFICATION_ID) JpxAlertOutcomes.record(context, id, title, detail, alert.getJSONArray("codes"));
                 var sent = new HashSet<>(state.getStringSet(ALERTED, Set.of()));
                 if (alert.getString("day").equals(state.getString(LATEST, ""))) {
                     var codes = alert.getJSONArray("codes");

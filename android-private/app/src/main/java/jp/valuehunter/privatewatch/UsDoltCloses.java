@@ -180,10 +180,10 @@ final class UsDoltCloses {
                 + " AND close > 0 ORDER BY act_symbol,date");
     }
 
-    static Map<String, UsAlertOutcomes.Prices> outcomePrices(UsAlertOutcomes.Window window, Set<String> symbols,
+    static Map<String, AlertOutcomes.Prices> outcomePrices(AlertOutcomes.Window window, Set<String> symbols,
                                                           Download download) throws IOException, JSONException {
-        if (symbols.isEmpty() || symbols.size() > UsAlertOutcomes.MAX_BATCH
-                || !symbols.stream().allMatch(UsAlertOutcomes::validSymbol)) throw new JSONException("Invalid comparison symbols");
+        if (symbols.isEmpty() || symbols.size() > AlertOutcomes.MAX_BATCH
+                || !symbols.stream().allMatch(AlertOutcomes::validSymbol)) throw new JSONException("Invalid comparison symbols");
         String in = new java.util.TreeSet<>(symbols).stream().map(symbol -> "'" + symbol + "'")
                 .collect(Collectors.joining(",", "(", ")"));
         String entry = window.entry().toString();
@@ -206,10 +206,10 @@ final class UsDoltCloses {
                 throw new JSONException("Invalid comparison close");
             }
         }
-        var result = new HashMap<String, UsAlertOutcomes.Prices>();
+        var result = new HashMap<String, AlertOutcomes.Prices>();
         starts.forEach((symbol, close) -> {
             Double end = ends.get(symbol);
-            if (end != null) result.put(symbol, new UsAlertOutcomes.Prices(close, end));
+            if (end != null) result.put(symbol, new AlertOutcomes.Prices(close, end));
         });
         return result;
     }

@@ -39,6 +39,7 @@ final class JpxWatchDeliveryProbe {
 
     static void run(Context context, File directory, JpxShareRights rights,
                     JpxStockUniverse universe) throws Exception {
+        verifyOutcomeComparison(context, directory);
         var updatedMonths = new HashSet<>(rights.months());
         updatedMonths.add(YearMonth.of(2026, 10));
         var octoberRights = new JpxShareRights(rights.coveredCodes(), updatedMonths, rights.notices());
@@ -181,6 +182,9 @@ final class JpxWatchDeliveryProbe {
                 throw new AssertionError("JPX skipped rechecking a blocked alert or ran duplicate work");
             }
             verifySilentNotification(notifications);
+            if (!AlertOutcomes.report(context, AlertOutcomes.Market.JPX).contains("3861 · 従来条件")) {
+                throw new AssertionError("JPX financial delivery was not recorded by the outcome pilot");
+            }
 
             notifications.cancelAll();
             driver.setAllConstraintsMet(id);
@@ -214,6 +218,53 @@ final class JpxWatchDeliveryProbe {
             verifyTestNotification(context, notifications);
         } finally {
             JpxWatchWorker.setEnabled(context, false);
+        }
+    }
+
+    private static void verifyOutcomeComparison(Context context, File directory) throws Exception {
+        var market = AlertOutcomes.Market.JPX;
+        var real = JpxDailyCheck.readReport(context, new File(directory, "jpx-20261116.pdf"), MONDAY,
+                new JpxStockUniverse(MONDAY, Set.of("1306", "3861")), "");
+        if (real.close("1306") == null || real.close("3861") == null) {
+            throw new AssertionError("JPX PDF did not provide both TOPIX ETF and stock closes");
+        }
+        long posted = java.time.Instant.parse("2026-11-20T08:00:00Z").toEpochMilli();
+        var window = AlertOutcomes.window(market, posted);
+        if (!window.entry().equals(LocalDate.of(2026, 11, 24))
+                || !window.exit().equals(LocalDate.of(2026, 12, 22))) {
+            throw new AssertionError("JPX outcome window did not skip the November holiday");
+        }
+        var file = new android.util.AtomicFile(File.createTempFile("jpx-outcomes-probe", ".json", context.getCacheDir()));
+        file.delete();
+        try {
+            var alert = new NotificationHistory.Entry("jpx-outcome-probe", posted, "test", "test");
+            AlertOutcomes.add(file, market, alert, Map.of("3861", "割安", "7203", "割安"), posted);
+            var rights = new JpxShareRights(Set.of(), Set.of(YearMonth.of(2026, 11), YearMonth.of(2026, 12)),
+                    List.of(), Map.of(), List.of(new JpxShareRights.Adjustment("7203", window.exit(),
+                    window.exit().plusDays(2), BigDecimal.ONE, BigDecimal.valueOf(2))));
+            if (!rights.splitMonthsCovered(window.entry(), window.exit())) {
+                throw new AssertionError("Complete monthly split evidence rejected");
+            }
+            AlertOutcomes.evaluate(file, market, window.exit(), () -> false, range -> false,
+                    (range, codes) -> { throw new AssertionError("JPX fetched quotes before rights verification"); });
+            AlertOutcomes.evaluate(file, market, window.exit(), () -> false,
+                    range -> rights.splitMonthsCovered(range.entry(), range.exit()),
+                    (range, codes) -> JpxAlertOutcomes.prices(range, codes, rights, () -> false, (day, eligible) -> {
+                        if (!eligible.equals(Set.of("3861", "1306"))) {
+                            throw new AssertionError("Split stock remained eligible or TOPIX ETF missing");
+                        }
+                        boolean entry = day.equals(range.entry());
+                        return new JpxDailyCheck.Report(day, "fixture", Map.of(
+                                "3861", new JpxCloseTable.Sessions(null, BigDecimal.valueOf(entry ? 100 : 108)),
+                                "1306", new JpxCloseTable.Sessions(null, BigDecimal.valueOf(entry ? 100 : 103))), Set.of());
+                    }));
+            String result = AlertOutcomes.report(file, market);
+            if (!result.contains("銘柄 +8.00% · 1306 +3.00% · 差 +5.00ポイント")
+                    || !result.contains("計測済み 1件 · 待ち 1件")) {
+                throw new AssertionError("Unexpected JPX outcome: " + result);
+            }
+        } finally {
+            file.delete();
         }
     }
 
