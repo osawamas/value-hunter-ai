@@ -302,6 +302,8 @@ final class UsReferenceDeliveryProbe {
         String hash = "b".repeat(64);
         var before = meterLedger(FIRST, hash, 15);
         var after = meterLedger(SECOND, hash, 9);
+        // This unsubmitted fixture must not match a receipt from another probe.
+        after.getJSONObject("reference_screen").getJSONObject("meter_rows").getJSONArray("NYSE:12345:METER").put(0, 85);
         UsDailyWorker.applyFinancialScreen(context, state, before, FIRST, PROVIDER, hash, () -> false);
         if (UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false,
                 (app, id, title, detail) -> false)) {
@@ -326,6 +328,7 @@ final class UsReferenceDeliveryProbe {
         }
         UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
         var rises = meterLedger(SECOND, hash, 9);
+        rises.getJSONObject("reference_screen").getJSONObject("meter_rows").getJSONArray("NYSE:12345:METER").put(0, 83);
         if (UsDailyWorker.applyFinancialScreen(context, state, rises, SECOND, PROVIDER, hash, () -> false,
                 (app, id, title, detail) -> false) || !UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Unsubmitted meter alert was not queued");
@@ -370,7 +373,13 @@ final class UsReferenceDeliveryProbe {
                 || UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Could not reconcile the posted alert");
         }
-        if (!AlertOutcomes.report(context, AlertOutcomes.Market.US).contains("METER · かなり割安")) {
+        var posted = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
+                .stream().filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 81点"))
+                .findFirst().orElseThrow(() -> new AssertionError("Original receipt missing"));
+        var outcomeFile = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(),
+                "us-alert-outcomes-v1.json"));
+        var outcomes = new JSONObject(new String(outcomeFile.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+        if (!outcomes.has(posted.receipt() + ":METER")) {
             throw new AssertionError("Recovered delivery is missing from alert outcomes");
         }
         expectQuiet(notifications);
@@ -634,6 +643,6 @@ final class UsReferenceDeliveryProbe {
             }
             Thread.sleep(100);
         }
-        throw new AssertionError("Android did not receive the US reference notification");
+        throw new AssertionError("Android did not receive the US reference notification: " + expectedDetail);
     }
 }
