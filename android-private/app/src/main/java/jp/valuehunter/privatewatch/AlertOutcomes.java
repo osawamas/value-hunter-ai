@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.AtomicFile;
 
 import org.json.JSONException;
@@ -26,6 +27,7 @@ import java.util.function.BooleanSupplier;
 final class AlertOutcomes {
     private static final int RETENTION_DAYS = 120;
     private static final int MAX_EVENTS = 500;
+    private static final int MAX_DEFERRED_NOTICES = 64;
     static final int MAX_BATCH = 32;
     private static final String WAITING = "waiting";
     private static final String MISSING = "missing";
@@ -95,7 +97,7 @@ final class AlertOutcomes {
         long now = System.currentTimeMillis();
         try {
             var entry = deliveredEntry(context, id, title, detail, now);
-            if (entry != null) add(file(context, market), market, entry, signals, now);
+            if (entry != null) recordOrDefer(file(context, market), deferred(context, market), market, entry, signals, now);
         } catch (IOException | JSONException e) {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の試験記録を保存できず");
         }
@@ -114,6 +116,44 @@ final class AlertOutcomes {
 
     private static AtomicFile file(Context context, Market market) {
         return new AtomicFile(new File(context.getNoBackupFilesDir(), market.filePrefix + "-alert-outcomes-v1.json"));
+    }
+
+    private static SharedPreferences deferred(Context context, Market market) {
+        return context.getSharedPreferences(market.filePrefix + "-deferred-alert-outcomes", Context.MODE_PRIVATE);
+    }
+
+    static synchronized void recordOrDefer(AtomicFile file, SharedPreferences retry, Market market,
+                                          NotificationHistory.Entry alert, Map<String, String> signals, long now)
+            throws IOException, JSONException {
+        try {
+            add(file, market, alert, signals, now);
+            return;
+        } catch (IOException | JSONException unavailable) {
+            // Keep the observation independently of the ledger so notification delivery can continue.
+            var stored = new JSONObject(retry.getString("rows", "{}"));
+            stored.put(alert.receipt(), new JSONObject().put("at", alert.postedAt())
+                    .put("signals", new JSONObject(signals)));
+            var ordered = keys(stored);
+            ordered.sort(java.util.Comparator.comparingLong((String key) -> stored.optJSONObject(key).optLong("at")).reversed());
+            for (int i = MAX_DEFERRED_NOTICES; i < ordered.size(); i++) stored.remove(ordered.get(i));
+            if (!retry.edit().putString("rows", stored.toString()).commit()) throw unavailable;
+        }
+    }
+
+    static synchronized void recoverDeferred(AtomicFile file, SharedPreferences retry, Market market, long now)
+            throws IOException, JSONException {
+        if (!retry.contains("rows")) return;
+        var stored = new JSONObject(retry.getString("rows", "{}"));
+        for (String receipt : keys(stored)) {
+            var row = stored.getJSONObject(receipt);
+            long posted = row.getLong("at");
+            var signals = new java.util.HashMap<String, String>();
+            var source = row.getJSONObject("signals");
+            for (String symbol : keys(source)) signals.put(symbol, source.getString(symbol));
+            // Outcome identity uses the original receipt and posting time, independent of the notification text.
+            add(file, market, new NotificationHistory.Entry(receipt, posted, "", ""), signals, now);
+        }
+        if (!retry.edit().remove("rows").commit()) throw new IOException("Could not clear deferred alert outcomes");
     }
 
     static synchronized void add(AtomicFile file, Market market, NotificationHistory.Entry alert, Map<String, String> signals,
@@ -145,7 +185,9 @@ final class AlertOutcomes {
                        Predicate<Window> evidenceReady, PriceLoader prices) {
         if (latestClose == null || stopped.getAsBoolean()) return;
         try {
-            evaluate(file(context, market), market, latestClose, stopped, evidenceReady, prices);
+            var file = file(context, market);
+            recoverDeferred(file, deferred(context, market), market, System.currentTimeMillis());
+            evaluate(file, market, latestClose, stopped, evidenceReady, prices);
         } catch (IOException | JSONException | java.time.format.DateTimeParseException e) {
             var area = market == Market.US ? DiagnosticLog.Area.US_CLOSE : DiagnosticLog.Area.JPX;
             DiagnosticLog.record(context, area, market.label + "の試験比較を取得できず · 次回確認");

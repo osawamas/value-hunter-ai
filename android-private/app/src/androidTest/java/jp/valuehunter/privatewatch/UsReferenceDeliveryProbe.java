@@ -158,6 +158,7 @@ final class UsReferenceDeliveryProbe {
         verifyOutcomeComparison(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeRecovery(context);
+        verifyOutcomeWriteFailureRecovery(context);
         notifications.cancelAll();
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
@@ -291,6 +292,35 @@ final class UsReferenceDeliveryProbe {
             }
         } finally {
             file.delete();
+        }
+    }
+
+    private static void verifyOutcomeWriteFailureRecovery(Context context) throws Exception {
+        var parent = java.io.File.createTempFile("outcomes-write-failure", ".test", context.getCacheDir());
+        var file = new android.util.AtomicFile(new java.io.File(parent, "outcomes.json"));
+        var retry = context.getSharedPreferences("outcomes-write-failure-probe", Context.MODE_PRIVATE);
+        var market = AlertOutcomes.Market.US;
+        long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+        var original = new NotificationHistory.Entry("original-receipt", posted, "title", "detail");
+        retry.edit().clear().commit();
+        try {
+            var signals = java.util.Map.of("FIXTURE", "割安");
+            // A regular file at the parent path prevents writes consistently across Android SDKs.
+            AlertOutcomes.recordOrDefer(file, retry, market, original, signals, posted);
+            AlertOutcomes.recordOrDefer(file, retry, market, original, signals, posted);
+            if (!retry.contains("rows")) throw new AssertionError("The failed outcome write did not keep a retry");
+            if (!parent.delete() || !parent.mkdir()) throw new AssertionError("Cannot restore outcome storage");
+            AlertOutcomes.recoverDeferred(file, retry, market, posted);
+            AlertOutcomes.recoverDeferred(file, retry, market, posted);
+            var ledger = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            if (retry.contains("rows") || ledger.length() != 1
+                    || ledger.getJSONObject("original-receipt:FIXTURE").getLong("at") != posted) {
+                throw new AssertionError("Retry did not restore exactly one outcome with the original posting time");
+            }
+        } finally {
+            retry.edit().clear().commit();
+            file.delete();
+            parent.delete();
         }
     }
 
