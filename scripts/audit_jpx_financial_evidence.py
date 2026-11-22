@@ -38,6 +38,10 @@ def audit(document):
                     is not None
                     and isinstance(record.get("source_sha256"), str)
                     and SHA256.fullmatch(record["source_sha256"]) is not None)
+        # A supplied but malformed original is not an absent original. Refuse to
+        # silently reclassify it as not-started or a hold without evidence.
+        if ("source_url" in record or "source_sha256" in record) and not evidence:
+            raise ValueError(f"invalid or incomplete original evidence for {ticker}")
         # Reject string/number flags rather than silently treating them as false.
         # A malformed manifest must never change an eligible/held classification.
         for flag in ("financial_eligible", "on_hold"):
