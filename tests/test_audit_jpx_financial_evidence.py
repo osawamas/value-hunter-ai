@@ -58,6 +58,23 @@ class EvidenceAuditTests(unittest.TestCase):
         self.assertEqual(result["on_hold"], 1)
         self.assertEqual(result["hold_reason_unclassified"], 1)
 
+    def test_non_boolean_status_flags_fail_closed(self):
+        # JSON manifests may contain "false", 0, or null after bad conversion.
+        # None of these should silently turn a held or eligible record into another status.
+        for field in ("on_hold", "financial_eligible"):
+            for bad_value in ("true", "false", 0, 1, None, [], {}):
+                with self.subTest(field=field, value=bad_value):
+                    record = {"ticker": "1234", field: bad_value}
+                    with self.assertRaises(ValueError):
+                        audit({"universe": ["1234"], "records": [record]})
+        # Explicit booleans and omitted legacy flags still work.
+        self.assertEqual(audit({"universe": ["1234"], "records": [
+            {"ticker": "1234", "on_hold": True}
+        ]})["on_hold"], 1)
+        self.assertEqual(audit({"universe": ["1234"], "records": [
+            {"ticker": "1234"}
+        ]})["not_started"], 1)
+
     def test_missing_original_never_counts_as_retrieved(self):
         result = audit({"universe": ["1234", "5678"], "records": [
             {"ticker": "1234", "financial_eligible": False, "on_hold": True}
