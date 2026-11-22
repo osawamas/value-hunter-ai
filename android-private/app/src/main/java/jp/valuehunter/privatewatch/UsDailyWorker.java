@@ -479,8 +479,9 @@ public final class UsDailyWorker extends Worker {
             // The close hash alone cannot detect same-day financial corrections.
             // A queued alert is not a delivery receipt; only PRIVATE_SENT suppresses repeats.
             if (!pending.isEmpty()) {
-                if (!state.edit().remove(PRIVATE_PENDING).remove(PENDING_CODES)
-                        .remove(PRIVATE_PENDING_CLOSE_HASH).commit()) return false;
+                // Do not erase durable pending state before the replacement baseline
+                // and newly computed alert are committed together. A crash here
+                // otherwise loses the prior-session comparison and the alert.
                 pending = "";
                 queued.clear();
             }
