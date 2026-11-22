@@ -26,8 +26,15 @@ def audit(document):
     codes_by_hold_reason = {}
     counts = Counter({"source_retrieved": 0, "financial_eligible": 0,
                       "on_hold": 0, "not_started": 0})
-    for record in document["records"]:
-        ticker = record["ticker"]
+    records = document.get("records")
+    if not isinstance(records, list):
+        raise ValueError("records must be a list")
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("record must be an object")
+        ticker = record.get("ticker")
+        if not isinstance(ticker, str) or not TICKER.fullmatch(ticker):
+            raise ValueError("invalid record ticker")
         if ticker not in universe or ticker in seen:
             raise ValueError("unknown or duplicate record ticker")
         seen.add(ticker)
