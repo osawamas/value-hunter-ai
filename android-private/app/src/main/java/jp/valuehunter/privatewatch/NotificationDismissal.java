@@ -9,7 +9,7 @@ import android.net.Uri;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-/** Records user interaction so a restarted worker can finish saving a posted alert. */
+/** Records independently of history so a restarted worker can recover a submitted alert. */
 public final class NotificationDismissal extends BroadcastReceiver {
     private static final String STORE = "notification-dismissals";
     private static final String SCHEME = "valuehunter-dismiss";
@@ -34,6 +34,10 @@ public final class NotificationDismissal extends BroadcastReceiver {
         return isRecent(at, now) ? at : 0;
     }
 
+    static void recordSubmission(Context context, String receipt) {
+        remember(context.getSharedPreferences(STORE, Context.MODE_PRIVATE), receipt, System.currentTimeMillis());
+    }
+
     static boolean isRecent(long at, long now) {
         return at > 0 && at <= now && now - at < RETAIN;
     }
@@ -49,11 +53,13 @@ public final class NotificationDismissal extends BroadcastReceiver {
         remember(context.getSharedPreferences(STORE, Context.MODE_PRIVATE), receipt, System.currentTimeMillis());
     }
 
-    static void remember(android.content.SharedPreferences state, String receipt, long now) {
+    static synchronized void remember(android.content.SharedPreferences state, String receipt, long now) {
         var edit = state.edit();
-        state.getAll().forEach((key, value) -> {
+        var saved = state.getAll();
+        saved.forEach((key, value) -> {
             if (!(value instanceof Long at) || !isRecent(at, now)) edit.remove(key);
         });
-        edit.putLong(receipt, now).commit();
+        long original = saved.get(receipt) instanceof Long at ? at : 0;
+        edit.putLong(receipt, isRecent(original, now) ? original : now).commit();
     }
 }

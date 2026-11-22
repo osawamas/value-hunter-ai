@@ -111,6 +111,7 @@ final class UsReferenceDeliveryProbe {
             if (wifi) {
                 verifyMeterDelivery(context, notifications);
                 verifyRejectedAlertCanBeRecalculated(context, notifications);
+                verifyRetriedAlertUsesCorrectedLedger(context, notifications);
                 verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
             }
@@ -182,6 +183,29 @@ final class UsReferenceDeliveryProbe {
         expectQuiet(notifications);
     }
 
+    private static void verifyRetriedAlertUsesCorrectedLedger(Context context, NotificationManager notifications)
+            throws Exception {
+        var state = context.getSharedPreferences("us-meter-corrected-ledger-probe", Context.MODE_PRIVATE);
+        String hash = "c".repeat(64);
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Cannot prepare the same-day correction probe");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
+        var rises = meterLedger(SECOND, hash, 9);
+        if (UsDailyWorker.applyFinancialScreen(context, state, rises, SECOND, PROVIDER, hash, () -> false,
+                (app, id, title, detail) -> false) || !UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Unsubmitted meter alert was not queued");
+        }
+
+        // The close snapshot remains the same. Revised earnings make the old notification ineligible.
+        var corrected = meterLedger(SECOND, hash, 9, true);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, corrected, SECOND, PROVIDER, hash, () -> false)
+                || UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Corrected financial data did not invalidate the queued alert");
+        }
+        expectQuiet(notifications);
+    }
+
     private static void verifyOutdatedNotificationIgnored(Context context, NotificationManager notifications) throws Exception {
         var state = context.getSharedPreferences("us-stale-alert-probe", Context.MODE_PRIVATE);
         String hash = "a".repeat(64);
@@ -208,6 +232,10 @@ final class UsReferenceDeliveryProbe {
     }
 
     private static JSONObject meterLedger(LocalDate day, String hash, int close) throws Exception {
+        return meterLedger(day, hash, close, false);
+    }
+
+    private static JSONObject meterLedger(LocalDate day, String hash, int close, boolean revisedEarnings) throws Exception {
         var financials = new JSONArray();
         var prices = new java.util.HashMap<String, java.math.BigDecimal>();
         boolean current = SECOND.equals(day);
@@ -217,6 +245,8 @@ final class UsReferenceDeliveryProbe {
             var target = new JSONObject().put("symbol", ticker).put("exchange", exchange).put("cik", cik);
             var payload = new JSONObject(facts().replace("12345", Integer.toString(cik)));
             var gaap = payload.getJSONObject("facts").getJSONObject("us-gaap");
+            if (revisedEarnings) gaap.getJSONObject("NetIncomeLoss").getJSONObject("units")
+                    .getJSONArray("USD").getJSONObject(0).put("val", 10);
             gaap.put("EarningsPerShareBasic", new JSONObject().put("units", new JSONObject()
                     .put("USD/shares", meterAnnualFacts(cik, 0.9, 0.8))));
             gaap.put("NetCashProvidedByUsedInOperatingActivities", new JSONObject().put("units", new JSONObject()
