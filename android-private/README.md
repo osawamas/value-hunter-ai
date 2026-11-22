@@ -1,4 +1,4 @@
-# VALUE HUNTER AI Android試用版
+# 他力本願寺 VALUE HUNTER AI Android試用版
 
 本人が自分の端末で使う非公開の株式モニター。現在のホーム画面は東証日報を使った日本株の確認と無音通知に対応する。APIキーの入力は不要。
 
