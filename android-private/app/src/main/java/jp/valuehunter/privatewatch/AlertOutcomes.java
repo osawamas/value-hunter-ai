@@ -120,11 +120,14 @@ final class AlertOutcomes {
             throws IOException {
         String receipt = id + "-" + ScanWorker.notificationReceipt(title, detail);
         long submitted = NotificationDismissal.recordedAt(context, receipt, now);
-        if (submitted > 0) return new NotificationHistory.Entry(receipt, submitted, title, detail);
-        for (var entry : NotificationHistory.recent(NotificationHistory.file(context), now)) {
-            if (receipt.equals(entry.receipt())) return entry;
+        try {
+            for (var entry : NotificationHistory.recent(NotificationHistory.file(context), now)) {
+                if (receipt.equals(entry.receipt())) return entry;
+            }
+        } catch (IOException unavailable) {
+            if (submitted <= 0) throw unavailable;
         }
-        return null;
+        return submitted > 0 ? new NotificationHistory.Entry(receipt, submitted, title, detail) : null;
     }
 
     private static AtomicFile file(Context context, Market market) {
