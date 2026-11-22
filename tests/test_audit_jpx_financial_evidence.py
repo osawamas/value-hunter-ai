@@ -75,6 +75,26 @@ class EvidenceAuditTests(unittest.TestCase):
             {"ticker": "1234"}
         ]})["not_started"], 1)
 
+    def test_supplied_partial_or_mismatched_evidence_fails_closed(self):
+        valid = "https://www2.jpx.co.jp/disc/12340/123_tse-ace-original-ixbrl.htm"
+        wrong_ticker = "https://www2.jpx.co.jp/disc/56780/123_tse-ace-original-ixbrl.htm"
+        for supplied in (
+            {"source_url": valid},
+            {"source_sha256": HASH},
+            {"source_url": valid, "source_sha256": "bad"},
+            {"source_url": wrong_ticker, "source_sha256": HASH},
+            {"source_url": None, "source_sha256": HASH},
+        ):
+            for held in (False, True):
+                with self.subTest(supplied=supplied, held=held):
+                    record = {"ticker": "1234", "on_hold": held, **supplied}
+                    with self.assertRaises(ValueError):
+                        audit({"universe": ["1234"], "records": [record]})
+        # Truly absent evidence remains a valid, explicitly held record.
+        self.assertEqual(audit({"universe": ["1234"], "records": [
+            {"ticker": "1234", "on_hold": True}
+        ]})["on_hold"], 1)
+
     def test_missing_original_never_counts_as_retrieved(self):
         result = audit({"universe": ["1234", "5678"], "records": [
             {"ticker": "1234", "financial_eligible": False, "on_hold": True}
