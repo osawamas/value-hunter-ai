@@ -113,6 +113,7 @@ final class UsReferenceDeliveryProbe {
                 verifyRejectedAlertCanBeRecalculated(context, notifications);
                 verifyRetriedAlertUsesCorrectedLedger(context, notifications);
                 verifyDeliveredAlertWithNewText(context, notifications);
+                verifyDeliveryRecoveryOnNextSession(context, notifications);
                 verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
             }
@@ -381,6 +382,48 @@ final class UsReferenceDeliveryProbe {
         var outcomes = new JSONObject(new String(outcomeFile.readFully(), java.nio.charset.StandardCharsets.UTF_8));
         if (!outcomes.has(posted.receipt() + ":METER")) {
             throw new AssertionError("Recovered delivery is missing from alert outcomes");
+        }
+        expectQuiet(notifications);
+    }
+
+    private static void verifyDeliveryRecoveryOnNextSession(Context context, NotificationManager notifications)
+            throws Exception {
+        var state = context.getSharedPreferences("us-next-session-delivery-probe", Context.MODE_PRIVATE);
+        String hash = "e".repeat(64);
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, true).commit()) {
+            throw new AssertionError("Cannot prepare next-session recovery");
+        }
+        UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, hash, 15), FIRST, PROVIDER, hash, () -> false);
+        var current = meterLedger(SECOND, hash, 9);
+        current.getJSONObject("reference_screen").getJSONObject("meter_rows").getJSONArray("NYSE:12345:METER").put(0, 80);
+        var history = NotificationHistory.file(context);
+        var blocker = new java.io.File(history.getParentFile(), history.getName() + ".tmp");
+        if (!blocker.mkdir()) throw new AssertionError("Cannot simulate history write failure");
+        try {
+            if (UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false)
+                    || !UsDailyWorker.hasPendingFinancialAlert(state)) {
+                throw new AssertionError("History write failure was acknowledged prematurely");
+            }
+            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄", "METER · 100株 · かなり割安 · 80点");
+        } finally {
+            notifications.cancelAll();
+            blocker.delete();
+        }
+        expectQuiet(notifications);
+        LocalDate next = SECOND.plusDays(1);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, meterLedger(next, hash, 15), next, PROVIDER, hash, () -> false,
+                (app, id, title, detail) -> { throw new AssertionError("Next-session recovery posted an old alert again"); })
+                || UsDailyWorker.hasPendingFinancialAlert(state)) {
+            throw new AssertionError("Next session did not reconcile the original delivery");
+        }
+        var original = NotificationHistory.recent(history, System.currentTimeMillis()).stream()
+                .filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 80点"))
+                .collect(java.util.stream.Collectors.toList());
+        if (original.size() != 1) throw new AssertionError("The original notification history was not restored exactly once");
+        var file = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(), "us-alert-outcomes-v1.json"));
+        var outcomes = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+        if (!outcomes.has(original.get(0).receipt() + ":METER")) {
+            throw new AssertionError("The next session lost the original alert outcome");
         }
         expectQuiet(notifications);
     }
