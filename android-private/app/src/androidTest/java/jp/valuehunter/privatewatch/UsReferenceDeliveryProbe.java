@@ -154,6 +154,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Delivered meter alert was not recorded for the forward test");
         }
         verifyOutcomeComparison(context);
+        verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         notifications.cancelAll();
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
@@ -198,6 +199,46 @@ final class UsReferenceDeliveryProbe {
             if (!result.contains("計測済み 1件 · 待ち 0件 · 集計対象外 1件")
                     || !result.contains("差 +7.00ポイント")) {
                 throw new AssertionError("Outcome did not persist fair close-to-close comparison: " + result);
+            }
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyOutcomeRetryDoesNotBlockOtherWindows(Context context) throws Exception {
+        var file = new android.util.AtomicFile(java.io.File.createTempFile("outcomes-retry", ".json", context.getCacheDir()));
+        file.delete();
+        try {
+            var market = AlertOutcomes.Market.US;
+            long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+            long later = posted + java.util.concurrent.TimeUnit.DAYS.toMillis(2);
+            AlertOutcomes.add(file, market, new NotificationHistory.Entry("old", posted, "test", "test"),
+                    java.util.Map.of("EARLY", "割安"), later);
+            AlertOutcomes.add(file, market, new NotificationHistory.Entry("new", later, "test", "test"),
+                    java.util.Map.of("LATER", "割安"), later);
+            LocalDate latest = AlertOutcomes.window(market, later).exit().plusDays(8);
+            var unavailable = new java.io.IOException("simulated price provider timeout");
+            try {
+                AlertOutcomes.evaluate(file, market, latest, () -> false, range -> true, (range, symbols) -> {
+                    if (!symbols.contains("EARLY")) throw new AssertionError("Expected the older window first");
+                    throw unavailable;
+                });
+                throw new AssertionError("Price provider failure was concealed");
+            } catch (java.io.IOException expected) {
+                if (expected != unavailable) throw expected;
+            }
+            if (!AlertOutcomes.report(file, market).contains("計測済み 0件 · 待ち 2件 · 集計対象外 0件")) {
+                throw new AssertionError("An old window was excluded after a provider failure");
+            }
+            AlertOutcomes.evaluate(file, market, latest.plusDays(1), () -> false, range -> true, (range, symbols) -> {
+                if (!symbols.equals(java.util.Set.of("LATER", "IWV"))) {
+                    throw new AssertionError("The failed window blocked a later window: " + symbols);
+                }
+                return java.util.Map.of("LATER", new AlertOutcomes.Prices(100, 107),
+                        "IWV", new AlertOutcomes.Prices(100, 101));
+            });
+            if (!AlertOutcomes.report(file, market).contains("計測済み 1件 · 待ち 1件 · 集計対象外 0件")) {
+                throw new AssertionError("Later outcome did not complete after an earlier timeout");
             }
         } finally {
             file.delete();

@@ -154,7 +154,9 @@ final class AlertOutcomes {
         var symbols = new HashSet<String>();
         symbols.add(market.benchmark);
         var ordered = keys(ledger);
-        ordered.sort(java.util.Comparator.comparing(key -> ledger.optJSONObject(key).optString("exit")));
+        ordered.sort(java.util.Comparator
+                .comparing((String key) -> ledger.optJSONObject(key).optString("checked"))
+                .thenComparing(key -> ledger.optJSONObject(key).optString("exit")));
         for (String key : ordered) {
             var row = ledger.getJSONObject(key);
             if (!WAITING.equals(row.optString("status")) || latestClose.toString().equals(row.optString("checked"))) continue;
@@ -171,12 +173,22 @@ final class AlertOutcomes {
             if (symbols.size() >= market.batchSize) break;
         }
         if (range == null || stopped.getAsBoolean()) return;
-        var prices = evidenceReady.test(range) ? loader.load(range, symbols) : Map.<String, Prices>of();
-        if (!stopped.getAsBoolean()) saveResults(file, market, latestClose, range, batch, prices);
+        Map<String, Prices> prices;
+        try {
+            prices = evidenceReady.test(range) ? loader.load(range, symbols) : Map.of();
+        } catch (IOException | JSONException failure) {
+            if (!stopped.getAsBoolean()) {
+                // Give other windows a turn without treating a provider failure as a missing quote.
+                saveAttempt(file, market, latestClose, range, batch, Map.of(), false);
+            }
+            throw failure;
+        }
+        if (!stopped.getAsBoolean()) saveAttempt(file, market, latestClose, range, batch, prices, true);
     }
 
-    private static synchronized void saveResults(AtomicFile file, Market market, LocalDate latestClose, Window range, JSONObject batch,
-                                                 Map<String, Prices> prices) throws IOException, JSONException {
+    private static synchronized void saveAttempt(AtomicFile file, Market market, LocalDate latestClose,
+                                                 Window range, JSONObject batch, Map<String, Prices> prices,
+                                                 boolean comparisonChecked) throws IOException, JSONException {
         var latest = read(file);
         var benchmark = prices.get(market.benchmark);
         for (String key : keys(batch)) {
@@ -187,7 +199,7 @@ final class AlertOutcomes {
             if (stock != null && benchmark != null) {
                 row.put("status", COMPLETE).put("stockReturn", stock.percent())
                         .put("benchmarkReturn", benchmark.percent());
-            } else if (!latestClose.isBefore(range.exit().plusDays(market.missingGraceDays))) {
+            } else if (comparisonChecked && !latestClose.isBefore(range.exit().plusDays(market.missingGraceDays))) {
                 row.put("status", MISSING);
             }
         }
