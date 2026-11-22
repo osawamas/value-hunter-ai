@@ -102,4 +102,48 @@ public final class UsReferenceAlertsTest {
                 """));
         assertEquals(DAY, UsSecFinanceWorker.tradeDateFx(rates, DAY).date());
     }
+    @Test public void persistedSameDayCorrectionRebuildsAlertWithoutOldTextOrDuplicate() throws Exception {
+        String priorJson = """
+                {"trading_date_et":"2026-11-16","reference_screen":{
+                  "provider":"dolthub-post-no-preference-stocks",
+                  "close_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "fx_date":"2026-11-16",
+                  "observations":[
+                    {"symbol":"AAA","exchange":"NYSE","cik":11,"status":"outside_budget","quantity":100},
+                    {"symbol":"BBB","exchange":"Nasdaq","cik":22,"status":"outside_budget","quantity":100}]
+                }}
+                """;
+        String initialJson = """
+                {"trading_date_et":"2026-11-17","reference_screen":{
+                  "provider":"dolthub-post-no-preference-stocks",
+                  "close_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "fx_date":"2026-11-17",
+                  "observations":[
+                    {"symbol":"AAA","exchange":"NYSE","cik":11,"status":"reference","quantity":100},
+                    {"symbol":"BBB","exchange":"Nasdaq","cik":22,"status":"outside_budget","quantity":100}]
+                }}
+                """;
+        String correctedJson = """
+                {"trading_date_et":"2026-11-17","reference_screen":{
+                  "provider":"dolthub-post-no-preference-stocks",
+                  "close_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "fx_date":"2026-11-17",
+                  "observations":[
+                    {"symbol":"AAA","exchange":"NYSE","cik":11,"status":"outside_budget","quantity":100},
+                    {"symbol":"BBB","exchange":"Nasdaq","cik":22,"status":"priority","quantity":100}]
+                }}
+                """;
+        var prior = UsReferenceAlerts.read(new JSONObject(priorJson));
+        var initial = UsReferenceAlerts.read(new JSONObject(initialJson));
+        var corrected = UsReferenceAlerts.read(new JSONObject(correctedJson));
+        assertEquals(List.of("AAA · 100株 · 参考候補"), UsReferenceAlerts.entrants(prior, initial));
+        assertEquals(initial.hash(), corrected.hash());
+        assertEquals(List.of("BBB · 100株 · 優先候補"), UsReferenceAlerts.entrants(prior, corrected));
+        assertEquals(List.of(), List.copyOf(UsReferenceAlerts.entrantRows(
+                prior, corrected, java.util.Set.of("BBB")).values()));
+        var moved = new UsReferenceAlerts.Screen(DAY, SOURCE, corrected.hash(), Map.of(
+                "BBB", new UsReferenceAlerts.Observation(22, "NYSE", "priority", 100)));
+        assertEquals(List.of(), UsReferenceAlerts.entrants(prior, moved));
+    }
+
 }
