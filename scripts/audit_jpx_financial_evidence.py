@@ -38,6 +38,11 @@ def audit(document):
                     is not None
                     and isinstance(record.get("source_sha256"), str)
                     and SHA256.fullmatch(record["source_sha256"]) is not None)
+        # Reject string/number flags rather than silently treating them as false.
+        # A malformed manifest must never change an eligible/held classification.
+        for flag in ("financial_eligible", "on_hold"):
+            if flag in record and not isinstance(record[flag], bool):
+                raise ValueError(f"invalid {flag} flag for {ticker}")
         eligible = record.get("financial_eligible") is True
         hold = record.get("on_hold") is True
         if evidence and not eligible and record.get("on_hold") is False:
