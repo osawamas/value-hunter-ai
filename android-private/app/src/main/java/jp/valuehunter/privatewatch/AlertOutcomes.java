@@ -147,8 +147,12 @@ final class AlertOutcomes {
         } catch (IOException | JSONException unavailable) {
             // Keep the observation independently of the ledger so notification delivery can continue.
             var stored = new JSONObject(retry.getString("rows", "{}"));
-            stored.put(alert.receipt(), new JSONObject().put("at", alert.postedAt())
-                    .put("signals", new JSONObject(signals)));
+            // The receipt identifies the already-submitted notification. A retry must not
+            // replace its original timestamp or rule with a later recomputation.
+            if (!stored.has(alert.receipt())) {
+                stored.put(alert.receipt(), new JSONObject().put("at", alert.postedAt())
+                        .put("signals", new JSONObject(signals)));
+            }
             if (!retry.edit().putString("rows", stored.toString()).commit()) throw unavailable;
         }
     }
