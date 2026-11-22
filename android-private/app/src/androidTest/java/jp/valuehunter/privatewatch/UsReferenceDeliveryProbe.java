@@ -318,9 +318,9 @@ final class UsReferenceDeliveryProbe {
             }
             // Replaying a submitted receipt with revised data must preserve the first
             // submission's timestamp and signal, even while the ledger is unwritable.
-            AlertOutcomes.recordOrDefer(file, retry, market,
-                    new NotificationHistory.Entry("receipt-0", firstPosted + 999_000, "changed", "changed"),
-                    java.util.Map.of("FIXTURE0", "再判定"), now);
+            var replay = new NotificationHistory.Entry("receipt-0", firstPosted + 999_000, "changed", "changed");
+            var revised = java.util.Map.of("FIXTURE0", "再判定", "REVISED", "再判定");
+            AlertOutcomes.recordOrDefer(file, retry, market, replay, revised, now);
             var firstPending = new JSONObject(retry.getString("rows", "{}")).getJSONObject("receipt-0");
             if (firstPending.getLong("at") != firstPosted
                     || !"割安".equals(firstPending.getJSONObject("signals").getString("FIXTURE0"))) {
@@ -339,7 +339,13 @@ final class UsReferenceDeliveryProbe {
                 }
             }
             if (!parent.delete() || !parent.mkdir()) throw new AssertionError("Cannot restore outcome storage");
-            AlertOutcomes.recoverDeferred(file, retry, market, now);
+            AlertOutcomes.recordOrDefer(file, retry, market, replay, revised, now);
+            var restored = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            var first = restored.getJSONObject("receipt-0:FIXTURE0");
+            if (first.getLong("at") != firstPosted || !"割安".equals(first.getString("rule"))
+                    || restored.has("receipt-0:REVISED")) {
+                throw new AssertionError(market + " used the replay instead of the deferred observation on recovery");
+            }
             // Simulate restarting after committing the ledger but before clearing the retry data.
             if (!retry.edit().putString("rows", pending).commit()) throw new AssertionError("Cannot replay the retry data");
             AlertOutcomes.recoverDeferred(file, retry, market, now);
