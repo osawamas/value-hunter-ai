@@ -316,6 +316,17 @@ final class UsReferenceDeliveryProbe {
                 AlertOutcomes.recordOrDefer(file, retry, market, alert, signals, now);
                 if (i == 0) AlertOutcomes.recordOrDefer(file, retry, market, alert, signals, now);
             }
+            // Replaying a submitted receipt with revised data must preserve the first
+            // submission's timestamp and signal, even while the ledger is unwritable.
+            var original = new NotificationHistory.Entry("receipt-0", firstPosted, "title", "detail");
+            AlertOutcomes.recordOrDefer(file, retry, market,
+                    new NotificationHistory.Entry("receipt-0", firstPosted + 999_000, "changed", "changed"),
+                    java.util.Map.of("FIXTURE0", "再判定"), now);
+            var firstPending = new JSONObject(retry.getString("rows", "{}")).getJSONObject("receipt-0");
+            if (firstPending.getLong("at") != firstPosted
+                    || !"割安".equals(firstPending.getJSONObject("signals").getString("FIXTURE0"))) {
+                throw new AssertionError(market + " overwrote the original submitted receipt");
+            }
             var pending = retry.getString("rows", "{}");
             if (new JSONObject(pending).length() != count) {
                 throw new AssertionError(market + " lost a deferred outcome after 65 consecutive failures");
