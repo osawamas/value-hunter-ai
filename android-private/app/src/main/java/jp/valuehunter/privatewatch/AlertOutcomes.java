@@ -141,14 +141,24 @@ final class AlertOutcomes {
     static synchronized void recordOrDefer(AtomicFile file, SharedPreferences retry, Market market,
                                           NotificationHistory.Entry alert, Map<String, String> signals, long now)
             throws IOException, JSONException {
+        JSONObject stored;
         try {
+            stored = new JSONObject(retry.getString("rows", "{}"));
+        } catch (JSONException invalidRetry) {
+            // Keep the unreadable retry data and allow new outcomes to use the ledger.
             add(file, market, alert, signals, now);
             return;
+        }
+        boolean alreadyDeferred = stored.has(alert.receipt());
+        try {
+            // A saved observation remains authoritative when the retry coincides with ledger recovery.
+            if (alreadyDeferred) recoverDeferred(file, retry, market, now);
+            else add(file, market, alert, signals, now);
         } catch (IOException | JSONException unavailable) {
-            // Keep the observation independently of the ledger so notification delivery can continue.
-            var stored = new JSONObject(retry.getString("rows", "{}"));
-            stored.put(alert.receipt(), new JSONObject().put("at", alert.postedAt())
-                    .put("signals", new JSONObject(signals)));
+            if (!alreadyDeferred) {
+                stored.put(alert.receipt(), new JSONObject().put("at", alert.postedAt())
+                        .put("signals", new JSONObject(signals)));
+            }
             if (!retry.edit().putString("rows", stored.toString()).commit()) throw unavailable;
         }
     }
