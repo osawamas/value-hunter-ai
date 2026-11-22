@@ -117,6 +117,8 @@ final class UsReferenceDeliveryProbe {
                 verifyBothOutcomeStoresFail(context, notifications);
                 verifyOutdatedNotificationIgnored(context, notifications);
                 verifyStaleBudgetClears(context);
+                close.delete();
+                verifyOutcomeRecoveryWithoutQuotes(context, notifications, factory);
             }
         } finally {
             notifications.cancelAll();
@@ -549,6 +551,52 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Restored outcome lost its original posting time");
         }
         expectQuiet(notifications);
+    }
+
+    private static void verifyOutcomeRecoveryWithoutQuotes(Context context, NotificationManager notifications,
+                                                           WorkerFactory factory) throws Exception {
+        var state = ScanWorker.prefs(context);
+        String pending = "us_private_sec_pending";
+        String signals = "us_private_sec_pending_signals";
+        String sent = "us_private_sec_sent";
+        if (UsDailyWorker.hasPendingFinancialAlert(state)) throw new AssertionError("Expected an empty US alert queue");
+        var previousSent = state.getStringSet(sent, java.util.Set.of());
+        String title = "終値なしで復元する試験通知";
+        String detail = "投稿済みの成績 NOQUOTE";
+        var parent = File.createTempFile("blocked-outcome-no-quotes", ".test", context.getCacheDir());
+        var blocked = new AtomicFile(new File(parent, "outcomes.json"));
+        var retry = context.getSharedPreferences("us-deferred-alert-outcomes", Context.MODE_PRIVATE);
+        var market = AlertOutcomes.Market.US;
+        try {
+            if (!state.edit().putString(pending, title + "\n" + detail)
+                    .putString(signals, new JSONObject().put("NOQUOTE", "参考候補").toString()).commit()
+                    || !ScanWorker.postNotification(context, 6, title, detail)) {
+                throw new AssertionError("Cannot prepare a submitted alert without a closing-price snapshot");
+            }
+            notifications.cancelAll();
+            long now = System.currentTimeMillis();
+            var submitted = AlertOutcomes.deliveredEntry(context, 6, title, detail, now);
+            if (submitted == null) throw new AssertionError("No submission receipt for the test alert");
+            var deferred = new NotificationHistory.Entry("deferred-no-quotes", now, "title", "detail");
+            AlertOutcomes.recordOrDefer(blocked, retry, market, deferred, java.util.Map.of("DEFERRED", "割安"), now);
+
+            verifyResult(context, factory, ListenableWorker.Result.success());
+            if (UsDailyWorker.hasPendingFinancialAlert(state) || retry.contains("rows")) {
+                throw new AssertionError("Prior submissions or deferred outcomes stayed queued without market data");
+            }
+            var file = new AtomicFile(new File(context.getNoBackupFilesDir(), "us-alert-outcomes-v1.json"));
+            var ledger = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            if (ledger.getJSONObject(submitted.receipt() + ":NOQUOTE").getLong("at") != submitted.postedAt()
+                    || ledger.getJSONObject("deferred-no-quotes:DEFERRED").getLong("at") != now) {
+                throw new AssertionError("No-quote recovery lost the original posting times");
+            }
+            expectQuiet(notifications);
+        } finally {
+            state.edit().remove(pending).remove(signals).putStringSet(sent, previousSent).commit();
+            blocked.delete();
+            parent.delete();
+            notifications.cancelAll();
+        }
     }
 
     private static void verifyOutdatedNotificationIgnored(Context context, NotificationManager notifications) throws Exception {

@@ -398,6 +398,37 @@ final class JpxWatchDeliveryProbe {
             } finally {
                 state.edit().putLong(ScanWorker.FINANCIAL_ALERT_GENERATION, oldFinancial).commit();
             }
+            var muted = queuedAlert(next, alertGeneration, oldFinancial)
+                    .put("title", "無音通知をオフにする前に投稿した東証通知")
+                    .put("detail", "設定変更後の成績復元 3861")
+                    .put("codes", new org.json.JSONArray().put("3861"));
+            if (!ScanWorker.postNotification(context, muted.getInt("id"), muted.getString("title"),
+                    muted.getString("detail"))) throw new AssertionError("Cannot submit the JPX alert before muting");
+            var beforeMute = AlertOutcomes.deliveredEntry(context, muted.getInt("id"), muted.getString("title"),
+                    muted.getString("detail"), System.currentTimeMillis());
+            if (beforeMute == null) throw new AssertionError("Missing the pre-mute delivery receipt");
+            manager.cancelAll();
+            if (!state.edit().putString("jpx_watch_pending", new org.json.JSONArray().put(muted)
+                    .put(queuedAlert(next, alertGeneration, oldFinancial)).toString()).commit()) {
+                throw new AssertionError("Cannot queue the submitted alert and the unsent alert");
+            }
+            ScanWorker.setNotificationsRequested(state, false);
+            try {
+                var pass = TestWorkerBuilder.from(context, JpxWatchWorker.class, new SynchronousExecutor())
+                        .setWorkerFactory(factory).build().doWork();
+                if (!pass.equals(ListenableWorker.Result.success()) || resumed.get() != 1
+                        || !"[]".equals(state.getString("jpx_watch_pending", ""))) {
+                    throw new AssertionError("Muting notifications replayed or retained a pending JPX alert");
+                }
+                var file = new android.util.AtomicFile(new File(context.getNoBackupFilesDir(),
+                        "jpx-alert-outcomes-v1.json"));
+                var ledger = new org.json.JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+                if (ledger.getJSONObject(beforeMute.receipt() + ":3861").getLong("at") != beforeMute.postedAt()) {
+                    throw new AssertionError("Muting notifications lost the pre-mute alert outcome");
+                }
+            } finally {
+                ScanWorker.setNotificationsRequested(state, true);
+            }
             expectQuiet(manager);
         } finally {
             JpxWatchWorker.setEnabled(context, false);
