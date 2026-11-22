@@ -162,6 +162,8 @@ public final class MainActivity extends Activity {
         });
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
+        button(notifications, "米国株の通知成績（試験）", PAGE, 5)
+                .setOnClickListener(view -> showUsAlertOutcomes());
         var useMeter = optionSwitch(notifications, "割安メーターで通知", state.getBoolean(ValueAlertPreview.LIVE, false));
         useMeter.setOnCheckedChangeListener((view, checked) -> {
             state.edit().putBoolean(ValueAlertPreview.LIVE, checked)
@@ -556,6 +558,25 @@ public final class MainActivity extends Activity {
                         Toast.makeText(this, "診断ログをコピーした", Toast.LENGTH_SHORT).show();
                     }
                 }).show();
+    }
+
+    private void showUsAlertOutcomes() {
+        String report;
+        try {
+            report = UsAlertOutcomes.report(this);
+        } catch (IOException | org.json.JSONException unavailable) {
+            report = "試験記録を読み込めなかった";
+        }
+        var scroll = new ScrollView(this);
+        var message = new TextView(this);
+        message.setText(report);
+        message.setTextColor(INK);
+        message.setTextSize(14);
+        message.setPadding(dp(22), dp(8), dp(22), dp(12));
+        message.setTextIsSelectable(true);
+        scroll.addView(message);
+        new AlertDialog.Builder(this).setTitle("米国株の通知成績（試験）").setView(scroll)
+                .setPositiveButton("閉じる", null).show();
     }
 
     private void showNotificationHistory() {
