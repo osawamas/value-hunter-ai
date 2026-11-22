@@ -27,7 +27,6 @@ import java.util.function.BooleanSupplier;
 final class AlertOutcomes {
     private static final int RETENTION_DAYS = 120;
     private static final int MAX_EVENTS = 500;
-    private static final int MAX_DEFERRED_NOTICES = 64;
     static final int MAX_BATCH = 32;
     private static final String WAITING = "waiting";
     private static final String MISSING = "missing";
@@ -133,9 +132,6 @@ final class AlertOutcomes {
             var stored = new JSONObject(retry.getString("rows", "{}"));
             stored.put(alert.receipt(), new JSONObject().put("at", alert.postedAt())
                     .put("signals", new JSONObject(signals)));
-            var ordered = keys(stored);
-            ordered.sort(java.util.Comparator.comparingLong((String key) -> stored.optJSONObject(key).optLong("at")).reversed());
-            for (int i = MAX_DEFERRED_NOTICES; i < ordered.size(); i++) stored.remove(ordered.get(i));
             if (!retry.edit().putString("rows", stored.toString()).commit()) throw unavailable;
         }
     }
@@ -144,6 +140,7 @@ final class AlertOutcomes {
             throws IOException, JSONException {
         if (!retry.contains("rows")) return;
         var stored = new JSONObject(retry.getString("rows", "{}"));
+        var ledger = read(file);
         for (String receipt : keys(stored)) {
             var row = stored.getJSONObject(receipt);
             long posted = row.getLong("at");
@@ -151,16 +148,22 @@ final class AlertOutcomes {
             var source = row.getJSONObject("signals");
             for (String symbol : keys(source)) signals.put(symbol, source.getString(symbol));
             // Outcome identity uses the original receipt and posting time, independent of the notification text.
-            add(file, market, new NotificationHistory.Entry(receipt, posted, "", ""), signals, now);
+            addToLedger(ledger, market, new NotificationHistory.Entry(receipt, posted, "", ""), signals);
         }
+        saveLedger(file, ledger, now);
         if (!retry.edit().remove("rows").commit()) throw new IOException("Could not clear deferred alert outcomes");
     }
 
     static synchronized void add(AtomicFile file, Market market, NotificationHistory.Entry alert, Map<String, String> signals,
                                  long now) throws IOException, JSONException {
         var ledger = read(file);
+        if (addToLedger(ledger, market, alert, signals)) saveLedger(file, ledger, now);
+    }
+
+    private static boolean addToLedger(JSONObject ledger, Market market, NotificationHistory.Entry alert,
+                                       Map<String, String> signals) throws JSONException {
         var dates = window(market, alert.postedAt());
-        if (dates == null) return;
+        if (dates == null) return false;
         for (var signal : signals.entrySet()) {
             String symbol = signal.getKey();
             if (!validSymbol(symbol)) continue;
@@ -170,6 +173,10 @@ final class AlertOutcomes {
                     .put("at", alert.postedAt()).put("entry", dates.entry().toString())
                     .put("exit", dates.exit().toString()).put("status", WAITING));
         }
+        return true;
+    }
+
+    private static void saveLedger(AtomicFile file, JSONObject ledger, long now) throws IOException, JSONException {
         var keys = keys(ledger);
         keys.sort(java.util.Comparator.comparingLong((String key) -> ledger.optJSONObject(key).optLong("at")).reversed()
                 .thenComparing(java.util.Comparator.naturalOrder()));
@@ -179,6 +186,10 @@ final class AlertOutcomes {
                     >= java.util.concurrent.TimeUnit.DAYS.toMillis(RETENTION_DAYS)) ledger.remove(key);
         }
         UsDailyWorker.writeSnapshot(file, ledger);
+        // AtomicFile can log a failed rename without throwing from finishWrite().
+        if (!ledger.toString().equals(new String(file.readFully(), StandardCharsets.UTF_8))) {
+            throw new IOException("Could not verify alert outcomes write");
+        }
     }
 
     static void update(Context context, Market market, LocalDate latestClose, BooleanSupplier stopped,
