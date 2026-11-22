@@ -225,6 +225,11 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
+    private void updateAlertOutcomes(Context context, LocalDate day) {
+        AlertOutcomes.update(context, AlertOutcomes.Market.US, day, this::networkStopped, range -> true,
+                (range, symbols) -> UsDoltCloses.outcomePrices(range, symbols, address -> fetch(address, "")));
+    }
+
     private Result check() {
         var context = getApplicationContext();
         var state = ScanWorker.prefs(context);
@@ -271,7 +276,7 @@ public final class UsDailyWorker extends Worker {
                     var update = MarketUpdate.US_CLOSE.completed(state.edit())
                             .putString(STATUS, previous.equals(target) ? "終値を取得済み" : "保存済みの終値を表示中");
                     markQuoteFreshness(update, previous, target).apply();
-                    UsAlertOutcomes.update(context, previous, this::networkStopped);
+                    updateAlertOutcomes(context, previous);
                     return Result.success();
                 }
                 if (!UsDailyCloses.tradingDay(day)) continue;
@@ -299,7 +304,7 @@ public final class UsDailyWorker extends Worker {
                 updateHistory(state, day);
                 if (networkStopped()) return paused();
                 MarketUpdate.US_CLOSE.completed(state.edit()).apply();
-                UsAlertOutcomes.update(context, day, this::networkStopped);
+                updateAlertOutcomes(context, day);
                 return Result.success();
             }
             report(state, "直近7日間の終値を取得できず", MarketFreshness.Phase.PUBLICATION, target);
@@ -552,7 +557,7 @@ public final class UsDailyWorker extends Worker {
         String title = pending.substring(0, separator);
         String detail = pending.substring(separator + 1);
         if (!sender.post(context, US_NOTIFICATION_ID, title, detail)) return false;
-        UsAlertOutcomes.record(context, US_NOTIFICATION_ID, title, detail, signals);
+        AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, signals);
         var delivered = new HashSet<>(sent);
         delivered.addAll(queued);
         return edit.putStringSet(PRIVATE_SENT, delivered).commit();
