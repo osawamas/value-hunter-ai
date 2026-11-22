@@ -214,9 +214,31 @@ final class AlertOutcomes {
                 if (output.size() + count > 512_000) throw new IOException("US alert pilot ledger too large");
                 output.write(buffer, 0, count);
             }
-            return new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
+            var ledger = new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
+            for (String key : keys(ledger)) {
+                if (!validRow(ledger.optJSONObject(key))) ledger.remove(key);
+            }
+            return ledger;
         } catch (FileNotFoundException absent) {
             return new JSONObject();
+        }
+    }
+
+    private static boolean validRow(JSONObject row) {
+        if (row == null || !validSymbol(row.optString("symbol")) || row.optString("rule").isEmpty()
+                || row.optLong("at") <= 0) return false;
+        String status = row.optString("status");
+        if (!WAITING.equals(status) && !MISSING.equals(status) && !COMPLETE.equals(status)) return false;
+        if (COMPLETE.equals(status)
+                && (!Double.isFinite(row.optDouble("stockReturn")) || !Double.isFinite(row.optDouble("benchmarkReturn")))) {
+            return false;
+        }
+        try {
+            var entry = LocalDate.parse(row.optString("entry"));
+            var exit = LocalDate.parse(row.optString("exit"));
+            return exit.isAfter(entry);
+        } catch (java.time.format.DateTimeParseException invalid) {
+            return false;
         }
     }
 
