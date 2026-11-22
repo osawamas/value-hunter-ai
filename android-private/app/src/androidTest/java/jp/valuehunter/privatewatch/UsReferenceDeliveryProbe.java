@@ -318,7 +318,6 @@ final class UsReferenceDeliveryProbe {
             }
             // Replaying a submitted receipt with revised data must preserve the first
             // submission's timestamp and signal, even while the ledger is unwritable.
-            var original = new NotificationHistory.Entry("receipt-0", firstPosted, "title", "detail");
             AlertOutcomes.recordOrDefer(file, retry, market,
                     new NotificationHistory.Entry("receipt-0", firstPosted + 999_000, "changed", "changed"),
                     java.util.Map.of("FIXTURE0", "再判定"), now);
