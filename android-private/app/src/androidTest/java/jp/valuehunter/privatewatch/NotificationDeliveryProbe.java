@@ -178,6 +178,9 @@ final class NotificationDeliveryProbe {
             require(MarketNetwork.setAllowed(context, false), "Cannot pause the market in receipt replay");
             require(ScanWorker.postNotification(context, INTERRUPTED_ID, INTERRUPTED_TITLE, INTERRUPTED_DETAIL),
                     "The restarted app did not acknowledge the known delivery");
+            require(MarketNetwork.setAllowed(context, true), "Cannot resume market communication in receipt replay");
+            require(ScanWorker.postNotification(context, INTERRUPTED_ID, INTERRUPTED_TITLE, INTERRUPTED_DETAIL),
+                    "The restarted app did not acknowledge the receipt after market communication resumed");
         } finally {
             require(MarketNetwork.setAllowed(context, previous), "Cannot restore market fixture settings");
         }

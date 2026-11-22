@@ -301,10 +301,12 @@ public final class ScanWorker extends Worker {
             }
             long now = System.currentTimeMillis();
             boolean delivered = NotificationHistory.deliver(NotificationHistory.file(context), receiptKey, title, detail, now, () -> {
-                if (manager != null) for (var active : manager.getActiveNotifications()) {
-                    if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null
-                            && receipt.equals(active.getNotification().extras.getString(NOTIFICATION_RECEIPT))) {
-                        return active.getPostTime();
+                if (manager != null) {
+                    for (var active : manager.getActiveNotifications()) {
+                        if (active.getId() == id && active.getTag() == null && active.getNotification().extras != null
+                                && receipt.equals(active.getNotification().extras.getString(NOTIFICATION_RECEIPT))) {
+                            return active.getPostTime();
+                        }
                     }
                 }
                 return NotificationDismissal.recordedAt(context, receiptKey, now);
