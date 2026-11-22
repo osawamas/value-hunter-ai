@@ -155,6 +155,7 @@ final class UsReferenceDeliveryProbe {
         }
         verifyOutcomeComparison(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
+        verifyOutcomeRecovery(context);
         notifications.cancelAll();
         UsDailyWorker.applyFinancialScreen(context, state, after, SECOND, PROVIDER, hash, () -> false);
         expectQuiet(notifications);
@@ -239,6 +240,52 @@ final class UsReferenceDeliveryProbe {
             });
             if (!AlertOutcomes.report(file, market).contains("計測済み 1件 · 待ち 1件 · 集計対象外 0件")) {
                 throw new AssertionError("Later outcome did not complete after an earlier timeout");
+            }
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyOutcomeRecovery(Context context) throws Exception {
+        var file = new android.util.AtomicFile(java.io.File.createTempFile("outcomes-recovery", ".json", context.getCacheDir()));
+        file.delete();
+        try {
+            var market = AlertOutcomes.Market.US;
+            long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+            AlertOutcomes.add(file, market, new NotificationHistory.Entry("old", posted, "test", "test"),
+                    java.util.Map.of("KEEP", "割安"), posted);
+            var window = AlertOutcomes.window(market, posted);
+            var ledger = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            ledger.put("invalid-row", "partial data");
+            ledger.put("invalid-date", new JSONObject(ledger.getJSONObject("old:KEEP").toString()).put("exit", "bad"));
+            UsDailyWorker.writeSnapshot(file, ledger);
+            AlertOutcomes.add(file, market, new NotificationHistory.Entry("new", posted, "test", "test"),
+                    java.util.Map.of("NEW", "割安"), posted);
+            if (!AlertOutcomes.report(file, market).contains("計測済み 0件 · 待ち 2件 · 集計対象外 0件")) {
+                throw new AssertionError("A damaged row blocked or changed valid notifications");
+            }
+
+            var stopped = new java.util.concurrent.atomic.AtomicBoolean();
+            var interruption = new java.io.IOException("simulated Wi-Fi disconnect");
+            try {
+                AlertOutcomes.evaluate(file, market, window.exit(), stopped::get, range -> true, (range, symbols) -> {
+                    stopped.set(true);
+                    throw interruption;
+                });
+                throw new AssertionError("Interrupted retrieval did not abort");
+            } catch (java.io.IOException expected) {
+                if (expected != interruption) throw expected;
+            }
+            stopped.set(false);
+            AlertOutcomes.evaluate(file, market, window.exit(), stopped::get, range -> true, (range, symbols) -> {
+                if (!symbols.equals(java.util.Set.of("NEW", "KEEP", "IWV"))) {
+                    throw new AssertionError("Wi-Fi recovery dropped pending comparisons");
+                }
+                var prices = new AlertOutcomes.Prices(100, 104);
+                return java.util.Map.of("NEW", prices, "KEEP", prices, "IWV", prices);
+            });
+            if (!AlertOutcomes.report(file, market).contains("計測済み 2件 · 待ち 0件 · 集計対象外 0件")) {
+                throw new AssertionError("Wi-Fi recovery could not process both valid comparisons on the same date");
             }
         } finally {
             file.delete();
