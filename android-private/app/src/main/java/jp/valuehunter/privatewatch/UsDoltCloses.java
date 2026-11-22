@@ -180,6 +180,40 @@ final class UsDoltCloses {
                 + " AND close > 0 ORDER BY act_symbol,date");
     }
 
+    static Map<String, UsAlertOutcomes.Prices> outcomePrices(UsAlertOutcomes.Window window, Set<String> symbols,
+                                                          Download download) throws IOException, JSONException {
+        if (symbols.isEmpty() || symbols.size() > UsAlertOutcomes.MAX_BATCH
+                || !symbols.stream().allMatch(UsAlertOutcomes::validSymbol)) throw new JSONException("Invalid comparison symbols");
+        String in = new java.util.TreeSet<>(symbols).stream().map(symbol -> "'" + symbol + "'")
+                .collect(Collectors.joining(",", "(", ")"));
+        String entry = window.entry().toString();
+        String exit = window.exit().toString();
+        var rows = query(download, "SELECT q.act_symbol AS symbol, q.date AS trading_date, q.close FROM ohlcv q"
+                + " WHERE q.date IN ('" + entry + "','" + exit + "') AND q.act_symbol IN " + in
+                + " AND q.close > 0 AND NOT EXISTS (SELECT 1 FROM split s WHERE s.act_symbol = q.act_symbol"
+                + " AND s.ex_date > '" + entry + "' AND s.ex_date <= '" + exit + "')");
+        if (rows.length() > 2 * symbols.size()) throw new JSONException("Oversized comparison result");
+        var starts = new HashMap<String, Double>();
+        var ends = new HashMap<String, Double>();
+        for (int i = 0; i < rows.length(); i++) {
+            var row = rows.getJSONObject(i);
+            String symbol = row.getString("symbol");
+            String date = row.getString("trading_date");
+            double close = row.getDouble("close");
+            if (!symbols.contains(symbol) || (!entry.equals(date) && !exit.equals(date))
+                    || !Double.isFinite(close) || close <= 0
+                    || (entry.equals(date) ? starts : ends).put(symbol, close) != null) {
+                throw new JSONException("Invalid comparison close");
+            }
+        }
+        var result = new HashMap<String, UsAlertOutcomes.Prices>();
+        starts.forEach((symbol, close) -> {
+            Double end = ends.get(symbol);
+            if (end != null) result.put(symbol, new UsAlertOutcomes.Prices(close, end));
+        });
+        return result;
+    }
+
     private static JSONArray query(Download download, String sql)
             throws IOException, JSONException {
         var data = download.get(URL + "?q=" + URLEncoder.encode(sql, StandardCharsets.UTF_8.name()));

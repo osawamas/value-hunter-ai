@@ -271,6 +271,7 @@ public final class UsDailyWorker extends Worker {
                     var update = MarketUpdate.US_CLOSE.completed(state.edit())
                             .putString(STATUS, previous.equals(target) ? "終値を取得済み" : "保存済みの終値を表示中");
                     markQuoteFreshness(update, previous, target).apply();
+                    UsAlertOutcomes.update(context, previous, this::networkStopped);
                     return Result.success();
                 }
                 if (!UsDailyCloses.tradingDay(day)) continue;
@@ -298,6 +299,7 @@ public final class UsDailyWorker extends Worker {
                 updateHistory(state, day);
                 if (networkStopped()) return paused();
                 MarketUpdate.US_CLOSE.completed(state.edit()).apply();
+                UsAlertOutcomes.update(context, day, this::networkStopped);
                 return Result.success();
             }
             report(state, "直近7日間の終値を取得できず", MarketFreshness.Phase.PUBLICATION, target);
@@ -519,7 +521,12 @@ public final class UsDailyWorker extends Worker {
                 return true;
             }
             if (stopped.getAsBoolean()) return false;
-            return deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration, sent, queued, sender);
+            var signals = new java.util.HashMap<String, String>();
+            entrants.keySet().forEach(symbol -> signals.put(symbol, "priority".equals(screen.rows().get(symbol).status())
+                    ? "優先候補" : "参考候補"));
+            ranks.values().forEach(row -> signals.put(row.code(), ValueAlertMeter.LABELS.get(row.level())));
+            return deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration,
+                    sent, queued, signals, sender);
         } catch (JSONException | DateTimeParseException e) {
             MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.NEXT_CHECK, day)
                     .putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
@@ -533,7 +540,8 @@ public final class UsDailyWorker extends Worker {
 
     private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending,
                                                   long alertGeneration, long financialGeneration,
-                                                  Set<String> sent, Set<String> queued, FinancialAlertSender sender) {
+                                                  Set<String> sent, Set<String> queued, java.util.Map<String, String> signals,
+                                                  FinancialAlertSender sender) {
         int separator = pending.indexOf('\n');
         var edit = state.edit().remove(PRIVATE_PENDING);
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
@@ -541,9 +549,10 @@ public final class UsDailyWorker extends Worker {
                 || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)) {
             return edit.commit();
         }
-        if (!sender.post(context, US_NOTIFICATION_ID, pending.substring(0, separator), pending.substring(separator + 1))) {
-            return false;
-        }
+        String title = pending.substring(0, separator);
+        String detail = pending.substring(separator + 1);
+        if (!sender.post(context, US_NOTIFICATION_ID, title, detail)) return false;
+        UsAlertOutcomes.record(context, US_NOTIFICATION_ID, title, detail, signals);
         var delivered = new HashSet<>(sent);
         delivered.addAll(queued);
         return edit.putStringSet(PRIVATE_SENT, delivered).commit();
