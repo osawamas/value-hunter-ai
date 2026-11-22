@@ -120,6 +120,17 @@ class EvidenceAuditTests(unittest.TestCase):
                 {"ticker": "1234", "financial_eligible": True}
             ]})
 
+    def test_malformed_record_shapes_fail_closed(self):
+        for records in (None, {}, "1234", [None], [[]], ["1234"], [{}],
+                        [{"ticker": None}], [{"ticker": []}],
+                        [{"ticker": 1234}], [{"ticker": "12345"}]):
+            with self.subTest(records=records):
+                with self.assertRaises(ValueError):
+                    audit({"universe": ["1234"], "records": records})
+        self.assertEqual(audit({"universe": ["1234"], "records": [
+            {"ticker": "1234", "on_hold": True}
+        ]})["on_hold"], 1)
+
     def test_duplicate_record_rejected(self):
         with self.assertRaises(ValueError):
             audit({"universe": ["1234"], "records": [
