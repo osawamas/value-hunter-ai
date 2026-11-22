@@ -476,7 +476,7 @@ public final class UsDailyWorker extends Worker {
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
-            if (sameDay) recoverSubmittedFinancialAlert(context, state, sent);
+            if (!recoverSubmittedFinancialAlert(context, state, sent, sameDay)) return false;
             var queued = new java.util.HashMap<String, String>();
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
@@ -564,27 +564,34 @@ public final class UsDailyWorker extends Worker {
         return edit.putStringSet(PRIVATE_SENT, delivered).commit();
     }
 
-    private static void recoverSubmittedFinancialAlert(Context context, SharedPreferences state, Set<String> sent) {
+    private static boolean recoverSubmittedFinancialAlert(Context context, SharedPreferences state, Set<String> sent,
+                                                           boolean sameDay) {
         String pending = state.getString(PRIVATE_PENDING, "");
         int separator = pending.indexOf('\n');
-        if (separator < 0) return;
+        if (separator < 0) return true;
         try {
             var stored = new JSONObject(state.getString(PRIVATE_PENDING_SIGNALS, "{}"));
-            if (stored.length() == 0) return;
+            if (stored.length() == 0) return true;
             String title = pending.substring(0, separator);
             String detail = pending.substring(separator + 1);
-            if (AlertOutcomes.deliveredEntry(context, US_NOTIFICATION_ID, title, detail, System.currentTimeMillis()) == null) {
-                return;
-            }
+            long now = System.currentTimeMillis();
+            var delivered = AlertOutcomes.deliveredEntry(context, US_NOTIFICATION_ID, title, detail, now);
+            if (delivered == null) return true;
             var queued = new java.util.HashMap<String, String>();
             for (var keys = stored.keys(); keys.hasNext();) {
                 String key = keys.next();
                 queued.put(key, stored.getString(key));
             }
-            sent.addAll(queued.keySet());
+            NotificationHistory.restore(NotificationHistory.file(context), delivered, now);
             AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, outcomeSignals(queued));
-        } catch (IOException | JSONException unavailable) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の通知投稿記録を照合できず");
+            if (sameDay) sent.addAll(queued.keySet());
+            return true;
+        } catch (JSONException invalid) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の保留通知の銘柄記録が不正");
+            return true;
+        } catch (IOException unavailable) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の通知履歴を復元できず · 次回確認");
+            return false;
         }
     }
 

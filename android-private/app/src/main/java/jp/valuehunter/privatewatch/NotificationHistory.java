@@ -62,6 +62,11 @@ final class NotificationHistory {
         return true;
     }
 
+    static void restore(File file, Entry entry, long now) throws IOException {
+        if (entry.postedAt() <= 0) throw new IOException("Missing submitted notification time");
+        deliver(file, entry.receipt(), entry.title(), entry.detail(), now, entry::postedAt, () -> {}, () -> {});
+    }
+
     static synchronized List<Entry> recent(File file, long now) throws IOException {
         return List.copyOf(read(file, now));
     }
