@@ -25,6 +25,35 @@ public final class UsReferenceAlertsTest {
         return new UsReferenceAlerts.Screen(day, provider, "", rows);
     }
 
+    @Test public void queuedAlertIsInvalidatedBySameDayCloseCorrection() {
+        String original = "a".repeat(64);
+        String corrected = "b".repeat(64);
+        assertEquals(true, UsReferenceAlerts.pendingMatchesClose(original, original));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose(original, corrected));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose("", corrected));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose(null, corrected));
+        assertFalse(UsReferenceAlerts.pendingMatchesClose("invalid", "invalid"));
+    }
+
+    @Test public void sameDayFinancialCorrectionRebuildsEntrantsFromPriorSession() {
+        var prior = screen(DAY.minusDays(1), SOURCE, Map.of(
+                "AAA", row(1, "outside_budget", 100),
+                "BBB", row(2, "outside_budget", 100)));
+        var initial = screen(DAY, SOURCE, Map.of(
+                "AAA", row(1, "reference", 100),
+                "BBB", row(2, "outside_budget", 100)));
+        var corrected = screen(DAY, SOURCE, Map.of(
+                "AAA", row(1, "outside_budget", 100),
+                "BBB", row(2, "priority", 100)));
+        assertEquals(List.of("AAA · 100株 · 参考候補"),
+                UsReferenceAlerts.entrants(prior, initial));
+        assertEquals(List.of("BBB · 100株 · 優先候補"),
+                UsReferenceAlerts.entrants(prior, corrected));
+        // Only a delivered receipt suppresses another notification.
+        assertEquals(List.of(), List.copyOf(UsReferenceAlerts.entrantRows(
+                prior, corrected, java.util.Set.of("BBB")).values()));
+    }
+
     @Test public void reportsOnlyComparableEntriesAndPrioritizesPurchaseLots() {
         var previous = screen(DAY, SOURCE, Map.of(
                 "AAA", row(1, "reference", 1), "BBB", row(2, "outside_budget", 1),
@@ -73,4 +102,48 @@ public final class UsReferenceAlertsTest {
                 """));
         assertEquals(DAY, UsSecFinanceWorker.tradeDateFx(rates, DAY).date());
     }
+    @Test public void persistedSameDayCorrectionRebuildsAlertWithoutOldTextOrDuplicate() throws Exception {
+        String priorJson = """
+                {"trading_date_et":"2026-11-16","reference_screen":{
+                  "provider":"dolthub-post-no-preference-stocks",
+                  "close_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "fx_date":"2026-11-16",
+                  "observations":[
+                    {"symbol":"AAA","exchange":"NYSE","cik":11,"status":"outside_budget","quantity":100},
+                    {"symbol":"BBB","exchange":"Nasdaq","cik":22,"status":"outside_budget","quantity":100}]
+                }}
+                """;
+        String initialJson = """
+                {"trading_date_et":"2026-11-17","reference_screen":{
+                  "provider":"dolthub-post-no-preference-stocks",
+                  "close_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "fx_date":"2026-11-17",
+                  "observations":[
+                    {"symbol":"AAA","exchange":"NYSE","cik":11,"status":"reference","quantity":100},
+                    {"symbol":"BBB","exchange":"Nasdaq","cik":22,"status":"outside_budget","quantity":100}]
+                }}
+                """;
+        String correctedJson = """
+                {"trading_date_et":"2026-11-17","reference_screen":{
+                  "provider":"dolthub-post-no-preference-stocks",
+                  "close_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "fx_date":"2026-11-17",
+                  "observations":[
+                    {"symbol":"AAA","exchange":"NYSE","cik":11,"status":"outside_budget","quantity":100},
+                    {"symbol":"BBB","exchange":"Nasdaq","cik":22,"status":"priority","quantity":100}]
+                }}
+                """;
+        var prior = UsReferenceAlerts.read(new JSONObject(priorJson));
+        var initial = UsReferenceAlerts.read(new JSONObject(initialJson));
+        var corrected = UsReferenceAlerts.read(new JSONObject(correctedJson));
+        assertEquals(List.of("AAA · 100株 · 参考候補"), UsReferenceAlerts.entrants(prior, initial));
+        assertEquals(initial.hash(), corrected.hash());
+        assertEquals(List.of("BBB · 100株 · 優先候補"), UsReferenceAlerts.entrants(prior, corrected));
+        assertEquals(List.of(), List.copyOf(UsReferenceAlerts.entrantRows(
+                prior, corrected, java.util.Set.of("BBB")).values()));
+        var moved = new UsReferenceAlerts.Screen(DAY, SOURCE, corrected.hash(), Map.of(
+                "BBB", new UsReferenceAlerts.Observation(22, "NYSE", "priority", 100)));
+        assertEquals(List.of(), UsReferenceAlerts.entrants(prior, moved));
+    }
+
 }

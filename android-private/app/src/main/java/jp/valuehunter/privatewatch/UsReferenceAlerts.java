@@ -33,6 +33,10 @@ final class UsReferenceAlerts {
 
     private UsReferenceAlerts() {}
 
+    static boolean pendingMatchesClose(String savedHash, String currentHash) {
+        return savedHash != null && savedHash.matches("[a-f0-9]{64}") && savedHash.equals(currentHash);
+    }
+
     static String meterKey(String exchange, int cik, String ticker) {
         return exchange + ":" + cik + ":" + ticker;
     }
