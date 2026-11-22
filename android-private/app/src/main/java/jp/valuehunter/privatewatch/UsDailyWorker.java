@@ -68,6 +68,7 @@ public final class UsDailyWorker extends Worker {
     private static final String REPAIR_METRICS_DAY = "us_listing_repair_metrics_day";
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
+    private static final String PRIVATE_PENDING_SIGNALS = "us_private_sec_pending_signals";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
     static final String PRICE_ONLY_STATUS = "us_price_only_status";
@@ -475,7 +476,8 @@ public final class UsDailyWorker extends Worker {
             boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
-            var queued = new HashSet<String>();
+            if (sameDay) recoverSubmittedFinancialAlert(context, state, sent);
+            var queued = new java.util.HashMap<String, String>();
             long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
             long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
             // Recalculate from the current screen, including same-day corrections to SEC evidence.
@@ -496,19 +498,22 @@ public final class UsDailyWorker extends Worker {
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
                             + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
-                    queued.addAll(entrants.keySet());
+                    entrants.keySet().forEach(symbol -> queued.put(symbol, "priority".equals(screen.rows().get(symbol).status())
+                            ? "優先候補" : "参考候補"));
                 } else if (!ranks.isEmpty()) {
                     pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
                             + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
                                     .collect(java.util.stream.Collectors.joining("\n"));
-                    queued.addAll(ranks.keySet());
+                    ranks.forEach((key, row) -> queued.put(key, ValueAlertMeter.LABELS.get(row.level())));
                 }
             }
             var baseline = new JSONObject().put("trading_date_et", day.toString())
                     .put("reference_screen", new JSONObject(reference,
                             new String[]{"provider", "close_sha256", "fx_date", "observations"}));
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
-                    .putString(PRIVATE_PENDING, pending).putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
+                    .putString(PRIVATE_PENDING, pending)
+                    .putString(PRIVATE_PENDING_SIGNALS, new JSONObject(queued).toString())
+                    .putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
             if (meter != null) {
                 try {
@@ -526,12 +531,8 @@ public final class UsDailyWorker extends Worker {
                 return true;
             }
             if (stopped.getAsBoolean()) return false;
-            var signals = new java.util.HashMap<String, String>();
-            entrants.keySet().forEach(symbol -> signals.put(symbol, "priority".equals(screen.rows().get(symbol).status())
-                    ? "優先候補" : "参考候補"));
-            ranks.values().forEach(row -> signals.put(row.code(), ValueAlertMeter.LABELS.get(row.level())));
             return deliverFinancialAlert(context, state, pending, alertGeneration, financialGeneration,
-                    sent, queued, signals, sender);
+                    sent, queued, sender);
         } catch (JSONException | DateTimeParseException e) {
             MarketFreshness.US_FINANCE.waiting(state.edit(), MarketFreshness.Phase.NEXT_CHECK, day)
                     .putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
@@ -545,10 +546,10 @@ public final class UsDailyWorker extends Worker {
 
     private static boolean deliverFinancialAlert(Context context, SharedPreferences state, String pending,
                                                   long alertGeneration, long financialGeneration,
-                                                  Set<String> sent, Set<String> queued, java.util.Map<String, String> signals,
+                                                  Set<String> sent, java.util.Map<String, String> queued,
                                                   FinancialAlertSender sender) {
         int separator = pending.indexOf('\n');
-        var edit = state.edit().remove(PRIVATE_PENDING);
+        var edit = state.edit().remove(PRIVATE_PENDING).remove(PRIVATE_PENDING_SIGNALS);
         if (separator < 0 || !ScanWorker.notificationsRequested(context)
                 || alertGeneration != state.getLong(ScanWorker.ALERT_GENERATION, 0)
                 || financialGeneration != state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0)) {
@@ -557,10 +558,43 @@ public final class UsDailyWorker extends Worker {
         String title = pending.substring(0, separator);
         String detail = pending.substring(separator + 1);
         if (!sender.post(context, US_NOTIFICATION_ID, title, detail)) return false;
-        AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, signals);
+        AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, outcomeSignals(queued));
         var delivered = new HashSet<>(sent);
-        delivered.addAll(queued);
+        delivered.addAll(queued.keySet());
         return edit.putStringSet(PRIVATE_SENT, delivered).commit();
+    }
+
+    private static void recoverSubmittedFinancialAlert(Context context, SharedPreferences state, Set<String> sent) {
+        String pending = state.getString(PRIVATE_PENDING, "");
+        int separator = pending.indexOf('\n');
+        if (separator < 0) return;
+        try {
+            var stored = new JSONObject(state.getString(PRIVATE_PENDING_SIGNALS, "{}"));
+            if (stored.length() == 0) return;
+            String title = pending.substring(0, separator);
+            String detail = pending.substring(separator + 1);
+            if (AlertOutcomes.deliveredEntry(context, US_NOTIFICATION_ID, title, detail, System.currentTimeMillis()) == null) {
+                return;
+            }
+            var queued = new java.util.HashMap<String, String>();
+            for (var keys = stored.keys(); keys.hasNext();) {
+                String key = keys.next();
+                queued.put(key, stored.getString(key));
+            }
+            sent.addAll(queued.keySet());
+            AlertOutcomes.record(context, AlertOutcomes.Market.US, US_NOTIFICATION_ID, title, detail, outcomeSignals(queued));
+        } catch (IOException | JSONException unavailable) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の通知投稿記録を照合できず");
+        }
+    }
+
+    private static java.util.Map<String, String> outcomeSignals(java.util.Map<String, String> queued) {
+        var signals = new java.util.HashMap<String, String>();
+        queued.forEach((key, label) -> {
+            String symbol = key.startsWith("meter:") && key.length() > 8 ? key.substring(8) : key;
+            if (AlertOutcomes.validSymbol(symbol)) signals.put(symbol, label);
+        });
+        return signals;
     }
 
     private static UsReferenceAlerts.Screen readPrivateBaseline(SharedPreferences state) {

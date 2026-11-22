@@ -94,16 +94,22 @@ final class AlertOutcomes {
     static void record(Context context, Market market, int id, String title, String detail, Map<String, String> signals) {
         long now = System.currentTimeMillis();
         try {
-            String receipt = id + "-" + ScanWorker.notificationReceipt(title, detail);
-            for (var entry : NotificationHistory.recent(NotificationHistory.file(context), now)) {
-                if (receipt.equals(entry.receipt())) {
-                    add(file(context, market), market, entry, signals, now);
-                    return;
-                }
-            }
+            var entry = deliveredEntry(context, id, title, detail, now);
+            if (entry != null) add(file(context, market), market, entry, signals, now);
         } catch (IOException | JSONException e) {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の試験記録を保存できず");
         }
+    }
+
+    static NotificationHistory.Entry deliveredEntry(Context context, int id, String title, String detail, long now)
+            throws IOException {
+        String receipt = id + "-" + ScanWorker.notificationReceipt(title, detail);
+        long submitted = NotificationDismissal.recordedAt(context, receipt, now);
+        if (submitted > 0) return new NotificationHistory.Entry(receipt, submitted, title, detail);
+        for (var entry : NotificationHistory.recent(NotificationHistory.file(context), now)) {
+            if (receipt.equals(entry.receipt())) return entry;
+        }
+        return null;
     }
 
     private static AtomicFile file(Context context, Market market) {
