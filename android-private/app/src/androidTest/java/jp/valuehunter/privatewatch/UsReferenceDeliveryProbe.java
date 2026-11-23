@@ -749,19 +749,21 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Could not save original market session");
         }
         String prior = state.getString("us_private_sec_baseline", "");
-        if (prior.isEmpty() || !state.edit().putStringSet("us_private_sec_sent",
-                java.util.Set.of("METER", "NEWCIK", "NEWVENUE", "meter:3:METER")).commit()) {
-            throw new AssertionError("Cannot seed original submitted US receipt");
-        }
+        if (prior.isEmpty()) throw new AssertionError("Missing original market baseline");
+        // Persist a real new-session notification before changing the quote provider.
+        // A previous-day sent set would be cleared legitimately at the session boundary.
         var regular = meterLedger(SECOND, firstHash, 9);
         if (!UsDailyWorker.applyFinancialScreen(context, state, regular, SECOND, PROVIDER, firstHash,
-                () -> false, (app, id, title, detail) -> {
-                    throw new AssertionError("Previously submitted stock was reposted");
-                })) {
-            throw new AssertionError("Could not save second trading session");
+                () -> false, ScanWorker::postNotification)) {
+            throw new AssertionError("Could not submit second trading session");
         }
+        var originallySent = new java.util.HashSet<>(state.getStringSet("us_private_sec_sent", java.util.Set.of()));
         String originalPrior = state.getString("us_private_sec_prior_baseline", "");
-        if (!prior.equals(originalPrior)) throw new AssertionError("Prior-day baseline was changed");
+        if (originallySent.isEmpty() || !prior.equals(originalPrior)) {
+            throw new AssertionError("Second session did not preserve submitted receipts and prior-day baseline");
+        }
+        notifications.cancelAll();
+        expectQuiet(notifications);
         var switched = meterLedger(SECOND, alternateHash, 9);
         switched.put("close_provider", alternate);
         switched.getJSONObject("reference_screen").put("provider", alternate);
@@ -771,8 +773,7 @@ final class UsReferenceDeliveryProbe {
                 })) {
             throw new AssertionError("Could not update same-day quote provider");
         }
-        if (!state.getStringSet("us_private_sec_sent", java.util.Set.of()).containsAll(
-                java.util.Set.of("METER", "meter:3:METER"))
+        if (!state.getStringSet("us_private_sec_sent", java.util.Set.of()).equals(originallySent)
                 || !originalPrior.equals(state.getString("us_private_sec_prior_baseline", ""))) {
             throw new AssertionError("Same-day quote provider switch lost submitted receipts or comparison anchor");
         }
@@ -781,7 +782,7 @@ final class UsReferenceDeliveryProbe {
                 () -> false, (app, id, title, detail) -> {
                     throw new AssertionError("Switch back to original provider reposted a known receipt");
                 })
-                || !state.getStringSet("us_private_sec_sent", java.util.Set.of()).contains("METER")
+                || !state.getStringSet("us_private_sec_sent", java.util.Set.of()).equals(originallySent)
                 || !originalPrior.equals(state.getString("us_private_sec_prior_baseline", ""))) {
             throw new AssertionError("Returning to original provider lost original notification state");
         }
