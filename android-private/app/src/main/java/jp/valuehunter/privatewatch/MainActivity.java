@@ -38,14 +38,14 @@ import java.util.Locale;
 public final class MainActivity extends Activity {
     private static final String METER_DRAFT = "valueMeterDraft";
     private static final String PAUSED = "public_jpx_watch_paused";
-    private static final int PAGE = 0xfff3f5f0;
+    private static final int PAGE = 0xfffffbf6;
     private static final int SURFACE = 0xffffffff;
-    private static final int FOREST = 0xff173b33;
-    private static final int INK = 0xff182e28;
-    private static final int MUTED = 0xff53665e;
-    private static final int LIGHT_TEXT = 0xffd5e6d8;
-    private static final int ACCENT = 0xffdbf183;
-    private static final int OUTLINE = 0xffdbe3da;
+    private static final int FOREST = 0xff091b2e;
+    private static final int INK = 0xff142336;
+    private static final int MUTED = 0xff536071;
+    private static final int LIGHT_TEXT = 0xffffe3ca;
+    private static final int ACCENT = 0xffd79b72;
+    private static final int OUTLINE = 0xffdac8ba;
 
     private SharedPreferences state;
     private Switch monitorSwitch;
@@ -105,9 +105,13 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
 
         var hero = section(content, FOREST, false);
-        var brand = label(hero, getString(R.string.app_name), 11, LIGHT_TEXT, true, 0);
-        brand.setLetterSpacing(0.13f);
-        label(hero, "株式モニター", 30, SURFACE, true, 7);
+        var brand = label(hero, "他力本願寺", 29, LIGHT_TEXT, true, 0);
+        brand.setTypeface(Typeface.create("serif", Typeface.BOLD));
+        label(hero, "VALUE HUNTER AI", 13, ACCENT, false, 2).setLetterSpacing(0.16f);
+        var copperRule = new View(this);
+        copperRule.setBackgroundColor(ACCENT);
+        hero.addView(copperRule, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(2)));
         monitorStatus = label(hero, "", 15, ACCENT, true, 10);
         label(hero, "新しく条件に入った銘柄を無音で通知", 13, LIGHT_TEXT, false, 5);
 
@@ -176,7 +180,8 @@ public final class MainActivity extends Activity {
         label(notifications, "オンで新規入り・昇格を3段階で通知。比較資料のある銘柄が対象。", 13, MUTED, false, 5);
         button(notifications, "割安アラートの境界", PAGE, 5)
                 .setOnClickListener(view -> showValueAlertMeter());
-        button(notifications, "診断ログ", PAGE, 5).setOnClickListener(view -> showDiagnostics());
+        button(notifications, "デバッグ診断・エラー一覧", PAGE, 5)
+                .setOnClickListener(view -> startActivity(new Intent(this, DebugDiagnosticsActivity.class)));
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
