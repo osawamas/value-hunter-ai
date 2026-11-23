@@ -62,7 +62,11 @@ final class UsSingleSessionBudgetCheck {
         if (results == null) results = new JSONObject();
         // Recompute damaged checkpoint values rather than treating their mere
         // presence as an already-completed screening verdict.
-        discardInvalidVerdicts(results, eligible);
+        if (discardInvalidVerdicts(results, eligible)) {
+            // Corrupt eligible verdicts must be retried immediately, not held
+            // behind the previous batch's one-hour backoff.
+            saved.remove("after");
+        }
         saved.put("eligible", eligible.size());
         long now = System.currentTimeMillis();
         if (eligible.isEmpty() || saved.optLong("after") > now) {
@@ -110,16 +114,20 @@ final class UsSingleSessionBudgetCheck {
         saveIfEvidenceUnchanged(state, day, saved, results, file, quoteHash, directory, listingHash);
     }
 
-    static void discardInvalidVerdicts(JSONObject results, Set<String> eligible) {
+    static boolean discardInvalidVerdicts(JSONObject results, Set<String> eligible) {
+        boolean removedInvalidEligible = false;
         var recorded = results.keys();
         while (recorded.hasNext()) {
             String symbol = recorded.next();
             Object verdict = results.opt(symbol);
-            if (!eligible.contains(symbol) || !(verdict instanceof String)
-                    || (!"WITHIN".equals(verdict) && !"OUTSIDE".equals(verdict))) {
+            boolean invalid = !(verdict instanceof String)
+                    || (!"WITHIN".equals(verdict) && !"OUTSIDE".equals(verdict));
+            if (!eligible.contains(symbol) || invalid) {
+                if (eligible.contains(symbol) && invalid) removedInvalidEligible = true;
                 recorded.remove();
             }
         }
+        return removedInvalidEligible;
     }
 
     // A corrected same-session close changes the evidence used by the budget
