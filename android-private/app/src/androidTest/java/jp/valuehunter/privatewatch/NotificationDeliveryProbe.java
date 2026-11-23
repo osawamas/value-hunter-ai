@@ -585,22 +585,33 @@ final class NotificationDeliveryProbe {
     private static void exerciseDiagnosticCopy(Instrumentation instrumentation, android.app.Activity activity) {
         var context = instrumentation.getTargetContext();
         instrumentation.runOnMainSync(() -> {
-            var button = control(activity.getWindow().getDecorView(), "診断ログ", Button.class);
-            require(button != null && button.performClick(), "Cannot open diagnostics offline");
+            var entry = control(activity.getWindow().getDecorView(),
+                    "デバッグ診断・エラー一覧", Button.class);
+            require(entry != null, "Cannot find diagnostics entry in the private dashboard");
         });
-        require(await(() -> findDialogText(instrumentation, "診断ログをコピー") != null), "Diagnostics dialog is not visible");
-        var copy = findDialogText(instrumentation, "診断ログをコピー");
-        require(copy != null && copy.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot copy the diagnostic report");
-        var clipboard = context.getSystemService(android.content.ClipboardManager.class);
-        require(await(() -> {
-            var clip = clipboard.getPrimaryClip();
-            if (clip == null) return false;
-            var report = clip.getItemAt(0).getText().toString();
-            return report.contains("アプリ: ") && report.contains("（ビルド ")
-                    && report.contains("現在の通信状態: 相場通信オフ")
-                    && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
-                    && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
-        }), "Offline diagnostic copy was missing stages or included notification details");
+        var diagnostics = instrumentation.startActivitySync(new Intent(context,
+                DebugDiagnosticsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try {
+            instrumentation.runOnMainSync(() -> {
+                var root = diagnostics.getWindow().getDecorView();
+                var copy = control(root, "診断ログをすべてコピー", Button.class);
+                require(copy != null && copy.performClick(),
+                        "Cannot copy report from the new diagnostics screen");
+            });
+            var clipboard = context.getSystemService(android.content.ClipboardManager.class);
+            require(await(() -> {
+                var clip = clipboard.getPrimaryClip();
+                if (clip == null) return false;
+                var report = clip.getItemAt(0).getText().toString();
+                return report.contains("アプリ: ") && report.contains("（ビルド ")
+                        && report.contains("現在の通信状態: 相場通信オフ")
+                        && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
+                        && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
+            }), "Offline diagnostic copy was missing stages or included notification details");
+        } finally {
+            instrumentation.runOnMainSync(diagnostics::finish);
+            instrumentation.waitForIdleSync();
+        }
     }
 
     private static <T extends TextView> T control(View view, String text, Class<T> type) {
