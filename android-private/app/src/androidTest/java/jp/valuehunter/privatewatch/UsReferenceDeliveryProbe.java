@@ -715,6 +715,14 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Unsubmitted meter alert was not queued");
         }
 
+        // An unsent alert with malformed pending signals must not block corrections
+        // indefinitely: no receipt exists yet, so rebuilding the queue is safe.
+        String outstanding = state.getString("us_private_sec_pending", "");
+        if (!state.edit().putString("us_private_sec_pending_signals", "{broken-unposted").commit()
+                || !UsDailyWorker.recoverSubmittedFinancialAlert(context, state)
+                || !outstanding.equals(state.getString("us_private_sec_pending", ""))) {
+            throw new AssertionError("Malformed never-posted signals blocked recalculation");
+        }
         // The close snapshot remains the same. Revised earnings make the old notification ineligible.
         var corrected = meterLedger(SECOND, hash, 9, true);
         if (!UsDailyWorker.applyFinancialScreen(context, state, corrected, SECOND, PROVIDER, hash, () -> false)

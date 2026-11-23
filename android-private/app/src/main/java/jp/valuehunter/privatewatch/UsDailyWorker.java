@@ -570,10 +570,22 @@ public final class UsDailyWorker extends Worker {
         int separator = pending.indexOf('\n');
         if (separator < 0) return true;
         try {
-            var stored = new JSONObject(state.getString(PRIVATE_PENDING_SIGNALS, "{}"));
             String title = pending.substring(0, separator);
             String detail = pending.substring(separator + 1);
             long now = System.currentTimeMillis();
+            JSONObject stored;
+            try {
+                stored = new JSONObject(state.getString(PRIVATE_PENDING_SIGNALS, "{}"));
+            } catch (JSONException malformed) {
+                // A never-submitted queue can be rebuilt from the latest validated
+                // screen. A posted receipt must instead retain its original evidence.
+                if (AlertOutcomes.deliveredEntry(context, US_NOTIFICATION_ID, title, detail, now) == null) {
+                    DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                            "米国株の未送信保留データが不正 · 最新判定で再計算");
+                    return true;
+                }
+                throw malformed;
+            }
             if (stored.length() == 0) {
                 // Legacy pending text may belong to an alert that was never delivered.
                 // Only preserve empty-signal pending state when its actual delivery
