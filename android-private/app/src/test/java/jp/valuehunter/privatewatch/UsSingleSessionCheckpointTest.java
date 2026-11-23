@@ -166,6 +166,15 @@ public class UsSingleSessionCheckpointTest {
                 venues, java.util.Set.of("ABC"), groups, priorSymbols, oldPrior));
     }
 
+    @Test public void coverageDayAdvancingDuringFetchMustNotPersistPriorSessionResults() {
+        var original = java.time.LocalDate.of(2026, 11, 17);
+        var next = java.time.LocalDate.of(2026, 11, 18);
+        assertTrue(UsSingleSessionBudgetCheck.sameCoverageDay(original, original));
+        assertFalse(UsSingleSessionBudgetCheck.sameCoverageDay(original, next));
+        assertFalse(UsSingleSessionBudgetCheck.sameCoverageDay(original, null));
+        assertFalse(UsSingleSessionBudgetCheck.sameCoverageDay(null, original));
+    }
+
     @Test public void legacyCheckpointCannotReuseVerdictsWithoutQuoteHash() throws Exception {
         var legacy = new JSONObject().put("results", new JSONObject().put("ABC", "OUTSIDE"))
                 .put("after", Long.MAX_VALUE);
