@@ -426,8 +426,25 @@ public final class UsDailyWorker extends Worker {
 
     static boolean matchesPriorSnapshot(JSONObject snapshot, LocalDate expected, String provider) {
         var closes = snapshot.optJSONArray("closes");
-        return expected.toString().equals(snapshot.optString("trading_date_et"))
-                && provider.equals(snapshot.optString("source")) && closes != null && closes.length() > 0;
+        if (!expected.toString().equals(snapshot.optString("trading_date_et"))
+                || !provider.equals(snapshot.optString("source"))
+                || closes == null || closes.length() == 0 || closes.length() > 50_000) {
+            return false;
+        }
+        // A partial/corrupt saved prior close must be fetched again, not treated
+        // as a valid comparison anchor just because its array is nonempty.
+        var seen = new HashSet<String>();
+        for (int i = 0; i < closes.length(); i++) {
+            var row = closes.optJSONObject(i);
+            if (row == null) return false;
+            String symbol = row.optString("symbol", "");
+            Object value = row.opt("close_usd");
+            if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}") || !seen.add(symbol)
+                    || !(value instanceof Number)) return false;
+            double price = ((Number) value).doubleValue();
+            if (!Double.isFinite(price) || price <= 0) return false;
+        }
+        return true;
     }
 
     static boolean applyFinancialScreen(Context context, SharedPreferences state, JSONObject ledger,
