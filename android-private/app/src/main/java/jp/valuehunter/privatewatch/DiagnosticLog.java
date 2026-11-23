@@ -43,7 +43,19 @@ final class DiagnosticLog {
         try {
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             state.edit().putString(EVENTS, append(state.getString(EVENTS, ""), row)).apply();
-            persistStructured(state, classify(event), area.label, event, "", "", "", false);
+            String level = classify(event);
+            String location = "";
+            String trace = "";
+            if (!"INFO".equals(level)) {
+                for (StackTraceElement frame : Thread.currentThread().getStackTrace()) {
+                    if (!frame.getClassName().startsWith("jp.valuehunter.")
+                            || frame.getClassName().equals(DiagnosticLog.class.getName())) continue;
+                    location = frame.getFileName() + ":" + frame.getLineNumber();
+                    trace = frame.getClassName() + "." + frame.getMethodName() + " (" + location + ")";
+                    break;
+                }
+            }
+            persistStructured(state, level, area.label, event, "", location, trace, false);
         } catch (RuntimeException unavailable) {
             // Local diagnostics must never stop market work or a notification.
         }
