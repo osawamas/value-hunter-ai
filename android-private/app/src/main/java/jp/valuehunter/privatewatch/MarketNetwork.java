@@ -184,11 +184,13 @@ final class MarketNetwork {
             // Android 15 can briefly retain stale Wi-Fi capabilities after
             // the radio is disabled; do not authorize a route in that window.
             WifiManager radio = application.getSystemService(WifiManager.class);
-            if (radio == null || !radio.isWifiEnabled()) return null;
+            if (radio == null) return null;
+            boolean radioEnabled = radio.isWifiEnabled();
             var network = connectivity.getActiveNetwork();
             if (network == null) return null;
             var caps = connectivity.getNetworkCapabilities(network);
-            if (caps != null && wifiRoute(caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+            if (caps != null && radioWifiRoute(radioEnabled,
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
                     caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET))) return network;
@@ -196,6 +198,11 @@ final class MarketNetwork {
             // An unidentified route must never be used in Wi-Fi-only mode.
         }
         return null;
+    }
+
+    static boolean radioWifiRoute(boolean radioEnabled, boolean wifi,
+                                  boolean cellular, boolean vpn, boolean internet) {
+        return radioEnabled && wifiRoute(wifi, cellular, vpn, internet);
     }
 
     static boolean wifiRoute(boolean wifi, boolean cellular, boolean vpn, boolean internet) {
