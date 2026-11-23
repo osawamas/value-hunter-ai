@@ -133,7 +133,7 @@ public final class UsDailyWorker extends Worker {
                 "us-listing-recheck-" + day, ExistingWorkPolicy.KEEP, request);
     }
 
-    static String displayStatus(SharedPreferences state) {
+    static String displayStatus(Context context, SharedPreferences state) {
         String status = state.getString(STATUS, "初回の自動更新待ち");
         var finance = MarketFreshness.US_FINANCE;
         String proven = finance.result(state);
@@ -171,10 +171,14 @@ public final class UsDailyWorker extends Worker {
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
-        String single = UsSingleSessionBudgetCheck.display(state, day, state.getString(PROVIDER, ""));
+        String single = context == null ? "" : UsSingleSessionBudgetCheck.display(context, state, day, state.getString(PROVIDER, ""));
         if (!single.isEmpty()) result += "\n\n" + single;
         String repair = repairStatus(state, day);
         return repair.isEmpty() ? result : result + "\n\n" + repair;
+    }
+
+    static String displayStatus(SharedPreferences state) {
+        return displayStatus(null, state);
     }
 
     static String repairStatus(SharedPreferences state, String day) {
