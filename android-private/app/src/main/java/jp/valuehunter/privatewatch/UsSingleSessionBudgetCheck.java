@@ -67,7 +67,8 @@ final class UsSingleSessionBudgetCheck {
             // behind the previous batch's one-hour backoff.
             saved.remove("after");
         }
-        saved.put("eligible", eligible.size());
+        saved.put("eligible", eligible.size())
+                .put("eligible_symbols", new JSONArray(new java.util.TreeSet<>(eligible)));
         long now = System.currentTimeMillis();
         if (eligible.isEmpty() || saved.optLong("after") > now) {
             if (!stopped.getAsBoolean()) saveIfEvidenceUnchanged(state, day, saved, results, file, quoteHash, directory, listingHash);
@@ -292,6 +293,24 @@ final class UsSingleSessionBudgetCheck {
         return true;
     }
 
+    // A corrupt but syntactically valid verdict for a different ticker must
+    // not be counted in this day's budget totals. Legacy snapshots without
+    // a membership list are displayed as pending re-verification.
+    static boolean validDisplayVerdicts(JSONObject results, int eligible, JSONArray eligibleSymbols) {
+        if (!validDisplayVerdicts(results, eligible) || eligibleSymbols == null
+                || eligibleSymbols.length() != eligible) return false;
+        var members = new HashSet<String>();
+        for (int index = 0; index < eligibleSymbols.length(); index++) {
+            Object entry = eligibleSymbols.opt(index);
+            if (!(entry instanceof String) || !members.add((String) entry)) return false;
+        }
+        var codes = results.keys();
+        while (codes.hasNext()) {
+            if (!members.contains(codes.next())) return false;
+        }
+        return true;
+    }
+
     static String display(Context context, SharedPreferences state, String day, String provider) {
         if (!UsDoltCloses.SOURCE.equals(provider)) return "";
         var saved = read(state, day);
@@ -317,7 +336,7 @@ final class UsSingleSessionBudgetCheck {
         var results = saved.optJSONObject("results");
         int eligible = saved.optInt("eligible");
         if (eligible == 0) return "";
-        if (!validDisplayVerdicts(results, eligible)) {
+        if (!validDisplayVerdicts(results, eligible, saved.optJSONArray("eligible_symbols"))) {
             return day + " 当日の予算チェック · 保存済み判定の再検証待ち";
         }
         int within = 0;
