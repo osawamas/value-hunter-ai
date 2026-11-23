@@ -135,6 +135,34 @@ public class NotificationHistoryTest {
         assertEquals(2, NotificationHistory.recent(file, NOW).size());
         assertThrows(IOException.class, () -> NotificationHistory.recent(directory.getRoot(), NOW));
     }
+    @Test public void wrongFieldTypesCannotBeCoercedIntoDeliveryReceipts() throws Exception {
+        var file = history();
+        var valid = new org.json.JSONObject().put("receipt", "original")
+                .put("at", NOW).put("title", "以前の通知").put("detail", "保存済み");
+        var malformed = List.of(
+                new org.json.JSONObject().put("receipt", 123).put("at", NOW).put("title", "不正"),
+                new org.json.JSONObject().put("receipt", "bad").put("at", String.valueOf(NOW)).put("title", "不正"),
+                new org.json.JSONObject().put("receipt", "bad").put("at", NOW).put("title", true),
+                new org.json.JSONObject().put("receipt", "bad").put("at", NOW).put("title", "不正")
+                        .put("detail", org.json.JSONObject.NULL),
+                new org.json.JSONObject().put("receipt", "bad").put("at", NOW + 0.5d).put("title", "不正")
+        );
+        for (var bad : malformed) {
+            var rows = new org.json.JSONArray().put(valid).put(bad);
+            byte[] original = rows.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            Files.write(file.toPath(), original);
+            assertThrows(IOException.class, () -> NotificationHistory.recent(file, NOW));
+            assertThrows(IOException.class, () -> NotificationHistory.deliver(file, "new", "新着", "内容",
+                    NOW, () -> 0, UNEXPECTED, UNEXPECTED));
+            assertArrayEquals(original, Files.readAllBytes(file.toPath()));
+        }
+        Files.write(file.toPath(), new org.json.JSONArray().put(valid).toString()
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertTrue(NotificationHistory.deliver(file, "new", "新着", "内容", NOW,
+                () -> 0, () -> {}, () -> {}));
+        assertEquals(2, NotificationHistory.recent(file, NOW).size());
+    }
+
     @Test public void wakeFailureAfterSuccessfulPostStillPersistsReceipt() throws Exception {
         var file = history();
         var posts = new AtomicInteger();
