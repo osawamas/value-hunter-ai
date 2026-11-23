@@ -341,7 +341,12 @@ final class AlertOutcomes {
             }
             var ledger = new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
             for (String key : keys(ledger)) {
-                if (!validRow(ledger.optJSONObject(key))) ledger.remove(key);
+                // Silently dropping a damaged row means the next successful write
+                // permanently destroys its receipt and financial outcome. Preserve
+                // the original bytes until the ledger can be repaired safely.
+                if (!validRow(ledger.optJSONObject(key))) {
+                    throw new JSONException("Invalid saved alert outcome for " + key);
+                }
             }
             return ledger;
         } catch (FileNotFoundException absent) {
