@@ -773,13 +773,19 @@ public final class UsDailyWorker extends Worker {
     }
 
     static void writeSnapshot(AtomicFile file, JSONObject snapshot) throws IOException {
+        byte[] expected = snapshot.toString().getBytes(StandardCharsets.UTF_8);
         var stream = file.startWrite();
         try {
-            stream.write(snapshot.toString().getBytes(StandardCharsets.UTF_8));
+            stream.write(expected);
             file.finishWrite(stream);
         } catch (IOException e) {
             file.failWrite(stream);
             throw e;
+        }
+        // Some Android versions report failed final renames only in the system log.
+        // Never mark a daily close or SEC checkpoint saved without verifying the bytes.
+        if (!java.util.Arrays.equals(expected, file.readFully())) {
+            throw new IOException("Could not verify atomic snapshot write");
         }
     }
 
