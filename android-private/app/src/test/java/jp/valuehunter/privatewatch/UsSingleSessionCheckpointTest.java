@@ -139,6 +139,33 @@ public class UsSingleSessionCheckpointTest {
         }
     }
 
+    @Test public void priorClosePriceCorrectionInvalidatesBudgetEvenWithIdenticalSymbols() throws Exception {
+        var venues = java.util.Map.of("ABC", "NYSE");
+        var priorSymbols = java.util.Set.of("ABC");
+        var groups = java.util.Map.of(MarketCoverage.Reason.FINANCIALS,
+                java.util.List.of("ABC"));
+        String oldPrior = UsReferenceAlerts.sha256(
+                "ABC=9.10".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String correctedPrior = UsReferenceAlerts.sha256(
+                "ABC=9.25".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String oldEvidence = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                venues, java.util.Set.of("ABC"), groups, priorSymbols, oldPrior);
+        String newEvidence = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                venues, java.util.Set.of("ABC"), groups, priorSymbols, correctedPrior);
+        assertFalse(oldEvidence.equals(newEvidence));
+        var checkpoint = new JSONObject().put("quote_sha256", FIRST)
+                .put("listing_sha256", oldEvidence)
+                .put("results", new JSONObject().put("ABC", "WITHIN"))
+                .put("after", Long.MAX_VALUE).put("cursor", "ABC");
+        var invalidated = UsSingleSessionBudgetCheck.matchingEvidenceCheckpoint(
+                checkpoint, FIRST, newEvidence);
+        assertFalse(invalidated.has("results"));
+        assertFalse(invalidated.has("after"));
+        assertFalse(invalidated.has("cursor"));
+        assertEquals(oldEvidence, UsSingleSessionBudgetCheck.listingEvidenceHash(
+                venues, java.util.Set.of("ABC"), groups, priorSymbols, oldPrior));
+    }
+
     @Test public void legacyCheckpointCannotReuseVerdictsWithoutQuoteHash() throws Exception {
         var legacy = new JSONObject().put("results", new JSONObject().put("ABC", "OUTSIDE"))
                 .put("after", Long.MAX_VALUE);
