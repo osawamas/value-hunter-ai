@@ -42,6 +42,54 @@ public class UsSingleSessionCheckpointTest {
         assertFalse(UsSingleSessionBudgetCheck.matchesSavedQuote("", original));
     }
 
+    @Test public void sameQuoteWithNewListingEvidenceDiscardsOldBudgetResults() throws Exception {
+        var listing = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of("ABC"),
+                java.util.Map.of(MarketCoverage.Reason.FINANCIALS, java.util.List.of("ABC")),
+                java.util.Set.of("ABC"));
+        var reordered = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of("ABC"),
+                java.util.Map.of(MarketCoverage.Reason.FINANCIALS, java.util.List.of("ABC")),
+                java.util.Set.of("ABC"));
+        var changed = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NASDAQ"), java.util.Set.of("ABC"),
+                java.util.Map.of(MarketCoverage.Reason.FINANCIALS, java.util.List.of("ABC")),
+                java.util.Set.of("ABC"));
+        assertEquals(listing, reordered);
+        assertFalse(listing.equals(changed));
+        var old = new JSONObject().put("quote_sha256", FIRST).put("listing_sha256", listing)
+                .put("cursor", "ABC").put("after", Long.MAX_VALUE)
+                .put("results", new JSONObject().put("ABC", "WITHIN"));
+        var retained = UsSingleSessionBudgetCheck.matchingEvidenceCheckpoint(old, FIRST, listing);
+        assertEquals("WITHIN", retained.getJSONObject("results").getString("ABC"));
+        var invalidated = UsSingleSessionBudgetCheck.matchingEvidenceCheckpoint(old, FIRST, changed);
+        assertFalse(invalidated.has("results"));
+        assertFalse(invalidated.has("cursor"));
+        assertFalse(invalidated.has("after"));
+        assertEquals(FIRST, invalidated.getString("quote_sha256"));
+    }
+
+    @Test public void changesInPriorEvidenceOrCoverageInvalidateCheckpoint() throws Exception {
+        var old = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of(),
+                java.util.Map.of(MarketCoverage.Reason.CLOSE, java.util.List.of("ABC")),
+                java.util.Set.of());
+        var priorNowPresent = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of(),
+                java.util.Map.of(MarketCoverage.Reason.CLOSE, java.util.List.of("ABC")),
+                java.util.Set.of("ABC"));
+        var reasonChanged = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of(),
+                java.util.Map.of(MarketCoverage.Reason.DATED_LISTING, java.util.List.of("ABC")),
+                java.util.Set.of());
+        assertFalse(old.equals(priorNowPresent));
+        assertFalse(old.equals(reasonChanged));
+        var legacy = new JSONObject().put("quote_sha256", FIRST)
+                .put("results", new JSONObject().put("ABC", "OUTSIDE"));
+        assertFalse(UsSingleSessionBudgetCheck.matchingEvidenceCheckpoint(legacy, FIRST, old)
+                .has("results"));
+    }
+
     @Test public void legacyCheckpointCannotReuseVerdictsWithoutQuoteHash() throws Exception {
         var legacy = new JSONObject().put("results", new JSONObject().put("ABC", "OUTSIDE"))
                 .put("after", Long.MAX_VALUE);
