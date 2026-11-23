@@ -54,6 +54,35 @@ public class UsDailyClosesTest {
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote.put("closes", new JSONArray()), DAY, source));
     }
 
+    @Test public void malformedPriorClosesRequireFreshBackfill() throws JSONException {
+        String provider = UsDoltCloses.SOURCE;
+        var valid = new JSONObject().put("source", provider).put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "AAPL").put("close_usd", 125.5)));
+        assertTrue(UsDailyWorker.matchesPriorSnapshot(valid, DAY, provider));
+        for (Object bad : new Object[]{JSONObject.NULL, -1, 0, "12.5", "not a price"}) {
+            var corrupted = new JSONObject(valid.toString())
+                    .put("closes", new JSONArray().put(new JSONObject()
+                            .put("symbol", "AAPL").put("close_usd", bad)));
+            assertFalse(UsDailyWorker.matchesPriorSnapshot(corrupted, DAY, provider));
+        }
+        var absent = new JSONObject(valid.toString())
+                .put("closes", new JSONArray().put(new JSONObject().put("symbol", "AAPL")));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(absent, DAY, provider));
+        var invalidTicker = new JSONObject(valid.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "BAD TICKER").put("close_usd", 2)));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(invalidTicker, DAY, provider));
+        var duplicate = new JSONObject(valid.toString()).put("closes", new JSONArray()
+                .put(new JSONObject().put("symbol", "AAPL").put("close_usd", 1))
+                .put(new JSONObject().put("symbol", "AAPL").put("close_usd", 2)));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(duplicate, DAY, provider));
+        var mixed = new JSONObject(valid.toString()).put("closes", new JSONArray()
+                .put(new JSONObject().put("symbol", "AAPL").put("close_usd", 125.5))
+                .put(new JSONObject().put("symbol", "MSFT")));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(mixed, DAY, provider));
+    }
+
     @Test public void keepsUnadjustedCloseAndDropsOtcAndMissingPrices() throws JSONException {
         var rows = new JSONArray().put(bar("AAPL", BAR)).put(bar("TEST", BAR).put("otc", true))
                 .put(bar("ZERO", BAR).put("c", 0));
