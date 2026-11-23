@@ -221,7 +221,7 @@ final class UsReferenceDeliveryProbe {
         long now = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
         String damaged = "{broken-history";
         try {
-            java.nio.file.Files.writeString(file.toPath(), damaged, java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.write(file.toPath(), damaged.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             var posted = new AtomicInteger();
             try {
                 NotificationHistory.deliver(file, "broken-receipt", "TEST", "TEST", now,
@@ -231,10 +231,10 @@ final class UsReferenceDeliveryProbe {
                 // No delivery is safe before a corrupted receipt history is recovered.
             }
             if (posted.get() != 0
-                    || !damaged.equals(java.nio.file.Files.readString(file.toPath(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    || !damaged.equals(new String(java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8))) {
                 throw new AssertionError("Corrupted notification history was overwritten or alert repeated");
             }
-            java.nio.file.Files.writeString(file.toPath(), "[]", java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.write(file.toPath(), "[]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
             if (!NotificationHistory.deliver(file, "broken-receipt", "TEST", "TEST", now,
                     () -> 0L, posted::incrementAndGet, () -> {})
                     || posted.get() != 1 || NotificationHistory.recent(file, now).size() != 1) {
