@@ -38,7 +38,7 @@ final class DiagnosticLog {
     }
 
     static synchronized void record(Context context, Area area, String event) {
-        var row = CLOCK.format(Instant.now()) + "  " + area.label + "  " + event;
+        var row = CLOCK.format(Instant.now()) + "  " + area.label + "  " + redact(event);
         Log.i("ValueHunterDiag", row);
         try {
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -51,7 +51,9 @@ final class DiagnosticLog {
 
     static synchronized void recordError(Context context, Area area, String operation, Throwable error) {
         String kind = error == null ? "Unknown" : error.getClass().getSimpleName();
-        record(context, area, operation + " · " + kind + " · 失敗");
+        var row = CLOCK.format(Instant.now()) + "  " + area.label + "  "
+                + redact(operation) + " · " + kind + " · 失敗";
+        Log.e("ValueHunterDiag", row);
         if (error == null) return;
         try {
             String location = "";
@@ -66,6 +68,7 @@ final class DiagnosticLog {
                         .append(frame.getMethodName()).append("(").append(line).append(")");
             }
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            state.edit().putString(EVENTS, append(state.getString(EVENTS, ""), row)).apply();
             persistStructured(state, "ERROR", area.label, operation, kind, location, stack.toString());
         } catch (RuntimeException ignored) {
             // Diagnostics must never obstruct notifications, workers or UI.
