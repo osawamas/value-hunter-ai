@@ -159,6 +159,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Delivered meter alert was not recorded for the forward test");
         }
         verifyOutcomeComparison(context);
+        verifyCorruptHistoryCannotBeOverwritten(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeRecovery(context);
         verifySnapshotWriteVerification(context);
@@ -210,6 +211,38 @@ final class UsReferenceDeliveryProbe {
                     || !result.contains("差 +7.00ポイント")) {
                 throw new AssertionError("Outcome did not persist fair close-to-close comparison: " + result);
             }
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyCorruptHistoryCannotBeOverwritten(Context context) throws Exception {
+        var file = File.createTempFile("notification-history-corrupt", ".json", context.getCacheDir());
+        long now = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+        String damaged = "{broken-history";
+        try {
+            java.nio.file.Files.write(file.toPath(), damaged.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var posted = new AtomicInteger();
+            try {
+                NotificationHistory.deliver(file, "broken-receipt", "TEST", "TEST", now,
+                        () -> 0L, posted::incrementAndGet, () -> {});
+                throw new AssertionError("Corrupt history was treated as empty");
+            } catch (IOException expected) {
+                // No delivery is safe before a corrupted receipt history is recovered.
+            }
+            if (posted.get() != 0
+                    || !damaged.equals(new String(java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8))) {
+                throw new AssertionError("Corrupted notification history was overwritten or alert repeated");
+            }
+            java.nio.file.Files.write(file.toPath(), "[]".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            if (!NotificationHistory.deliver(file, "broken-receipt", "TEST", "TEST", now,
+                    () -> 0L, posted::incrementAndGet, () -> {})
+                    || posted.get() != 1 || NotificationHistory.recent(file, now).size() != 1) {
+                throw new AssertionError("Notification history did not recover after valid data was restored");
+            }
+            NotificationHistory.deliver(file, "broken-receipt", "TEST", "TEST", now,
+                    () -> 0L, posted::incrementAndGet, () -> {});
+            if (posted.get() != 1) throw new AssertionError("Recovered notification was duplicated");
         } finally {
             file.delete();
         }
