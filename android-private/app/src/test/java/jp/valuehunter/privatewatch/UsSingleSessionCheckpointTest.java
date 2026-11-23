@@ -170,6 +170,21 @@ public class UsSingleSessionCheckpointTest {
         assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(new JSONObject(), -1));
     }
 
+    @Test public void savedBudgetDisplayRejectsWrongOrDuplicateTickerMembership() throws Exception {
+        var results = new JSONObject().put("ABC", "WITHIN");
+        var current = new org.json.JSONArray().put("ABC").put("DEF");
+        assertTrue(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2, current));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2,
+                new org.json.JSONArray().put("DEF").put("GHI")));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2,
+                new org.json.JSONArray().put("ABC").put("ABC")));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2,
+                new org.json.JSONArray().put("ABC")));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2,
+                new org.json.JSONArray().put("ABC").put(JSONObject.NULL)));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2, null));
+    }
+
     @Test public void priorClosePriceCorrectionInvalidatesBudgetEvenWithIdenticalSymbols() throws Exception {
         var venues = java.util.Map.of("ABC", "NYSE");
         var priorSymbols = java.util.Set.of("ABC");
