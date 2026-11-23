@@ -1,0 +1,37 @@
+name: Tarikihonganji diagnostics test APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android-private/**'
+      - '.github/workflows/tarikihonganji-diagnostic-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-private-test-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Test and build Android debug APK
+        working-directory: android-private
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Verify APK exists
+        run: test -s android-private/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tarikihonganji-diagnostics-test-apk
+          path: android-private/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
