@@ -258,7 +258,13 @@ final class AlertOutcomes {
                 .thenComparing(key -> ledger.optJSONObject(key).optString("exit")));
         for (String key : ordered) {
             var row = ledger.getJSONObject(key);
-            if (!WAITING.equals(row.optString("status")) || latestClose.toString().equals(row.optString("checked"))) continue;
+            if (!WAITING.equals(row.optString("status"))) continue;
+            if (latestClose.toString().equals(row.optString("checked"))) {
+                long retryAfter = row.optLong("retryAfterMs");
+                // A provider outage is not a completed observation. Retry after a
+                // short cooldown, while allowing other windows to be checked first.
+                if (retryAfter <= 0 || System.currentTimeMillis() < retryAfter) continue;
+            }
             var exit = LocalDate.parse(row.getString("exit"));
             if (exit.isAfter(latestClose)) continue;
             var candidate = new Window(LocalDate.parse(row.getString("entry")), exit);
@@ -295,6 +301,12 @@ final class AlertOutcomes {
             if (row == null || !WAITING.equals(row.optString("status"))) continue;
             var stock = prices.get(row.getString("symbol"));
             row.put("checked", latestClose.toString());
+            if (!comparisonChecked) {
+                row.put("retryAfterMs", System.currentTimeMillis()
+                        + java.util.concurrent.TimeUnit.MINUTES.toMillis(15));
+            } else {
+                row.remove("retryAfterMs");
+            }
             if (stock != null && benchmark != null) {
                 row.put("status", COMPLETE).put("stockReturn", stock.percent())
                         .put("benchmarkReturn", benchmark.percent());
