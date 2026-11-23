@@ -512,6 +512,13 @@ final class UsReferenceDeliveryProbe {
                 || !postedPending.equals(state.getString("us_private_sec_pending", ""))) {
             throw new AssertionError("Malformed posted alert signals were acknowledged or discarded");
         }
+        if (!state.edit().putString("us_private_sec_pending_signals", "{}").commit()) {
+            throw new AssertionError("Could not inject empty pending alert signals");
+        }
+        if (UsDailyWorker.recoverSubmittedFinancialAlert(context, state)
+                || !postedPending.equals(state.getString("us_private_sec_pending", ""))) {
+            throw new AssertionError("Empty posted alert signals were acknowledged or discarded");
+        }
         if (!state.edit().putString("us_private_sec_pending_signals", originalSignals).commit()) {
             throw new AssertionError("Could not restore original pending signals");
         }
