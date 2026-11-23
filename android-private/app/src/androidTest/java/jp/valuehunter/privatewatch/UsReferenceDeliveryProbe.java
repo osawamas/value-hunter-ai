@@ -162,6 +162,7 @@ final class UsReferenceDeliveryProbe {
         verifyInvalidOutcomePrices(context);
         verifyCorruptHistoryCannotBeOverwritten(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
+        verifyOutcomeReadinessChangesOnce(context);
         verifyOutcomeRecovery(context);
         verifySnapshotWriteVerification(context);
         verifyDuplicateOutcomeSkipsUnnecessaryWrite(context);
@@ -341,6 +342,44 @@ final class UsReferenceDeliveryProbe {
             });
             if (!AlertOutcomes.report(file, market).contains("計測済み 2件 · 待ち 0件 · 集計対象外 0件")) {
                 throw new AssertionError("Provider recovery was not retried on the same closing date");
+            }
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyOutcomeReadinessChangesOnce(Context context) throws Exception {
+        var file = new AtomicFile(File.createTempFile("outcomes-readiness", ".json", context.getCacheDir()));
+        file.delete();
+        try {
+            var market = AlertOutcomes.Market.US;
+            long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+            var entry = new NotificationHistory.Entry("readiness-flip", posted, "title", "detail");
+            AlertOutcomes.add(file, market, entry, java.util.Map.of("READY", "割安"), posted);
+            var window = AlertOutcomes.window(market, posted);
+            LocalDate close = window.exit().plusDays(market.missingGraceDays);
+            var checks = new AtomicInteger();
+            // A true first reading followed by a false reading used to discard the
+            // only valid quote request and mark the row missing after its grace period.
+            AlertOutcomes.evaluate(file, market, close, () -> false,
+                    range -> checks.incrementAndGet() == 1,
+                    (range, symbols) -> java.util.Map.of("READY", new AlertOutcomes.Prices(100, 108),
+                            "IWV", new AlertOutcomes.Prices(100, 102)));
+            if (checks.get() != 1 || !AlertOutcomes.report(file, market).contains(
+                    "計測済み 1件 · 待ち 0件 · 集計対象外 0件")) {
+                throw new AssertionError("Readiness flip discarded a valid comparison");
+            }
+            file.delete();
+            AlertOutcomes.add(file, market, entry, java.util.Map.of("READY", "割安"), posted);
+            checks.set(0);
+            // A false first reading followed by true must not cause a surprise
+            // provider request in the same pass. A later pass can refresh the state.
+            AlertOutcomes.evaluate(file, market, close, () -> false,
+                    range -> checks.incrementAndGet() != 1,
+                    (range, symbols) -> { throw new AssertionError("Readiness flipped mid-evaluation"); });
+            if (checks.get() != 1 || !AlertOutcomes.report(file, market).contains(
+                    "計測済み 0件 · 待ち 0件 · 集計対象外 1件")) {
+                throw new AssertionError("Readiness changed after the selected comparison was checked");
             }
         } finally {
             file.delete();
