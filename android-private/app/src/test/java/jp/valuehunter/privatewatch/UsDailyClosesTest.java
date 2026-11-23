@@ -55,6 +55,22 @@ public class UsDailyClosesTest {
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote.put("closes", new JSONArray()), DAY, source));
     }
 
+    @Test public void corruptCurrentSnapshotMustNotSuppressNewFetch() throws Exception {
+        var valid = new JSONObject().put("source", UsDoltCloses.SOURCE)
+                .put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "AAPL").put("close_usd", 125.5)));
+        assertEquals(DAY, UsDailyWorker.validatedSnapshotDate(valid));
+        assertThrows(JSONException.class, () -> UsDailyWorker.validatedSnapshotDate(
+                new JSONObject(valid.toString()).put("closes", new JSONArray())));
+        assertThrows(JSONException.class, () -> UsDailyWorker.validatedSnapshotDate(
+                new JSONObject(valid.toString()).put("closes", new JSONArray()
+                        .put(new JSONObject().put("symbol", "AAPL")))));
+        assertThrows(java.time.format.DateTimeParseException.class,
+                () -> UsDailyWorker.validatedSnapshotDate(
+                        new JSONObject(valid.toString()).put("trading_date_et", "2026-02-30")));
+    }
+
     @Test public void malformedPriorClosesRequireFreshBackfill() throws JSONException {
         String provider = UsDoltCloses.SOURCE;
         var valid = new JSONObject().put("source", provider).put("trading_date_et", DAY.toString())
