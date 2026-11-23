@@ -80,13 +80,21 @@ final class NotificationHistory {
             for (int i = 0; i < stored.length(); i++) {
                 var row = stored.optJSONObject(i);
                 if (row == null) throw new JSONException("Invalid notification history row " + i);
-                long at = row.optLong("at", 0);
-                String receipt = row.optString("receipt");
-                String title = row.optString("title");
-                // An incomplete receipt is not an expired receipt: silently dropping
-                // it would permanently lose the original submission on next write.
-                if (at <= 0 || receipt.isEmpty() || title.isEmpty()) {
-                    throw new JSONException("Incomplete notification history row " + i);
+                Object rawAt = row.opt("at");
+                Object rawReceipt = row.opt("receipt");
+                Object rawTitle = row.opt("title");
+                Object rawDetail = row.opt("detail");
+                // optLong/optString coerce nulls, booleans and numeric strings.
+                // Those are damaged receipts, not valid historical submissions.
+                if (!(rawAt instanceof Number number)
+                        || !(rawReceipt instanceof String receipt) || receipt.isEmpty()
+                        || !(rawTitle instanceof String title) || title.isEmpty()
+                        || (row.has("detail") && !(rawDetail instanceof String))) {
+                    throw new JSONException("Invalid notification history field types at row " + i);
+                }
+                long at = number.longValue();
+                if (at <= 0 || number.doubleValue() != (double) at) {
+                    throw new JSONException("Invalid notification history timestamp at row " + i);
                 }
                 if (at > now || now - at < RETENTION) {
                     var entry = new Entry(receipt, at, title, row.optString("detail"));
