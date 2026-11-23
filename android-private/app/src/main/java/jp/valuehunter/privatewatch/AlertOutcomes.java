@@ -65,6 +65,10 @@ final class AlertOutcomes {
 
     record Window(LocalDate entry, LocalDate exit) {}
     record Prices(double entry, double exit) {
+        boolean valid() {
+            return Double.isFinite(entry) && Double.isFinite(exit)
+                    && entry > 0 && exit > 0 && Double.isFinite(percent());
+        }
         double percent() { return 100 * (exit / entry - 1); }
     }
 
@@ -312,7 +316,7 @@ final class AlertOutcomes {
             } else {
                 row.remove("retryAfterMs");
             }
-            if (stock != null && benchmark != null) {
+            if (stock != null && benchmark != null && stock.valid() && benchmark.valid()) {
                 row.put("status", COMPLETE).put("stockReturn", stock.percent())
                         .put("benchmarkReturn", benchmark.percent());
             } else if (comparisonChecked && !latestClose.isBefore(range.exit().plusDays(market.missingGraceDays))) {
