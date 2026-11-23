@@ -750,7 +750,7 @@ final class UsReferenceDeliveryProbe {
         }
         String prior = state.getString("us_private_sec_baseline", "");
         if (prior.isEmpty() || !state.edit().putStringSet("us_private_sec_sent",
-                java.util.Set.of("METER", "meter:3:METER")).commit()) {
+                java.util.Set.of("METER", "NEWCIK", "NEWVENUE", "meter:3:METER")).commit()) {
             throw new AssertionError("Cannot seed original submitted US receipt");
         }
         var regular = meterLedger(SECOND, firstHash, 9);
