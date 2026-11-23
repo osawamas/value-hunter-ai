@@ -31,7 +31,7 @@ final class DiagnosticLog {
 
     enum Area {
         NETWORK("通信"), JPX("東証更新"), US_CLOSE("米国株終値"), US_FINANCE("米国株財務"),
-        US_LISTING("米国株上場一覧"), US_BUDGET("米国株予算チェック"), ALERT("通知"), WAKE("画面点灯");
+        US_LISTING("米国株上場一覧"), US_BUDGET("米国株予算チェック"), ALERT("通知"), WAKE("画面点灯"), CRASH("クラッシュ");
 
         final String label;
         Area(String label) { this.label = label; }
@@ -43,7 +43,7 @@ final class DiagnosticLog {
         try {
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             state.edit().putString(EVENTS, append(state.getString(EVENTS, ""), row)).apply();
-            persistStructured(state, classify(event), area.label, event, "", "", "");
+            persistStructured(state, classify(event), area.label, event, "", "", "", false);
         } catch (RuntimeException unavailable) {
             // Local diagnostics must never stop market work or a notification.
         }
@@ -68,22 +68,24 @@ final class DiagnosticLog {
                         .append(frame.getMethodName()).append("(").append(line).append(")");
             }
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            state.edit().putString(EVENTS, append(state.getString(EVENTS, ""), row)).apply();
-            persistStructured(state, "ERROR", area.label, operation, kind, location, stack.toString());
+            state.edit().putString(EVENTS, append(state.getString(EVENTS, ""), row)).commit();
+            persistStructured(state, "ERROR", area.label, operation, kind, location, stack.toString(), true);
         } catch (RuntimeException ignored) {
             // Diagnostics must never obstruct notifications, workers or UI.
         }
     }
 
-    private static String classify(String event) {
+    static String classify(String event) {
         if (event.contains("再試行") || event.contains("待ち") || event.contains("タイムアウト")) return "RETRY";
-        if (event.contains("失敗") || event.contains("例外") || event.contains("エラー")) return "ERROR";
+        if (event.contains("失敗") || event.contains("例外") || event.contains("エラー")
+                || event.contains("保存できず") || event.contains("取得できず")
+                || event.contains("読み込めなかった")) return "ERROR";
         return "INFO";
     }
 
     private static void persistStructured(android.content.SharedPreferences prefs, String level,
                                           String area, String operation, String exception,
-                                          String location, String trace) {
+                                          String location, String trace, boolean urgent) {
         try {
             long now = System.currentTimeMillis();
             var entry = new JSONObject().put("time", now).put("level", level)
@@ -105,9 +107,10 @@ final class DiagnosticLog {
             if (keep.length() > 0) keep.append('\n');
             keep.append(entry);
             String[] records = keep.toString().split("\n");
-            prefs.edit().putString(STRUCTURED, String.join("\n",
+            var edit = prefs.edit().putString(STRUCTURED, String.join("\n",
                     java.util.Arrays.asList(records).subList(Math.max(0, records.length - LIMIT),
-                            records.length))).apply();
+                            records.length)));
+            if (urgent) edit.commit(); else edit.apply();
         } catch (JSONException | RuntimeException ignored) {
             // Logging never blocks actual work.
         }
