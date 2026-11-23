@@ -113,14 +113,26 @@ public class NotificationHistoryTest {
         assertEquals(NOW, NotificationHistory.recent(file, NOW + 1000).get(0).postedAt());
     }
 
-    @Test public void aCorruptRecordDoesNotHideOtherNotifications() throws Exception {
+    @Test public void aCorruptRecordPreservesHistoryUntilRepair() throws Exception {
         var file = history();
-        Files.write(file.toPath(), """
+        byte[] damaged = """
                 [{"receipt":"old","at":-5,"title":"古い"},false,
                  {"receipt":"good","at":864000000,"title":"有効","detail":"1234"}]
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(file.toPath(), damaged);
+        assertThrows(IOException.class, () -> NotificationHistory.recent(file, NOW));
+        assertThrows(IOException.class, () -> NotificationHistory.deliver(file, "next", "候補", "5678", NOW,
+                () -> 0, UNEXPECTED, UNEXPECTED));
+        assertArrayEquals(damaged, Files.readAllBytes(file.toPath()));
+        // After an explicit repair, known valid receipts and new alerts remain intact.
+        Files.write(file.toPath(), """
+                [{"receipt":"good","at":864000000,"title":"有効","detail":"1234"}]
                 """.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertEquals(List.of("good"), NotificationHistory.recent(file, NOW)
                 .stream().map(NotificationHistory.Entry::receipt).toList());
+        assertTrue(NotificationHistory.deliver(file, "next", "候補", "5678", NOW,
+                () -> 0, () -> {}, () -> {}));
+        assertEquals(2, NotificationHistory.recent(file, NOW).size());
         assertThrows(IOException.class, () -> NotificationHistory.recent(directory.getRoot(), NOW));
     }
     @Test public void wakeFailureAfterSuccessfulPostStillPersistsReceipt() throws Exception {

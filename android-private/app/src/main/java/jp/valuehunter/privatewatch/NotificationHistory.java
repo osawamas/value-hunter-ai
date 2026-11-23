@@ -79,12 +79,16 @@ final class NotificationHistory {
             var latest = new java.util.HashMap<String, Entry>();
             for (int i = 0; i < stored.length(); i++) {
                 var row = stored.optJSONObject(i);
-                if (row == null) continue;
+                if (row == null) throw new JSONException("Invalid notification history row " + i);
                 long at = row.optLong("at", 0);
                 String receipt = row.optString("receipt");
                 String title = row.optString("title");
-                if (at > 0 && (at > now || now - at < RETENTION)
-                        && !receipt.isEmpty() && !title.isEmpty()) {
+                // An incomplete receipt is not an expired receipt: silently dropping
+                // it would permanently lose the original submission on next write.
+                if (at <= 0 || receipt.isEmpty() || title.isEmpty()) {
+                    throw new JSONException("Incomplete notification history row " + i);
+                }
+                if (at > now || now - at < RETENTION) {
                     var entry = new Entry(receipt, at, title, row.optString("detail"));
                     latest.merge(receipt, entry, (previous, candidate) ->
                             candidate.postedAt() > previous.postedAt() ? candidate : previous);
