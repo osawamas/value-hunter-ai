@@ -217,6 +217,12 @@ final class UsSingleSessionBudgetCheck {
                                                 File directory, String listingHash)
             throws IOException, JSONException {
         synchronized (UsDailyWorker.QUOTE_LOCK) {
+            // A newer market-coverage session may replace this session while
+            // supplemental quotes are being acquired. A same-symbol coverage
+            // map alone cannot prove the stored day is still current.
+            if (!sameCoverageDay(day, MarketCoverage.US.day(state))) {
+                throw new IOException("Market coverage day changed during budget screening");
+            }
             if (!matchesSavedQuote(quoteHash, UsDailyWorker.readQuote(quoteFile))) {
                 throw new IOException("Daily close changed during single-session budget screening");
             }
@@ -235,6 +241,10 @@ final class UsSingleSessionBudgetCheck {
                 throw new IOException("Could not persist single-session budget checkpoint");
             }
         }
+    }
+
+    static boolean sameCoverageDay(LocalDate expected, LocalDate current) {
+        return expected != null && expected.equals(current);
     }
 
     static boolean matchesEvidenceHash(String originalHash, String currentHash) {
