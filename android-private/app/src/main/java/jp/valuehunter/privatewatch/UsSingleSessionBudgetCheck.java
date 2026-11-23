@@ -59,11 +59,9 @@ final class UsSingleSessionBudgetCheck {
         var saved = matchingEvidenceCheckpoint(read(state, day.toString()), quoteHash, listingHash);
         var results = saved.optJSONObject("results");
         if (results == null) results = new JSONObject();
-        // An official close or a completed paired check supersedes the reference result.
-        var recorded = results.keys();
-        while (recorded.hasNext()) {
-            if (!eligible.contains(recorded.next())) recorded.remove();
-        }
+        // Recompute damaged checkpoint values rather than treating their mere
+        // presence as an already-completed screening verdict.
+        discardInvalidVerdicts(results, eligible);
         saved.put("eligible", eligible.size());
         long now = System.currentTimeMillis();
         if (eligible.isEmpty() || saved.optLong("after") > now) {
@@ -109,6 +107,18 @@ final class UsSingleSessionBudgetCheck {
             throw new IOException("Reference budget evidence changed during acquisition");
         }
         saveIfEvidenceUnchanged(state, day, saved, results, file, quoteHash, directory, listingHash);
+    }
+
+    static void discardInvalidVerdicts(JSONObject results, Set<String> eligible) {
+        var recorded = results.keys();
+        while (recorded.hasNext()) {
+            String symbol = recorded.next();
+            Object verdict = results.opt(symbol);
+            if (!eligible.contains(symbol) || !(verdict instanceof String)
+                    || (!"WITHIN".equals(verdict) && !"OUTSIDE".equals(verdict))) {
+                recorded.remove();
+            }
+        }
     }
 
     // A corrected same-session close changes the evidence used by the budget
