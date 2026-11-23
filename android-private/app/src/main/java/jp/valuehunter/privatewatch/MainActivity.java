@@ -105,9 +105,19 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
 
         var hero = section(content, FOREST, false);
-        var brand = label(hero, "他力本願寺", 29, LIGHT_TEXT, true, 0);
+        var brandRow = new LinearLayout(this);
+        brandRow.setOrientation(LinearLayout.HORIZONTAL);
+        brandRow.setGravity(Gravity.CENTER_VERTICAL);
+        hero.addView(brandRow);
+        brandRow.addView(BrandEmblem.create(this), new LinearLayout.LayoutParams(dp(62), dp(62)));
+        var brandText = new LinearLayout(this);
+        brandText.setOrientation(LinearLayout.VERTICAL);
+        var brandSpace = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        brandSpace.leftMargin = dp(13);
+        brandRow.addView(brandText, brandSpace);
+        var brand = label(brandText, "他力本願寺", 27, LIGHT_TEXT, true, 0);
         brand.setTypeface(Typeface.create("serif", Typeface.BOLD));
-        label(hero, "VALUE HUNTER AI", 13, ACCENT, false, 2).setLetterSpacing(0.16f);
+        label(brandText, "VALUE HUNTER AI", 12, ACCENT, false, 2).setLetterSpacing(0.14f);
         var copperRule = new View(this);
         copperRule.setBackgroundColor(ACCENT);
         hero.addView(copperRule, new LinearLayout.LayoutParams(
