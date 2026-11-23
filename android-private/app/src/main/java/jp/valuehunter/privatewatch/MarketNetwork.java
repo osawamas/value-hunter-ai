@@ -5,6 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -177,8 +178,12 @@ final class MarketNetwork {
     }
 
     private static Network activeWifi() {
-        if (connectivity == null) return null;
+        if (connectivity == null || application == null) return null;
         try {
+            // Android 15 can briefly retain stale Wi-Fi capabilities after
+            // the radio is disabled; do not authorize a route in that window.
+            WifiManager radio = application.getSystemService(WifiManager.class);
+            if (radio == null || !radio.isWifiEnabled()) return null;
             var network = connectivity.getActiveNetwork();
             if (network == null) return null;
             var caps = connectivity.getNetworkCapabilities(network);
