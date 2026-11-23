@@ -217,9 +217,28 @@ final class UsSingleSessionBudgetCheck {
         return new JSONObject();
     }
 
-    static String display(SharedPreferences state, String day, String provider) {
+    static String display(Context context, SharedPreferences state, String day, String provider) {
         if (!UsDoltCloses.SOURCE.equals(provider)) return "";
         var saved = read(state, day);
+        // Display is a separate entry point from the worker. It must not show
+        // verdicts from a checkpoint invalidated since the last worker run.
+        if (saved.optInt("eligible") > 0) {
+            try {
+                File directory = context.getNoBackupFilesDir();
+                var quoteFile = new AtomicFile(new File(directory, "us-daily-closes.json"));
+                byte[] quote = UsDailyWorker.readQuote(quoteFile);
+                String listingHash = listingEvidenceHash(
+                        UsListingHistory.sessionExchanges(directory, LocalDate.parse(day)),
+                        UsListingHistory.verifiedSupplementSymbols(directory, LocalDate.parse(day)),
+                        MarketCoverage.US.groups(state), priorPrices(directory, LocalDate.parse(day)));
+                if (!matchesSavedQuote(saved.optString("quote_sha256"), quote)
+                        || !matchesEvidenceHash(saved.optString("listing_sha256"), listingHash)) {
+                    return day + " 当日の予算チェック · 根拠データ更新のため再検証待ち";
+                }
+            } catch (IOException | JSONException | java.time.format.DateTimeParseException unavailable) {
+                return day + " 当日の予算チェック · 保存データの再検証待ち";
+            }
+        }
         var results = saved.optJSONObject("results");
         int eligible = saved.optInt("eligible");
         if (results == null || eligible == 0) return "";
