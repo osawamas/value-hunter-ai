@@ -332,7 +332,7 @@ public final class MainActivity extends Activity {
                 .append('\n');
         appendUpdateStatus(usStatus, "終値", MarketUpdate.US_CLOSE.display(state));
         appendUpdateStatus(usStatus, "財務", MarketUpdate.US_FINANCE.display(state));
-        usDailyStatus.setText(usStatus.append(UsDailyWorker.displayStatus(state)));
+        usDailyStatus.setText(usStatus.append(UsDailyWorker.displayStatus(this, state)));
         boolean connected = MarketNetwork.allowed();
         boolean awaitingNotice = MarketNetwork.noticeRequired(this);
         networkSwitch.setChecked(MarketNetwork.requested());
