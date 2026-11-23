@@ -138,9 +138,41 @@ final class NotificationDeliveryProbe {
                 "Notifications off should block posts and screen wake even with wake preference on");
         require(NotificationHistory.recent(history, System.currentTimeMillis()).size() == 2,
                 "A suppressed notification changed history");
+        verifyDebugDiagnostics(instrumentation);
         exerciseWifiOnly(instrumentation, power);
         ListingArchiveProbe.prepare(context);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static void verifyDebugDiagnostics(Instrumentation instrumentation) {
+        var context = instrumentation.getTargetContext();
+        DiagnosticLog.record(context, DiagnosticLog.Area.NETWORK,
+                "診断UIテストでの保存エラー");
+        var screen = instrumentation.startActivitySync(new Intent(context,
+                DebugDiagnosticsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try {
+            instrumentation.runOnMainSync(() -> {
+                var root = screen.getWindow().getDecorView();
+                require(control(root, "他力本願寺", TextView.class) != null,
+                        "Debug header lost the configured app name");
+                require(control(root, "VALUE HUNTER AI", TextView.class) != null,
+                        "Debug header lost the configured English subtitle");
+                require(control(root, "エラー一覧", Button.class) != null,
+                        "Debug UI has no accessible errors tab");
+                require(control(root, "診断ログをすべてコピー", Button.class) != null,
+                        "Debug UI has no accessible report-copy action");
+                control(root, "エラー一覧", Button.class).performClick();
+                require(control(screen.getWindow().getDecorView(),
+                        "エラー・再試行の一覧", TextView.class) != null,
+                        "Error list did not open");
+                control(screen.getWindow().getDecorView(), "共有", Button.class).performClick();
+                require(control(screen.getWindow().getDecorView(), "共有レポート", TextView.class) != null,
+                        "Share report screen did not open");
+            });
+        } finally {
+            instrumentation.runOnMainSync(screen::finish);
+            instrumentation.waitForIdleSync();
+        }
     }
 
     private static final int INTERRUPTED_ID = 54;
