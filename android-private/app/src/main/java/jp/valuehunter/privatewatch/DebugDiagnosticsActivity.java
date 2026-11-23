@@ -224,7 +224,7 @@ public final class DebugDiagnosticsActivity extends Activity {
             send.putExtra(Intent.EXTRA_TEXT,DiagnosticLog.detailedReport(this));
             startActivity(Intent.createChooser(send,"診断レポートを共有"));
         },false);
-        body.addView(text("共有する前に内容を確認して。APIキーや個人情報をログへ記録しない設計。",12,INK,false));
+        body.addView(text("共有前にログ内容を確認して。認証情報を含む診断データは送信しないで。",12,INK,false));
     }
 
     private void eventCard(LinearLayout root,JSONObject event) {
