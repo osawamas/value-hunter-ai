@@ -53,6 +53,7 @@ final class MarketNetwork {
     static synchronized void initialize(Context context) {
         var settings = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         connectivity = context.getSystemService(ConnectivityManager.class);
+        application = context.getApplicationContext();
         wifiOnly = settings.getBoolean(WIFI_ONLY, false);
         requested = atStartup(settings.getInt(NOTICE, 0), settings.getBoolean(ALLOWED, false));
         refreshRoute(false);
