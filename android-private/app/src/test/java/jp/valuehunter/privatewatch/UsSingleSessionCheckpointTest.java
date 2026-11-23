@@ -157,6 +157,19 @@ public class UsSingleSessionCheckpointTest {
                 clean, java.util.Set.of("B")));
     }
 
+    @Test public void corruptedDisplayVerdictsNeverBecomeOrdinaryWaitingCounts() throws Exception {
+        assertTrue(UsSingleSessionBudgetCheck.validDisplayVerdicts(new JSONObject()
+                .put("ABC", "WITHIN").put("DEF", "OUTSIDE"), 3));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(new JSONObject()
+                .put("ABC", "UNKNOWN"), 2));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(new JSONObject()
+                .put("ABC", JSONObject.NULL), 2));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(new JSONObject()
+                .put("ABC", "WITHIN").put("DEF", "OUTSIDE"), 1));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(null, 2));
+        assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(new JSONObject(), -1));
+    }
+
     @Test public void priorClosePriceCorrectionInvalidatesBudgetEvenWithIdenticalSymbols() throws Exception {
         var venues = java.util.Map.of("ABC", "NYSE");
         var priorSymbols = java.util.Set.of("ABC");
