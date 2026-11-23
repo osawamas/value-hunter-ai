@@ -34,7 +34,9 @@ final class UsSingleSessionBudgetCheck {
         if (!day.equals(MarketCoverage.US.day(state))) return;
         var directory = context.getNoBackupFilesDir();
         var file = new AtomicFile(new File(directory, "us-daily-closes.json"));
-        var close = new JSONObject(new String(UsDailyWorker.readQuote(file), StandardCharsets.UTF_8));
+        byte[] quoteBytes = UsDailyWorker.readQuote(file);
+        var close = new JSONObject(new String(quoteBytes, StandardCharsets.UTF_8));
+        String quoteHash = UsReferenceAlerts.sha256(quoteBytes);
         if (!day.toString().equals(close.optString("trading_date_et"))
                 || !UsDoltCloses.SOURCE.equals(close.optString("source"))) return;
         var groups = MarketCoverage.US.groups(state);
@@ -53,7 +55,7 @@ final class UsSingleSessionBudgetCheck {
                     new HashSet<>(groups.getOrDefault(reason, List.of())), sameDay,
                     paired, prices.keySet(), prior);
         }
-        var saved = read(state, day.toString());
+        var saved = matchingQuoteCheckpoint(read(state, day.toString()), quoteHash);
         var results = saved.optJSONObject("results");
         if (results == null) results = new JSONObject();
         // An official close or a completed paired check supersedes the reference result.
@@ -106,6 +108,15 @@ final class UsSingleSessionBudgetCheck {
             throw new IOException("Reference budget evidence changed during acquisition");
         }
         save(state, day, saved, results);
+    }
+
+    // A corrected same-session close changes the evidence used by the budget
+    // comparison. Never reuse an old cursor, cooldown or verdict after it changes.
+    static JSONObject matchingQuoteCheckpoint(JSONObject saved, String quoteHash) {
+        if (quoteHash.isEmpty() || !quoteHash.equals(saved.optString("quote_sha256"))) {
+            return new JSONObject().put("quote_sha256", quoteHash);
+        }
+        return saved;
     }
 
     static boolean hasPublishedResult(SharedPreferences state, LocalDate day) {
