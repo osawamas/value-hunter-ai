@@ -368,6 +368,11 @@ final class JpxDailyCheck {
                 change = "条件の変化なし";
             } else if (!now.qualifies()) {
                 change = "条件から外れた";
+            } else if (before.qualifies() && now.qualifies()
+                    && before.level() == now.level() && before.quantity() != now.quantity()) {
+                // A move into the 100-share budget is a new notification event,
+                // but not a new valuation qualification. Name the lot change.
+                change = before.quantity() + "株枠から" + now.quantity() + "株枠へ";
             } else if (comparison.entered()) {
                 change = "新たに" + now.level().label + "（" + now.quantity() + "株）";
             } else if (before.level() != now.level()) {
