@@ -144,7 +144,7 @@ final class UsSingleSessionBudgetCheck {
                                              AtomicFile quoteFile, String quoteHash)
             throws IOException, JSONException {
         synchronized (UsDailyWorker.QUOTE_LOCK) {
-            if (!quoteHash.equals(UsReferenceAlerts.sha256(UsDailyWorker.readQuote(quoteFile)))) {
+            if (!matchesSavedQuote(quoteHash, UsDailyWorker.readQuote(quoteFile))) {
                 throw new IOException("Daily close changed during single-session budget screening");
             }
             if (!state.edit().putString(STATE, saved.put("day", day.toString())
@@ -152,6 +152,11 @@ final class UsSingleSessionBudgetCheck {
                 throw new IOException("Could not persist single-session budget checkpoint");
             }
         }
+    }
+
+    static boolean matchesSavedQuote(String originalHash, byte[] currentBytes) {
+        return !originalHash.isEmpty()
+                && originalHash.equals(UsReferenceAlerts.sha256(currentBytes));
     }
 
     private static JSONObject read(SharedPreferences state, String day) {
