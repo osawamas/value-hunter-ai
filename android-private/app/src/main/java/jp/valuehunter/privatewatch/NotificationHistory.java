@@ -92,7 +92,9 @@ final class NotificationHistory {
             }
             entries.addAll(latest.values());
         } catch (JSONException invalid) {
-            // An invalid file has no reliable delivery records.
+            // A corrupt history is not an empty history. Do not replace it with
+            // a new list or repost an alert whose receipt may already exist.
+            throw new IOException("Could not parse notification history", invalid);
         }
         entries.sort(Comparator.comparingLong(Entry::postedAt).reversed());
         if (entries.size() > MAX_ENTRIES) entries.subList(MAX_ENTRIES, entries.size()).clear();
