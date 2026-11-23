@@ -258,6 +258,7 @@ final class AlertOutcomes {
                          Predicate<Window> evidenceReady, PriceLoader loader) throws IOException, JSONException {
         JSONObject batch = new JSONObject();
         Window range = null;
+        boolean ready = false;
         var ledger = read(file);
         var symbols = new HashSet<String>();
         symbols.add(market.benchmark);
@@ -278,8 +279,12 @@ final class AlertOutcomes {
             if (exit.isAfter(latestClose)) continue;
             var candidate = new Window(LocalDate.parse(row.getString("entry")), exit);
             if (range == null) {
-                if (!evidenceReady.test(candidate) && latestClose.isBefore(exit.plusDays(market.missingGraceDays))) continue;
+                // Pin readiness to this evaluation. A second, different answer could
+                // incorrectly classify an unqueried comparison as missing.
+                boolean available = evidenceReady.test(candidate);
+                if (!available && latestClose.isBefore(exit.plusDays(market.missingGraceDays))) continue;
                 range = candidate;
+                ready = available;
             }
             if (!range.equals(candidate)) continue;
             symbols.add(row.getString("symbol"));
@@ -289,7 +294,7 @@ final class AlertOutcomes {
         if (range == null || stopped.getAsBoolean()) return;
         Map<String, Prices> prices;
         try {
-            prices = evidenceReady.test(range) ? loader.load(range, symbols) : Map.of();
+            prices = ready ? loader.load(range, symbols) : Map.of();
         } catch (IOException | JSONException failure) {
             if (!stopped.getAsBoolean()) {
                 // Give other windows a turn without treating a provider failure as a missing quote.
