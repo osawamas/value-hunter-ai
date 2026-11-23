@@ -767,7 +767,7 @@ public final class UsDailyWorker extends Worker {
     private static LocalDate cachedDate(AtomicFile file, SharedPreferences state, String provider) {
         try {
             var snapshot = new JSONObject(new String(readQuote(file), StandardCharsets.UTF_8));
-            var date = LocalDate.parse(snapshot.getString("trading_date_et"));
+            var date = validatedSnapshotDate(snapshot);
             String storedProvider = snapshot.getString("source");
             var update = state.edit().putString(DATE, date.toString()).putString(PROVIDER, storedProvider)
                     .putInt(COUNT, snapshot.getJSONArray("closes").length());
@@ -777,6 +777,17 @@ public final class UsDailyWorker extends Worker {
             state.edit().remove(DATE).remove(COUNT).remove(PROVIDER).apply();
             return null;
         }
+    }
+
+    // Validate the persisted *current* session as strictly as the prior session.
+    // Otherwise a nonempty but corrupt file can suppress a fresh download.
+    static LocalDate validatedSnapshotDate(JSONObject snapshot) throws JSONException {
+        LocalDate date = LocalDate.parse(snapshot.getString("trading_date_et"));
+        String source = snapshot.getString("source");
+        if (!matchesPriorSnapshot(snapshot, date, source)) {
+            throw new JSONException("Invalid cached daily close snapshot");
+        }
+        return date;
     }
 
     private static Set<String> repairedSymbols(JSONObject snapshot) {
