@@ -502,6 +502,19 @@ final class UsReferenceDeliveryProbe {
         }
         notifications.cancelAll();
         expectQuiet(notifications);
+        String originalSignals = state.getString("us_private_sec_pending_signals", "");
+        String postedPending = state.getString("us_private_sec_pending", "");
+        if (originalSignals.isEmpty() || postedPending.isEmpty()
+                || !state.edit().putString("us_private_sec_pending_signals", "{broken-json").commit()) {
+            throw new AssertionError("Could not inject malformed pending alert signals");
+        }
+        if (UsDailyWorker.recoverSubmittedFinancialAlert(context, state)
+                || !postedPending.equals(state.getString("us_private_sec_pending", ""))) {
+            throw new AssertionError("Malformed posted alert signals were acknowledged or discarded");
+        }
+        if (!state.edit().putString("us_private_sec_pending_signals", originalSignals).commit()) {
+            throw new AssertionError("Could not restore original pending signals");
+        }
         meter.put(0, 82);
         if (!UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false,
                 (app, id, title, detail) -> { throw new AssertionError("Updated text reposted the same alert"); })
