@@ -217,6 +217,11 @@ final class UsSingleSessionBudgetCheck {
         return new JSONObject();
     }
 
+    static boolean displayEvidenceMatches(JSONObject saved, byte[] quote, String listingHash) {
+        return matchesSavedQuote(saved.optString("quote_sha256"), quote)
+                && matchesEvidenceHash(saved.optString("listing_sha256"), listingHash);
+    }
+
     static String display(Context context, SharedPreferences state, String day, String provider) {
         if (!UsDoltCloses.SOURCE.equals(provider)) return "";
         var saved = read(state, day);
@@ -231,8 +236,7 @@ final class UsSingleSessionBudgetCheck {
                         UsListingHistory.sessionExchanges(directory, LocalDate.parse(day)),
                         UsListingHistory.verifiedSupplementSymbols(directory, LocalDate.parse(day)),
                         MarketCoverage.US.groups(state), priorPrices(directory, LocalDate.parse(day)));
-                if (!matchesSavedQuote(saved.optString("quote_sha256"), quote)
-                        || !matchesEvidenceHash(saved.optString("listing_sha256"), listingHash)) {
+                if (!displayEvidenceMatches(saved, quote, listingHash)) {
                     return day + " 当日の予算チェック · 根拠データ更新のため再検証待ち";
                 }
             } catch (IOException | JSONException | java.time.format.DateTimeParseException unavailable) {
