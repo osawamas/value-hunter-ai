@@ -139,6 +139,24 @@ public class UsSingleSessionCheckpointTest {
         }
     }
 
+    @Test public void malformedEligibleVerdictSignalsImmediateRetryButRemovedSymbolDoesNot() throws Exception {
+        var malformed = new JSONObject().put("A", "UNKNOWN").put("B", "WITHIN");
+        assertTrue(UsSingleSessionBudgetCheck.discardInvalidVerdicts(
+                malformed, java.util.Set.of("A", "B")));
+        assertFalse(malformed.has("A"));
+        assertEquals("WITHIN", malformed.getString("B"));
+
+        var obsolete = new JSONObject().put("OLD", "OUTSIDE").put("B", "WITHIN");
+        assertFalse(UsSingleSessionBudgetCheck.discardInvalidVerdicts(
+                obsolete, java.util.Set.of("B")));
+        assertFalse(obsolete.has("OLD"));
+        assertEquals("WITHIN", obsolete.getString("B"));
+
+        var clean = new JSONObject().put("B", "WITHIN");
+        assertFalse(UsSingleSessionBudgetCheck.discardInvalidVerdicts(
+                clean, java.util.Set.of("B")));
+    }
+
     @Test public void priorClosePriceCorrectionInvalidatesBudgetEvenWithIdenticalSymbols() throws Exception {
         var venues = java.util.Map.of("ABC", "NYSE");
         var priorSymbols = java.util.Set.of("ABC");
