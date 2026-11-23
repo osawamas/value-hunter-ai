@@ -160,6 +160,7 @@ final class UsReferenceDeliveryProbe {
         }
         verifyOutcomeComparison(context);
         verifyInvalidOutcomePrices(context);
+        verifyInvalidOutcomeLedgerPreserved(context);
         verifyCorruptHistoryCannotBeOverwritten(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeReadinessChangesOnce(context);
@@ -248,6 +249,44 @@ final class UsReferenceDeliveryProbe {
             var report = AlertOutcomes.report(file, market);
             if (!report.contains("計測済み 1件 · 待ち 0件 · 集計対象外 3件")) {
                 throw new AssertionError("Invalid and unavailable prices were counted as completed: " + report);
+            }
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyInvalidOutcomeLedgerPreserved(Context context) throws Exception {
+        var file = new AtomicFile(File.createTempFile("outcomes-invalid-row", ".json", context.getCacheDir()));
+        file.delete();
+        try {
+            var market = AlertOutcomes.Market.US;
+            long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+            var original = new NotificationHistory.Entry("original-outcome", posted, "title", "detail");
+            AlertOutcomes.add(file, market, original, java.util.Map.of("VALID", "割安"), posted);
+            var ledger = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            // Corrupt just one retained row, preserving the rest of the original ledger.
+            ledger.put("corrupt-receipt:BAD", new JSONObject()
+                    .put("symbol", "BAD").put("at", posted).put("rule", "割安")
+                    .put("status", "not-a-valid-status"));
+            byte[] damaged = ledger.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            UsDailyWorker.writeSnapshot(file, ledger);
+            try {
+                AlertOutcomes.add(file, market, new NotificationHistory.Entry("new-outcome", posted,
+                        "title", "detail"), java.util.Map.of("NEW", "割安"), posted);
+                throw new AssertionError("Invalid ledger row was silently discarded");
+            } catch (org.json.JSONException expected) {
+                // Never rewrite a ledger after silently removing corrupt receipts.
+            }
+            if (!java.util.Arrays.equals(damaged, file.readFully())) {
+                throw new AssertionError("An invalid outcome row or a valid receipt was lost");
+            }
+            ledger.remove("corrupt-receipt:BAD");
+            UsDailyWorker.writeSnapshot(file, ledger);
+            AlertOutcomes.add(file, market, new NotificationHistory.Entry("new-outcome", posted,
+                    "title", "detail"), java.util.Map.of("NEW", "割安"), posted);
+            var recovered = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            if (!recovered.has("original-outcome:VALID") || !recovered.has("new-outcome:NEW")) {
+                throw new AssertionError("Repaired ledger failed to preserve original and new receipts");
             }
         } finally {
             file.delete();
