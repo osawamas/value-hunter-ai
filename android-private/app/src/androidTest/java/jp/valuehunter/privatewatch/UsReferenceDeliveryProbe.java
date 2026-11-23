@@ -239,7 +239,13 @@ final class UsReferenceDeliveryProbe {
             if (!AlertOutcomes.report(file, market).contains("計測済み 0件 · 待ち 2件 · 集計対象外 0件")) {
                 throw new AssertionError("An old window was excluded after a provider failure");
             }
-            AlertOutcomes.evaluate(file, market, latest.plusDays(1), () -> false, range -> true, (range, symbols) -> {
+            var deferred = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            var first = deferred.getJSONObject("old:EARLY");
+            if (!latest.toString().equals(first.optString("checked"))
+                    || first.optLong("retryAfterMs") <= System.currentTimeMillis()) {
+                throw new AssertionError("Provider failure did not preserve a timed retry");
+            }
+            AlertOutcomes.evaluate(file, market, latest, () -> false, range -> true, (range, symbols) -> {
                 if (!symbols.equals(java.util.Set.of("LATER", "IWV"))) {
                     throw new AssertionError("The failed window blocked a later window: " + symbols);
                 }
@@ -248,6 +254,22 @@ final class UsReferenceDeliveryProbe {
             });
             if (!AlertOutcomes.report(file, market).contains("計測済み 1件 · 待ち 1件 · 集計対象外 0件")) {
                 throw new AssertionError("Later outcome did not complete after an earlier timeout");
+            }
+            // The provider is back but the old range is still cooling down.
+            AlertOutcomes.evaluate(file, market, latest, () -> false, range -> true,
+                    (range, symbols) -> { throw new AssertionError("Retry ignored the provider cooldown"); });
+            var expired = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            expired.getJSONObject("old:EARLY").put("retryAfterMs", System.currentTimeMillis() - 1000);
+            UsDailyWorker.writeSnapshot(file, expired);
+            AlertOutcomes.evaluate(file, market, latest, () -> false, range -> true, (range, symbols) -> {
+                if (!symbols.equals(java.util.Set.of("EARLY", "IWV"))) {
+                    throw new AssertionError("Timed retry lost the original comparison: " + symbols);
+                }
+                return java.util.Map.of("EARLY", new AlertOutcomes.Prices(100, 105),
+                        "IWV", new AlertOutcomes.Prices(100, 101));
+            });
+            if (!AlertOutcomes.report(file, market).contains("計測済み 2件 · 待ち 0件 · 集計対象外 0件")) {
+                throw new AssertionError("Provider recovery was not retried on the same closing date");
             }
         } finally {
             file.delete();
