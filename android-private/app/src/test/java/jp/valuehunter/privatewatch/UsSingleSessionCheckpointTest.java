@@ -90,6 +90,20 @@ public class UsSingleSessionCheckpointTest {
                 .has("results"));
     }
 
+    @Test public void evidenceChangeDuringFetchMustBlockCheckpointCommit() {
+        var before = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of("ABC"),
+                java.util.Map.of(MarketCoverage.Reason.CLOSE, java.util.List.of("ABC")),
+                java.util.Set.of());
+        var after = UsSingleSessionBudgetCheck.listingEvidenceHash(
+                java.util.Map.of("ABC", "NYSE"), java.util.Set.of("ABC"),
+                java.util.Map.of(MarketCoverage.Reason.CLOSE, java.util.List.of("ABC")),
+                java.util.Set.of("ABC"));
+        assertTrue(UsSingleSessionBudgetCheck.matchesEvidenceHash(before, before));
+        assertFalse(UsSingleSessionBudgetCheck.matchesEvidenceHash(before, after));
+        assertFalse(UsSingleSessionBudgetCheck.matchesEvidenceHash("", before));
+    }
+
     @Test public void legacyCheckpointCannotReuseVerdictsWithoutQuoteHash() throws Exception {
         var legacy = new JSONObject().put("results", new JSONObject().put("ABC", "OUTSIDE"))
                 .put("after", Long.MAX_VALUE);
