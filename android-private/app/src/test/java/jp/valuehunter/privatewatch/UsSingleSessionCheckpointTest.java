@@ -185,6 +185,25 @@ public class UsSingleSessionCheckpointTest {
         assertFalse(UsSingleSessionBudgetCheck.validDisplayVerdicts(results, 2, null));
     }
 
+    @Test public void malformedWholeResultsObjectCancelsStoredCooldown() throws Exception {
+        var eligible = java.util.Set.of("ABC");
+        var corrupt = new JSONObject().put("results", "not-an-object")
+                .put("after", Long.MAX_VALUE);
+        assertTrue(corrupt.has("results"));
+        assertTrue(corrupt.optJSONObject("results") == null);
+        assertTrue(UsSingleSessionBudgetCheck.shouldResetCooldown(
+                corrupt.has("results") && corrupt.optJSONObject("results") == null,
+                false, eligible));
+        assertTrue(UsSingleSessionBudgetCheck.shouldResetCooldown(false, true, eligible));
+        assertFalse(UsSingleSessionBudgetCheck.shouldResetCooldown(false, false, eligible));
+        assertFalse(UsSingleSessionBudgetCheck.shouldResetCooldown(
+                true, false, java.util.Set.of()));
+        var fresh = new JSONObject().put("after", Long.MAX_VALUE);
+        assertFalse(UsSingleSessionBudgetCheck.shouldResetCooldown(
+                fresh.has("results") && fresh.optJSONObject("results") == null,
+                false, eligible));
+    }
+
     @Test public void priorClosePriceCorrectionInvalidatesBudgetEvenWithIdenticalSymbols() throws Exception {
         var venues = java.util.Map.of("ABC", "NYSE");
         var priorSymbols = java.util.Set.of("ABC");
