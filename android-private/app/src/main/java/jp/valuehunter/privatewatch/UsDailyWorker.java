@@ -571,7 +571,13 @@ public final class UsDailyWorker extends Worker {
         if (separator < 0) return true;
         try {
             var stored = new JSONObject(state.getString(PRIVATE_PENDING_SIGNALS, "{}"));
-            if (stored.length() == 0) return true;
+            if (stored.length() == 0) {
+                DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                        "米国株の保留通知の銘柄記録が空 · 次回確認");
+                // Pending text means a notification was prepared. An empty signal
+                // map must not be mistaken for successful receipt reconciliation.
+                return false;
+            }
             String title = pending.substring(0, separator);
             String detail = pending.substring(separator + 1);
             long now = System.currentTimeMillis();
