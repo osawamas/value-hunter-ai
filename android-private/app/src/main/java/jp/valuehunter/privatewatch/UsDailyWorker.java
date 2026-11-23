@@ -591,8 +591,10 @@ public final class UsDailyWorker extends Worker {
             return state.edit().putStringSet(PRIVATE_SENT, sent)
                     .remove(PRIVATE_PENDING).remove(PRIVATE_PENDING_SIGNALS).commit();
         } catch (JSONException invalid) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の保留通知の銘柄記録が不正");
-            return true;
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の保留通知の銘柄記録が不正 · 次回確認");
+            // A corrupt pending signal is not proof that the posted alert was recovered.
+            // Preserve the pending receipt rather than overwriting the original outcome.
+            return false;
         } catch (IOException unavailable) {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の通知履歴を復元できず · 次回確認");
             return false;
