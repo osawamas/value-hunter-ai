@@ -66,7 +66,7 @@ final class UsSingleSessionBudgetCheck {
         saved.put("eligible", eligible.size());
         long now = System.currentTimeMillis();
         if (eligible.isEmpty() || saved.optLong("after") > now) {
-            if (!stopped.getAsBoolean()) save(state, day, saved, results);
+            if (!stopped.getAsBoolean()) saveIfQuoteUnchanged(state, day, saved, results, file, quoteHash);
             return;
         }
 
@@ -76,7 +76,7 @@ final class UsSingleSessionBudgetCheck {
         }
         if (stopped.getAsBoolean()) return;
         if (remaining.isEmpty()) {
-            save(state, day, saved, results);
+            saveIfQuoteUnchanged(state, day, saved, results, file, quoteHash);
             return;
         }
         String cursor = saved.optString("cursor");
@@ -107,7 +107,7 @@ final class UsSingleSessionBudgetCheck {
                 || !groups.equals(MarketCoverage.US.groups(state))) {
             throw new IOException("Reference budget evidence changed during acquisition");
         }
-        save(state, day, saved, results);
+        saveIfQuoteUnchanged(state, day, saved, results, file, quoteHash);
     }
 
     // A corrected same-session close changes the evidence used by the budget
@@ -137,9 +137,21 @@ final class UsSingleSessionBudgetCheck {
         return Set.of();
     }
 
-    private static void save(SharedPreferences state, LocalDate day, JSONObject saved, JSONObject results)
-            throws JSONException {
-        state.edit().putString(STATE, saved.put("day", day.toString()).put("results", results).toString()).apply();
+    // Corrections can arrive while the supplemental prices or FX data are fetched.
+    // Serialize this final evidence check with UsDailyWorker's atomic quote writes.
+    private static void saveIfQuoteUnchanged(SharedPreferences state, LocalDate day,
+                                             JSONObject saved, JSONObject results,
+                                             AtomicFile quoteFile, String quoteHash)
+            throws IOException, JSONException {
+        synchronized (UsDailyWorker.QUOTE_LOCK) {
+            if (!quoteHash.equals(UsReferenceAlerts.sha256(UsDailyWorker.readQuote(quoteFile)))) {
+                throw new IOException("Daily close changed during single-session budget screening");
+            }
+            if (!state.edit().putString(STATE, saved.put("day", day.toString())
+                    .put("results", results).toString()).commit()) {
+                throw new IOException("Could not persist single-session budget checkpoint");
+            }
+        }
     }
 
     private static JSONObject read(SharedPreferences state, String day) {
