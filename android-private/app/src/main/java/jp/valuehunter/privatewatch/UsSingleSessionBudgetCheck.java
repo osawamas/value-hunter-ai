@@ -59,12 +59,13 @@ final class UsSingleSessionBudgetCheck {
                 priorQuoteRevision(directory, day));
         var saved = matchingEvidenceCheckpoint(read(state, day.toString()), quoteHash, listingHash);
         var results = saved.optJSONObject("results");
+        // A malformed whole results object is different from a fresh checkpoint:
+        // don't keep its saved cooldown when some eligible symbols still need work.
+        boolean malformedResults = results == null && saved.has("results");
         if (results == null) results = new JSONObject();
         // Recompute damaged checkpoint values rather than treating their mere
         // presence as an already-completed screening verdict.
-        if (discardInvalidVerdicts(results, eligible)) {
-            // Corrupt eligible verdicts must be retried immediately, not held
-            // behind the previous batch's one-hour backoff.
+        if (shouldResetCooldown(malformedResults, discardInvalidVerdicts(results, eligible), eligible)) {
             saved.remove("after");
         }
         saved.put("eligible", eligible.size())
@@ -113,6 +114,11 @@ final class UsSingleSessionBudgetCheck {
             throw new IOException("Reference budget evidence changed during acquisition");
         }
         saveIfEvidenceUnchanged(state, day, saved, results, file, quoteHash, directory, listingHash);
+    }
+
+    static boolean shouldResetCooldown(boolean malformedResults, boolean removedInvalid,
+                                       Set<String> eligible) {
+        return !eligible.isEmpty() && (malformedResults || removedInvalid);
     }
 
     static boolean discardInvalidVerdicts(JSONObject results, Set<String> eligible) {
