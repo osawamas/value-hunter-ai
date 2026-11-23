@@ -34,8 +34,8 @@ public class UsSingleSessionCheckpointTest {
     }
 
     @Test public void correctedBytesDuringScreeningCannotBePersistedAsOriginalEvidence() {
-        byte[] original = "{\\"trading_date_et\\":\\"2026-11-17\\",\\"closes\\":[1]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        byte[] correction = "{\\"trading_date_et\\":\\"2026-11-17\\",\\"closes\\":[2]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] original = "original-session-price".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] correction = "corrected-session-price".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String initialHash = UsReferenceAlerts.sha256(original);
         assertTrue(UsSingleSessionBudgetCheck.matchesSavedQuote(initialHash, original));
         assertFalse(UsSingleSessionBudgetCheck.matchesSavedQuote(initialHash, correction));
