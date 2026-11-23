@@ -55,7 +55,8 @@ final class UsSingleSessionBudgetCheck {
                     new HashSet<>(groups.getOrDefault(reason, List.of())), sameDay,
                     paired, prices.keySet(), prior);
         }
-        var saved = matchingQuoteCheckpoint(read(state, day.toString()), quoteHash);
+        String listingHash = listingEvidenceHash(sameDay, paired, groups, prior);
+        var saved = matchingEvidenceCheckpoint(read(state, day.toString()), quoteHash, listingHash);
         var results = saved.optJSONObject("results");
         if (results == null) results = new JSONObject();
         // An official close or a completed paired check supersedes the reference result.
@@ -117,6 +118,39 @@ final class UsSingleSessionBudgetCheck {
             return new JSONObject().put("quote_sha256", quoteHash);
         }
         return saved;
+    }
+
+    // Listing identity and the available prior-session symbols can change
+    // without changing today's quote bytes. Invalidate their old verdicts too.
+    static JSONObject matchingEvidenceCheckpoint(JSONObject saved, String quoteHash, String listingHash)
+            throws JSONException {
+        var current = matchingQuoteCheckpoint(saved, quoteHash);
+        if (listingHash.isEmpty() || !listingHash.equals(current.optString("listing_sha256"))) {
+            return new JSONObject().put("quote_sha256", quoteHash)
+                    .put("listing_sha256", listingHash);
+        }
+        return current;
+    }
+
+    static String listingEvidenceHash(java.util.Map<String, String> exchanges, Set<String> paired,
+                                      java.util.Map<MarketCoverage.Reason, List<String>> groups,
+                                      Set<String> prior) {
+        var canonical = new StringBuilder();
+        new java.util.TreeMap<>(exchanges).forEach((symbol, venue) ->
+                canonical.append("venue:").append(symbol.length()).append(':').append(symbol)
+                        .append(venue.length()).append(':').append(venue).append(';'));
+        new java.util.TreeSet<>(paired).forEach(symbol ->
+                canonical.append("paired:").append(symbol.length()).append(':').append(symbol).append(';'));
+        for (var reason : MarketCoverage.Reason.values()) {
+            var symbols = groups.getOrDefault(reason, List.of());
+            for (String symbol : new java.util.TreeSet<>(symbols)) {
+                canonical.append("group:").append(reason.name()).append(':')
+                        .append(symbol.length()).append(':').append(symbol).append(';');
+            }
+        }
+        new java.util.TreeSet<>(prior).forEach(symbol ->
+                canonical.append("prior:").append(symbol.length()).append(':').append(symbol).append(';'));
+        return UsReferenceAlerts.sha256(canonical.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     static boolean hasPublishedResult(SharedPreferences state, LocalDate day) {
