@@ -309,6 +309,15 @@ final class UsReferenceDeliveryProbe {
         long now = firstPosted + count * 1000;
         try {
             if (!retry.edit().clear().commit()) throw new AssertionError("Cannot prepare outcome retry storage");
+            // Do not acknowledge a delivered alert when its stable receipt is unavailable.
+            if (AlertOutcomes.record(context, market, (NotificationHistory.Entry) null,
+                    java.util.Map.of("UNRECEIPTED", "割安"), now)) {
+                throw new AssertionError(market + " acknowledged an outcome without a receipt");
+            }
+            if (!AlertOutcomes.record(context, market, (NotificationHistory.Entry) null,
+                    java.util.Map.of(), now)) {
+                throw new AssertionError(market + " rejected a notification without outcome signals");
+            }
             for (int i = 0; i < count; i++) {
                 var alert = new NotificationHistory.Entry("receipt-" + i, firstPosted + i * 1000, "title", "detail");
                 var signals = java.util.Map.of("FIXTURE" + i, i % 2 == 0 ? "割安" : "超割安");
