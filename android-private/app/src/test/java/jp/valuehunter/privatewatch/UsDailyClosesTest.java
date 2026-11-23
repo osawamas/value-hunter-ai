@@ -47,7 +47,8 @@ public class UsDailyClosesTest {
     @Test public void backfillDoesNotReuseADifferentDateProviderOrEmptySnapshot() throws Exception {
         var source = UsDoltCloses.SOURCE;
         var quote = new JSONObject().put("source", source).put("trading_date_et", DAY.toString())
-                .put("closes", new JSONArray().put(new JSONObject().put("symbol", "XYZ")));
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "XYZ").put("close_usd", 12.5)));
         assertTrue(UsDailyWorker.matchesPriorSnapshot(quote, DAY, source));
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote, DAY.minusDays(1), source));
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote, DAY, UsDailyCloses.MASSIVE_SOURCE));
