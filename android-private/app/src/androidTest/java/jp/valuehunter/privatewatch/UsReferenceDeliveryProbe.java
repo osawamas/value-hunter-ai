@@ -1104,7 +1104,7 @@ final class UsReferenceDeliveryProbe {
             UsSingleSessionBudgetCheck.run(isolated, day, () -> false,
                     url -> { throw new AssertionError("Empty budget refresh should not download data"); });
             if (UsSingleSessionBudgetCheck.hasPublishedResult(state, day)
-                    || !UsSingleSessionBudgetCheck.display(state, day.toString(), PROVIDER).isEmpty()) {
+                    || !UsSingleSessionBudgetCheck.display(isolated, state, day.toString(), PROVIDER).isEmpty()) {
                 throw new AssertionError("A budget count survived removal of all eligible symbols");
             }
         } finally {
