@@ -13,12 +13,18 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.json.JSONObject;
+import org.json.JSONException;
+import java.util.regex.Pattern;
 import java.util.function.Supplier;
 
 /** Bounded, on-device diagnostics. Callers provide statuses and counts, never payloads. */
 final class DiagnosticLog {
     private static final String PREFS = "diagnostic-log";
     private static final String EVENTS = "events";
+    private static final String STRUCTURED = "structured_events";
+    private static final long RETENTION_MS = 7L * 24 * 60 * 60 * 1000;
+    private static final Pattern SECRET = Pattern.compile("(?i)(api[_-]?key|token|authorization|password|secret)\\s*[:=]\\s*[^\\s,;]+");
     private static final int LIMIT = 240;
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.JAPAN)
             .withZone(ZoneId.of("Asia/Tokyo"));
@@ -37,9 +43,110 @@ final class DiagnosticLog {
         try {
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             state.edit().putString(EVENTS, append(state.getString(EVENTS, ""), row)).apply();
+            persistStructured(state, classify(event), area.label, event, "", "", "");
         } catch (RuntimeException unavailable) {
             // Local diagnostics must never stop market work or a notification.
         }
+    }
+
+    static synchronized void recordError(Context context, Area area, String operation, Throwable error) {
+        String kind = error == null ? "Unknown" : error.getClass().getSimpleName();
+        record(context, area, operation + " · " + kind + " · 失敗");
+        if (error == null) return;
+        try {
+            String location = "";
+            StringBuilder stack = new StringBuilder(kind);
+            int frames = 0;
+            for (StackTraceElement frame : error.getStackTrace()) {
+                if (!frame.getClassName().startsWith("jp.valuehunter.")) continue;
+                String line = frame.getFileName() + ":" + frame.getLineNumber();
+                if (location.isEmpty()) location = line;
+                if (frames++ >= 12) break;
+                stack.append("\\n at ").append(frame.getClassName()).append(".")
+                        .append(frame.getMethodName()).append("(").append(line).append(")");
+            }
+            var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            persistStructured(state, "ERROR", area.label, operation, kind, location, stack.toString());
+        } catch (RuntimeException ignored) {
+            // Diagnostics must never obstruct notifications, workers or UI.
+        }
+    }
+
+    private static String classify(String event) {
+        if (event.contains("再試行") || event.contains("待ち") || event.contains("タイムアウト")) return "RETRY";
+        if (event.contains("失敗") || event.contains("例外") || event.contains("エラー")) return "ERROR";
+        return "INFO";
+    }
+
+    private static void persistStructured(android.content.SharedPreferences prefs, String level,
+                                          String area, String operation, String exception,
+                                          String location, String trace) {
+        try {
+            long now = System.currentTimeMillis();
+            var entry = new JSONObject().put("time", now).put("level", level)
+                    .put("area", area).put("operation", redact(operation))
+                    .put("exception", exception).put("location", location)
+                    .put("trace", redact(trace));
+            String existing = prefs.getString(STRUCTURED, "");
+            StringBuilder keep = new StringBuilder();
+            if (!existing.isEmpty()) for (String row : existing.split("\\n")) {
+                try {
+                    var old = new JSONObject(row);
+                    if (now - old.optLong("time") > RETENTION_MS || now < old.optLong("time")) continue;
+                    if (keep.length() > 0) keep.append('\\n');
+                    keep.append(row);
+                } catch (JSONException ignored) {
+                    // One corrupted event must not destroy remaining diagnostics.
+                }
+            }
+            if (keep.length() > 0) keep.append('\\n');
+            keep.append(entry);
+            String[] records = keep.toString().split("\\n");
+            prefs.edit().putString(STRUCTURED, String.join("\\n",
+                    java.util.Arrays.asList(records).subList(Math.max(0, records.length - LIMIT),
+                            records.length))).apply();
+        } catch (JSONException | RuntimeException ignored) {
+            // Logging never blocks actual work.
+        }
+    }
+
+    static String redact(String value) {
+        if (value == null) return "";
+        return SECRET.matcher(value).replaceAll("$1=[REDACTED]");
+    }
+
+    static synchronized List<JSONObject> entries(Context context) {
+        List<JSONObject> result = new ArrayList<>();
+        try {
+            String rows = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getString(STRUCTURED, "");
+            long now = System.currentTimeMillis();
+            for (String row : rows.split("\\n")) {
+                if (row.isEmpty()) continue;
+                try {
+                    JSONObject event = new JSONObject(row);
+                    long when = event.optLong("time");
+                    if (when > 0 && now >= when && now - when <= RETENTION_MS) result.add(event);
+                } catch (JSONException ignored) {}
+            }
+        } catch (RuntimeException ignored) {}
+        java.util.Collections.reverse(result);
+        return result;
+    }
+
+    static String detailedReport(Context context) {
+        var builder = new StringBuilder(report(context)).append("\\n\\n--- 詳細診断 ---");
+        for (JSONObject event : entries(context)) {
+            builder.append("\\n").append(CLOCK.format(Instant.ofEpochMilli(event.optLong("time"))))
+                    .append(" [").append(event.optString("level")).append("] ")
+                    .append(event.optString("area")).append(" ")
+                    .append(event.optString("operation"));
+            if (!event.optString("location").isEmpty())
+                builder.append(" @ ").append(event.optString("location"));
+            if (!event.optString("trace").isEmpty())
+                builder.append("\\n").append(event.optString("trace"));
+        }
+        return redact(builder.toString());
     }
 
     static String append(String saved, String row) {
@@ -92,7 +199,7 @@ final class DiagnosticLog {
             recordFreshness(context, area);
             return result;
         } catch (RuntimeException failure) {
-            record(context, area, "実行例外: " + failure.getClass().getSimpleName());
+            recordError(context, area, "実行例外", failure);
             throw failure;
         }
     }
