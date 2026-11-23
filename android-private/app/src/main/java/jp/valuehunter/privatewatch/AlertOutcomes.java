@@ -170,6 +170,7 @@ final class AlertOutcomes {
         if (!retry.contains("rows")) return;
         var stored = new JSONObject(retry.getString("rows", "{}"));
         var ledger = read(file);
+        boolean changed = false;
         for (String receipt : keys(stored)) {
             var row = stored.getJSONObject(receipt);
             long posted = row.getLong("at");
@@ -177,9 +178,11 @@ final class AlertOutcomes {
             var source = row.getJSONObject("signals");
             for (String symbol : keys(source)) signals.put(symbol, source.getString(symbol));
             // Outcome identity uses the original receipt and posting time, independent of the notification text.
-            addToLedger(ledger, market, new NotificationHistory.Entry(receipt, posted, "", ""), signals);
+            changed |= addToLedger(ledger, market, new NotificationHistory.Entry(receipt, posted, "", ""), signals);
         }
-        saveLedger(file, ledger, now);
+        // A previous recovery may have committed the ledger before clearing the
+        // retry preferences. Avoid rewriting an unchanged ledger on the next run.
+        if (changed) saveLedger(file, ledger, now);
         if (!retry.edit().remove("rows").commit()) throw new IOException("Could not clear deferred alert outcomes");
     }
 
@@ -193,6 +196,7 @@ final class AlertOutcomes {
                                        Map<String, String> signals) throws JSONException {
         var dates = window(market, alert.postedAt());
         if (dates == null) return false;
+        boolean changed = false;
         for (var signal : signals.entrySet()) {
             String symbol = signal.getKey();
             if (!validSymbol(symbol)) continue;
@@ -201,8 +205,9 @@ final class AlertOutcomes {
             ledger.put(key, new JSONObject().put("symbol", symbol).put("rule", signal.getValue())
                     .put("at", alert.postedAt()).put("entry", dates.entry().toString())
                     .put("exit", dates.exit().toString()).put("status", WAITING));
+            changed = true;
         }
-        return true;
+        return changed;
     }
 
     private static void saveLedger(AtomicFile file, JSONObject ledger, long now) throws IOException, JSONException {
