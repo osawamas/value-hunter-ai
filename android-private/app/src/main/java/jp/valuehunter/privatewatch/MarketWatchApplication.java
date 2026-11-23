@@ -14,7 +14,7 @@ public final class MarketWatchApplication extends Application {
         var previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, crash) -> {
             try {
-                DiagnosticLog.recordError(this, DiagnosticLog.Area.ALERT,
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.CRASH,
                         "未処理のクラッシュ · " + thread.getName(), crash);
             } catch (RuntimeException ignored) {}
             if (previous != null) previous.uncaughtException(thread, crash);
