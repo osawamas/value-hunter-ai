@@ -24,7 +24,7 @@ final class DiagnosticLog {
     private static final String EVENTS = "events";
     private static final String STRUCTURED = "structured_events";
     private static final long RETENTION_MS = 7L * 24 * 60 * 60 * 1000;
-    private static final Pattern SECRET = Pattern.compile("(?i)(api[_-]?key|token|authorization|password|secret)\\s*[:=]\\s*[^\\s,;]+");
+    private static final Pattern SECRET = Pattern.compile("(?i)(api[_-]?key|token|authorization|password|secret)\s*[:=]\s*[^\s,;]+");
     private static final int LIMIT = 240;
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.JAPAN)
             .withZone(ZoneId.of("Asia/Tokyo"));
@@ -64,7 +64,7 @@ final class DiagnosticLog {
                 String line = frame.getFileName() + ":" + frame.getLineNumber();
                 if (location.isEmpty()) location = line;
                 if (frames++ >= 12) break;
-                stack.append("\\n at ").append(frame.getClassName()).append(".")
+                stack.append("\n at ").append(frame.getClassName()).append(".")
                         .append(frame.getMethodName()).append("(").append(line).append(")");
             }
             var state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -92,20 +92,20 @@ final class DiagnosticLog {
                     .put("trace", redact(trace));
             String existing = prefs.getString(STRUCTURED, "");
             StringBuilder keep = new StringBuilder();
-            if (!existing.isEmpty()) for (String row : existing.split("\\n")) {
+            if (!existing.isEmpty()) for (String row : existing.split("\n")) {
                 try {
                     var old = new JSONObject(row);
                     if (now - old.optLong("time") > RETENTION_MS || now < old.optLong("time")) continue;
-                    if (keep.length() > 0) keep.append('\\n');
+                    if (keep.length() > 0) keep.append('\n');
                     keep.append(row);
                 } catch (JSONException ignored) {
                     // One corrupted event must not destroy remaining diagnostics.
                 }
             }
-            if (keep.length() > 0) keep.append('\\n');
+            if (keep.length() > 0) keep.append('\n');
             keep.append(entry);
-            String[] records = keep.toString().split("\\n");
-            prefs.edit().putString(STRUCTURED, String.join("\\n",
+            String[] records = keep.toString().split("\n");
+            prefs.edit().putString(STRUCTURED, String.join("\n",
                     java.util.Arrays.asList(records).subList(Math.max(0, records.length - LIMIT),
                             records.length))).apply();
         } catch (JSONException | RuntimeException ignored) {
@@ -124,7 +124,7 @@ final class DiagnosticLog {
             String rows = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .getString(STRUCTURED, "");
             long now = System.currentTimeMillis();
-            for (String row : rows.split("\\n")) {
+            for (String row : rows.split("\n")) {
                 if (row.isEmpty()) continue;
                 try {
                     JSONObject event = new JSONObject(row);
@@ -138,16 +138,16 @@ final class DiagnosticLog {
     }
 
     static String detailedReport(Context context) {
-        var builder = new StringBuilder(report(context)).append("\\n\\n--- 詳細診断 ---");
+        var builder = new StringBuilder(report(context)).append("\n\n--- 詳細診断 ---");
         for (JSONObject event : entries(context)) {
-            builder.append("\\n").append(CLOCK.format(Instant.ofEpochMilli(event.optLong("time"))))
+            builder.append("\n").append(CLOCK.format(Instant.ofEpochMilli(event.optLong("time"))))
                     .append(" [").append(event.optString("level")).append("] ")
                     .append(event.optString("area")).append(" ")
                     .append(event.optString("operation"));
             if (!event.optString("location").isEmpty())
                 builder.append(" @ ").append(event.optString("location"));
             if (!event.optString("trace").isEmpty())
-                builder.append("\\n").append(event.optString("trace"));
+                builder.append("\n").append(event.optString("trace"));
         }
         return redact(builder.toString());
     }
