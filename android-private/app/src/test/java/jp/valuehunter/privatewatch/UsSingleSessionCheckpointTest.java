@@ -120,6 +120,25 @@ public class UsSingleSessionCheckpointTest {
                 rawQuote, listing));
     }
 
+    @Test public void malformedSavedVerdictsAreRecheckedInsteadOfSkipped() throws Exception {
+        var results = new JSONObject()
+                .put("VALID_IN", "WITHIN")
+                .put("VALID_OUT", "OUTSIDE")
+                .put("TEXT", "UNKNOWN")
+                .put("NUMBER", 1)
+                .put("NULL", JSONObject.NULL)
+                .put("WRONG_CASE", "within")
+                .put("REMOVED", "WITHIN");
+        var eligible = java.util.Set.of("VALID_IN", "VALID_OUT", "TEXT", "NUMBER", "NULL", "WRONG_CASE");
+        UsSingleSessionBudgetCheck.discardInvalidVerdicts(results, eligible);
+        assertEquals(2, results.length());
+        assertEquals("WITHIN", results.getString("VALID_IN"));
+        assertEquals("OUTSIDE", results.getString("VALID_OUT"));
+        for (var code : java.util.List.of("TEXT", "NUMBER", "NULL", "WRONG_CASE", "REMOVED")) {
+            assertFalse(results.has(code));
+        }
+    }
+
     @Test public void legacyCheckpointCannotReuseVerdictsWithoutQuoteHash() throws Exception {
         var legacy = new JSONObject().put("results", new JSONObject().put("ABC", "OUTSIDE"))
                 .put("after", Long.MAX_VALUE);
