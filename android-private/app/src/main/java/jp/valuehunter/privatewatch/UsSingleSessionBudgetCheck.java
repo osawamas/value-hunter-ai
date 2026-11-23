@@ -112,7 +112,7 @@ final class UsSingleSessionBudgetCheck {
 
     // A corrected same-session close changes the evidence used by the budget
     // comparison. Never reuse an old cursor, cooldown or verdict after it changes.
-    static JSONObject matchingQuoteCheckpoint(JSONObject saved, String quoteHash) {
+    static JSONObject matchingQuoteCheckpoint(JSONObject saved, String quoteHash) throws JSONException {
         if (quoteHash.isEmpty() || !quoteHash.equals(saved.optString("quote_sha256"))) {
             return new JSONObject().put("quote_sha256", quoteHash);
         }
