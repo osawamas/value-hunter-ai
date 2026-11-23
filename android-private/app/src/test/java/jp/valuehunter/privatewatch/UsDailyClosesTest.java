@@ -55,6 +55,27 @@ public class UsDailyClosesTest {
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote.put("closes", new JSONArray()), DAY, source));
     }
 
+    @Test public void referenceBudgetCannotUseDamagedPriorClose() throws Exception {
+        LocalDate current = LocalDate.of(2026, 11, 17);
+        var prior = new JSONObject().put("source", UsDoltCloses.SOURCE)
+                .put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "AAPL").put("close_usd", 125.5)));
+        assertEquals(java.util.Set.of("AAPL"),
+                UsSingleSessionBudgetCheck.verifiedPriorSymbols(prior, current));
+        assertTrue(UsSingleSessionBudgetCheck.verifiedPriorSymbols(
+                new JSONObject(prior.toString()).put("trading_date_et", "2026-11-13"),
+                current).isEmpty());
+        assertTrue(UsSingleSessionBudgetCheck.verifiedPriorSymbols(
+                new JSONObject(prior.toString()).put("closes", new JSONArray()
+                        .put(new JSONObject().put("symbol", "AAPL"))),
+                current).isEmpty());
+        assertTrue(UsSingleSessionBudgetCheck.verifiedPriorSymbols(
+                new JSONObject(prior.toString()).put("closes", new JSONArray()
+                        .put(new JSONObject().put("symbol", "AAPL").put("close_usd", -3))),
+                current).isEmpty());
+    }
+
     @Test public void corruptCurrentSnapshotMustNotSuppressNewFetch() throws Exception {
         var valid = new JSONObject().put("source", UsDoltCloses.SOURCE)
                 .put("trading_date_et", DAY.toString())
