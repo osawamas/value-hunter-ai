@@ -112,6 +112,7 @@ final class UsReferenceDeliveryProbe {
                 verifyMeterDelivery(context, notifications);
                 verifyRejectedAlertCanBeRecalculated(context, notifications);
                 verifyRetriedAlertUsesCorrectedLedger(context, notifications);
+                verifySameDayProviderSwitchPreservesSent(context, notifications);
                 verifyDeliveredAlertWithNewText(context, notifications);
                 verifyDeliveryRecoveryOnNextSession(context, notifications);
                 verifyBothOutcomeStoresFail(context, notifications);
@@ -728,6 +729,61 @@ final class UsReferenceDeliveryProbe {
         if (!UsDailyWorker.applyFinancialScreen(context, state, corrected, SECOND, PROVIDER, hash, () -> false)
                 || UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Corrected financial data did not invalidate the queued alert");
+        }
+        expectQuiet(notifications);
+    }
+
+    private static void verifySameDayProviderSwitchPreservesSent(Context context, NotificationManager notifications)
+            throws Exception {
+        var state = context.getSharedPreferences("us-provider-switch-sent-probe", Context.MODE_PRIVATE);
+        String firstHash = "f".repeat(64);
+        String alternateHash = "a".repeat(64);
+        String revisedHash = "b".repeat(64);
+        String alternate = UsDailyCloses.MASSIVE_SOURCE;
+        if (!state.edit().clear().putBoolean(ValueAlertPreview.LIVE, false).commit()) {
+            throw new AssertionError("Cannot prepare provider-switch fixture");
+        }
+        if (!UsDailyWorker.applyFinancialScreen(context, state, meterLedger(FIRST, firstHash, 15),
+                FIRST, PROVIDER, firstHash, () -> false,
+                (app, id, title, detail) -> { throw new AssertionError("Initial session posted unexpectedly"); })) {
+            throw new AssertionError("Could not save original market session");
+        }
+        String prior = state.getString("us_private_sec_baseline", "");
+        if (prior.isEmpty() || !state.edit().putStringSet("us_private_sec_sent",
+                java.util.Set.of("METER", "meter:3:METER")).commit()) {
+            throw new AssertionError("Cannot seed original submitted US receipt");
+        }
+        var regular = meterLedger(SECOND, firstHash, 9);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, regular, SECOND, PROVIDER, firstHash,
+                () -> false, (app, id, title, detail) -> {
+                    throw new AssertionError("Previously submitted stock was reposted");
+                })) {
+            throw new AssertionError("Could not save second trading session");
+        }
+        String originalPrior = state.getString("us_private_sec_prior_baseline", "");
+        if (!prior.equals(originalPrior)) throw new AssertionError("Prior-day baseline was changed");
+        var switched = meterLedger(SECOND, alternateHash, 9);
+        switched.put("close_provider", alternate);
+        switched.getJSONObject("reference_screen").put("provider", alternate);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, switched, SECOND, alternate, alternateHash,
+                () -> false, (app, id, title, detail) -> {
+                    throw new AssertionError("Provider switch reposted the original receipt");
+                })) {
+            throw new AssertionError("Could not update same-day quote provider");
+        }
+        if (!state.getStringSet("us_private_sec_sent", java.util.Set.of()).containsAll(
+                java.util.Set.of("METER", "meter:3:METER"))
+                || !originalPrior.equals(state.getString("us_private_sec_prior_baseline", ""))) {
+            throw new AssertionError("Same-day quote provider switch lost submitted receipts or comparison anchor");
+        }
+        var back = meterLedger(SECOND, revisedHash, 9);
+        if (!UsDailyWorker.applyFinancialScreen(context, state, back, SECOND, PROVIDER, revisedHash,
+                () -> false, (app, id, title, detail) -> {
+                    throw new AssertionError("Switch back to original provider reposted a known receipt");
+                })
+                || !state.getStringSet("us_private_sec_sent", java.util.Set.of()).contains("METER")
+                || !originalPrior.equals(state.getString("us_private_sec_prior_baseline", ""))) {
+            throw new AssertionError("Returning to original provider lost original notification state");
         }
         expectQuiet(notifications);
     }
