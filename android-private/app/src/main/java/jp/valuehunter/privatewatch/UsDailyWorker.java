@@ -236,9 +236,18 @@ public final class UsDailyWorker extends Worker {
         var state = ScanWorker.prefs(context);
         String archived = getInputData().getString(ARCHIVE_RECHECK_DAY);
         if (archived == null) AlertOutcomes.recoverDeferred(context, AlertOutcomes.Market.US);
-        LocalDate target = archived == null
-                ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()))
-                : LocalDate.parse(archived);
+        // WorkManager input is persisted across app upgrades and restarts. An
+        // invalid archived date must fail the request, not crash the worker.
+        LocalDate target;
+        try {
+            target = archived == null
+                    ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()))
+                    : LocalDate.parse(archived);
+        } catch (DateTimeParseException invalid) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_CLOSE,
+                    "保存済みの終値再確認日付が不正 · この要求を終了");
+            return Result.failure();
+        }
         try {
             String key = readKey(context);
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
