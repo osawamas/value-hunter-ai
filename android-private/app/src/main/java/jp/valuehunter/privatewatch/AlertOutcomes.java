@@ -106,9 +106,11 @@ final class AlertOutcomes {
     static boolean record(Context context, Market market, NotificationHistory.Entry entry,
                           Map<String, String> signals, long now) {
         try {
-            if (entry != null && !signals.isEmpty()) {
-                recordOrDefer(file(context, market), deferred(context, market), market, entry, signals, now);
-            }
+            if (signals.isEmpty()) return true;
+            // Without a delivery receipt, there is no stable identity for this outcome.
+            // Keep the alert pending so a later attempt can recover its original receipt.
+            if (entry == null) return false;
+            recordOrDefer(file(context, market), deferred(context, market), market, entry, signals, now);
             return true;
         } catch (IOException | JSONException e) {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, market.label + "の試験記録を保存できず · 次回確認");
