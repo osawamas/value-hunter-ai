@@ -76,7 +76,7 @@ public final class DebugDiagnosticsActivity extends Activity {
         root.addView(band);
         LinearLayout brand = row();
         band.addView(brand);
-        View emblem = emblem();
+        View emblem = BrandEmblem.create(this);
         brand.addView(emblem, new LinearLayout.LayoutParams(dp(62), dp(62)));
         LinearLayout names = column();
         LinearLayout.LayoutParams ns = new LinearLayout.LayoutParams(0, -2, 1f);
@@ -124,38 +124,6 @@ public final class DebugDiagnosticsActivity extends Activity {
             bp.setMargins(dp(2), 0, dp(2), 0);
             tabs.addView(b, bp);
         }
-    }
-
-    private View emblem() {
-        // Small on-device vector; an exact supplied emblem can replace this
-        // renderer as a binary drawable when the asset is checked in.
-        return new View(this) {
-            final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-            @Override protected void onDraw(Canvas c) {
-                float cx = getWidth() / 2f, cy = getHeight() / 2f;
-                float r = Math.min(cx, cy) * .88f;
-                p.setStyle(Paint.Style.FILL);
-                p.setColor(0xff100f13); c.drawCircle(cx, cy, r, p);
-                for (int i = 0; i < 28; i++) {
-                    double a = Math.PI * 2 * i / 28;
-                    double b = a + Math.PI / 28;
-                    double d = a - Math.PI / 28;
-                    Path ray = new Path();
-                    ray.moveTo(cx + (float)Math.cos(a)*r*.96f, cy + (float)Math.sin(a)*r*.96f);
-                    ray.lineTo(cx + (float)Math.cos(b)*r*.49f, cy + (float)Math.sin(b)*r*.49f);
-                    ray.lineTo(cx + (float)Math.cos(d)*r*.49f, cy + (float)Math.sin(d)*r*.49f);
-                    ray.close();
-                    p.setColor(i % 2 == 0 ? 0xffdc9473 : 0xff9b4f2d);
-                    c.drawPath(ray, p);
-                }
-                p.setColor(0xff0f1114); c.drawCircle(cx, cy, r*.49f, p);
-                p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(2));p.setColor(0xffdc9473);
-                c.drawCircle(cx, cy, r*.44f, p);
-                p.setStyle(Paint.Style.FILL);p.setTypeface(Typeface.DEFAULT_BOLD);
-                p.setTextSize(r*.51f);p.setTextAlign(Paint.Align.CENTER);
-                c.drawText("JG", cx, cy + r*.17f, p);
-            }
-        };
     }
 
     private void overview() {
