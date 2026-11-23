@@ -99,6 +99,7 @@ final class MarketNetwork {
     }
 
     static boolean allowed() {
+        if (wifiOnly) refreshRoute(true);
         return GATE.allowed();
     }
 
@@ -119,6 +120,7 @@ final class MarketNetwork {
     }
 
     static boolean interrupted(long generation) {
+        if (wifiOnly) refreshRoute(true);
         return GATE.interrupted(generation);
     }
 
