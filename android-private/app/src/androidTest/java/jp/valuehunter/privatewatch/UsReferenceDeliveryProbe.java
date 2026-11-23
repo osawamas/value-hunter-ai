@@ -159,6 +159,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Delivered meter alert was not recorded for the forward test");
         }
         verifyOutcomeComparison(context);
+        verifyInvalidOutcomePrices(context);
         verifyCorruptHistoryCannotBeOverwritten(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeRecovery(context);
@@ -210,6 +211,42 @@ final class UsReferenceDeliveryProbe {
             if (!result.contains("計測済み 1件 · 待ち 0件 · 集計対象外 1件")
                     || !result.contains("差 +7.00ポイント")) {
                 throw new AssertionError("Outcome did not persist fair close-to-close comparison: " + result);
+            }
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyInvalidOutcomePrices(Context context) throws Exception {
+        var temp = File.createTempFile("invalid-outcome-prices", ".json", context.getCacheDir());
+        var file = new AtomicFile(temp);
+        file.delete();
+        try {
+            var market = AlertOutcomes.Market.US;
+            long posted = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+            AlertOutcomes.add(file, market, new NotificationHistory.Entry("invalid-prices", posted, "title", "detail"),
+                    java.util.Map.of("ZERO", "割安", "NEGATIVE", "割安",
+                            "INFINITE", "割安", "GOOD", "割安"), posted);
+            var window = AlertOutcomes.window(market, posted);
+            AlertOutcomes.evaluate(file, market, window.exit(), () -> false, range -> true,
+                    (range, symbols) -> java.util.Map.of(
+                            "IWV", new AlertOutcomes.Prices(100, 102),
+                            "ZERO", new AlertOutcomes.Prices(0, 10),
+                            "NEGATIVE", new AlertOutcomes.Prices(100, -10),
+                            "INFINITE", new AlertOutcomes.Prices(Double.POSITIVE_INFINITY, 10),
+                            "GOOD", new AlertOutcomes.Prices(100, 105)));
+            var ledger = new JSONObject(new String(file.readFully(), java.nio.charset.StandardCharsets.UTF_8));
+            if (!"complete".equals(ledger.getJSONObject("invalid-prices:GOOD").getString("status"))
+                    || !"waiting".equals(ledger.getJSONObject("invalid-prices:ZERO").getString("status"))
+                    || !"waiting".equals(ledger.getJSONObject("invalid-prices:NEGATIVE").getString("status"))
+                    || !"waiting".equals(ledger.getJSONObject("invalid-prices:INFINITE").getString("status"))) {
+                throw new AssertionError("Invalid prices stopped valid comparisons or were accepted");
+            }
+            AlertOutcomes.evaluate(file, market, window.exit().plusDays(8), () -> false, range -> true,
+                    (range, symbols) -> java.util.Map.of("IWV", new AlertOutcomes.Prices(100, Double.NaN)));
+            var report = AlertOutcomes.report(file, market);
+            if (!report.contains("計測済み 1件 · 待ち 0件 · 集計対象外 3件")) {
+                throw new AssertionError("Invalid and unavailable prices were counted as completed: " + report);
             }
         } finally {
             file.delete();
