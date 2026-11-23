@@ -162,6 +162,7 @@ final class UsReferenceDeliveryProbe {
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeRecovery(context);
         verifySnapshotWriteVerification(context);
+        verifyDuplicateOutcomeSkipsUnnecessaryWrite(context);
         verifyOutcomeWriteFailureRecovery(context, AlertOutcomes.Market.US);
         verifyOutcomeWriteFailureRecovery(context, AlertOutcomes.Market.JPX);
         notifications.cancelAll();
@@ -346,6 +347,49 @@ final class UsReferenceDeliveryProbe {
             blocked.delete();
             valid.delete();
             parent.delete();
+        }
+    }
+
+    private static void verifyDuplicateOutcomeSkipsUnnecessaryWrite(Context context) throws Exception {
+        var target = File.createTempFile("outcomes-duplicate", ".json", context.getCacheDir());
+        var regular = new AtomicFile(target);
+        regular.delete();
+        var retry = context.getSharedPreferences("outcomes-duplicate-probe", Context.MODE_PRIVATE);
+        long now = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+        var entry = new NotificationHistory.Entry("duplicate", now, "test", "test");
+        var signals = java.util.Map.of("STABLE", "割安");
+        try {
+            if (!retry.edit().clear().commit()) throw new AssertionError("Cannot clear test preferences");
+            AlertOutcomes.add(regular, AlertOutcomes.Market.US, entry, signals, now);
+            byte[] before = regular.readFully();
+            // Once a receipt was committed, replay must not require another write.
+            var blockedWrites = new AtomicFile(target) {
+                @Override public java.io.FileOutputStream startWrite() throws IOException {
+                    throw new IOException("simulated unavailable writer");
+                }
+            };
+            AlertOutcomes.add(blockedWrites, AlertOutcomes.Market.US, entry, signals, now);
+            if (!java.util.Arrays.equals(before, regular.readFully())) {
+                throw new AssertionError("Duplicate outcome rewrote the saved receipt");
+            }
+            if (!retry.edit().putString("rows", new JSONObject().put("duplicate",
+                    new JSONObject().put("at", now).put("signals", new JSONObject(signals))).toString()).commit()) {
+                throw new AssertionError("Could not stage previously committed retry");
+            }
+            AlertOutcomes.recoverDeferred(blockedWrites, retry, AlertOutcomes.Market.US, now);
+            if (retry.contains("rows") || !java.util.Arrays.equals(before, regular.readFully())) {
+                throw new AssertionError("Recovered duplicate could not clear retry without rewriting ledger");
+            }
+            try {
+                AlertOutcomes.add(blockedWrites, AlertOutcomes.Market.US,
+                        new NotificationHistory.Entry("new", now, "test", "test"), signals, now);
+                throw new AssertionError("A genuinely new receipt bypassed the write failure");
+            } catch (IOException expected) {
+                // New observations still require a successful ledger write.
+            }
+        } finally {
+            retry.edit().clear().commit();
+            regular.delete();
         }
     }
 
