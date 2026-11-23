@@ -7,6 +7,15 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 public final class DiagnosticLogTest {
+    @Test public void classifyFailureAndRetryWithoutInflatingOrdinaryEvents() {
+        assertEquals("ERROR", DiagnosticLog.classify("終値ファイルを保存できず"));
+        assertEquals("ERROR", DiagnosticLog.classify("通知履歴が読み込めなかった"));
+        assertEquals("ERROR", DiagnosticLog.classify("保存処理に失敗"));
+        assertEquals("RETRY", DiagnosticLog.classify("Wi-Fi切断 · 再試行待ち"));
+        assertEquals("INFO", DiagnosticLog.classify("終値保存完了"));
+        assertEquals("INFO", DiagnosticLog.classify("通信設定を変更"));
+    }
+
     @Test public void secretLabelsAreRedactedBeforeExport() {
         String data = "api_key=abcd1234 token:secret123 authorization=BearerXYZ password=mypw";
         String safe = DiagnosticLog.redact(data);
