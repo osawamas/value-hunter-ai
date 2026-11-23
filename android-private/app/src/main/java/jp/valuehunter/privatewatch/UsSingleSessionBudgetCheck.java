@@ -279,6 +279,19 @@ final class UsSingleSessionBudgetCheck {
                 && matchesEvidenceHash(saved.optString("listing_sha256"), listingHash);
     }
 
+    // A damaged checkpoint must not be rendered as ordinary "waiting" shares:
+    // only a completed WITHIN/OUTSIDE verdict may contribute to counts.
+    static boolean validDisplayVerdicts(JSONObject results, int eligible) {
+        if (results == null || eligible < 0 || results.length() > eligible) return false;
+        var symbols = results.keys();
+        while (symbols.hasNext()) {
+            Object value = results.opt(symbols.next());
+            if (!(value instanceof String)
+                    || (!"WITHIN".equals(value) && !"OUTSIDE".equals(value))) return false;
+        }
+        return true;
+    }
+
     static String display(Context context, SharedPreferences state, String day, String provider) {
         if (!UsDoltCloses.SOURCE.equals(provider)) return "";
         var saved = read(state, day);
@@ -303,7 +316,10 @@ final class UsSingleSessionBudgetCheck {
         }
         var results = saved.optJSONObject("results");
         int eligible = saved.optInt("eligible");
-        if (results == null || eligible == 0) return "";
+        if (eligible == 0) return "";
+        if (!validDisplayVerdicts(results, eligible)) {
+            return day + " 当日の予算チェック · 保存済み判定の再検証待ち";
+        }
         int within = 0;
         int outside = 0;
         var symbols = results.keys();
