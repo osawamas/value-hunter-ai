@@ -145,6 +145,12 @@ final class NotificationDeliveryProbe {
     }
 
     private static void verifyDebugDiagnostics(Instrumentation instrumentation) {
+        try {
+            shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
+            shell(instrumentation, "wm dismiss-keyguard");
+        } catch (IOException error) {
+            throw new AssertionError("Could not unlock the diagnostics UI test", error);
+        }
         var context = instrumentation.getTargetContext();
         DiagnosticLog.record(context, DiagnosticLog.Area.NETWORK,
                 "診断UIテストでの保存エラー");
