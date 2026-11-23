@@ -438,10 +438,24 @@ final class UsReferenceDeliveryProbe {
             ledger.put("invalid-row", "partial data");
             ledger.put("invalid-date", new JSONObject(ledger.getJSONObject("old:KEEP").toString()).put("exit", "bad"));
             UsDailyWorker.writeSnapshot(file, ledger);
+            byte[] damaged = file.readFully();
+            try {
+                AlertOutcomes.add(file, market, new NotificationHistory.Entry("new", posted, "test", "test"),
+                        java.util.Map.of("NEW", "割安"), posted);
+                throw new AssertionError("Damaged ledger was acknowledged before repair");
+            } catch (org.json.JSONException expected) {
+                // Preserve every original row for a controlled recovery, not silent removal.
+            }
+            if (!java.util.Arrays.equals(damaged, file.readFully())) {
+                throw new AssertionError("Failed restore unexpectedly modified corrupt outcomes");
+            }
+            ledger.remove("invalid-row");
+            ledger.remove("invalid-date");
+            UsDailyWorker.writeSnapshot(file, ledger);
             AlertOutcomes.add(file, market, new NotificationHistory.Entry("new", posted, "test", "test"),
                     java.util.Map.of("NEW", "割安"), posted);
             if (!AlertOutcomes.report(file, market).contains("計測済み 0件 · 待ち 2件 · 集計対象外 0件")) {
-                throw new AssertionError("A damaged row blocked or changed valid notifications");
+                throw new AssertionError("A repaired ledger blocked or changed valid notifications");
             }
 
             var stopped = new java.util.concurrent.atomic.AtomicBoolean();
