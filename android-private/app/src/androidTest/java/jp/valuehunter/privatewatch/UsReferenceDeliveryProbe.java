@@ -162,6 +162,7 @@ final class UsReferenceDeliveryProbe {
         verifyInvalidOutcomePrices(context);
         verifyInvalidOutcomeLedgerPreserved(context);
         verifyCorruptHistoryCannotBeOverwritten(context);
+        verifyPartiallyCorruptHistoryCannotBeOverwritten(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeReadinessChangesOnce(context);
         verifyOutcomeRecovery(context);
@@ -320,6 +321,45 @@ final class UsReferenceDeliveryProbe {
             NotificationHistory.deliver(file, "broken-receipt", "TEST", "TEST", now,
                     () -> 0L, posted::incrementAndGet, () -> {});
             if (posted.get() != 1) throw new AssertionError("Recovered notification was duplicated");
+        } finally {
+            file.delete();
+        }
+    }
+
+    private static void verifyPartiallyCorruptHistoryCannotBeOverwritten(Context context) throws Exception {
+        var file = File.createTempFile("partial-notification-history", ".json", context.getCacheDir());
+        long now = java.time.Instant.parse("2026-11-25T21:30:00Z").toEpochMilli();
+        var posts = new AtomicInteger();
+        try {
+            var original = new JSONObject().put("receipt", "original-receipt")
+                    .put("title", "Existing delivery").put("detail", "Saved").put("at", now - 1000);
+            var damaged = new JSONArray().put(original).put(
+                    new JSONObject().put("receipt", "incomplete-receipt").put("at", now - 100));
+            byte[] originalBytes = damaged.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            java.nio.file.Files.write(file.toPath(), originalBytes);
+            try {
+                NotificationHistory.deliver(file, "fresh-receipt", "New delivery", "Saved", now,
+                        () -> 0L, posts::incrementAndGet, () -> {});
+                throw new AssertionError("Partial history corruption was silently discarded");
+            } catch (IOException expected) {
+                // A parseable array with an incomplete row must retain its original bytes.
+            }
+            if (posts.get() != 0 || !java.util.Arrays.equals(originalBytes,
+                    java.nio.file.Files.readAllBytes(file.toPath()))) {
+                throw new AssertionError("Partial notification history was overwritten");
+            }
+            // Repair the damaged entry without discarding the known existing delivery.
+            damaged.put(1, new JSONObject().put("receipt", "incomplete-receipt")
+                    .put("title", "Recovered delivery").put("detail", "Restored").put("at", now - 100));
+            java.nio.file.Files.write(file.toPath(),
+                    damaged.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            NotificationHistory.deliver(file, "fresh-receipt", "New delivery", "Saved", now,
+                    () -> 0L, posts::incrementAndGet, () -> {});
+            NotificationHistory.deliver(file, "fresh-receipt", "New delivery", "Saved", now,
+                    () -> 0L, posts::incrementAndGet, () -> {});
+            if (posts.get() != 1 || NotificationHistory.recent(file, now).size() != 3) {
+                throw new AssertionError("Repaired partial notification history duplicated or lost receipts");
+            }
         } finally {
             file.delete();
         }
