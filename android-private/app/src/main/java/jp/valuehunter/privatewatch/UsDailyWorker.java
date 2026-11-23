@@ -474,7 +474,10 @@ public final class UsDailyWorker extends Worker {
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
             status += " · 条件該当 " + count + "銘柄";
             String pending = "";
-            boolean sameDay = previous != null && day.equals(previous.day()) && provider.equals(previous.provider());
+            // A quote-source switch is not a new trading session. Retain the
+            // already-submitted symbols and original prior-day comparison anchor
+            // across same-day provider or close-hash corrections.
+            boolean sameDay = previous != null && day.equals(previous.day());
             boolean alertsRequested = ScanWorker.notificationsRequested(context);
             var sent = sameDay ? new HashSet<>(state.getStringSet(PRIVATE_SENT, Set.of())) : new HashSet<String>();
             var queued = new java.util.HashMap<String, String>();
