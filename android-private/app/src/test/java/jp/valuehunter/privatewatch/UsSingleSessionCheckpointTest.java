@@ -104,6 +104,22 @@ public class UsSingleSessionCheckpointTest {
         assertFalse(UsSingleSessionBudgetCheck.matchesEvidenceHash("", before));
     }
 
+    @Test public void displayHidesOldVerdictsAfterQuoteOrListingRevision() throws Exception {
+        byte[] rawQuote = "verified-quote".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] corrected = "corrected-quote".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String hash = UsReferenceAlerts.sha256(rawQuote);
+        String listing = "listing-v1";
+        var saved = new JSONObject().put("quote_sha256", hash)
+                .put("listing_sha256", listing)
+                .put("results", new JSONObject().put("ABC", "WITHIN"));
+        assertTrue(UsSingleSessionBudgetCheck.displayEvidenceMatches(saved, rawQuote, listing));
+        assertFalse(UsSingleSessionBudgetCheck.displayEvidenceMatches(saved, corrected, listing));
+        assertFalse(UsSingleSessionBudgetCheck.displayEvidenceMatches(saved, rawQuote, "listing-v2"));
+        assertFalse(UsSingleSessionBudgetCheck.displayEvidenceMatches(
+                new JSONObject().put("results", new JSONObject().put("ABC", "WITHIN")),
+                rawQuote, listing));
+    }
+
     @Test public void legacyCheckpointCannotReuseVerdictsWithoutQuoteHash() throws Exception {
         var legacy = new JSONObject().put("results", new JSONObject().put("ABC", "OUTSIDE"))
                 .put("after", Long.MAX_VALUE);
