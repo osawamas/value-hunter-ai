@@ -24,7 +24,7 @@ final class DiagnosticLog {
     private static final String EVENTS = "events";
     private static final String STRUCTURED = "structured_events";
     private static final long RETENTION_MS = 7L * 24 * 60 * 60 * 1000;
-    private static final Pattern SECRET = Pattern.compile("(?i)(api[_-]?key|token|authorization|password|secret)\s*[:=]\s*[^\s,;]+");
+    private static final Pattern SECRET = Pattern.compile("(?i)(api[_-]?key|token|authorization|password|secret)\\s*[:=]\\s*[^\\s,;]+");
     private static final int LIMIT = 240;
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.JAPAN)
             .withZone(ZoneId.of("Asia/Tokyo"));
