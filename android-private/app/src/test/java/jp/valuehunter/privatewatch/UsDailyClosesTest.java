@@ -17,6 +17,19 @@ public class UsDailyClosesTest {
     private static final LocalDate DAY = LocalDate.of(2026, 11, 16);
     private static final long BAR = Instant.parse("2026-11-16T05:00:00Z").toEpochMilli();
 
+    @Test public void archivedRecheckDayIsStrictAndLiveSessionStillResolves() {
+        Instant now = Instant.parse("2026-11-24T05:00:00Z");
+        assertEquals(LocalDate.of(2026, 11, 23), UsDailyWorker.targetDay(null, now));
+        assertEquals(LocalDate.of(2026, 11, 17),
+                UsDailyWorker.targetDay("2026-11-17", now));
+        assertThrows(java.time.format.DateTimeParseException.class,
+                () -> UsDailyWorker.targetDay("2026-11-17-invalid", now));
+        assertThrows(java.time.format.DateTimeParseException.class,
+                () -> UsDailyWorker.targetDay("", now));
+        assertThrows(java.time.format.DateTimeParseException.class,
+                () -> UsDailyWorker.targetDay("2026-02-30", now));
+    }
+
     @Test public void onlyPriorNewYorkDatesAreEligible() {
         assertEquals(DAY.minusDays(1),
                 UsDailyCloses.mostRecentEligibleDay(Instant.parse("2026-11-17T04:59:59Z")));
