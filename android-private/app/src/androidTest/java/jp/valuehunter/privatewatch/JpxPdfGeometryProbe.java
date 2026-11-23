@@ -241,6 +241,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 sampleReport(before, "3861", "916.50", false), "参考候補へ変更（100株）");
         assertTransition(sampleReport(day, "1301", "1000.00", false),
                 sampleReport(before, "1301", "1000.01", false), "1株枠から100株枠へ");
+        assertTransition(sampleReport(day, "1301", "1000.01", false),
+                sampleReport(before, "1301", "1000.00", false), "100株枠から1株枠へ");
         assertTransition(atPer, sampleReport(before, "3861", "916.51", true),
                 "保留（比較に必要な終値または通期決算なし）");
         assertTransition(atPer, sampleReport(LocalDate.of(2026, 5, 15), "3861", "916.51", false),
