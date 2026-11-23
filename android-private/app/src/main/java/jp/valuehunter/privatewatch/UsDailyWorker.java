@@ -240,9 +240,7 @@ public final class UsDailyWorker extends Worker {
         // invalid archived date must fail the request, not crash the worker.
         LocalDate target;
         try {
-            target = archived == null
-                    ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()))
-                    : LocalDate.parse(archived);
+            target = targetDay(archived, Instant.now());
         } catch (DateTimeParseException invalid) {
             DiagnosticLog.record(context, DiagnosticLog.Area.US_CLOSE,
                     "保存済みの終値再確認日付が不正 · この要求を終了");
@@ -336,6 +334,13 @@ public final class UsDailyWorker extends Worker {
             report(state, "終値を取得できず（配信形式を要確認）", phase, target);
             return archived == null ? Result.success() : Result.retry();
         }
+    }
+
+    // Pure date parsing keeps stale WorkManager inputs testable without an Android device.
+    static LocalDate targetDay(String archived, Instant now) {
+        return archived == null
+                ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(now))
+                : LocalDate.parse(archived);
     }
 
     private static SharedPreferences.Editor markQuoteFreshness(SharedPreferences.Editor edit, LocalDate available,
