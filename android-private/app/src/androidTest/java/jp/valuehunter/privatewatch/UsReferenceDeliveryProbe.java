@@ -161,6 +161,7 @@ final class UsReferenceDeliveryProbe {
         verifyOutcomeComparison(context);
         verifyOutcomeRetryDoesNotBlockOtherWindows(context);
         verifyOutcomeRecovery(context);
+        verifySnapshotWriteVerification(context);
         verifyOutcomeWriteFailureRecovery(context, AlertOutcomes.Market.US);
         verifyOutcomeWriteFailureRecovery(context, AlertOutcomes.Market.JPX);
         notifications.cancelAll();
@@ -296,6 +297,33 @@ final class UsReferenceDeliveryProbe {
             }
         } finally {
             file.delete();
+        }
+    }
+
+    private static void verifySnapshotWriteVerification(Context context) throws Exception {
+        var parent = File.createTempFile("snapshot-write-failure", ".test", context.getCacheDir());
+        var blocked = new AtomicFile(new File(parent, "us-daily-closes.json"));
+        var valid = new AtomicFile(File.createTempFile("snapshot-write-verified", ".json", context.getCacheDir()));
+        valid.delete();
+        try {
+            var snapshot = new JSONObject().put("trading_date_et", "2026-11-23")
+                    .put("source", "fixture").put("closes", new JSONArray().put(
+                            new JSONObject().put("symbol", "TEST").put("close", 12)));
+            try {
+                UsDailyWorker.writeSnapshot(blocked, snapshot);
+                throw new AssertionError("Blocked close snapshot was falsely acknowledged");
+            } catch (IOException expected) {
+                // The caller must retry without marking the close as saved.
+            }
+            UsDailyWorker.writeSnapshot(valid, snapshot);
+            if (!java.util.Arrays.equals(snapshot.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    valid.readFully())) {
+                throw new AssertionError("Verified close snapshot did not preserve exact bytes");
+            }
+        } finally {
+            blocked.delete();
+            valid.delete();
+            parent.delete();
         }
     }
 
