@@ -55,7 +55,8 @@ final class UsSingleSessionBudgetCheck {
                     new HashSet<>(groups.getOrDefault(reason, List.of())), sameDay,
                     paired, prices.keySet(), prior);
         }
-        String listingHash = listingEvidenceHash(sameDay, paired, groups, prior);
+        String listingHash = listingEvidenceHash(sameDay, paired, groups, prior,
+                priorQuoteRevision(directory, day));
         var saved = matchingEvidenceCheckpoint(read(state, day.toString()), quoteHash, listingHash);
         var results = saved.optJSONObject("results");
         if (results == null) results = new JSONObject();
@@ -145,7 +146,15 @@ final class UsSingleSessionBudgetCheck {
     static String listingEvidenceHash(java.util.Map<String, String> exchanges, Set<String> paired,
                                       java.util.Map<MarketCoverage.Reason, List<String>> groups,
                                       Set<String> prior) {
+        return listingEvidenceHash(exchanges, paired, groups, prior, "");
+    }
+
+    static String listingEvidenceHash(java.util.Map<String, String> exchanges, Set<String> paired,
+                                      java.util.Map<MarketCoverage.Reason, List<String>> groups,
+                                      Set<String> prior, String priorRevision) {
         var canonical = new StringBuilder();
+        canonical.append("priorRevision:").append(priorRevision.length()).append(':')
+                .append(priorRevision).append(';');
         new java.util.TreeMap<>(exchanges).forEach((symbol, venue) ->
                 canonical.append("venue:").append(symbol.length()).append(':').append(symbol)
                         .append(venue.length()).append(':').append(venue).append(';'));
@@ -181,6 +190,25 @@ final class UsSingleSessionBudgetCheck {
         return Set.of();
     }
 
+    // A previous-session price correction may keep the same ticker set.
+    // Include the saved prior quote's exact revision, not just its symbols.
+    static String priorQuoteRevision(File directory, LocalDate day) throws IOException, JSONException {
+        var file = new AtomicFile(new File(directory, UsDailyWorker.PREVIOUS_QUOTE_FILE));
+        byte[] bytes;
+        try {
+            bytes = UsDailyWorker.readQuote(file);
+        } catch (FileNotFoundException absent) {
+            return "absent";
+        }
+        var snapshot = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
+        if (!UsDoltCloses.SOURCE.equals(snapshot.optString("source"))
+                || !UsPriceOnlyBudget.previousSession(day).toString()
+                        .equals(snapshot.optString("trading_date_et"))) {
+            return "other-session";
+        }
+        return UsReferenceAlerts.sha256(bytes);
+    }
+
     // Corrections can arrive while the supplemental prices or FX data are fetched.
     // Serialize this final evidence check with UsDailyWorker's atomic quote writes.
     private static void saveIfEvidenceUnchanged(SharedPreferences state, LocalDate day,
@@ -197,7 +225,8 @@ final class UsSingleSessionBudgetCheck {
             String currentListingHash = listingEvidenceHash(
                     UsListingHistory.sessionExchanges(directory, day),
                     UsListingHistory.verifiedSupplementSymbols(directory, day),
-                    MarketCoverage.US.groups(state), priorPrices(directory, day));
+                    MarketCoverage.US.groups(state), priorPrices(directory, day),
+                    priorQuoteRevision(directory, day));
             if (!matchesEvidenceHash(listingHash, currentListingHash)) {
                 throw new IOException("Listing or prior-session evidence changed during budget screening");
             }
@@ -245,7 +274,8 @@ final class UsSingleSessionBudgetCheck {
                 String listingHash = listingEvidenceHash(
                         UsListingHistory.sessionExchanges(directory, LocalDate.parse(day)),
                         UsListingHistory.verifiedSupplementSymbols(directory, LocalDate.parse(day)),
-                        MarketCoverage.US.groups(state), priorPrices(directory, LocalDate.parse(day)));
+                        MarketCoverage.US.groups(state), priorPrices(directory, LocalDate.parse(day)),
+                        priorQuoteRevision(directory, LocalDate.parse(day)));
                 if (!displayEvidenceMatches(saved, quote, listingHash)) {
                     return day + " 当日の予算チェック · 根拠データ更新のため再検証待ち";
                 }
