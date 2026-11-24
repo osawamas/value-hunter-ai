@@ -36,3 +36,4 @@ jobs:
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+          # Android 9 compatibility and side-by-side install, build 12
