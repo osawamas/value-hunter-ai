@@ -99,6 +99,9 @@ final class MarketNetwork {
     }
 
     static boolean allowed() {
+        // Network callbacks are asynchronous and may arrive after a worker or
+        // UI checks the gate. Never trust a stale Wi-Fi-only route in that gap.
+        if (wifiOnly) refreshRoute(true);
         return GATE.allowed();
     }
 
@@ -119,6 +122,8 @@ final class MarketNetwork {
     }
 
     static boolean interrupted(long generation) {
+        // A missed/delayed onLost must not leave an in-flight scan authorized.
+        if (wifiOnly) refreshRoute(true);
         return GATE.interrupted(generation);
     }
 
