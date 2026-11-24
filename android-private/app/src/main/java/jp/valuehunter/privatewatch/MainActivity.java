@@ -22,6 +22,7 @@ import android.text.method.LinkMovementMethod;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -140,6 +141,11 @@ public final class MainActivity extends Activity {
             scheduleMarketChecks();
             render();
         });
+        button(communication, "SEC財務取得用の連絡先メールを設定", PAGE, 5)
+                .setOnClickListener(view -> showSecContactSettings());
+        label(communication, SecAccess.validEmail(SecAccess.contact(this))
+                ? "SEC連絡先: 設定済み" : "SEC連絡先: 未設定（米国株財務の取得には設定が必要）",
+                13, MUTED, false, 5);
         button(communication, "通信量について", PAGE, 5).setOnClickListener(view -> showCommunicationNotice(false));
 
         var notifications = section(content, SURFACE, true);
@@ -275,6 +281,37 @@ public final class MainActivity extends Activity {
             }
         }
         render();
+    }
+
+    private void showSecContactSettings() {
+        var field = new EditText(this);
+        field.setSingleLine(true);
+        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        field.setText(SecAccess.contact(this));
+        field.setHint("contact@example.com");
+        var dialog = new AlertDialog.Builder(this)
+                .setTitle("SEC自動取得の連絡先")
+                .setMessage("米国SECの公式データ取得には、利用者の連絡先メールが必要。設定したメールはSEC宛の通信ヘッダーだけに送信される。端末内に保存し、診断ログには表示しない。")
+                .setView(field)
+                .setNegativeButton("キャンセル", null)
+                .setPositiveButton("保存して再取得", (d, button) -> {
+                    var address = field.getText().toString().trim();
+                    if (!SecAccess.validEmail(address)) {
+                        Toast.makeText(this, "メールアドレスの形式を確認して", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (!state.edit().putString(SecAccess.CONTACT_KEY, address).commit()) {
+                        Toast.makeText(this, "SEC連絡先を保存できなかった", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    DiagnosticLog.record(this, DiagnosticLog.Area.US_FINANCE, "SEC連絡先を端末に設定");
+                    if (MarketNetwork.requested()) UsSecFinanceWorker.ensureScheduled(this);
+                    Toast.makeText(this, "保存した。米国株財務の再取得を予約", Toast.LENGTH_SHORT).show();
+                    recreate();
+                })
+                .create();
+        dialog.show();
     }
 
     private void showCommunicationNotice(boolean firstLaunch) {
