@@ -224,6 +224,8 @@ public final class MainActivity extends Activity {
         usCoverage = label(unitedStates, "", 13, MUTED, false, 5);
         usCoverageButton = button(unitedStates, "米国株の未判定の内訳", PAGE, 4);
         usCoverageButton.setOnClickListener(view -> showCoverage(MarketCoverage.US, "米国株"));
+        button(unitedStates, "参考予算候補一覧（銘柄・購入額）", PAGE, 4)
+                .setOnClickListener(view -> showUsBudgetCandidates());
         usDailyStatus = label(unitedStates, "", 13, MUTED, false, 4);
 
         var singapore = section(content, SURFACE, true);
@@ -461,6 +463,34 @@ public final class MainActivity extends Activity {
             });
         }, "jpx-daily-detail");
         detailThread.start();
+    }
+
+    private void showUsBudgetCandidates() {
+        var day = state.getString(UsSecFinanceWorker.BUDGET_RESULTS_DAY, "");
+        var json = state.getString(UsSecFinanceWorker.BUDGET_RESULTS, "");
+        var dialog = new AlertDialog.Builder(this).setTitle("米国株 · 参考予算候補一覧");
+        if (day.isEmpty() || json.isEmpty()) {
+            dialog.setMessage("このビルドで保存した候補一覧はまだない。次の財務・予算判定で自動保存される。\\n"
+                    + "以前の判定は米国株欄の「予算入り」で確認できる。")
+                    .setPositiveButton("閉じる", null).show();
+            return;
+        }
+        try {
+            var values = new org.json.JSONArray(json);
+            var detail = new StringBuilder("取引日 " + day + "（米東部）\\n"
+                    + "100株購入額・円換算・手数料別。株価による参考判定で、財務的な割安評価ではない。\\n");
+            if (values.length() == 0) detail.append("\\n候補なし");
+            for (int i = 0; i < values.length(); i++) {
+                var row = values.getJSONObject(i);
+                detail.append("\\n").append(row.getString("code"))
+                        .append("  ·  ").append(row.getString("yen"))
+                        .append("円 / 100株\\n    ").append(row.getString("source"));
+            }
+            dialog.setMessage(detail.toString()).setPositiveButton("閉じる", null).show();
+        } catch (org.json.JSONException invalid) {
+            dialog.setMessage("保存した候補一覧を読み取れなかった。診断ログを確認して。")
+                    .setPositiveButton("閉じる", null).show();
+        }
     }
 
     private void showCoverage(MarketCoverage market, String name) {
