@@ -88,6 +88,11 @@ public final class UsSecFinanceWorker extends Worker {
         enqueue(context, ExistingWorkPolicy.KEEP);
     }
 
+    /** Append a fresh run after any in-flight SEC work instead of silently ignoring the save. */
+    static void contactUpdated(Context context) {
+        enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
+    }
+
     private static void enqueue(Context context, ExistingWorkPolicy policy) {
         enqueue(context, policy, 0);
     }
