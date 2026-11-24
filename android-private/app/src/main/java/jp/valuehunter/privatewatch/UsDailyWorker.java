@@ -833,16 +833,23 @@ public final class UsDailyWorker extends Worker {
     }
 
     static String fetchText(String address, String key) throws IOException, JSONException {
+        return fetchText(address, key, null);
+    }
+
+    static String fetchText(String address, String key, Context owner) throws IOException, JSONException {
         var url = new URL(address);
+        boolean sec = SecAccess.isSecHost(url.getHost());
+        // Never impersonate a generic bot or send an invented address to EDGAR.
+        String secIdentity = sec ? SecAccess.userAgent(owner == null
+                ? "" : SecAccess.contact(owner)) : "";
         var connection = MarketNetwork.open(url);
         try {
             connection.setConnectTimeout(15_000);
             connection.setReadTimeout(30_000);
             connection.setInstanceFollowRedirects(false);
             if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
-            if (java.util.Set.of("data.sec.gov", "www.sec.gov").contains(url.getHost())) {
-                connection.setRequestProperty("User-Agent",
-                        "VALUE HUNTER AI https://github.com/osawamas/value-hunter-ai");
+            if (sec) {
+                connection.setRequestProperty("User-Agent", secIdentity);
                 connection.setRequestProperty("Accept", "application/json");
             }
             if ("api.nasdaq.com".equals(url.getHost())) {
