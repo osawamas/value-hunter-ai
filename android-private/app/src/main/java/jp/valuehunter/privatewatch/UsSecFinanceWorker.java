@@ -296,6 +296,10 @@ public final class UsSecFinanceWorker extends Worker {
             }
             return Result.success();
         } catch (FileNotFoundException absent) {
+            // The US daily-close worker will enqueue us again after it saves quotes.
+            // Keep this distinct from a genuine SEC fetch success in diagnostics.
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "米国株終値の保存待ち · SEC財務の取得は未開始");
             return Result.success();
         } catch (SecAccess.MissingContactException absent) {
             // A real SEC contact must be supplied in Settings; retrying cannot fix this.
