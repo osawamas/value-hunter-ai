@@ -29,8 +29,18 @@ final class JpxQuoteCache {
 
     static synchronized JSONObject read(AtomicFile file) {
         try (var input = file.openRead()) {
-            byte[] content = input.readNBytes(MAX_BYTES + 1);
-            if (content.length <= MAX_BYTES) return new JSONObject(new String(content, StandardCharsets.UTF_8));
+            // InputStream.readNBytes(int) is unavailable on Android 9 (API 28).
+            // Read in bounded chunks so corrupt or oversized caches cannot exhaust memory.
+            var output = new java.io.ByteArrayOutputStream();
+            var chunk = new byte[8192];
+            int read;
+            while ((read = input.read(chunk, 0, Math.min(chunk.length, MAX_BYTES + 1 - output.size()))) != -1) {
+                output.write(chunk, 0, read);
+                if (output.size() > MAX_BYTES) break;
+            }
+            if (output.size() <= MAX_BYTES) {
+                return new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
+            }
         } catch (IOException | JSONException unavailable) {
             // A missing or broken cache can be rebuilt from the official PDFs.
         }
