@@ -46,6 +46,8 @@ public final class UsSecFinanceWorker extends Worker {
     private static final int MAX_BUDGET_RETRIES = 3;
     private static final String BUDGET_CURSOR_DAY = "us_budget_cursor_day";
     private static final String BUDGET_CURSOR = "us_budget_cursor";
+    static final String BUDGET_RESULTS_DAY = "us_budget_results_day";
+    static final String BUDGET_RESULTS = "us_budget_results_json";
     private static final String BUDGET_SENT_DAY = "us_budget_sent_day";
     private static final String BUDGET_SENT_SYMBOLS = "us_budget_sent_symbols";
     private static final String NOCP_PAIR_KEY = "us_nocp_quote_pair";
@@ -646,7 +648,28 @@ public final class UsSecFinanceWorker extends Worker {
             summary += "\n予算入り "
                     + String.join("、", entries.stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
         }
-        status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary).apply();
+        // Persist the complete verified candidate set separately from the
+        // notification's "new since last sent" subset. It must survive process
+        // death and remain inspectable without network access.
+        var saved = new org.json.JSONArray();
+        var officialCodes = new HashSet<String>();
+        for (var item : official.entered()) officialCodes.add(item.code());
+        var unique = new java.util.TreeMap<String, PriceOnlyScreen.BudgetEntry>();
+        for (var item : entries) unique.put(item.code(), item);
+        for (var item : unique.values()) {
+            var row = new org.json.JSONObject();
+            try {
+                row.put("code", item.code());
+                row.put("yen", item.yen().stripTrailingZeros().toPlainString());
+                row.put("source", officialCodes.contains(item.code()) ? "Nasdaq公式終値" : "DoltHubとNasdaq照合");
+                saved.put(row);
+            } catch (org.json.JSONException invalid) {
+                return false;
+            }
+        }
+        status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary)
+                .putString(BUDGET_RESULTS_DAY, date)
+                .putString(BUDGET_RESULTS, saved.toString()).apply();
         String blocked = ScanWorker.alertBlockReason(context);
         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の参考予算条件入り "
                 + entries.size() + "件 · " + (blocked.isEmpty() ? "通知許可あり" : blocked));
