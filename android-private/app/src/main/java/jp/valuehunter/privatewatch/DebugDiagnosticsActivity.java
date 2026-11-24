@@ -57,7 +57,11 @@ public final class DebugDiagnosticsActivity extends Activity {
         scroll.setBackgroundColor(CREAM);
         LinearLayout root = column();
         scroll.addView(root);
-        setContentView(scroll);
+        LinearLayout shell=column();
+        shell.setBackgroundColor(CREAM);
+        shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));
+        shell.addView(BrandNav.create(this,"診断"),new LinearLayout.LayoutParams(-1,-2));
+        setContentView(shell);
         header(root);
         body = column();
         body.setPadding(dp(16), dp(18), dp(16), dp(32));
