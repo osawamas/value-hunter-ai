@@ -203,26 +203,48 @@ public final class DebugDiagnosticsActivity extends Activity {
 
     private void eventCard(LinearLayout root,JSONObject event) {
         String level=event.optString("level");
-        int status = "ERROR".equals(level) ? RED : "RETRY".equals(level) ? AMBER : GREEN;
+        int status="ERROR".equals(level)?RED:"RETRY".equals(level)?AMBER:GREEN;
+        String tag="ERROR".equals(level)?"エラー":"RETRY".equals(level)?"再試行":"記録";
         LinearLayout card=column();
-        card.setPadding(dp(13),dp(13),dp(13),dp(13));
-        card.setBackground(shape(Color.WHITE,12,true));
+        card.setPadding(dp(16),dp(15),dp(16),dp(15));
+        card.setBackground(shape(Color.WHITE,18,true));
+        card.setElevation(dp(2));
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
-        cp.topMargin=dp(10);root.addView(card,cp);
-        TextView title=text(event.optString("area")+"  ·  "+("ERROR".equals(level)?"エラー":"RETRY".equals(level)?"再試行":"記録"),16,INK,true);
-        card.addView(title);
-        card.addView(text(event.optString("operation"),14,INK,false));
+        cp.topMargin=dp(14);root.addView(card,cp);
+
+        LinearLayout titleRow=row();
+        card.addView(titleRow,new LinearLayout.LayoutParams(-1,-2));
+        TextView badge=text(tag,13,status,true);
+        badge.setGravity(Gravity.CENTER);
+        badge.setPadding(dp(12),dp(5),dp(12),dp(5));
+        badge.setBackground(shape("ERROR".equals(level)?0xffffe0d8:
+                "RETRY".equals(level)?0xffffead8:0xffe2f2e8,9,false));
+        titleRow.addView(badge);
+        TextView title=text(event.optString("area"),17,INK,true);
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,-2,1f);
+        tp.leftMargin=dp(12);titleRow.addView(title,tp);
+        TextView chevron=text("›",28,COPPER,true);
+        titleRow.addView(chevron);
+
+        String exception=event.optString("exception");
+        if(!exception.isEmpty()){
+            TextView type=text(exception,17,COPPER,true);
+            type.setTypeface(Typeface.create("serif",Typeface.BOLD));
+            type.setPadding(dp(2),dp(10),0,0);
+            card.addView(type);
+        }
+        TextView operation=text(event.optString("operation"),14,INK,false);
+        operation.setPadding(dp(2),dp(5),0,dp(5));card.addView(operation);
         String when=CLOCK.format(Instant.ofEpochMilli(event.optLong("time")));
-        card.addView(text(when+"  "+event.optString("exception")+"  "+event.optString("location"),11,0xff576576,false));
+        card.addView(text("◷  "+when,12,0xff596878,false));
         card.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setTitle(event.optString("area")+"  ·  詳細")
-                .setMessage(event.optString("operation")+"\n"+event.optString("exception")
-                        +"\n"+event.optString("location")+"\n\n"+event.optString("trace"))
-                .setPositiveButton("このエラーをコピー",(d,w)-> copy(event.toString()))
+                .setMessage(event.optString("operation")+"\\n"+event.optString("exception")
+                        +"\\n"+event.optString("location")+"\\n\\n"+event.optString("trace"))
+                .setPositiveButton("このエラーをコピー",(d,w)->copy(event.toString()))
                 .setNegativeButton("閉じる",null).show());
         card.setContentDescription("診断記録 "+event.optString("area")+" "+event.optString("operation"));
     }
-
     private void stat(LinearLayout root,String name,int count,int color) {
         LinearLayout box=column();
         box.setGravity(Gravity.CENTER);
