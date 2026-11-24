@@ -181,6 +181,9 @@ public final class UsSecFinanceWorker extends Worker {
                 }
                 int reused = scan.getInt("reused");
                 updateProgress(day, 0, scan.getJSONArray("targets").length(), reused, reused);
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "SEC財務照合の対象を準備 " + (scan.getJSONArray("targets").length() + reused)
+                                + "銘柄 · 取引日 " + day);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
                 publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
             } else if (!scan.has("coverage_listing_date")) {
@@ -227,6 +230,11 @@ public final class UsSecFinanceWorker extends Worker {
                 } finally {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
                     updateProgress(day, position, targets.length(), results.length(), reused);
+                    DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                            "SEC財務の分割取得 " + (position + reused) + " / "
+                                    + (targets.length() + reused) + "銘柄 · 有効な財務 "
+                                    + results.length() + "件 · " + (position < targets.length()
+                                    ? "次のバッチへ" : "財務照合へ"));
                     publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
                 }
                 if (networkStopped()) return paused();
@@ -294,6 +302,8 @@ public final class UsSecFinanceWorker extends Worker {
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
                 enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE, REPAIR_DELAY);
             }
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "SEC財務の今回の処理が完了 · 取引日 " + day + " · 判定記録を保存");
             return Result.success();
         } catch (FileNotFoundException absent) {
             // The US daily-close worker will enqueue us again after it saves quotes.
