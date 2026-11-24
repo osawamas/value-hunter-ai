@@ -66,7 +66,7 @@ public final class UsSecFinanceWorker extends Worker {
     private String lastHttpErrorHost = "unknown";
 
     public UsSecFinanceWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
-        this(context, parameters, address -> UsDailyWorker.fetchText(address, ""));
+        this(context, parameters, address -> UsDailyWorker.fetchText(address, "", context));
     }
 
     UsSecFinanceWorker(Context context, WorkerParameters parameters, Download download) {
@@ -292,15 +292,24 @@ public final class UsSecFinanceWorker extends Worker {
             return Result.success();
         } catch (FileNotFoundException absent) {
             return Result.success();
+        } catch (SecAccess.MissingContactException absent) {
+            // A real SEC contact must be supplied in Settings; retrying cannot fix this.
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "SEC連絡先未設定 · 設定後に取得を再開");
+            MarketFreshness.US_FINANCE.waiting(preferences.edit(),
+                    MarketFreshness.Phase.FINANCE, attemptedDay).apply();
+            return Result.success();
         } catch (InterruptedException cancelled) {
             Thread.currentThread().interrupt();
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             if (networkStopped()) return paused();
+            boolean secAccessDenied = unavailable instanceof UsDailyWorker.HttpStatus http
+                    && http.code == 403 && SecAccess.isSecHost(lastHttpErrorHost);
             if (unavailable instanceof UsDailyWorker.HttpStatus http) {
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                         "米国株財務取得先 " + lastHttpErrorHost + " · HTTP " + http.code
-                                + " · 次回の再試行待ち");
+                                + (secAccessDenied ? " · SECアクセス拒否・再試行を停止" : " · 次回の再試行待ち"));
             } else {
                 DiagnosticLog.recordError(context, DiagnosticLog.Area.US_FINANCE,
                         "SEC財務の取得・解析", unavailable);
@@ -318,7 +327,9 @@ public final class UsSecFinanceWorker extends Worker {
                     edit.apply();
                 }
             }
-            return Result.retry();
+            // SEC 403 is not transient; repeatedly retrying it violates fair-access intent.
+            // An explicit contact-settings save schedules a fresh attempt instead.
+            return secAccessDenied ? Result.success() : Result.retry();
         }
     }
 
