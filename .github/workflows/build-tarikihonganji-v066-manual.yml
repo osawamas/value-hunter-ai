@@ -36,7 +36,7 @@ jobs:
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v069-build15-sec-requeue-apk
+          name: tarikihonganji-v0610-build16-timeout-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
