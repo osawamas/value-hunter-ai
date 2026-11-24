@@ -48,6 +48,9 @@ public final class MainActivity extends Activity {
     private static final int ACCENT = 0xffd79b72;
     private static final int OUTLINE = 0xffdac8ba;
 
+    private ScrollView rootScroll;
+    private View notificationSection;
+    private View usSection;
     private SharedPreferences state;
     private Switch monitorSwitch;
     private TextView monitorStatus;
@@ -103,7 +106,15 @@ public final class MainActivity extends Activity {
         int contentWidth = availableWidth > 620 ? dp(620) : ScrollView.LayoutParams.MATCH_PARENT;
         scroll.addView(content, new ScrollView.LayoutParams(contentWidth,
                 ScrollView.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
-        setContentView(scroll);
+        rootScroll=scroll;
+        LinearLayout shell=new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setBackgroundColor(PAGE);
+        shell.addView(scroll,new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,0,1f));
+        shell.addView(BrandNav.create(this,"ホーム"),new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
+        setContentView(shell);
 
         content.addView(BrandHeader.create(this),new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -135,6 +146,7 @@ public final class MainActivity extends Activity {
         button(communication, "通信量について", PAGE, 5).setOnClickListener(view -> showCommunicationNotice(false));
 
         var notifications = section(content, SURFACE, true);
+        notificationSection=notifications;
         label(notifications, "通知", 19, INK, true, 0);
         var notificationSwitch = optionSwitch(notifications, "無音通知", ScanWorker.notificationsRequested(this));
         notificationSwitch.setOnCheckedChangeListener((view, checked) -> {
@@ -206,6 +218,7 @@ public final class MainActivity extends Activity {
         });
 
         var unitedStates = section(content, SURFACE, true);
+        usSection=unitedStates;
         label(unitedStates, "米国株  ·  NYSE / Nasdaq", 17, INK, true, 0);
         usCoverage = label(unitedStates, "", 13, MUTED, false, 5);
         usCoverageButton = button(unitedStates, "米国株の未判定の内訳", PAGE, 4);
@@ -232,6 +245,7 @@ public final class MainActivity extends Activity {
         showDetail.setOnClickListener(view -> checkDetails());
 
         render();
+        scrollToFocus(getIntent().getStringExtra("focus"));
         String draft = saved == null ? null : saved.getString(METER_DRAFT);
         if (draft != null && !MarketNetwork.noticeRequired(this)) {
             showValueAlertMeter(ValueAlertMeter.Thresholds.read(draft));
@@ -243,6 +257,17 @@ public final class MainActivity extends Activity {
         if (valueMeterDialog != null && valueMeterDialog.isShowing() && valueMeterDraft != null) {
             out.putString(METER_DRAFT, valueMeterDraft.encode());
         }
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        scrollToFocus(intent.getStringExtra("focus"));
+    }
+    private void scrollToFocus(String focus) {
+        if(rootScroll==null || focus==null)return;
+        View target="us".equals(focus)?usSection:"notifications".equals(focus)?notificationSection:null;
+        rootScroll.post(()->rootScroll.smoothScrollTo(0,target==null?0:target.getTop()));
     }
 
     @Override protected void onStart() {
