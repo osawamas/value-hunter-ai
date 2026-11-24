@@ -6,6 +6,9 @@ import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Rect;
+import java.io.IOException;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
@@ -39,6 +42,25 @@ public final class BrandLaunchWidget extends AppWidgetProvider {
         manager.updateAppWidget(id,remote);
     }
     private static Bitmap draw(Context context) {
+        // The exact user-approved 2x1 artwork, not a text-and-logo imitation.
+        try (var stream = context.getAssets().open("brand_widget.webp")) {
+            Bitmap bitmap = BitmapFactory.decodeStream(stream);
+            if (bitmap != null) {
+                int w = 720, h = 300;
+                Bitmap result = Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(result);
+                Paint filter = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                float targetRatio = w / (float) h;
+                int cropWidth = Math.min(bitmap.getWidth(),Math.round(bitmap.getHeight()*targetRatio));
+                int cropHeight = Math.min(bitmap.getHeight(),Math.round(bitmap.getWidth()/targetRatio));
+                int x = (bitmap.getWidth()-cropWidth)/2;
+                int y = (bitmap.getHeight()-cropHeight)/2;
+                canvas.drawBitmap(bitmap,new Rect(x,y,x+cropWidth,y+cropHeight),
+                        new Rect(0,0,w,h),filter);
+                bitmap.recycle();
+                return result;
+            }
+        } catch (IOException ignored) {}
         int w=720,h=300;
         Bitmap out=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
         Canvas c=new Canvas(out);
