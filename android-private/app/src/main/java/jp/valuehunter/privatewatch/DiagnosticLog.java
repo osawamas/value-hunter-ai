@@ -70,6 +70,12 @@ final class DiagnosticLog {
         try {
             String location = "";
             StringBuilder stack = new StringBuilder(kind);
+            if (error instanceof LinkageError && error.getMessage() != null) {
+                // LinkageError's message names the missing JVM method, unlike
+                // the worker call-site shown in previous diagnostic reports.
+                String detail = redact(error.getMessage());
+                stack.append(": ").append(detail.substring(0, Math.min(detail.length(), 360)));
+            }
             int frames = 0;
             for (StackTraceElement frame : error.getStackTrace()) {
                 if (!frame.getClassName().startsWith("jp.valuehunter.")) continue;
