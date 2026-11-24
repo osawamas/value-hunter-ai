@@ -63,6 +63,7 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     private final Download download;
+    private String lastHttpErrorHost = "unknown";
 
     public UsSecFinanceWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         this(context, parameters, address -> UsDailyWorker.fetchText(address, ""));
@@ -72,7 +73,14 @@ public final class UsSecFinanceWorker extends Worker {
         super(context, parameters);
         this.download = address -> {
             if (networkStopped()) throw new IOException("Worker stopped");
-            return download.get(address);
+            try {
+                return download.get(address);
+            } catch (UsDailyWorker.HttpStatus error) {
+                // Never save a complete URL, query string, API token or CIK in diagnostics.
+                // Distinguish SEC, Nasdaq and other providers before investigating a 403.
+                lastHttpErrorHost = new java.net.URL(address).getHost();
+                throw error;
+            }
         };
     }
 
@@ -291,7 +299,8 @@ public final class UsSecFinanceWorker extends Worker {
             if (networkStopped()) return paused();
             if (unavailable instanceof UsDailyWorker.HttpStatus http) {
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
-                        "SEC財務HTTP応答 " + http.code + " · 次回の再試行待ち");
+                        "米国株財務取得先 " + lastHttpErrorHost + " · HTTP " + http.code
+                                + " · 次回の再試行待ち");
             } else {
                 DiagnosticLog.recordError(context, DiagnosticLog.Area.US_FINANCE,
                         "SEC財務の取得・解析", unavailable);
