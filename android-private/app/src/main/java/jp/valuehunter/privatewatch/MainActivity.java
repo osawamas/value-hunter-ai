@@ -98,32 +98,17 @@ public final class MainActivity extends Activity {
         scroll.setBackgroundColor(PAGE);
         var content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(20), dp(22), dp(20), dp(24));
+        content.setPadding(0, 0, 0, dp(24));
         int availableWidth = getResources().getConfiguration().screenWidthDp;
         int contentWidth = availableWidth > 620 ? dp(620) : ScrollView.LayoutParams.MATCH_PARENT;
         scroll.addView(content, new ScrollView.LayoutParams(contentWidth,
                 ScrollView.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
         setContentView(scroll);
 
+        content.addView(BrandHeader.create(this),new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
         var hero = section(content, FOREST, false);
-        hero.setBackground(new CopperWaveDrawable());
-        var brandRow = new LinearLayout(this);
-        brandRow.setOrientation(LinearLayout.HORIZONTAL);
-        brandRow.setGravity(Gravity.CENTER_VERTICAL);
-        hero.addView(brandRow);
-        brandRow.addView(BrandEmblem.create(this), new LinearLayout.LayoutParams(dp(62), dp(62)));
-        var brandText = new LinearLayout(this);
-        brandText.setOrientation(LinearLayout.VERTICAL);
-        var brandSpace = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
-        brandSpace.leftMargin = dp(13);
-        brandRow.addView(brandText, brandSpace);
-        var brand = label(brandText, "他力本願寺", 27, LIGHT_TEXT, true, 0);
-        brand.setTypeface(Typeface.create("serif", Typeface.BOLD));
-        label(brandText, "VALUE HUNTER AI", 12, ACCENT, false, 2).setLetterSpacing(0.14f);
-        var copperRule = new View(this);
-        copperRule.setBackgroundColor(ACCENT);
-        hero.addView(copperRule, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(2)));
+        hero.setBackgroundColor(FOREST);
         monitorStatus = label(hero, "", 15, ACCENT, true, 10);
         label(hero, "新しく条件に入った銘柄を無音で通知", 13, LIGHT_TEXT, false, 5);
 
@@ -710,9 +695,16 @@ public final class MainActivity extends Activity {
     private LinearLayout section(LinearLayout parent, int color, boolean border) {
         var group = new LinearLayout(this);
         group.setOrientation(LinearLayout.VERTICAL);
-        group.setPadding(dp(17), dp(15), dp(17), dp(15));
-        group.setBackground(shape(color, 17, border));
-        place(parent, group, border ? 11 : 0);
+        group.setPadding(dp(20), dp(19), dp(20), dp(19));
+        group.setBackground(border ? shape(color, 17, true) : shape(color, 0, false));
+        if (border) {
+            var layout = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT);
+            layout.setMargins(dp(17),dp(12),dp(17),0);
+            parent.addView(group,layout);
+        } else {
+            place(parent,group,0);
+        }
         return group;
     }
 
@@ -747,15 +739,15 @@ public final class MainActivity extends Activity {
     private Button button(LinearLayout parent, String value, int color, int margin) {
         var view = new Button(this);
         view.setText(value);
-        view.setTextSize(14);
+        view.setTextSize(15);
         view.setAllCaps(false);
         view.setTextColor(INK);
-        view.setMinHeight(dp(48));
-        view.setMinimumHeight(dp(48));
+        view.setMinHeight(dp(54));
+        view.setMinimumHeight(dp(54));
         view.setPadding(dp(12), dp(5), dp(12), dp(5));
         view.setBackgroundTintList(null);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22173b33),
-                shape(color, 11, color == PAGE), null));
+                shape(color, 19, color == PAGE), null));
         place(parent, view, margin);
         return view;
     }
