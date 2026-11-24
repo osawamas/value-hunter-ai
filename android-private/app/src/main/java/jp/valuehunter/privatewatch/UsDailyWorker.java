@@ -354,7 +354,24 @@ public final class UsDailyWorker extends Worker {
         }
         return UsDoltCloses.fetch(day, address -> {
             if (networkStopped()) throw new IOException("Worker stopped");
-            return fetch(address, "");
+            try {
+                return fetch(address, "");
+            } catch (IOException first) {
+                // One bounded retry for transient socket/handshake drops. A provider's
+                // HTTP status must still be handled by the existing HTTP policy.
+                if (first instanceof HttpStatus || networkStopped()) throw first;
+                DiagnosticLog.record(getApplicationContext(), DiagnosticLog.Area.US_CLOSE,
+                        "DoltHub通信の一時失敗 · " + first.getClass().getSimpleName()
+                                + " · 1回だけ再接続");
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("DoltHub retry interrupted", interrupted);
+                }
+                if (networkStopped()) throw first;
+                return fetch(address, "");
+            }
         });
     }
 
@@ -851,6 +868,9 @@ public final class UsDailyWorker extends Worker {
             if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
             if (sec) {
                 connection.setRequestProperty("User-Agent", secIdentity);
+                connection.setRequestProperty("Accept", "application/json");
+            }
+            if ("www.dolthub.com".equalsIgnoreCase(url.getHost())) {
                 connection.setRequestProperty("Accept", "application/json");
             }
             if ("api.nasdaq.com".equals(url.getHost())) {
