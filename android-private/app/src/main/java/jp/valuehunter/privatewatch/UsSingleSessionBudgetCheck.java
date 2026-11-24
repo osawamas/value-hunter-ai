@@ -116,14 +116,22 @@ final class UsSingleSessionBudgetCheck {
         var file = new AtomicFile(new File(directory, UsDailyWorker.PREVIOUS_QUOTE_FILE));
         try {
             var quote = new JSONObject(new String(UsDailyWorker.readQuote(file), StandardCharsets.UTF_8));
-            if (UsDoltCloses.SOURCE.equals(quote.optString("source"))
-                    && UsPriceOnlyBudget.previousSession(day).toString().equals(quote.optString("trading_date_et"))) {
-                return UsDeviceFinancials.prices(quote.getJSONArray("closes")).keySet();
-            }
+            return verifiedPriorSymbols(quote, day);
         } catch (FileNotFoundException absent) {
             // Today's budget can be checked during the first run.
+        } catch (JSONException corrupt) {
+            // A damaged prior-day cache is not evidence of a valid baseline.
+            // Keep today's reference check running, but hold any comparison
+            // that requires a verified previous-session close.
         }
         return Set.of();
+    }
+
+    static Set<String> verifiedPriorSymbols(JSONObject quote, LocalDate day) throws JSONException {
+        LocalDate prior = UsPriceOnlyBudget.previousSession(day);
+        if (!UsDailyWorker.matchesPriorSnapshot(quote, prior, UsDoltCloses.SOURCE))
+            return Set.of();
+        return Set.copyOf(UsDeviceFinancials.prices(quote.getJSONArray("closes")).keySet());
     }
 
     private static void save(SharedPreferences state, LocalDate day, JSONObject saved, JSONObject results)

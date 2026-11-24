@@ -60,11 +60,78 @@ public class UsDailyClosesTest {
     @Test public void backfillDoesNotReuseADifferentDateProviderOrEmptySnapshot() throws Exception {
         var source = UsDoltCloses.SOURCE;
         var quote = new JSONObject().put("source", source).put("trading_date_et", DAY.toString())
-                .put("closes", new JSONArray().put(new JSONObject().put("symbol", "XYZ")));
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "XYZ").put("close_usd", 12.5)));
         assertTrue(UsDailyWorker.matchesPriorSnapshot(quote, DAY, source));
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote, DAY.minusDays(1), source));
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote, DAY, UsDailyCloses.MASSIVE_SOURCE));
         assertFalse(UsDailyWorker.matchesPriorSnapshot(quote.put("closes", new JSONArray()), DAY, source));
+    }
+
+    @Test public void referenceBudgetCannotUseDamagedPriorClose() throws Exception {
+        LocalDate current = LocalDate.of(2026, 11, 17);
+        var prior = new JSONObject().put("source", UsDoltCloses.SOURCE)
+                .put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "AAPL").put("close_usd", 125.5)));
+        assertEquals(java.util.Set.of("AAPL"),
+                UsSingleSessionBudgetCheck.verifiedPriorSymbols(prior, current));
+        assertTrue(UsSingleSessionBudgetCheck.verifiedPriorSymbols(
+                new JSONObject(prior.toString()).put("trading_date_et", "2026-11-13"),
+                current).isEmpty());
+        assertTrue(UsSingleSessionBudgetCheck.verifiedPriorSymbols(
+                new JSONObject(prior.toString()).put("closes", new JSONArray()
+                        .put(new JSONObject().put("symbol", "AAPL"))),
+                current).isEmpty());
+        assertTrue(UsSingleSessionBudgetCheck.verifiedPriorSymbols(
+                new JSONObject(prior.toString()).put("closes", new JSONArray()
+                        .put(new JSONObject().put("symbol", "AAPL").put("close_usd", -3))),
+                current).isEmpty());
+    }
+
+    @Test public void corruptCurrentSnapshotMustNotSuppressNewFetch() throws Exception {
+        var valid = new JSONObject().put("source", UsDoltCloses.SOURCE)
+                .put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "AAPL").put("close_usd", 125.5)));
+        assertEquals(DAY, UsDailyWorker.validatedSnapshotDate(valid));
+        assertThrows(JSONException.class, () -> UsDailyWorker.validatedSnapshotDate(
+                new JSONObject(valid.toString()).put("closes", new JSONArray())));
+        assertThrows(JSONException.class, () -> UsDailyWorker.validatedSnapshotDate(
+                new JSONObject(valid.toString()).put("closes", new JSONArray()
+                        .put(new JSONObject().put("symbol", "AAPL")))));
+        assertThrows(java.time.format.DateTimeParseException.class,
+                () -> UsDailyWorker.validatedSnapshotDate(
+                        new JSONObject(valid.toString()).put("trading_date_et", "2026-02-30")));
+    }
+
+    @Test public void malformedPriorClosesRequireFreshBackfill() throws JSONException {
+        String provider = UsDoltCloses.SOURCE;
+        var valid = new JSONObject().put("source", provider).put("trading_date_et", DAY.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "AAPL").put("close_usd", 125.5)));
+        assertTrue(UsDailyWorker.matchesPriorSnapshot(valid, DAY, provider));
+        for (Object bad : new Object[]{JSONObject.NULL, -1, 0, "12.5", "not a price"}) {
+            var corrupted = new JSONObject(valid.toString())
+                    .put("closes", new JSONArray().put(new JSONObject()
+                            .put("symbol", "AAPL").put("close_usd", bad)));
+            assertFalse(UsDailyWorker.matchesPriorSnapshot(corrupted, DAY, provider));
+        }
+        var absent = new JSONObject(valid.toString())
+                .put("closes", new JSONArray().put(new JSONObject().put("symbol", "AAPL")));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(absent, DAY, provider));
+        var invalidTicker = new JSONObject(valid.toString())
+                .put("closes", new JSONArray().put(new JSONObject()
+                        .put("symbol", "BAD TICKER").put("close_usd", 2)));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(invalidTicker, DAY, provider));
+        var duplicate = new JSONObject(valid.toString()).put("closes", new JSONArray()
+                .put(new JSONObject().put("symbol", "AAPL").put("close_usd", 1))
+                .put(new JSONObject().put("symbol", "AAPL").put("close_usd", 2)));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(duplicate, DAY, provider));
+        var mixed = new JSONObject(valid.toString()).put("closes", new JSONArray()
+                .put(new JSONObject().put("symbol", "AAPL").put("close_usd", 125.5))
+                .put(new JSONObject().put("symbol", "MSFT")));
+        assertFalse(UsDailyWorker.matchesPriorSnapshot(mixed, DAY, provider));
     }
 
     @Test public void keepsUnadjustedCloseAndDropsOtcAndMissingPrices() throws JSONException {
