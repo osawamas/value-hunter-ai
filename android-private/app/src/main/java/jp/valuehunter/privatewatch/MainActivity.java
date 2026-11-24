@@ -402,9 +402,17 @@ public final class MainActivity extends Activity {
                 message = Html.fromHtml(daily.html(rights.rights(), history, finance) + "<br><br>" + rights.status(),
                         Html.FROM_HTML_MODE_LEGACY);
             } catch (IOException error) {
-                message = "東証日報の確認に失敗\n" + error.getMessage();
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.JPX, "東証詳細 · 日報の取得", error);
+                message = "東証日報の確認に失敗（診断ログに詳細を保存）";
             } catch (RuntimeException error) {
-                message = "東証日報のPDFを読み取れなかった";
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.JPX, "東証詳細 · 解析", error);
+                message = "東証日報のPDFを読み取れなかった（診断ログに詳細を保存）";
+            } catch (LinkageError error) {
+                // On Android 9 a library can call an API absent on the device.
+                // Preserve the failing method in the on-device stack instead of
+                // crashing the process from the detail worker thread.
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.JPX, "東証詳細 · Android互換性", error);
+                message = "東証詳細の互換性エラー（診断ログに詳細を保存）";
             }
             CharSequence result = message;
             boolean cancelled = Thread.currentThread().isInterrupted();
