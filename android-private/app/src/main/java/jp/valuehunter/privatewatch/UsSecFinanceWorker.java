@@ -88,7 +88,7 @@ public final class UsSecFinanceWorker extends Worker {
         if (!MarketNetwork.requested()) return;
         var request = new OneTimeWorkRequest.Builder(UsSecFinanceWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.UNMETERED))
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS).build();
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
         DiagnosticLog.requested(context, DiagnosticLog.Area.US_FINANCE,
@@ -289,8 +289,13 @@ public final class UsSecFinanceWorker extends Worker {
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             if (networkStopped()) return paused();
-            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
-                    "財務の更新失敗: " + unavailable.getClass().getSimpleName());
+            if (unavailable instanceof UsDailyWorker.HttpStatus http) {
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "SEC財務HTTP応答 " + http.code + " · 次回の再試行待ち");
+            } else {
+                DiagnosticLog.recordError(context, DiagnosticLog.Area.US_FINANCE,
+                        "SEC財務の取得・解析", unavailable);
+            }
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 var market = MarketFreshness.US_FINANCE;
