@@ -470,21 +470,21 @@ public final class MainActivity extends Activity {
         var json = state.getString(UsSecFinanceWorker.BUDGET_RESULTS, "");
         var dialog = new AlertDialog.Builder(this).setTitle("米国株 · 参考予算候補一覧");
         if (day.isEmpty() || json.isEmpty()) {
-            dialog.setMessage("このビルドで保存した候補一覧はまだない。次の財務・予算判定で自動保存される。\\n"
+            dialog.setMessage("このビルドで保存した候補一覧はまだない。次の財務・予算判定で自動保存される。\n"
                     + "以前の判定は米国株欄の「予算入り」で確認できる。")
                     .setPositiveButton("閉じる", null).show();
             return;
         }
         try {
             var values = new org.json.JSONArray(json);
-            var detail = new StringBuilder("取引日 " + day + "（米東部）\\n"
-                    + "100株購入額・円換算・手数料別。株価による参考判定で、財務的な割安評価ではない。\\n");
-            if (values.length() == 0) detail.append("\\n候補なし");
+            var detail = new StringBuilder("取引日 " + day + "（米東部）\n"
+                    + "100株購入額・円換算・手数料別。株価による参考判定で、財務的な割安評価ではない。\n");
+            if (values.length() == 0) detail.append("\n候補なし");
             for (int i = 0; i < values.length(); i++) {
                 var row = values.getJSONObject(i);
-                detail.append("\\n").append(row.getString("code"))
+                detail.append("\n").append(row.getString("code"))
                         .append("  ·  ").append(row.getString("yen"))
-                        .append("円 / 100株\\n    ").append(row.getString("source"));
+                        .append("円 / 100株\n    ").append(row.getString("source"));
             }
             dialog.setMessage(detail.toString()).setPositiveButton("閉じる", null).show();
         } catch (org.json.JSONException invalid) {
