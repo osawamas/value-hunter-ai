@@ -69,59 +69,34 @@ public final class DebugDiagnosticsActivity extends Activity {
     }
 
     private void header(LinearLayout root) {
-        LinearLayout band = column();
-        band.setPadding(dp(16), dp(18), dp(16), dp(16));
-        band.setBackground(new CopperWaveDrawable());
-        root.addView(band);
-        LinearLayout brand = row();
-        band.addView(brand);
-        View emblem = BrandEmblem.create(this);
-        brand.addView(emblem, new LinearLayout.LayoutParams(dp(62), dp(62)));
-        LinearLayout names = column();
-        LinearLayout.LayoutParams ns = new LinearLayout.LayoutParams(0, -2, 1f);
-        ns.leftMargin = dp(13);
-        brand.addView(names, ns);
-        TextView title = text("他力本願寺", 28, 0xffffe7cc, true);
-        title.setTypeface(Typeface.create("serif", Typeface.BOLD));
-        names.addView(title);
-        TextView subtitle = text("VALUE HUNTER AI", 12, 0xffd79c73, false);
-        subtitle.setLetterSpacing(0.16f);
-        names.addView(subtitle);
-        Button close = new Button(this);
-        close.setText("×");
-        close.setTextColor(0xffffe7cc);
-        close.setTextSize(22);
-        close.setAllCaps(false);
-        close.setBackgroundColor(Color.TRANSPARENT);
-        close.setOnClickListener(v -> finish());
-        brand.addView(close, new LinearLayout.LayoutParams(dp(48), dp(50)));
-        View rule = new View(this);
-        rule.setBackgroundColor(COPPER);
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, dp(2));
-        rp.topMargin = dp(12);
-        band.addView(rule, rp);
-        TextView section = text(page == 1 ? "エラー一覧" : page == 2 ? "詳細ログ" : page == 3 ? "共有レポート" : "デバッグ診断", 21, 0xffffe7cc, true);
-        section.setTypeface(Typeface.create("serif", Typeface.BOLD));
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
-        tp.topMargin = dp(12);
-        band.addView(section, tp);
-        LinearLayout tabs = row();
-        tabs.setPadding(dp(5), dp(8), dp(5), dp(8));
+        root.addView(BrandHeader.create(this),new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout strip=row();
+        strip.setPadding(dp(20),dp(11),dp(16),dp(11));
+        strip.setBackground(new CopperWaveDrawable());
+        root.addView(strip);
+        View accent=new View(this);
+        accent.setBackgroundColor(COPPER);
+        strip.addView(accent,new LinearLayout.LayoutParams(dp(4),dp(30)));
+        TextView section=text(page == 1 ? "エラー一覧" : page == 2 ? "詳細ログ"
+                : page == 3 ? "共有レポート" : "デバッグ診断",21,0xffffe7cc,true);
+        section.setTypeface(Typeface.create("serif",Typeface.BOLD));
+        LinearLayout.LayoutParams st=new LinearLayout.LayoutParams(0,-2,1);
+        st.leftMargin=dp(12);
+        strip.addView(section,st);
+        LinearLayout tabs=row();
+        tabs.setPadding(dp(14),dp(10),dp(14),dp(4));
         root.addView(tabs);
-        String[] labels = {"概要", "エラー一覧", "詳細ログ", "共有"};
-        for (int i = 0; i < labels.length; i++) {
-            int index = i;
-            Button b = new Button(this);
-            b.setText(labels[i]);
-            b.setAllCaps(false);
-            b.setTextSize(12);
-            b.setMinimumHeight(dp(48));
-            b.setTextColor(i == page ? Color.WHITE : INK);
-            b.setBackground(shape(i == page ? NAVY : CREAM, 10, true));
-            b.setOnClickListener(v -> showPage(index));
-            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, dp(48), 1);
-            bp.setMargins(dp(2), 0, dp(2), 0);
-            tabs.addView(b, bp);
+        String[] labels={"概要","エラー一覧","詳細ログ","共有"};
+        for(int i=0;i<labels.length;i++){
+            final int index=i;
+            Button b=new Button(this);
+            b.setText(labels[i]);b.setAllCaps(false);b.setTextSize(12);
+            b.setTextColor(i==page?0xffffe5c6:INK);
+            b.setBackground(shape(i==page?NAVY:0xfffffbf6,20,true));
+            b.setOnClickListener(v->showPage(index));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(48),1);
+            lp.setMargins(dp(3),0,dp(3),0);
+            tabs.addView(b,lp);
         }
     }
 
