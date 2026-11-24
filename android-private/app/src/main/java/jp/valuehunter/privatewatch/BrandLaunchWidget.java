@@ -50,13 +50,14 @@ public final class BrandLaunchWidget extends AppWidgetProvider {
                 Bitmap result = Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(result);
                 Paint filter = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-                float targetRatio = w / (float) h;
-                int cropWidth = Math.min(bitmap.getWidth(),Math.round(bitmap.getHeight()*targetRatio));
-                int cropHeight = Math.min(bitmap.getHeight(),Math.round(bitmap.getWidth()/targetRatio));
-                int x = (bitmap.getWidth()-cropWidth)/2;
-                int y = (bitmap.getHeight()-cropHeight)/2;
-                canvas.drawBitmap(bitmap,new Rect(x,y,x+cropWidth,y+cropHeight),
-                        new Rect(0,0,w,h),filter);
+                // FIT_CENTER keeps the emblem, full Japanese title and copper frame visible.
+                float scale = Math.min(w/(float)bitmap.getWidth(),h/(float)bitmap.getHeight());
+                int displayedW = Math.round(bitmap.getWidth()*scale);
+                int displayedH = Math.round(bitmap.getHeight()*scale);
+                int left=(w-displayedW)/2;
+                int top=(h-displayedH)/2;
+                canvas.drawBitmap(bitmap,null,
+                        new Rect(left,top,left+displayedW,top+displayedH),filter);
                 bitmap.recycle();
                 return result;
             }
