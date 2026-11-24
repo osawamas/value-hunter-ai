@@ -1,4 +1,4 @@
-name: Build Tarikihonganji v0.6.6 test APK
+name: Build Tarikihonganji diagnostic APK
 
 on:
   workflow_dispatch:
@@ -29,10 +29,10 @@ jobs:
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
       - name: Verify APK exists
         run: test -s android-private/app/build/outputs/apk/debug/app-debug.apk
-      - name: Upload independent build-12 APK
+      - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v066-build12-separate-apk
+          name: tarikihonganji-v067-build13-separate2-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
