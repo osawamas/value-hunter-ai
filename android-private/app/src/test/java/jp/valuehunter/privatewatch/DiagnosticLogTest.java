@@ -7,6 +7,11 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 public final class DiagnosticLogTest {
+    @Test public void httpStatusRetryRemainsAnErrorNotACompletedUpdate() {
+        assertEquals("RETRY", DiagnosticLog.classify("SEC財務HTTP応答 403 · 次回の再試行待ち"));
+        assertEquals("RETRY", DiagnosticLog.classify("SEC財務HTTP応答 429 · 次回の再試行待ち"));
+    }
+
     @Test public void classifyFailureAndRetryWithoutInflatingOrdinaryEvents() {
         assertEquals("ERROR", DiagnosticLog.classify("終値ファイルを保存できず"));
         assertEquals("ERROR", DiagnosticLog.classify("通知履歴が読み込めなかった"));
