@@ -138,9 +138,47 @@ final class NotificationDeliveryProbe {
                 "Notifications off should block posts and screen wake even with wake preference on");
         require(NotificationHistory.recent(history, System.currentTimeMillis()).size() == 2,
                 "A suppressed notification changed history");
+        verifyDebugDiagnostics(instrumentation);
         exerciseWifiOnly(instrumentation, power);
         ListingArchiveProbe.prepare(context);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static void verifyDebugDiagnostics(Instrumentation instrumentation) {
+        try {
+            shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
+            shell(instrumentation, "wm dismiss-keyguard");
+        } catch (IOException error) {
+            throw new AssertionError("Could not unlock the diagnostics UI test", error);
+        }
+        var context = instrumentation.getTargetContext();
+        DiagnosticLog.record(context, DiagnosticLog.Area.NETWORK,
+                "診断UIテストでの保存エラー");
+        var screen = instrumentation.startActivitySync(new Intent(context,
+                DebugDiagnosticsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try {
+            instrumentation.runOnMainSync(() -> {
+                var root = screen.getWindow().getDecorView();
+                require(control(root, "他力本願寺", TextView.class) != null,
+                        "Debug header lost the configured app name");
+                require(control(root, "VALUE HUNTER AI", TextView.class) != null,
+                        "Debug header lost the configured English subtitle");
+                require(control(root, "エラー一覧", Button.class) != null,
+                        "Debug UI has no accessible errors tab");
+                require(control(root, "診断ログをすべてコピー", Button.class) != null,
+                        "Debug UI has no accessible report-copy action");
+                control(root, "エラー一覧", Button.class).performClick();
+                require(control(screen.getWindow().getDecorView(),
+                        "エラー・再試行の一覧", TextView.class) != null,
+                        "Error list did not open");
+                control(screen.getWindow().getDecorView(), "共有", Button.class).performClick();
+                require(control(screen.getWindow().getDecorView(), "共有レポート", TextView.class) != null,
+                        "Share report screen did not open");
+            });
+        } finally {
+            instrumentation.runOnMainSync(screen::finish);
+            instrumentation.waitForIdleSync();
+        }
     }
 
     private static final int INTERRUPTED_ID = 54;
@@ -547,22 +585,33 @@ final class NotificationDeliveryProbe {
     private static void exerciseDiagnosticCopy(Instrumentation instrumentation, android.app.Activity activity) {
         var context = instrumentation.getTargetContext();
         instrumentation.runOnMainSync(() -> {
-            var button = control(activity.getWindow().getDecorView(), "診断ログ", Button.class);
-            require(button != null && button.performClick(), "Cannot open diagnostics offline");
+            var entry = control(activity.getWindow().getDecorView(),
+                    "デバッグ診断・エラー一覧", Button.class);
+            require(entry != null, "Cannot find diagnostics entry in the private dashboard");
         });
-        require(await(() -> findDialogText(instrumentation, "診断ログをコピー") != null), "Diagnostics dialog is not visible");
-        var copy = findDialogText(instrumentation, "診断ログをコピー");
-        require(copy != null && copy.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot copy the diagnostic report");
-        var clipboard = context.getSystemService(android.content.ClipboardManager.class);
-        require(await(() -> {
-            var clip = clipboard.getPrimaryClip();
-            if (clip == null) return false;
-            var report = clip.getItemAt(0).getText().toString();
-            return report.contains("アプリ: ") && report.contains("（ビルド ")
-                    && report.contains("現在の通信状態: 相場通信オフ")
-                    && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
-                    && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
-        }), "Offline diagnostic copy was missing stages or included notification details");
+        var diagnostics = instrumentation.startActivitySync(new Intent(context,
+                DebugDiagnosticsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try {
+            instrumentation.runOnMainSync(() -> {
+                var root = diagnostics.getWindow().getDecorView();
+                var copy = control(root, "診断ログをすべてコピー", Button.class);
+                require(copy != null && copy.performClick(),
+                        "Cannot copy report from the new diagnostics screen");
+            });
+            var clipboard = context.getSystemService(android.content.ClipboardManager.class);
+            require(await(() -> {
+                var clip = clipboard.getPrimaryClip();
+                if (clip == null) return false;
+                var report = clip.getItemAt(0).getText().toString();
+                return report.contains("アプリ: ") && report.contains("（ビルド ")
+                        && report.contains("現在の通信状態: 相場通信オフ")
+                        && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
+                        && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
+            }), "Offline diagnostic copy was missing stages or included notification details");
+        } finally {
+            instrumentation.runOnMainSync(diagnostics::finish);
+            instrumentation.waitForIdleSync();
+        }
     }
 
     private static <T extends TextView> T control(View view, String text, Class<T> type) {

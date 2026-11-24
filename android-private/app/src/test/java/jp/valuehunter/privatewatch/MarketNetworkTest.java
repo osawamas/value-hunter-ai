@@ -48,6 +48,13 @@ public class MarketNetworkTest {
         assertFalse(MarketNetwork.wifiRoute(false, false, false, true));
     }
 
+    @Test public void disabledWifiRadioRejectsStaleWifiCapabilities() {
+        assertFalse(MarketNetwork.radioWifiRoute(false, true, false, false, true));
+        assertTrue(MarketNetwork.radioWifiRoute(true, true, false, false, true));
+        assertFalse(MarketNetwork.radioWifiRoute(true, false, true, false, true));
+        assertFalse(MarketNetwork.radioWifiRoute(true, true, false, true, true));
+    }
+
     @Test public void appStartupRequiresAReviewedNoticeAndAnExplicitOnSetting() {
         assertFalse(MarketNetwork.atStartup(0, false));
         assertFalse(MarketNetwork.atStartup(0, true));
