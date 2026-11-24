@@ -845,7 +845,8 @@ public final class UsDailyWorker extends Worker {
         var connection = MarketNetwork.open(url);
         try {
             connection.setConnectTimeout(15_000);
-            connection.setReadTimeout(30_000);
+            connection.setReadTimeout("www.dolthub.com".equalsIgnoreCase(url.getHost())
+                    ? 60_000 : 30_000);
             connection.setInstanceFollowRedirects(false);
             if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
             if (sec) {
