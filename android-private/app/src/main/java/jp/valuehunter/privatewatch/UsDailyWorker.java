@@ -503,6 +503,28 @@ public final class UsDailyWorker extends Worker {
             long count = 0;
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
             status += " · 条件該当 " + count + "銘柄";
+            var reasons = ledger.getJSONObject("reference_screen").optJSONObject("diagnostics");
+            if (reasons != null) {
+                int total = reasons.optInt("financial_records");
+                int distinct = reasons.optInt("missing_close") + reasons.optInt("split_hold")
+                        + reasons.optInt("unusable_financials") + reasons.optInt("outside_budget")
+                        + reasons.optInt("outside_valuation") + reasons.optInt("reference")
+                        + reasons.optInt("priority");
+                if (distinct != total) throw new JSONException("Financial screen counts do not reconcile");
+                String breakdown = "判定内訳（SEC有効財務 " + total + "件）"
+                        + "\\n財務・純資産が判定不可 " + reasons.optInt("unusable_financials") + "件"
+                        + " · PER/PBR条件外 " + reasons.optInt("outside_valuation") + "件"
+                        + "\\n購入予算外（単元未満でも10万円超） " + reasons.optInt("outside_budget") + "件"
+                        + " · 株式分割の照合待ち " + reasons.optInt("split_hold") + "件"
+                        + "\\n終値の照合待ち " + reasons.optInt("missing_close") + "件"
+                        + " · 参考候補 " + reasons.optInt("reference") + "件"
+                        + " · 優先候補 " + reasons.optInt("priority") + "件"
+                        + "\\n100株で10万円以内 " + reasons.optInt("affordable_100") + "件"
+                        + " · 1株購入枠 " + reasons.optInt("single_share") + "件";
+                status += "\\n" + breakdown;
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "割安判定の除外理由を集計 · " + breakdown.replace('\\n', ' '));
+            }
             String pending = "";
             // A quote-source switch is not a new trading session. Retain the
             // already-submitted symbols and original prior-day comparison anchor
