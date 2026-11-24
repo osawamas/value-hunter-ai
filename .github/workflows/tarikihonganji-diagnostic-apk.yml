@@ -1,4 +1,5 @@
 name: Tarikihonganji diagnostics test APK
+# Include Android 9 JPX quote-cache compatibility fix in the next test build.
 
 on:
   workflow_dispatch:
