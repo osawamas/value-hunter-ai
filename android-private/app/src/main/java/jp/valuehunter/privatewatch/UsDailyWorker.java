@@ -317,16 +317,25 @@ public final class UsDailyWorker extends Worker {
             return Result.success();
         } catch (HttpStatus e) {
             if (networkStopped()) return paused();
+            // Preserve the HTTP status without recording an address or private key.
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_CLOSE,
+                    "終値の取得先がHTTP " + e.code + "を返した");
             boolean retry = e.code == 429 || e.code >= 500;
             report(state, "終値を取得できず（HTTP " + e.code + "）",
                     retry ? MarketFreshness.Phase.ERROR : MarketFreshness.Phase.NEXT_CHECK, target);
             return retry ? Result.retry() : Result.success();
         } catch (IOException e) {
             if (networkStopped()) return paused();
+            // A retry status alone obscures the real failing method. Keep the
+            // application stack and exception type, without URLs or secrets.
+            DiagnosticLog.recordError(context, DiagnosticLog.Area.US_CLOSE,
+                    "終値の通信・保存", e);
             report(state, "終値を取得できず（通信または保存エラー）", MarketFreshness.Phase.ERROR, target);
             return Result.retry();
         } catch (JSONException e) {
             if (networkStopped()) return paused();
+            DiagnosticLog.recordError(context, DiagnosticLog.Area.US_CLOSE,
+                    "終値の配信形式・保存データ", e);
             var phase = archived == null ? MarketFreshness.Phase.NEXT_CHECK : MarketFreshness.Phase.ERROR;
             report(state, "終値を取得できず（配信形式を要確認）", phase, target);
             return archived == null ? Result.success() : Result.retry();
