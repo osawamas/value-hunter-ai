@@ -106,6 +106,7 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
 
         var hero = section(content, FOREST, false);
+        hero.setBackground(new CopperWaveDrawable());
         var brandRow = new LinearLayout(this);
         brandRow.setOrientation(LinearLayout.HORIZONTAL);
         brandRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -720,7 +721,7 @@ public final class MainActivity extends Activity {
         view.setText(value);
         view.setTextSize(size);
         view.setTextColor(color);
-        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        if (bold) view.setTypeface(size >= 17 ? Typeface.create("serif", Typeface.BOLD) : Typeface.DEFAULT, Typeface.BOLD);
         place(parent, view, margin);
         return view;
     }
@@ -754,7 +755,7 @@ public final class MainActivity extends Activity {
         view.setPadding(dp(12), dp(5), dp(12), dp(5));
         view.setBackgroundTintList(null);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22173b33),
-                shape(color, 11, false), null));
+                shape(color, 11, color == PAGE), null));
         place(parent, view, margin);
         return view;
     }
