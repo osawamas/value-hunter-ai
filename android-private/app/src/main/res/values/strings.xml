@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">他力本願寺 VALUE HUNTER AI</string>
+    <string name="app_name">他力本願寺VH</string>
+    <string name="widget_description">他力本願寺 VALUE HUNTER AI・2×1 起動ウィジェット</string>
 </resources>
