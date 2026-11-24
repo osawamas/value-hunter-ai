@@ -71,8 +71,7 @@ public final class DebugDiagnosticsActivity extends Activity {
     private void header(LinearLayout root) {
         LinearLayout band = column();
         band.setPadding(dp(16), dp(18), dp(16), dp(16));
-        band.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xff051322, NAVY, 0xff203449}));
+        band.setBackground(new CopperWaveDrawable());
         root.addView(band);
         LinearLayout brand = row();
         band.addView(brand);
@@ -101,7 +100,7 @@ public final class DebugDiagnosticsActivity extends Activity {
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, dp(2));
         rp.topMargin = dp(12);
         band.addView(rule, rp);
-        TextView section = text("デバッグ診断", 21, 0xffffe7cc, true);
+        TextView section = text(page == 1 ? "エラー一覧" : page == 2 ? "詳細ログ" : page == 3 ? "共有レポート" : "デバッグ診断", 21, 0xffffe7cc, true);
         section.setTypeface(Typeface.create("serif", Typeface.BOLD));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
         tp.topMargin = dp(12);
@@ -235,7 +234,7 @@ public final class DebugDiagnosticsActivity extends Activity {
         card.setBackground(shape(Color.WHITE,12,true));
         LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
         cp.topMargin=dp(10);root.addView(card,cp);
-        TextView title=text(event.optString("area")+"  ·  "+("ERROR".equals(level)?"エラー":"RETRY".equals(level)?"再試行":"記録"),16,status,true);
+        TextView title=text(event.optString("area")+"  ·  "+("ERROR".equals(level)?"エラー":"RETRY".equals(level)?"再試行":"記録"),16,INK,true);
         card.addView(title);
         card.addView(text(event.optString("operation"),14,INK,false));
         String when=CLOCK.format(Instant.ofEpochMilli(event.optLong("time")));
@@ -285,7 +284,7 @@ public final class DebugDiagnosticsActivity extends Activity {
     }
     private TextView text(String value,int size,int color,boolean bold){
         TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(color);
-        if(bold)v.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        if(bold)v.setTypeface(size>=18?Typeface.create("serif",Typeface.BOLD):Typeface.DEFAULT,Typeface.BOLD);
         return v;
     }
     private LinearLayout column(){LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.VERTICAL);return v;}
