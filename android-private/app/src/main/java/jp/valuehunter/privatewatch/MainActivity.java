@@ -306,7 +306,7 @@ public final class MainActivity extends Activity {
                         return;
                     }
                     DiagnosticLog.record(this, DiagnosticLog.Area.US_FINANCE, "SEC連絡先を端末に設定");
-                    if (MarketNetwork.requested()) UsSecFinanceWorker.ensureScheduled(this);
+                    if (MarketNetwork.requested()) UsSecFinanceWorker.contactUpdated(this);
                     Toast.makeText(this, "保存した。米国株財務の再取得を予約", Toast.LENGTH_SHORT).show();
                     recreate();
                 })
