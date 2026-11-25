@@ -102,7 +102,7 @@ public final class CurrentCandidatesActivity extends Activity {
                             ||row.name().toUpperCase(Locale.ROOT).contains(query))visible.add(row);
                 }
                 adapter.notifyDataSetChanged();
-                count.setText(snapshot.date()+" · "+visible.size()+"件表示 / "
+                countLabel.setText(snapshot.date()+" · "+visible.size()+"件表示 / "
                         +snapshot.rows().size()+"件  (優先 "+snapshot.priority()
                         +" · 参考 "+snapshot.reference()+")");
             }
