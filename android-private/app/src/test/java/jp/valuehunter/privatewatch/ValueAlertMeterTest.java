@@ -23,7 +23,13 @@ public final class ValueAlertMeterTest {
         var noPeers = ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 List.of(number("3"), number("2"), number("1")), 100, null, 100);
         assertTrue(noPeers.points() >= 85);
-        assertEquals(2, noPeers.level(ValueAlertMeter.DEFAULT));
+        assertEquals(3, noPeers.level(ValueAlertMeter.DEFAULT));
+        var insufficientAbsolute = ValueAlertMeter.assess(number("8"), number("1"), number("12"),
+                List.of(number("3"), number("2"), number("1")), 100, null, 100);
+        assertEquals(2, insufficientAbsolute.level(ValueAlertMeter.DEFAULT));
+        assertEquals(2, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+                List.of(number("3"), number("2"), number("1")), 100, null, null)
+                .level(ValueAlertMeter.DEFAULT));
         var unavailable = ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 List.of(), null, null, null);
         assertEquals(1, unavailable.level(ValueAlertMeter.DEFAULT));
@@ -74,6 +80,39 @@ public final class ValueAlertMeterTest {
         assertEquals(List.of(number("3"), number("2"), number("1")), history.annualEps());
         assertEquals(Integer.valueOf(0), history.cash());
         assertTrue(UsFinancialFacts.meterHistory(payload, LocalDate.of(2026, 2, 5)).annualEps().isEmpty());
+    }
+
+    @Test public void secAnnualAssetsAndEquityEnableHighestTierOnlyWhenVerified() throws Exception {
+        var eps = new JSONArray();
+        var cash = new JSONArray();
+        for(int year=2023;year<=2025;year++){
+            eps.put(fact(year,year-2022,"2026-02-05"));
+            cash.put(fact(year,100,"2026-02-05"));
+        }
+        JSONObject assets=new JSONObject().put("end","2025-12-31").put("val",1000)
+                .put("filed","2026-02-05").put("form","10-K")
+                .put("accn","0000000123-26-000001");
+        JSONObject equity=new JSONObject(assets.toString()).put("val",500);
+        JSONObject gaap=new JSONObject()
+                .put("EarningsPerShareBasic",new JSONObject().put("units",new JSONObject().put("USD/shares",eps)))
+                .put("NetCashProvidedByUsedInOperatingActivities",
+                        new JSONObject().put("units",new JSONObject().put("USD",cash)))
+                .put("Assets",new JSONObject().put("units",new JSONObject().put("USD",new JSONArray().put(assets))))
+                .put("StockholdersEquity",new JSONObject().put("units",new JSONObject().put("USD",new JSONArray().put(equity))));
+        var payload=new JSONObject().put("facts",new JSONObject().put("us-gaap",gaap));
+        var evidence=UsFinancialFacts.meterHistory(payload,LocalDate.of(2026,3,1));
+        assertEquals(Integer.valueOf(100),evidence.cash());
+        assertEquals(Integer.valueOf(100),evidence.balance());
+        var top=ValueAlertMeter.assess(number("6"),number("1"),number("12"),
+                evidence.annualEps(),evidence.cash(),null,evidence.balance());
+        assertEquals(3,top.level(ValueAlertMeter.DEFAULT));
+        assertTrue(top.points()>=85);
+        gaap.getJSONObject("Assets").getJSONObject("units").getJSONArray("USD").getJSONObject(0)
+                .put("filed","2026-03-05");
+        var missing=UsFinancialFacts.meterHistory(payload,LocalDate.of(2026,3,1));
+        assertEquals(null,missing.balance());
+        assertEquals(2,ValueAlertMeter.assess(number("6"),number("1"),number("12"),
+                missing.annualEps(),missing.cash(),null,missing.balance()).level(ValueAlertMeter.DEFAULT));
     }
 
     @Test public void malformedOptionalMeterFieldsLeaveUsFinanceAndNotificationEvidenceUsable() throws Exception {
