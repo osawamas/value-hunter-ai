@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build-tarikihonganji-v066-manual.yml'
+      - 'android-private/app/build.gradle'
 
 permissions:
   contents: read
@@ -36,7 +37,7 @@ jobs:
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-main-us-ultravalue-fixed-apk
+          name: tarikihonganji-v0618-build24-diagnostic13-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
