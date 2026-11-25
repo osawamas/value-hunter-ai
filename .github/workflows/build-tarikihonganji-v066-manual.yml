@@ -16,10 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - name: Checkout current verified main
+      - name: Checkout triggering source commit
         uses: actions/checkout@v4
-        with:
-          ref: main
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -29,6 +27,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Guard branded UI and retained functional screens
+        run: |
+          for name in BrandEmblem BrandHeader BrandNav CopperWaveDrawable CurrentCandidatesActivity RecentAlertsActivity DebugDiagnosticsActivity SplashActivity; do
+            test -s "android-private/app/src/main/java/jp/valuehunter/privatewatch/${name}.java"
+          done
+          grep -Fq 'BrandNav.create(this' android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java
+          grep -Fq "applicationIdSuffix '.diagnostic14'" android-private/app/build.gradle
+          grep -Fq "versionCode 25" android-private/app/build.gradle
       - name: Verify tests and build independent APK
         working-directory: android-private
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
@@ -37,7 +43,7 @@ jobs:
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v0618-build24-diagnostic13-apk
+          name: tarikihonganji-v0619-build25-diagnostic14-branded-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
