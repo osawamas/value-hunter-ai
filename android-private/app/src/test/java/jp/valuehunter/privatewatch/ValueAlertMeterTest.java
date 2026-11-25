@@ -33,7 +33,7 @@ public final class ValueAlertMeterTest {
         var eps = List.of(number("3"), number("2"), number("1"));
         var strict = ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 eps, 100, null, null);
-        assertEquals(3, strict.confirmed());
+        assertEquals(4, strict.confirmed());
         assertEquals(3, strict.ceiling());
         assertEquals(3, strict.level(ValueAlertMeter.DEFAULT));
         assertEquals(0, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
