@@ -23,7 +23,9 @@ final class BrandEmblem {
             final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
             @Override protected void onDraw(Canvas canvas) {
                 if (bitmap == null) return;
-                float r = Math.min(getWidth(), getHeight()) / 2f;
+                // The supplied source has pale square pixels beyond its round black rim.
+                // Clip within the actual emblem so the widget/header never shows a white halo.
+                float r = Math.min(getWidth(), getHeight()) * .445f;
                 Path circle = new Path();
                 circle.addCircle(getWidth()/2f, getHeight()/2f, r, Path.Direction.CW);
                 canvas.save();
