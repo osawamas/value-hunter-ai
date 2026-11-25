@@ -185,6 +185,8 @@ public final class UsSecFinanceWorker extends Worker {
                 updateProgress(day, 0, scan.getJSONArray("targets").length(), reused, reused);
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                         "SEC財務照合の対象を準備 " + (scan.getJSONArray("targets").length() + reused)
+                                + "銘柄 · うち過去の有効財務を再利用 " + reused
+                                + "件 · 新規または再確認 " + scan.getJSONArray("targets").length()
                                 + "銘柄 · 取引日 " + day);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
                 publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
@@ -198,6 +200,11 @@ public final class UsSecFinanceWorker extends Worker {
             long repairAfter = scan.optLong("repair_after");
             if (latestSession && repairAfter > 0 && repairAfter <= System.currentTimeMillis()
                     && prepareRepair(scan)) {
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "未取得・照合待ちの再確認を開始 · 前回の有効財務 "
+                                + scan.optInt("reused") + "件を再利用 · 再確認対象 "
+                                + scan.getJSONArray("targets").length() + "銘柄 · "
+                                + scan.optInt("repair_round") + "/" + REPAIR_ROUNDS + "巡目");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
