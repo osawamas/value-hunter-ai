@@ -2,8 +2,8 @@
 set -euo pipefail
 trap 'adb logcat -b crash -d -t 150 AndroidRuntime:E "*:S" || true' ERR
 
-app=jp.valuehunter.privatewatch
-runner="$app.test/$app.JpxPdfGeometryProbe"
+app=${APP_PACKAGE:-jp.valuehunter.privatewatch.diagnostic14}
+runner="$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe"
 adb install android-private/app/build/outputs/apk/debug/app-debug.apk
 adb install android-private/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 if (( PROBE_API >= 33 )); then
