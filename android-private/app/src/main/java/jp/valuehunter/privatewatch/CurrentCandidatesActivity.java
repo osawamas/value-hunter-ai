@@ -30,19 +30,24 @@ public final class CurrentCandidatesActivity extends Activity {
         title.setTextColor(Color.WHITE);title.setTextSize(22);title.setPadding(dp(18),dp(17),dp(16),dp(17));
         title.setBackground(new CopperWaveDrawable());root.addView(title);
         var explanation=new TextView(this);explanation.setTextColor(MUTED);explanation.setTextSize(13);
-        explanation.setPadding(dp(16),dp(12),dp(16),dp(7));
+        explanation.setPadding(dp(20),dp(16),dp(20),dp(13));
+        explanation.setMaxWidth(getResources().getDisplayMetrics().widthPixels-dp(12));
         explanation.setText("通知がなくても表示。PER・PBRの参考判定と割安メーター3段階は別の指標。表示は保存済みの取引日が基準。");
         root.addView(explanation);
         CurrentCandidates.Snapshot snapshot;
         try {snapshot=CurrentCandidates.load(this);}
         catch(Exception pending){
+            var content=new android.widget.ScrollView(this);
+            content.setFillViewport(true);
             var message=new TextView(this);
             message.setText("まだ一覧を表示できない。\n"+pending.getMessage()
                     +"\n\n相場通信を許可し、米国株の財務照合が完了すると表示される。");
             message.setTextColor(INK);message.setTextSize(16);
             message.setPadding(dp(20),dp(25),dp(20),dp(25));
-            root.addView(message);
-            root.addView(BrandNav.create(this,"相場"));
+            content.addView(message);
+            root.addView(content,new LinearLayout.LayoutParams(-1,0,1f));
+            root.addView(BrandNav.create(this,"相場"),
+                    new LinearLayout.LayoutParams(-1,-2));
             return;
         }
         var countLabel=new TextView(this);
@@ -58,7 +63,8 @@ public final class CurrentCandidatesActivity extends Activity {
         root.addView(search,searchLayout);
         var list=new ListView(this);list.setDividerHeight(dp(1));
         root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
-        root.addView(BrandNav.create(this,"相場"));
+        root.addView(BrandNav.create(this,"相場"),
+                new LinearLayout.LayoutParams(-1,-2));
         var visible=new ArrayList<>(snapshot.rows());
         var adapter=new ArrayAdapter<CurrentCandidates.Row>(this,android.R.layout.simple_list_item_2,
                 android.R.id.text1,visible){
