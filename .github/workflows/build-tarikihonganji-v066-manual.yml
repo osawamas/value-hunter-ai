@@ -37,18 +37,26 @@ jobs:
             test -s "android-private/app/src/main/java/jp/valuehunter/privatewatch/${name}.java"
           done
           grep -Fq 'BrandNav.create(this' android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java
-          grep -Fq "applicationIdSuffix '.diagnostic18'" android-private/app/build.gradle
-          grep -Fq "versionCode 29" android-private/app/build.gradle
+          grep -Fq "applicationIdSuffix '.diagnostic19'" android-private/app/build.gradle
+          grep -Fq "versionCode 30" android-private/app/build.gradle
           grep -Fq '他力本願寺' android-private/app/src/main/java/jp/valuehunter/privatewatch/BrandHeader.java
           grep -Fq 'drawNativeBrand' android-private/app/src/main/java/jp/valuehunter/privatewatch/SplashActivity.java
           grep -Fq 'android:name=".SplashActivity"' android-private/app/src/main/AndroidManifest.xml
-          grep -Fq 'android:icon="@mipmap/ic_launcher"' android-private/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:icon="@drawable/launcher_exact"' android-private/app/src/main/AndroidManifest.xml
           grep -Fq 'android:minWidth="110dp" android:minHeight="40dp"' android-private/app/src/main/res/xml/brand_widget_info.xml
           grep -Fq 'android:targetCellWidth="2" android:targetCellHeight="1"' android-private/app/src/main/res/xml/brand_widget_info.xml
           test -s android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-      - name: Verify adaptive launcher does not contain solid background
+      - name: Verify restored legacy launcher icon is used
         run: |
-          grep -Fq 'android:drawable="@android:color/transparent"' android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          grep -Fq 'android:icon="@drawable/launcher_exact"' android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+      - name: Verify exact original build23 images are committed
+        run: |
+          cd android-private/app/src/main/assets
+          sha256sum brand_header.webp brand_splash.webp brand_widget.webp launcher_original.png
+          test "$(sha256sum brand_header.webp | cut -c1-64)" = a41ca04197f662547c2de0f4c38fce45293077ae531724ca8862b790044b48aa
+          test "$(sha256sum brand_splash.webp | cut -c1-64)" = 52312e1f8f509829bc970ca667a2e2d65b036c7dac0141a255691510f9cd3ef2
+          test "$(sha256sum brand_widget.webp | cut -c1-64)" = 3ba0f16b84454d30343546c03afe46affc7cce02c5c4afccbdc9c7b2ea0e74e6
+          test "$(sha256sum launcher_original.png | cut -c1-64)" = 1bc34b1045c62b9fbe9879445891a11f8c4d5dfed9fcebb5f23074688e236be4
       - name: Verify tests and build independent APK
         working-directory: android-private
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
@@ -65,18 +73,32 @@ jobs:
               assert png[:8] == bytes([137, 80, 78, 71, 13, 10, 26, 10]), name
               assert struct.unpack('>II',png[16:24]) == (432,432), name
           PY
+      - name: Verify original art survived APK packaging
+        run: |
+          python3 - <<'PY'
+          import hashlib, zipfile
+          names = {
+              'brand_header.webp': 'a41ca04197f662547c2de0f4c38fce45293077ae531724ca8862b790044b48aa',
+              'brand_splash.webp': '52312e1f8f509829bc970ca667a2e2d65b036c7dac0141a255691510f9cd3ef2',
+              'brand_widget.webp': '3ba0f16b84454d30343546c03afe46affc7cce02c5c4afccbdc9c7b2ea0e74e6'
+          }
+          with zipfile.ZipFile('android-private/app/build/outputs/apk/debug/app-debug.apk') as apk:
+              for name, wanted in names.items():
+                  assert hashlib.sha256(apk.read('assets/' + name)).hexdigest() == wanted, name
+          print('Build23 brand artwork is present in output APK')
+          PY
       - name: Verify installable APK signature and app identity
         run: |
           apk=android-private/app/build/outputs/apk/debug/app-debug.apk
           buildtools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$buildtools/apksigner" verify --verbose --print-certs "$apk"
-          "$buildtools/aapt" dump badging "$apk" | tee /tmp/build29-badging.txt
-          grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic18' .*versionCode='29'" /tmp/build29-badging.txt
-          grep -Fq "sdkVersion:'26'" /tmp/build29-badging.txt
+          "$buildtools/aapt" dump badging "$apk" | tee /tmp/build30-badging.txt
+          grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic19' .*versionCode='29'" /tmp/build30-badging.txt
+          grep -Fq "sdkVersion:'26'" /tmp/build30-badging.txt
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v0623-build29-diagnostic18-ui-fixed-apk
+          name: tarikihonganji-v0624-build30-diagnostic19-ui-fixed-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
