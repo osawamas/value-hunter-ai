@@ -5,6 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -52,6 +53,7 @@ final class MarketNetwork {
     static synchronized void initialize(Context context) {
         var settings = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
         connectivity = context.getSystemService(ConnectivityManager.class);
+        application = context.getApplicationContext();
         wifiOnly = settings.getBoolean(WIFI_ONLY, false);
         requested = atStartup(settings.getInt(NOTICE, 0), settings.getBoolean(ALLOWED, false));
         refreshRoute(false);
@@ -99,8 +101,6 @@ final class MarketNetwork {
     }
 
     static boolean allowed() {
-        // Network callbacks are asynchronous and may arrive after a worker or
-        // UI checks the gate. Never trust a stale Wi-Fi-only route in that gap.
         if (wifiOnly) refreshRoute(true);
         return GATE.allowed();
     }
@@ -122,7 +122,6 @@ final class MarketNetwork {
     }
 
     static boolean interrupted(long generation) {
-        // A missed/delayed onLost must not leave an in-flight scan authorized.
         if (wifiOnly) refreshRoute(true);
         return GATE.interrupted(generation);
     }
@@ -180,12 +179,18 @@ final class MarketNetwork {
     }
 
     private static Network activeWifi() {
-        if (connectivity == null) return null;
+        if (connectivity == null || application == null) return null;
         try {
+            // Android 15 can briefly retain stale Wi-Fi capabilities after
+            // the radio is disabled; do not authorize a route in that window.
+            WifiManager radio = application.getSystemService(WifiManager.class);
+            if (radio == null) return null;
+            boolean radioEnabled = radio.isWifiEnabled();
             var network = connectivity.getActiveNetwork();
             if (network == null) return null;
             var caps = connectivity.getNetworkCapabilities(network);
-            if (caps != null && wifiRoute(caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+            if (caps != null && radioWifiRoute(radioEnabled,
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
                     caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
                     caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET))) return network;
@@ -193,6 +198,11 @@ final class MarketNetwork {
             // An unidentified route must never be used in Wi-Fi-only mode.
         }
         return null;
+    }
+
+    static boolean radioWifiRoute(boolean radioEnabled, boolean wifi,
+                                  boolean cellular, boolean vpn, boolean internet) {
+        return radioEnabled && wifiRoute(wifi, cellular, vpn, internet);
     }
 
     static boolean wifiRoute(boolean wifi, boolean cellular, boolean vpn, boolean internet) {

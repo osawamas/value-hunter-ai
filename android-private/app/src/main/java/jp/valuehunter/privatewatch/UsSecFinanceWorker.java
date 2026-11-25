@@ -46,6 +46,8 @@ public final class UsSecFinanceWorker extends Worker {
     private static final int MAX_BUDGET_RETRIES = 3;
     private static final String BUDGET_CURSOR_DAY = "us_budget_cursor_day";
     private static final String BUDGET_CURSOR = "us_budget_cursor";
+    static final String BUDGET_RESULTS_DAY = "us_budget_results_day";
+    static final String BUDGET_RESULTS = "us_budget_results_json";
     private static final String BUDGET_SENT_DAY = "us_budget_sent_day";
     private static final String BUDGET_SENT_SYMBOLS = "us_budget_sent_symbols";
     private static final String NOCP_PAIR_KEY = "us_nocp_quote_pair";
@@ -63,21 +65,34 @@ public final class UsSecFinanceWorker extends Worker {
     }
 
     private final Download download;
+    private String lastHttpErrorHost = "unknown";
 
     public UsSecFinanceWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
-        this(context, parameters, address -> UsDailyWorker.fetchText(address, ""));
+        this(context, parameters, address -> UsDailyWorker.fetchText(address, "", context));
     }
 
     UsSecFinanceWorker(Context context, WorkerParameters parameters, Download download) {
         super(context, parameters);
         this.download = address -> {
             if (networkStopped()) throw new IOException("Worker stopped");
-            return download.get(address);
+            try {
+                return download.get(address);
+            } catch (UsDailyWorker.HttpStatus error) {
+                // Never save a complete URL, query string, API token or CIK in diagnostics.
+                // Distinguish SEC, Nasdaq and other providers before investigating a 403.
+                lastHttpErrorHost = new java.net.URL(address).getHost();
+                throw error;
+            }
         };
     }
 
     static void ensureScheduled(Context context) {
         enqueue(context, ExistingWorkPolicy.KEEP);
+    }
+
+    /** Append a fresh run after any in-flight SEC work instead of silently ignoring the save. */
+    static void contactUpdated(Context context) {
+        enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE);
     }
 
     private static void enqueue(Context context, ExistingWorkPolicy policy) {
@@ -88,7 +103,7 @@ public final class UsSecFinanceWorker extends Worker {
         if (!MarketNetwork.requested()) return;
         var request = new OneTimeWorkRequest.Builder(UsSecFinanceWorker.class)
                 .setConstraints(MarketNetwork.constraints(NetworkType.UNMETERED))
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS).build();
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, policy, request);
         DiagnosticLog.requested(context, DiagnosticLog.Area.US_FINANCE,
@@ -148,6 +163,12 @@ public final class UsSecFinanceWorker extends Worker {
             if (scan == null || !hash.equals(scan.optString("hash"))) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
                 var nyse = listings("otherlisted.txt", false);
+                try {
+                    UsCompanyNames.save(context, nyse, nasdaq);
+                } catch (IOException unavailable) {
+                    DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                            "米国株の銘柄名保存を保留 · 銘柄コードでの通知は継続");
+                }
                 var scope = coverageScope(directory, day, nyse, nasdaq);
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
                 var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
@@ -168,6 +189,11 @@ public final class UsSecFinanceWorker extends Worker {
                 }
                 int reused = scan.getInt("reused");
                 updateProgress(day, 0, scan.getJSONArray("targets").length(), reused, reused);
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "SEC財務照合の対象を準備 " + (scan.getJSONArray("targets").length() + reused)
+                                + "銘柄 · うち過去の有効財務を再利用 " + reused
+                                + "件 · 新規または再確認 " + scan.getJSONArray("targets").length()
+                                + "銘柄 · 取引日 " + day);
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
                 publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
             } else if (!scan.has("coverage_listing_date")) {
@@ -180,6 +206,11 @@ public final class UsSecFinanceWorker extends Worker {
             long repairAfter = scan.optLong("repair_after");
             if (latestSession && repairAfter > 0 && repairAfter <= System.currentTimeMillis()
                     && prepareRepair(scan)) {
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "未取得・照合待ちの再確認を開始 · 前回の有効財務 "
+                                + scan.optInt("reused") + "件を再利用 · 再確認対象 "
+                                + scan.getJSONArray("targets").length() + "銘柄 · "
+                                + scan.optInt("repair_round") + "/" + REPAIR_ROUNDS + "巡目");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var targets = scan.getJSONArray("targets");
@@ -214,6 +245,11 @@ public final class UsSecFinanceWorker extends Worker {
                 } finally {
                     UsDailyWorker.writeSnapshot(checkpoint, scan);
                     updateProgress(day, position, targets.length(), results.length(), reused);
+                    DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                            "SEC財務の分割取得 " + (position + reused) + " / "
+                                    + (targets.length() + reused) + "銘柄 · 有効な財務 "
+                                    + results.length() + "件 · " + (position < targets.length()
+                                    ? "次のバッチへ" : "財務照合へ"));
                     publishCoverage(preferences, closeFile, scan, prices.keySet(), verifiedListings);
                 }
                 if (networkStopped()) return paused();
@@ -281,16 +317,37 @@ public final class UsSecFinanceWorker extends Worker {
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
                 enqueue(context, ExistingWorkPolicy.APPEND_OR_REPLACE, REPAIR_DELAY);
             }
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "SEC財務の今回の処理が完了 · 取引日 " + day + " · 判定記録を保存");
             return Result.success();
         } catch (FileNotFoundException absent) {
+            // The US daily-close worker will enqueue us again after it saves quotes.
+            // Keep this distinct from a genuine SEC fetch success in diagnostics.
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "米国株終値の保存待ち · SEC財務の取得は未開始");
+            return Result.success();
+        } catch (SecAccess.MissingContactException absent) {
+            // A real SEC contact must be supplied in Settings; retrying cannot fix this.
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "SEC連絡先未設定 · 設定後に取得を再開");
+            MarketFreshness.US_FINANCE.waiting(preferences.edit(),
+                    MarketFreshness.Phase.FINANCE, attemptedDay).apply();
             return Result.success();
         } catch (InterruptedException cancelled) {
             Thread.currentThread().interrupt();
             return Result.retry();
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             if (networkStopped()) return paused();
-            DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
-                    "財務の更新失敗: " + unavailable.getClass().getSimpleName());
+            boolean secAccessDenied = unavailable instanceof UsDailyWorker.HttpStatus http
+                    && http.code == 403 && SecAccess.isSecHost(lastHttpErrorHost);
+            if (unavailable instanceof UsDailyWorker.HttpStatus http) {
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "米国株財務取得先 " + lastHttpErrorHost + " · HTTP " + http.code
+                                + (secAccessDenied ? " · SECアクセス拒否・再試行を停止" : " · 次回の再試行待ち"));
+            } else {
+                DiagnosticLog.recordError(context, DiagnosticLog.Area.US_FINANCE,
+                        "SEC財務の取得・解析", unavailable);
+            }
             String progress = preferences.getString(UsDailyWorker.PRIVATE_STATUS, "");
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 var market = MarketFreshness.US_FINANCE;
@@ -304,7 +361,9 @@ public final class UsSecFinanceWorker extends Worker {
                     edit.apply();
                 }
             }
-            return Result.retry();
+            // SEC 403 is not transient; repeatedly retrying it violates fair-access intent.
+            // An explicit contact-settings save schedules a fresh attempt instead.
+            return secAccessDenied ? Result.success() : Result.retry();
         }
     }
 
@@ -602,7 +661,28 @@ public final class UsSecFinanceWorker extends Worker {
             summary += "\n予算入り "
                     + String.join("、", entries.stream().map(PriceOnlyScreen.BudgetEntry::code).toList());
         }
-        status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary).apply();
+        // Persist the complete verified candidate set separately from the
+        // notification's "new since last sent" subset. It must survive process
+        // death and remain inspectable without network access.
+        var saved = new org.json.JSONArray();
+        var officialCodes = new HashSet<String>();
+        for (var item : official.entered()) officialCodes.add(item.code());
+        var unique = new java.util.TreeMap<String, PriceOnlyScreen.BudgetEntry>();
+        for (var item : entries) unique.put(item.code(), item);
+        for (var item : unique.values()) {
+            var row = new org.json.JSONObject();
+            try {
+                row.put("code", item.code());
+                row.put("yen", item.yen().stripTrailingZeros().toPlainString());
+                row.put("source", officialCodes.contains(item.code()) ? "Nasdaq公式終値" : "DoltHubとNasdaq照合");
+                saved.put(row);
+            } catch (org.json.JSONException invalid) {
+                return false;
+            }
+        }
+        status.putString(UsDailyWorker.PRICE_ONLY_STATUS, summary)
+                .putString(BUDGET_RESULTS_DAY, date)
+                .putString(BUDGET_RESULTS, saved.toString()).apply();
         String blocked = ScanWorker.alertBlockReason(context);
         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の参考予算条件入り "
                 + entries.size() + "件 · " + (blocked.isEmpty() ? "通知許可あり" : blocked));
@@ -615,9 +695,12 @@ public final class UsSecFinanceWorker extends Worker {
         var officialEntries = new HashSet<>(official.entered());
         if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialEntries.contains(entry)))
             detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
+        var issuerNames = UsCompanyNames.read(context);
         for (var entry : pending) {
-            detail.append("\n").append(entry.code()).append(" · ")
-                    .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
+            String name = issuerNames.get(entry.code());
+            detail.append("\n").append(entry.code());
+            if (name != null) detail.append(" (").append(name).append(")");
+            detail.append(" · ").append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
             if (officialEntries.contains(entry)) detail.append("（Nasdaq公式終値）");
         }
         if (!ScanWorker.postNotification(context, BUDGET_NOTIFICATION_ID,

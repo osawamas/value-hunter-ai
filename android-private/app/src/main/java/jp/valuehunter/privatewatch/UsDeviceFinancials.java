@@ -98,7 +98,8 @@ final class UsDeviceFinancials {
             var oldResults = previous.getJSONArray("results");
             for (int index = 0; index < oldResults.length(); index++) {
                 var item = oldResults.getJSONObject(index);
-                if (reusable(item, day) && !changed.contains(item.getInt("cik"))) {
+                if (reusable(item, day) && item.has("meter_balance")
+                        && !changed.contains(item.getInt("cik"))) {
                     matching.put(item.getString("symbol"), item);
                 }
             }
@@ -156,6 +157,7 @@ final class UsDeviceFinancials {
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
         return new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
+                .put("meter_balance", history.balance() == null ? JSONObject.NULL : history.balance())
                 .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
                 .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
@@ -181,44 +183,68 @@ final class UsDeviceFinancials {
         var observations = new JSONArray();
         var splitHolds = new JSONArray();
         var meter = new JSONObject();
+        int missingClose = 0, splitHoldCount = 0, unusableFinancials = 0;
+        int outsideBudget = 0, outsideValuation = 0, referenceCount = 0, priorityCount = 0;
+        int affordable100 = 0, singleShare = 0;
         var rate = BigDecimal.valueOf(fx.yenPerDollar());
         for (int index = 0; index < records.length(); index++) {
             var row = records.getJSONObject(index);
             String symbol = row.getString("symbol");
             String exchange = row.getString("exchange");
             var close = prices.get(symbol);
-            if (close == null) continue;
+            if (close == null) { missingClose++; continue; }
             if ("NYSE".equals(exchange)) nyse++;
             else nasdaq++;
             var split = splits.get(symbol);
             if (split != null && !split.isBefore(LocalDate.parse(row.getString("share_date")))) {
                 splitHolds.put(symbol);
+                splitHoldCount++;
                 continue;
             }
             var cap = close.multiply(new BigDecimal(row.getString("shares")));
             var profit = new BigDecimal(row.getString("profit"));
             var equity = new BigDecimal(row.getString("equity"));
             var level = ValueCandidateScreen.assess(cap, profit, equity);
-            if (level == ValueCandidateScreen.Level.HELD) continue;
+            if (level == ValueCandidateScreen.Level.HELD) { unusableFinancials++; continue; }
             var yen = close.multiply(rate);
             int quantity = yen.movePointRight(2).compareTo(BUDGET) <= 0 ? 100 : 1;
+            if (quantity == 100) affordable100++; else singleShare++;
             String status = yen.compareTo(BUDGET) > 0 ? "outside_budget" : switch (level) {
                 case PRIORITY -> "priority";
                 case REFERENCE -> "reference";
                 default -> "outside_valuation";
             };
+            switch (status) {
+                case "outside_budget" -> outsideBudget++;
+                case "outside_valuation" -> outsideValuation++;
+                case "reference" -> referenceCount++;
+                case "priority" -> priorityCount++;
+                default -> throw new JSONException("Unknown financial screen state");
+            }
             observations.put(new JSONObject().put("symbol", symbol).put("exchange", exchange)
                     .put("cik", row.getInt("cik")).put("status", status).put("quantity", quantity));
-            var score = ValueAlertMeter.assess(cap, profit, equity, meterEps(row), meterCash(row), null, null);
+            var score = ValueAlertMeter.assessUs(cap, profit, equity, meterEps(row), meterCash(row), null, meterBalance(row));
             meter.put(UsReferenceAlerts.meterKey(exchange, row.getInt("cik"), symbol),
                     new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed())
                             .put("outside_budget".equals(status) ? 0 : quantity));
         }
+        var diagnostics = new JSONObject()
+                .put("financial_records", records.length())
+                .put("missing_close", missingClose)
+                .put("split_hold", splitHoldCount)
+                .put("unusable_financials", unusableFinancials)
+                .put("outside_budget", outsideBudget)
+                .put("outside_valuation", outsideValuation)
+                .put("reference", referenceCount)
+                .put("priority", priorityCount)
+                .put("affordable_100", affordable100)
+                .put("single_share", singleShare);
         var coverage = new JSONObject().put("NYSE", coverage(nyse)).put("Nasdaq", coverage(nasdaq));
         return new JSONObject().put("trading_date_et", day.toString()).put("close_provider", provider)
                 .put("close_sha256", hash).put("coverage", coverage).put("split_holds", splitHolds)
                 .put("reference_screen", new JSONObject().put("provider", provider).put("close_sha256", hash)
-                        .put("fx_date", fx.date().toString()).put("observations", observations).put("meter_rows", meter));
+                        .put("fx_date", fx.date().toString()).put("observations", observations)
+                        .put("diagnostics", diagnostics).put("meter_rows", meter));
     }
 
     private static List<BigDecimal> meterEps(JSONObject row) {
@@ -239,6 +265,11 @@ final class UsDeviceFinancials {
     private static Integer meterCash(JSONObject row) {
         int cash = row.optInt("meter_cash", -1);
         return cash == 0 || cash == 50 || cash == 100 ? cash : null;
+    }
+
+    private static Integer meterBalance(JSONObject row) {
+        int value = row.optInt("meter_balance", -1);
+        return value == 0 || value == 50 || value == 70 || value == 100 ? value : null;
     }
 
     private static JSONObject coverage(int count) throws JSONException {

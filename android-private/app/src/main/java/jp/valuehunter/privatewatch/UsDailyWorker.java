@@ -69,7 +69,6 @@ public final class UsDailyWorker extends Worker {
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final String PRIVATE_PENDING_SIGNALS = "us_private_sec_pending_signals";
-    private static final String PRIVATE_SCREEN_RECEIPT = "us_private_sec_screen_receipt_v2";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
     static final String PRICE_ONLY_STATUS = "us_price_only_status";
@@ -134,7 +133,7 @@ public final class UsDailyWorker extends Worker {
                 "us-listing-recheck-" + day, ExistingWorkPolicy.KEEP, request);
     }
 
-    static String displayStatus(SharedPreferences state) {
+    static String displayStatus(Context context, SharedPreferences state) {
         String status = state.getString(STATUS, "初回の自動更新待ち");
         var finance = MarketFreshness.US_FINANCE;
         String proven = finance.result(state);
@@ -172,10 +171,14 @@ public final class UsDailyWorker extends Worker {
         if (day.length() >= 7 && day.substring(0, 7).equals(state.getString(HISTORY_MONTH, ""))) {
             result += "\n\n" + state.getString(HISTORY_TEXT, "");
         }
-        String single = UsSingleSessionBudgetCheck.display(state, day, state.getString(PROVIDER, ""));
+        String single = context == null ? "" : UsSingleSessionBudgetCheck.display(context, state, day, state.getString(PROVIDER, ""));
         if (!single.isEmpty()) result += "\n\n" + single;
         String repair = repairStatus(state, day);
         return repair.isEmpty() ? result : result + "\n\n" + repair;
+    }
+
+    static String displayStatus(SharedPreferences state) {
+        return displayStatus(null, state);
     }
 
     static String repairStatus(SharedPreferences state, String day) {
@@ -237,16 +240,9 @@ public final class UsDailyWorker extends Worker {
         var state = ScanWorker.prefs(context);
         String archived = getInputData().getString(ARCHIVE_RECHECK_DAY);
         if (archived == null) AlertOutcomes.recoverDeferred(context, AlertOutcomes.Market.US);
-        // WorkManager input is persisted across app upgrades and restarts. An
-        // invalid archived date must fail the request, not crash the worker.
-        LocalDate target;
-        try {
-            target = targetDay(archived, Instant.now());
-        } catch (DateTimeParseException invalid) {
-            DiagnosticLog.record(context, DiagnosticLog.Area.US_CLOSE,
-                    "保存済みの終値再確認日付が不正 · この要求を終了");
-            return Result.failure();
-        }
+        LocalDate target = archived == null
+                ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(Instant.now()))
+                : LocalDate.parse(archived);
         try {
             String key = readKey(context);
             String provider = key.isEmpty() ? UsDoltCloses.SOURCE : MASSIVE;
@@ -321,27 +317,29 @@ public final class UsDailyWorker extends Worker {
             return Result.success();
         } catch (HttpStatus e) {
             if (networkStopped()) return paused();
+            // Preserve the HTTP status without recording an address or private key.
+            DiagnosticLog.record(context, DiagnosticLog.Area.US_CLOSE,
+                    "終値の取得先がHTTP " + e.code + "を返した");
             boolean retry = e.code == 429 || e.code >= 500;
             report(state, "終値を取得できず（HTTP " + e.code + "）",
                     retry ? MarketFreshness.Phase.ERROR : MarketFreshness.Phase.NEXT_CHECK, target);
             return retry ? Result.retry() : Result.success();
         } catch (IOException e) {
             if (networkStopped()) return paused();
+            // A retry status alone obscures the real failing method. Keep the
+            // application stack and exception type, without URLs or secrets.
+            DiagnosticLog.recordError(context, DiagnosticLog.Area.US_CLOSE,
+                    "終値の通信・保存", e);
             report(state, "終値を取得できず（通信または保存エラー）", MarketFreshness.Phase.ERROR, target);
             return Result.retry();
         } catch (JSONException e) {
             if (networkStopped()) return paused();
+            DiagnosticLog.recordError(context, DiagnosticLog.Area.US_CLOSE,
+                    "終値の配信形式・保存データ", e);
             var phase = archived == null ? MarketFreshness.Phase.NEXT_CHECK : MarketFreshness.Phase.ERROR;
             report(state, "終値を取得できず（配信形式を要確認）", phase, target);
             return archived == null ? Result.success() : Result.retry();
         }
-    }
-
-    // Pure date parsing keeps stale WorkManager inputs testable without an Android device.
-    static LocalDate targetDay(String archived, Instant now) {
-        return archived == null
-                ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(now))
-                : LocalDate.parse(archived);
     }
 
     private static SharedPreferences.Editor markQuoteFreshness(SharedPreferences.Editor edit, LocalDate available,
@@ -356,7 +354,24 @@ public final class UsDailyWorker extends Worker {
         }
         return UsDoltCloses.fetch(day, address -> {
             if (networkStopped()) throw new IOException("Worker stopped");
-            return fetch(address, "");
+            try {
+                return fetch(address, "");
+            } catch (IOException first) {
+                // One bounded retry for transient socket/handshake drops. A provider's
+                // HTTP status must still be handled by the existing HTTP policy.
+                if (first instanceof HttpStatus || networkStopped()) throw first;
+                DiagnosticLog.record(getApplicationContext(), DiagnosticLog.Area.US_CLOSE,
+                        "DoltHub通信の一時失敗 · " + first.getClass().getSimpleName()
+                                + " · 1回だけ再接続");
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("DoltHub retry interrupted", interrupted);
+                }
+                if (networkStopped()) throw first;
+                return fetch(address, "");
+            }
         });
     }
 
@@ -484,21 +499,32 @@ public final class UsDailyWorker extends Worker {
                         .putString(PRIVATE_STATUS, status + " · 判定に使える財務・株数が未確認").apply();
                 return true;
             }
-            // Skip identical completed sessions while preserving corrections and user setting changes.
-            var reference = ledger.getJSONObject("reference_screen");
-            String screenReceipt = financialScreenReceipt(day, provider, closeHash, reference,
-                    state.getBoolean(ValueAlertPreview.LIVE, true),
-                    state.getString(ValueAlertPreview.SETTINGS, ""),
-                    ScanWorker.notificationsRequested(context), ScanWorker.systemAllowsAlerts(context),
-                    state.getLong(ScanWorker.ALERT_GENERATION, 0),
-                    state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0));
-            if (previous != null && day.equals(previous.day())
-                    && !hasPendingFinancialAlert(state)
-                    && screenReceipt.equals(state.getString(PRIVATE_SCREEN_RECEIPT, ""))) return true;
             status += " · 参考判定 " + screen.rows().size() + "銘柄";
             long count = 0;
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
             status += " · 条件該当 " + count + "銘柄";
+            var reasons = ledger.getJSONObject("reference_screen").optJSONObject("diagnostics");
+            if (reasons != null) {
+                int total = reasons.optInt("financial_records");
+                int distinct = reasons.optInt("missing_close") + reasons.optInt("split_hold")
+                        + reasons.optInt("unusable_financials") + reasons.optInt("outside_budget")
+                        + reasons.optInt("outside_valuation") + reasons.optInt("reference")
+                        + reasons.optInt("priority");
+                if (distinct != total) throw new JSONException("Financial screen counts do not reconcile");
+                String breakdown = "判定内訳（SEC有効財務 " + total + "件）"
+                        + "\n財務・純資産が判定不可 " + reasons.optInt("unusable_financials") + "件"
+                        + " · PER/PBR条件外 " + reasons.optInt("outside_valuation") + "件"
+                        + "\n購入予算外（単元未満でも10万円超） " + reasons.optInt("outside_budget") + "件"
+                        + " · 株式分割の照合待ち " + reasons.optInt("split_hold") + "件"
+                        + "\n終値の照合待ち " + reasons.optInt("missing_close") + "件"
+                        + " · 参考候補 " + reasons.optInt("reference") + "件"
+                        + " · 優先候補 " + reasons.optInt("priority") + "件"
+                        + "\n100株で10万円以内 " + reasons.optInt("affordable_100") + "件"
+                        + " · 1株購入枠 " + reasons.optInt("single_share") + "件";
+                status += "\n" + breakdown;
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                        "割安判定の除外理由を集計 · " + breakdown.replace('\n', ' '));
+            }
             String pending = "";
             // A quote-source switch is not a new trading session. Retain the
             // already-submitted symbols and original prior-day comparison anchor
@@ -512,8 +538,9 @@ public final class UsDailyWorker extends Worker {
             // Recalculate from the current screen, including same-day corrections to SEC evidence.
             // The queue only signals outstanding work; only the delivery receipt suppresses repeats.
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
+            var reference = ledger.getJSONObject("reference_screen");
             var meter = reference.optJSONObject("meter_rows");
-            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, true);
+            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, false);
             var ranks = useMeter && meter != null && anchor != null
                     && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
                     ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent,
@@ -523,14 +550,18 @@ public final class UsDailyWorker extends Worker {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
             if (alertsRequested) {
+                var issuerNames = UsCompanyNames.read(context);
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
-                            + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
+                            + "\n" + day + "の終値（参考）\n"
+                            + entrants.values().stream().map(row -> UsCompanyNames.decorate(row, issuerNames))
+                                    .collect(java.util.stream.Collectors.joining("\n"));
                     entrants.keySet().forEach(symbol -> queued.put(symbol, "priority".equals(screen.rows().get(symbol).status())
                             ? "優先候補" : "参考候補"));
                 } else if (!ranks.isEmpty()) {
                     pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
                             + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
+                                    .map(row -> UsCompanyNames.decorate(row, issuerNames))
                                     .collect(java.util.stream.Collectors.joining("\n"));
                     ranks.forEach((key, row) -> queued.put(key, ValueAlertMeter.LABELS.get(row.level())));
                 }
@@ -541,7 +572,6 @@ public final class UsDailyWorker extends Worker {
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending)
                     .putString(PRIVATE_PENDING_SIGNALS, new JSONObject(queued).toString())
-                    .putString(PRIVATE_SCREEN_RECEIPT, screenReceipt)
                     .putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
             if (meter != null) {
@@ -567,15 +597,6 @@ public final class UsDailyWorker extends Worker {
                     .putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
             return true;
         }
-    }
-
-    static String financialScreenReceipt(LocalDate day, String provider, String hash, JSONObject evidence,
-                                         boolean meter, String thresholds, boolean requested, boolean allowed,
-                                         long alertGeneration, long financialGeneration) {
-        String identity = day + "\n" + provider + "\n" + hash + "\n" + evidence
-                + "\n" + meter + "\n" + thresholds + "\n" + requested + "\n" + allowed
-                + "\n" + alertGeneration + "\n" + financialGeneration;
-        return UsReferenceAlerts.sha256(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     static boolean hasPendingFinancialAlert(SharedPreferences state) {
@@ -855,16 +876,27 @@ public final class UsDailyWorker extends Worker {
     }
 
     static String fetchText(String address, String key) throws IOException, JSONException {
+        return fetchText(address, key, null);
+    }
+
+    static String fetchText(String address, String key, Context owner) throws IOException, JSONException {
         var url = new URL(address);
+        boolean sec = SecAccess.isSecHost(url.getHost());
+        // Never impersonate a generic bot or send an invented address to EDGAR.
+        String secIdentity = sec ? SecAccess.userAgent(owner == null
+                ? "" : SecAccess.contact(owner)) : "";
         var connection = MarketNetwork.open(url);
         try {
             connection.setConnectTimeout(15_000);
-            connection.setReadTimeout(30_000);
+            connection.setReadTimeout("www.dolthub.com".equalsIgnoreCase(url.getHost())
+                    ? 60_000 : 30_000);
             connection.setInstanceFollowRedirects(false);
             if (!key.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + key);
-            if (java.util.Set.of("data.sec.gov", "www.sec.gov").contains(url.getHost())) {
-                connection.setRequestProperty("User-Agent",
-                        "VALUE HUNTER AI https://github.com/osawamas/value-hunter-ai");
+            if (sec) {
+                connection.setRequestProperty("User-Agent", secIdentity);
+                connection.setRequestProperty("Accept", "application/json");
+            }
+            if ("www.dolthub.com".equalsIgnoreCase(url.getHost())) {
                 connection.setRequestProperty("Accept", "application/json");
             }
             if ("api.nasdaq.com".equals(url.getHost())) {
