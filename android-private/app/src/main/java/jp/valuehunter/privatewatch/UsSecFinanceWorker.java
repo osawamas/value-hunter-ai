@@ -163,6 +163,12 @@ public final class UsSecFinanceWorker extends Worker {
             if (scan == null || !hash.equals(scan.optString("hash"))) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
                 var nyse = listings("otherlisted.txt", false);
+                try {
+                    UsCompanyNames.save(context, nyse, nasdaq);
+                } catch (IOException unavailable) {
+                    DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                            "米国株の銘柄名保存を保留 · 銘柄コードでの通知は継続");
+                }
                 var scope = coverageScope(directory, day, nyse, nasdaq);
                 var sec = new JSONObject(download.get(UsDeviceFinancials.SEC_DIRECTORY));
                 var targets = UsDeviceFinancials.targets(nyse, nasdaq, sec, prices.keySet());
@@ -690,8 +696,10 @@ public final class UsSecFinanceWorker extends Worker {
         if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialEntries.contains(entry)))
             detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
         for (var entry : pending) {
-            detail.append("\n").append(entry.code()).append(" · ")
-                    .append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
+            String name = UsCompanyNames.read(context).get(entry.code());
+            detail.append("\n").append(entry.code());
+            if (name != null) detail.append(" (").append(name).append(")");
+            detail.append(" · ").append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
             if (officialEntries.contains(entry)) detail.append("（Nasdaq公式終値）");
         }
         if (!ScanWorker.postNotification(context, BUDGET_NOTIFICATION_ID,
