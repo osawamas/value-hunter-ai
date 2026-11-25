@@ -555,7 +555,7 @@ final class NotificationDeliveryProbe {
         // Scroll the dedicated diagnostics page so its action is visible on
         // small Android 9, 14 and 15 emulator screens.
         if (copy != null && !copy.isVisibleToUser())
-            copy.performAction(AccessibilityNodeInfo.ACTION_SHOW_ON_SCREEN);
+            copy.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId());
         require(await(() -> {
             var node = findDialogText(instrumentation, "診断ログをすべてコピー");
             return node != null && node.isVisibleToUser();
