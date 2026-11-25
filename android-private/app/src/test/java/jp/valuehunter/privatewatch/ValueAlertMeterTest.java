@@ -23,11 +23,14 @@ public final class ValueAlertMeterTest {
         var noPeers = ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 List.of(number("3"), number("2"), number("1")), 100, null, 100);
         assertTrue(noPeers.points() >= 85);
-        assertEquals(3, noPeers.level(ValueAlertMeter.DEFAULT));
-        var insufficientAbsolute = ValueAlertMeter.assess(number("8"), number("1"), number("12"),
+        assertEquals(2, noPeers.level(ValueAlertMeter.DEFAULT));
+        assertEquals(3, ValueAlertMeter.assessUs(number("6"), number("1"), number("12"),
+                List.of(number("3"), number("2"), number("1")), 100, null, 100)
+                .level(ValueAlertMeter.DEFAULT));
+        var insufficientAbsolute = ValueAlertMeter.assessUs(number("8"), number("1"), number("12"),
                 List.of(number("3"), number("2"), number("1")), 100, null, 100);
         assertEquals(2, insufficientAbsolute.level(ValueAlertMeter.DEFAULT));
-        assertEquals(2, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+        assertEquals(2, ValueAlertMeter.assessUs(number("6"), number("1"), number("12"),
                 List.of(number("3"), number("2"), number("1")), 100, null, null)
                 .level(ValueAlertMeter.DEFAULT));
         var unavailable = ValueAlertMeter.assess(number("6"), number("1"), number("12"),
@@ -103,7 +106,7 @@ public final class ValueAlertMeterTest {
         var evidence=UsFinancialFacts.meterHistory(payload,LocalDate.of(2026,3,1));
         assertEquals(Integer.valueOf(100),evidence.cash());
         assertEquals(Integer.valueOf(100),evidence.balance());
-        var top=ValueAlertMeter.assess(number("6"),number("1"),number("12"),
+        var top=ValueAlertMeter.assessUs(number("6"),number("1"),number("12"),
                 evidence.annualEps(),evidence.cash(),null,evidence.balance());
         assertEquals(3,top.level(ValueAlertMeter.DEFAULT));
         assertTrue(top.points()>=85);
@@ -111,7 +114,7 @@ public final class ValueAlertMeterTest {
                 .put("filed","2026-03-05");
         var missing=UsFinancialFacts.meterHistory(payload,LocalDate.of(2026,3,1));
         assertEquals(null,missing.balance());
-        assertEquals(2,ValueAlertMeter.assess(number("6"),number("1"),number("12"),
+        assertEquals(2,ValueAlertMeter.assessUs(number("6"),number("1"),number("12"),
                 missing.annualEps(),missing.cash(),null,missing.balance()).level(ValueAlertMeter.DEFAULT));
     }
 
