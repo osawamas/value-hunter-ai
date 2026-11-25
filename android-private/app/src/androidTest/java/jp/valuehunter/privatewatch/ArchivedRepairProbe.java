@@ -43,7 +43,8 @@ final class ArchivedRepairProbe {
         }
         require(clear.commit(), "Could not isolate the archived-repair fixture");
         require(state.edit().putBoolean(ScanWorker.NOTIFICATIONS_ENABLED, true)
-                .putBoolean(NotificationScreenWake.ENABLED, false).commit(), "Could not set silent notifications");
+                .putBoolean(NotificationScreenWake.ENABLED, false)
+                .putBoolean(ValueAlertPreview.LIVE, false).commit(), "Could not set silent legacy reference notifications");
         var manager = context.getSystemService(NotificationManager.class);
         manager.cancelAll();
         var dir = context.getNoBackupFilesDir();

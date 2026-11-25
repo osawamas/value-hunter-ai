@@ -64,6 +64,16 @@ final class ValueAlertMeter {
         }
         if (threeProfitable && positive(cash) && positive(peers) && positive(balance)
                 && atMost(price, profit, "9") && atMost(price, equity, "0.8")) return new Score(score, 3, confirmed);
+        // SEC companyfacts supplies comparable EPS and operating cash flow, but not a
+        // reliable peer score or balance-strength score for the broad US universe.
+        // Never treat missing evidence as confirmed: require substantially cheaper
+        // valuation, three profitable annual EPS observations and positive cash flow
+        // in both comparable years before allowing the top tier without those scores.
+        // Explicit adverse peer/balance evidence must not be bypassed by this fallback.
+        if (threeProfitable && positive(cash) && peers == null && balance == null
+                && atMost(price, profit, "7") && atMost(price, equity, "0.6")) {
+            return new Score(score, 3, confirmed);
+        }
         if (growthKnown && (positive(cash) || positive(peers))
                 && atMost(price, profit, "12") && atMost(price, equity, "0.9")) return new Score(score, 2, confirmed);
         return new Score(score, 1, confirmed);

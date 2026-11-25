@@ -61,6 +61,24 @@ public class UsFinanceIncrementalTest {
         assertNull(UsDeviceFinancials.reuseFrom(previous, NEXT));
     }
 
+    @Test public void sameDayReceiptChangesWhenEvidenceOrNotificationSettingsChange() throws Exception {
+        var day = OLD;
+        var evidence = new JSONObject().put("observations", new JSONObject().put("TEST", 1));
+        String first = UsDailyWorker.financialScreenReceipt(
+                day, "dolt", "hash", evidence, true, "", true, true, 0, 0);
+        assertEquals(first, UsDailyWorker.financialScreenReceipt(
+                day, "dolt", "hash", evidence, true, "", true, true, 0, 0));
+        org.junit.Assert.assertNotEquals(first, UsDailyWorker.financialScreenReceipt(
+                day, "dolt", "hash", evidence, false, "", true, true, 0, 0));
+        org.junit.Assert.assertNotEquals(first, UsDailyWorker.financialScreenReceipt(
+                day, "dolt", "hash", evidence, true, "", true, false, 0, 0));
+        org.junit.Assert.assertNotEquals(first, UsDailyWorker.financialScreenReceipt(
+                day, "dolt", "hash", evidence, true, "", true, true, 1, 0));
+        evidence.getJSONObject("observations").put("TEST", 2);
+        org.junit.Assert.assertNotEquals(first, UsDailyWorker.financialScreenReceipt(
+                day, "dolt", "hash", evidence, true, "", true, true, 0, 0));
+    }
+
     private static JSONObject target(String symbol, int cik) throws JSONException {
         return new JSONObject().put("symbol", symbol).put("cik", cik).put("exchange", "NYSE");
     }
