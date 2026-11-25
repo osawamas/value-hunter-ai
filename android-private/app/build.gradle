@@ -44,12 +44,16 @@ def generatedBrandRes = layout.buildDirectory.dir('generated/brandRes')
 def generateBrandIcon = tasks.register('generateBrandIcon') {
     def source = file('src/main/java/jp/valuehunter/privatewatch/BrandEmblem.java')
     inputs.file(source)
+    // Prefer the approved full-resolution icon recovered from build 23, when available.
+    // The embedded 80px emblem is only a standalone CI fallback.
+    def restored = file('src/main/assets/launcher_original.png')
+    if (restored.isFile()) inputs.file(restored)
     outputs.dir(generatedBrandRes)
     doLast {
         def matcher = (source.getText('UTF-8') =~ /private static final String IMAGE = "([^"]+)"/)
         if (!matcher.find()) throw new GradleException('Canonical bronze emblem not found')
         def raw = java.util.Base64.getDecoder().decode(matcher.group(1))
-        def original = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(raw))
+        def original = restored.isFile() ? javax.imageio.ImageIO.read(restored) : javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(raw))
         if (original == null) throw new GradleException('Cannot decode canonical emblem')
         def dir = generatedBrandRes.get().file('drawable').asFile
         dir.mkdirs()
@@ -63,18 +67,36 @@ def generateBrandIcon = tasks.register('generateBrandIcon') {
                     java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
             g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
                     java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC)
-            if (!adaptive) {
-                g.setColor(new java.awt.Color(5, 17, 29))
-                g.fillRect(0, 0, 432, 432)
-            }
-            int size = adaptive ? 258 : 344
+            // Both formats have transparent corners. Never paint a square tile
+            // behind the approved circular logo (Huawei launcher showed it as white).
+            int size = adaptive ? 282 : 402
             int inset = (432 - size) / 2
-            g.setClip(new java.awt.geom.Ellipse2D.Double(inset + size * .055f,
-                    inset + size * .055f, size * .89f, size * .89f))
+            g.setClip(new java.awt.geom.Ellipse2D.Double(inset, inset, size, size))
             g.drawImage(original, inset, inset, size, size, null)
             g.dispose()
             def target = new File(dir, adaptive ? 'launcher_foreground.png' : 'launcher_exact.png')
             javax.imageio.ImageIO.write(image, 'PNG', target)
+        }
+    }
+}
+
+def verifyBrandIcons = tasks.register('verifyBrandIcons') {
+    dependsOn(generateBrandIcon)
+    doLast {
+        def dir = generatedBrandRes.get().file('drawable').asFile
+        for (def name : ['launcher_exact.png', 'launcher_foreground.png']) {
+            def bitmap = javax.imageio.ImageIO.read(new File(dir, name))
+            if (bitmap == null || bitmap.width != 432 || bitmap.height != 432) {
+                throw new GradleException("Invalid launcher dimensions: " + name)
+            }
+            for (def point : [[0,0], [431,0], [0,431], [431,431]]) {
+                if ((bitmap.getRGB(point[0], point[1]) >>> 24) != 0) {
+                    throw new GradleException("Square background on launcher: " + name)
+                }
+            }
+            if ((bitmap.getRGB(216,216) >>> 24) < 240) {
+                throw new GradleException("Missing visible brand symbol: " + name)
+            }
         }
     }
 }
@@ -89,14 +111,14 @@ android {
         minSdk 26
         targetSdk 34
         testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
-        versionCode 27
-        versionName '0.6.21-test'
+        versionCode 28
+        versionName '0.6.22-test'
     }
     buildTypes {
         debug {
             // Temporary second diagnostic package: preserve both existing installations when CI debug signing changes.
-            applicationIdSuffix '.diagnostic16'
-            versionNameSuffix '-separate16'
+            applicationIdSuffix '.diagnostic17'
+            versionNameSuffix '-separate17'
         }
     }
     compileOptions {

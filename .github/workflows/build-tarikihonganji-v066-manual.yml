@@ -8,6 +8,7 @@ on:
       - '.github/workflows/build-tarikihonganji-v066-manual.yml'
       - 'android-private/app/build.gradle'
       - 'android-private/app/src/main/**'
+      - 'android-private/tools/check_feature_regression.sh'
 
 permissions:
   contents: read
@@ -28,14 +29,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Guard prior app features and icon/widget regression
+        run: bash android-private/tools/check_feature_regression.sh
       - name: Guard branded UI, splash, icon and 2x1 widget
         run: |
           for name in BrandEmblem BrandHeader BrandNav CopperWaveDrawable CurrentCandidatesActivity RecentAlertsActivity DebugDiagnosticsActivity SplashActivity; do
             test -s "android-private/app/src/main/java/jp/valuehunter/privatewatch/${name}.java"
           done
           grep -Fq 'BrandNav.create(this' android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java
-          grep -Fq "applicationIdSuffix '.diagnostic16'" android-private/app/build.gradle
-          grep -Fq "versionCode 27" android-private/app/build.gradle
+          grep -Fq "applicationIdSuffix '.diagnostic17'" android-private/app/build.gradle
+          grep -Fq "versionCode 28" android-private/app/build.gradle
           grep -Fq '他力本願寺' android-private/app/src/main/java/jp/valuehunter/privatewatch/BrandHeader.java
           grep -Fq 'drawNativeBrand' android-private/app/src/main/java/jp/valuehunter/privatewatch/SplashActivity.java
           grep -Fq 'android:name=".SplashActivity"' android-private/app/src/main/AndroidManifest.xml
@@ -62,7 +65,7 @@ jobs:
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v0621-build27-diagnostic16-ui-fixed-apk
+          name: tarikihonganji-v0622-build28-diagnostic17-ui-fixed-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
