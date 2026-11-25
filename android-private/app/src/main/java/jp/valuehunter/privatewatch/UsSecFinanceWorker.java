@@ -695,8 +695,9 @@ public final class UsSecFinanceWorker extends Worker {
         var officialEntries = new HashSet<>(official.entered());
         if (!budget.verifiedPriceBasis() && pending.stream().anyMatch(entry -> !officialEntries.contains(entry)))
             detail.append("\nDoltHubとNasdaq公開履歴を照合した参考通知");
+        var issuerNames = UsCompanyNames.read(context);
         for (var entry : pending) {
-            String name = UsCompanyNames.read(context).get(entry.code());
+            String name = issuerNames.get(entry.code());
             detail.append("\n").append(entry.code());
             if (name != null) detail.append(" (").append(name).append(")");
             detail.append(" · ").append(entry.yen().stripTrailingZeros().toPlainString()).append("円");
