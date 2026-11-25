@@ -62,8 +62,15 @@ final class ValueAlertMeter {
         if (warning || !atMost(price, profit, "15") || !atMost(price, equity, "1")) {
             return new Score(score, 0, confirmed);
         }
-        if (threeProfitable && positive(cash) && positive(peers) && positive(balance)
-                && atMost(price, profit, "9") && atMost(price, equity, "0.8")) return new Score(score, 3, confirmed);
+        // The US SEC feed does not supply a verified sector-relative comparison.
+        // Never invent a peers score: permit the top tier only under stricter
+        // absolute valuation bounds, verified cash flow, and balance-sheet strength.
+        boolean verifiedRelative = positive(peers) && atMost(price, profit, "9")
+                && atMost(price, equity, "0.8");
+        boolean conservativeAbsolute = peers == null && atMost(price, profit, "7")
+                && atMost(price, equity, "0.6");
+        if (threeProfitable && positive(cash) && positive(balance)
+                && (verifiedRelative || conservativeAbsolute)) return new Score(score, 3, confirmed);
         if (growthKnown && (positive(cash) || positive(peers))
                 && atMost(price, profit, "12") && atMost(price, equity, "0.9")) return new Score(score, 2, confirmed);
         return new Score(score, 1, confirmed);
