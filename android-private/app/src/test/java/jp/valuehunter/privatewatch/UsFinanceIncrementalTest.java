@@ -84,6 +84,7 @@ public class UsFinanceIncrementalTest {
     }
 
     private static JSONObject cached(String symbol, int cik, LocalDate period) throws JSONException {
-        return target(symbol, cik).put("equity_date", period.toString()).put("filed", OLD.minusDays(1).toString());
+        return target(symbol, cik).put("equity_date", period.toString()).put("filed", OLD.minusDays(1).toString())
+                .put("meter_balance", 80);
     }
 }
