@@ -156,6 +156,7 @@ final class UsDeviceFinancials {
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
         return new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
+                .put("meter_balance", history.balance())
                 .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
                 .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
@@ -221,7 +222,7 @@ final class UsDeviceFinancials {
             }
             observations.put(new JSONObject().put("symbol", symbol).put("exchange", exchange)
                     .put("cik", row.getInt("cik")).put("status", status).put("quantity", quantity));
-            var score = ValueAlertMeter.assess(cap, profit, equity, meterEps(row), meterCash(row), null, null);
+            var score = ValueAlertMeter.assess(cap, profit, equity, meterEps(row), meterCash(row), null, meterBalance(row));
             meter.put(UsReferenceAlerts.meterKey(exchange, row.getInt("cik"), symbol),
                     new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed())
                             .put("outside_budget".equals(status) ? 0 : quantity));
@@ -263,6 +264,11 @@ final class UsDeviceFinancials {
     private static Integer meterCash(JSONObject row) {
         int cash = row.optInt("meter_cash", -1);
         return cash == 0 || cash == 50 || cash == 100 ? cash : null;
+    }
+
+    private static Integer meterBalance(JSONObject row) {
+        int value = row.optInt("meter_balance", -1);
+        return value == 0 || value == 50 || value == 70 || value == 100 ? value : null;
     }
 
     private static JSONObject coverage(int count) throws JSONException {
