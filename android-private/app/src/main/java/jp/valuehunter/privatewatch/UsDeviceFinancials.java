@@ -223,7 +223,7 @@ final class UsDeviceFinancials {
             }
             observations.put(new JSONObject().put("symbol", symbol).put("exchange", exchange)
                     .put("cik", row.getInt("cik")).put("status", status).put("quantity", quantity));
-            var score = ValueAlertMeter.assess(cap, profit, equity, meterEps(row), meterCash(row), null, meterBalance(row));
+            var score = ValueAlertMeter.assessUs(cap, profit, equity, meterEps(row), meterCash(row), null, meterBalance(row));
             meter.put(UsReferenceAlerts.meterKey(exchange, row.getInt("cik"), symbol),
                     new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed())
                             .put("outside_budget".equals(status) ? 0 : quantity));
