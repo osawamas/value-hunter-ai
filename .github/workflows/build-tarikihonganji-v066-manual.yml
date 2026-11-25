@@ -1,4 +1,4 @@
-name: Build Tarikihonganji diagnostic APK
+name: Build Tarikihonganji verified branded APK
 
 on:
   workflow_dispatch:
@@ -27,23 +27,41 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Guard branded UI and retained functional screens
+      - name: Guard branded UI, splash, icon and 2x1 widget
         run: |
           for name in BrandEmblem BrandHeader BrandNav CopperWaveDrawable CurrentCandidatesActivity RecentAlertsActivity DebugDiagnosticsActivity SplashActivity; do
             test -s "android-private/app/src/main/java/jp/valuehunter/privatewatch/${name}.java"
           done
           grep -Fq 'BrandNav.create(this' android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java
-          grep -Fq "applicationIdSuffix '.diagnostic14'" android-private/app/build.gradle
-          grep -Fq "versionCode 25" android-private/app/build.gradle
+          grep -Fq "applicationIdSuffix '.diagnostic15'" android-private/app/build.gradle
+          grep -Fq "versionCode 26" android-private/app/build.gradle
+          grep -Fq '他力本願寺' android-private/app/src/main/java/jp/valuehunter/privatewatch/BrandHeader.java
+          grep -Fq 'drawNativeBrand' android-private/app/src/main/java/jp/valuehunter/privatewatch/SplashActivity.java
+          grep -Fq 'android:name=".SplashActivity"' android-private/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:icon="@mipmap/ic_launcher"' android-private/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:minWidth="110dp" android:minHeight="40dp"' android-private/app/src/main/res/xml/brand_widget_info.xml
+          grep -Fq 'android:targetCellWidth="2" android:targetCellHeight="1"' android-private/app/src/main/res/xml/brand_widget_info.xml
+          test -s android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
       - name: Verify tests and build independent APK
         working-directory: android-private
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify generated debug APK
-        run: test -s android-private/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify generated debug APK and launcher assets
+        run: |
+          test -s android-private/app/build/outputs/apk/debug/app-debug.apk
+          test -s android-private/app/build/generated/brandRes/drawable/launcher_exact.png
+          test -s android-private/app/build/generated/brandRes/drawable/launcher_foreground.png
+          python3 - <<'PY'
+          import struct, pathlib
+          root=pathlib.Path('android-private/app/build/generated/brandRes/drawable')
+          for name in ('launcher_exact.png', 'launcher_foreground.png'):
+              png=(root/name).read_bytes()
+              assert png[:8] == b'\\x89PNG\\r\\n\\x1a\\n', name
+              assert struct.unpack('>II',png[16:24]) == (432,432), name
+          PY
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v0619-build25-diagnostic14-branded-apk
+          name: tarikihonganji-v0620-build26-diagnostic15-ui-fixed-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
