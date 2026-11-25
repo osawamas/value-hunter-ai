@@ -107,6 +107,41 @@ public class JpxAutomaticFinanceTest {
         assertNull(noPrior.prior());
     }
 
+    @Test public void twoComparableAnnualFilingsEnableRealJpxUltraValueMeterAndPromotion() throws Exception {
+        var latest = new JpxAnnualSummary.Annual(LocalDate.of(2026, 3, 31), RELEASED,
+                new BigDecimal("60"), new BigDecimal("1000"), "current-verified");
+        var previousAnnual = new JpxAnnualSummary.Annual(LocalDate.of(2025, 3, 31),
+                LocalDate.of(2025, 5, 12), new BigDecimal("50"), new BigDecimal("940"), "prior-verified");
+        var entry = new JpxAutomaticFinance.Entry(DAY, latest, "", previousAnnual);
+        var batch = new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "300"), report(DAY.minusDays(1), "1000"));
+        var screen = comparison.screen(rights, batch);
+        assertEquals(1, screen.assessed());
+        var current = comparison.meterRows(screen, batch, rights).getJSONArray(CODE);
+        var prior = comparison.previousMeterRows(screen, batch, rights).getJSONArray(CODE);
+        assertEquals(3, current.getInt(1)); // strict JPX level-three ceiling
+        assertEquals(3, current.getInt(2)); // cannot claim unknown cash or peers were verified
+        assertTrue(current.getInt(0) >= 85);
+        assertEquals(0, prior.getInt(1));
+        assertEquals(100, current.getInt(3));
+
+        var state = preferences(new HashMap<>());
+        var pair = JpxWatchWorker.saveMeter(state, state.edit(), comparison, screen, batch, rights);
+        var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX,
+                DAY, "JPX", pair.rows(), pair.prior(), Set.of(), code -> code);
+        assertEquals(Set.of("meter:3:" + CODE), entries.keySet());
+        assertTrue(ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX,
+                DAY, "JPX", pair.rows(), pair.prior(), entries.keySet(), code -> code).isEmpty());
+
+        // A single fiscal year must not be promoted by simply omitting the older EPS.
+        var incomplete = new JpxAutomaticFinance.Batch(
+                Map.of(CODE, new JpxAutomaticFinance.Entry(DAY, latest, "")), Map.of(), 1, 1);
+        var weak = comparison.meterRows(comparison.screen(rights, incomplete), incomplete, rights)
+                .getJSONArray(CODE);
+        assertTrue(weak.getInt(1) < 3);
+    }
+
     @Test public void refreshedTdnetCorrectionInvalidatesAPreviouslyClearTradingDay() throws Exception {
         var cache = new HashMap<String, Object>();
         var older = DAY.minusDays(1);
