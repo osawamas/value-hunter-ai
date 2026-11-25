@@ -355,7 +355,7 @@ public final class JpxWatchWorker extends Worker {
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
                             if (entries.values().stream().anyMatch(item -> item.level() == 3)) {
-                                detail.append("\\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
+                                detail.append("\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
                             }
                             for (var entry : entries.values()) detail.append("\n").append(entry.summary());
                             queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
