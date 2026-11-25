@@ -42,6 +42,18 @@ final class ValueAlertMeter {
 
     static Score assess(BigDecimal price, BigDecimal profit, BigDecimal equity, List<BigDecimal> annualEps,
                         Integer cash, Integer peers, Integer balance) {
+        return assessInternal(price, profit, equity, annualEps, cash, peers, balance, false);
+    }
+
+    /** US-only conservative fallback when no verified sector peer multiple exists. */
+    static Score assessUs(BigDecimal price, BigDecimal profit, BigDecimal equity, List<BigDecimal> annualEps,
+                          Integer cash, Integer peers, Integer balance) {
+        return assessInternal(price, profit, equity, annualEps, cash, peers, balance, true);
+    }
+
+    private static Score assessInternal(BigDecimal price, BigDecimal profit, BigDecimal equity,
+                                        List<BigDecimal> annualEps, Integer cash, Integer peers,
+                                        Integer balance, boolean conservativeUs) {
         if (price == null || profit == null || equity == null
                 || price.signum() <= 0 || profit.signum() <= 0 || equity.signum() <= 0) return new Score(0, 0, 0);
         double per = price.divide(profit, MathContext.DECIMAL64).doubleValue();
@@ -67,7 +79,7 @@ final class ValueAlertMeter {
         // absolute valuation bounds, verified cash flow, and balance-sheet strength.
         boolean verifiedRelative = positive(peers) && atMost(price, profit, "9")
                 && atMost(price, equity, "0.8");
-        boolean conservativeAbsolute = peers == null && atMost(price, profit, "7")
+        boolean conservativeAbsolute = conservativeUs && peers == null && atMost(price, profit, "7")
                 && atMost(price, equity, "0.6");
         if (threeProfitable && positive(cash) && positive(balance)
                 && (verifiedRelative || conservativeAbsolute)) return new Score(score, 3, confirmed);
