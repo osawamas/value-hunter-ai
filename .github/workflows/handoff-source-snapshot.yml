@@ -1,0 +1,32 @@
+name: VALUE HUNTER AI source handoff snapshot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/handoff-source-snapshot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  archive-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Archive tracked GitHub source
+        shell: bash
+        run: |
+          git rev-parse HEAD | tee SOURCE_SHA.txt
+          git archive --format=zip --output=VALUE_HUNTER_AI_source_main.zip HEAD
+          sha256sum VALUE_HUNTER_AI_source_main.zip > SOURCE_SHA256.txt
+      - name: Upload source archive and SHA
+        uses: actions/upload-artifact@v4
+        with:
+          name: VALUE_HUNTER_AI_SOURCE_HANDOFF
+          path: |
+            VALUE_HUNTER_AI_source_main.zip
+            SOURCE_SHA.txt
+            SOURCE_SHA256.txt
+          retention-days: 30
