@@ -45,11 +45,11 @@ public final class CurrentCandidatesActivity extends Activity {
             root.addView(BrandNav.create(this,"相場"));
             return;
         }
-        var count=new TextView(this);
-        count.setText(snapshot.date()+" 米国取引日  ·  優先候補 "+snapshot.priority()
+        var countLabel=new TextView(this);
+        countLabel.setText(snapshot.date()+" 米国取引日  ·  優先候補 "+snapshot.priority()
                 +"件  /  参考候補 "+snapshot.reference()+"件");
-        count.setTextColor(INK);count.setTextSize(15);
-        count.setPadding(dp(16),dp(12),dp(16),dp(8));root.addView(count);
+        countLabel.setTextColor(INK);countLabel.setTextSize(15);
+        countLabel.setPadding(dp(16),dp(12),dp(16),dp(8));root.addView(countLabel);
         var search=new EditText(this);
         search.setSingleLine(true);search.setTextSize(15);
         search.setHint("銘柄コード・企業名で検索");
