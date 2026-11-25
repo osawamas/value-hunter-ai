@@ -550,14 +550,18 @@ public final class UsDailyWorker extends Worker {
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
             if (alertsRequested) {
+                var issuerNames = UsCompanyNames.read(context);
                 if (!entrants.isEmpty()) {
                     pending = "米国株の参考条件入り " + entrants.size() + "銘柄"
-                            + "\n" + day + "の終値（参考）\n" + String.join("\n", entrants.values());
+                            + "\n" + day + "の終値（参考）\n"
+                            + entrants.values().stream().map(row -> UsCompanyNames.decorate(row, issuerNames))
+                                    .collect(java.util.stream.Collectors.joining("\n"));
                     entrants.keySet().forEach(symbol -> queued.put(symbol, "priority".equals(screen.rows().get(symbol).status())
                             ? "優先候補" : "参考候補"));
                 } else if (!ranks.isEmpty()) {
                     pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
                             + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
+                                    .map(row -> UsCompanyNames.decorate(row, issuerNames))
                                     .collect(java.util.stream.Collectors.joining("\n"));
                     ranks.forEach((key, row) -> queued.put(key, ValueAlertMeter.LABELS.get(row.level())));
                 }
