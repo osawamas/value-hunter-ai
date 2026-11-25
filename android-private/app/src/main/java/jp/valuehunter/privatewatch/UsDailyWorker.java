@@ -502,7 +502,7 @@ public final class UsDailyWorker extends Worker {
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
             var reference = ledger.getJSONObject("reference_screen");
             var meter = reference.optJSONObject("meter_rows");
-            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, false);
+            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, true);
             var ranks = useMeter && meter != null && anchor != null
                     && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
                     ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent,
