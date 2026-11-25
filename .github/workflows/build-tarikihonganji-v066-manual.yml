@@ -31,7 +31,7 @@ jobs:
       - name: Verify tests and build independent APK
         working-directory: android-private
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify corrected Android 9 navigation and candidate layout
+      - name: Verify ultra-value SEC data, finance and Android 9 navigation
         run: test -s android-private/app/build/outputs/apk/debug/app-debug.apk
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
