@@ -79,6 +79,18 @@ final class ValueAlertMeter {
         return new Score(score, 1, confirmed);
     }
 
+    /** US SEC path: verified balance health can replace the unknown balance slot,
+     * but cannot replace a missing sector-relative comparison without strict valuation. */
+    static Score assessUs(BigDecimal price, BigDecimal profit, BigDecimal equity, List<BigDecimal> annualEps,
+                          Integer cash, Integer peers, Integer balance) {
+        var measured = assess(price, profit, equity, annualEps, cash, peers, balance);
+        if (measured.ceiling() == 3 || peers != null || !positive(balance)) return measured;
+        var conservative = assess(price, profit, equity, annualEps, cash, null, null);
+        if (conservative.ceiling() == 3)
+            return new Score(measured.points(), 3, measured.confirmed());
+        return measured;
+    }
+
     static int promotion(Score previous, Score current, Thresholds thresholds) {
         if (previous == null) return 0;
         int before = previous.level(thresholds);
