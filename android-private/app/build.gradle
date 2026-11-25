@@ -48,9 +48,34 @@ def generateBrandIcon = tasks.register('generateBrandIcon') {
     doLast {
         def matcher = (source.getText('UTF-8') =~ /private static final String IMAGE = "([^"]+)"/)
         if (!matcher.find()) throw new GradleException('Canonical bronze emblem not found')
-        def image = generatedBrandRes.get().file('drawable/launcher_exact.png').asFile
-        image.parentFile.mkdirs()
-        image.bytes = java.util.Base64.getDecoder().decode(matcher.group(1))
+        def raw = java.util.Base64.getDecoder().decode(matcher.group(1))
+        def original = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(raw))
+        if (original == null) throw new GradleException('Cannot decode canonical emblem')
+        def dir = generatedBrandRes.get().file('drawable').asFile
+        dir.mkdirs()
+        // Eliminate the embedded light-colored square corners, never let the
+        // Android launcher generate a white background for the historic PNG.
+        for (def adaptive : [false, true]) {
+            def image = new java.awt.image.BufferedImage(432, 432,
+                    java.awt.image.BufferedImage.TYPE_INT_ARGB)
+            def g = image.createGraphics()
+            g.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+                    java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+            if (!adaptive) {
+                g.setColor(new java.awt.Color(5, 17, 29))
+                g.fillRect(0, 0, 432, 432)
+            }
+            int size = adaptive ? 258 : 344
+            int inset = (432 - size) / 2
+            g.setClip(new java.awt.geom.Ellipse2D.Float(inset + size * .055f,
+                    inset + size * .055f, size * .89f, size * .89f))
+            g.drawImage(original, inset, inset, size, size, null)
+            g.dispose()
+            def target = new File(dir, adaptive ? 'launcher_foreground.png' : 'launcher_exact.png')
+            javax.imageio.ImageIO.write(image, 'PNG', target)
+        }
     }
 }
 
@@ -64,14 +89,14 @@ android {
         minSdk 26
         targetSdk 34
         testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
-        versionCode 25
-        versionName '0.6.19-test'
+        versionCode 26
+        versionName '0.6.20-test'
     }
     buildTypes {
         debug {
             // Temporary second diagnostic package: preserve both existing installations when CI debug signing changes.
-            applicationIdSuffix '.diagnostic14'
-            versionNameSuffix '-separate14'
+            applicationIdSuffix '.diagnostic15'
+            versionNameSuffix '-separate15'
         }
     }
     compileOptions {
