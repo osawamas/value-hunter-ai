@@ -116,15 +116,18 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: |
+            suffix=$(sed -nE "s/^[[:space:]]*applicationIdSuffix[[:space:]]+\x27([^\x27]+)\x27.*/\\1/p" android-private/app/build.gradle | head -1)
+            app="jp.valuehunter.privatewatch${suffix}"
+            echo "JPX PDF instrumentation package: $app"
             adb install android-private/app/build/outputs/apk/debug/app-debug.apk
             adb install android-private/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell pm grant jp.valuehunter.privatewatch android.permission.POST_NOTIFICATIONS
-            adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261029.pdf'" < "$RUNNER_TEMP/jpx-20261029.pdf"
-            adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261113.pdf'" < "$RUNNER_TEMP/jpx-20261113.pdf"
-            adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-20261116.pdf'" < "$RUNNER_TEMP/jpx-20261116.pdf"
-            adb shell -T "run-as jp.valuehunter.privatewatch sh -c 'cat > jpx-codes.txt'" < "$RUNNER_TEMP/jpx-codes.txt"
+            adb shell pm grant "$app" android.permission.POST_NOTIFICATIONS
+            adb shell -T "run-as $app sh -c 'cat > jpx-20261029.pdf'" < "$RUNNER_TEMP/jpx-20261029.pdf"
+            adb shell -T "run-as $app sh -c 'cat > jpx-20261113.pdf'" < "$RUNNER_TEMP/jpx-20261113.pdf"
+            adb shell -T "run-as $app sh -c 'cat > jpx-20261116.pdf'" < "$RUNNER_TEMP/jpx-20261116.pdf"
+            adb shell -T "run-as $app sh -c 'cat > jpx-codes.txt'" < "$RUNNER_TEMP/jpx-codes.txt"
             adb shell input keyevent KEYCODE_SLEEP
-            adb shell am instrument -w jp.valuehunter.privatewatch.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe | tee "$RUNNER_TEMP/jpx-android-probe.log"
+            adb shell am instrument -w "$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe" | tee "$RUNNER_TEMP/jpx-android-probe.log"
             grep '^JPX_ANDROID_CLOSES ' "$RUNNER_TEMP/jpx-android-probe.log" | tr -d '\r' > "$RUNNER_TEMP/jpx-actual.txt"
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_PREVIEW_OK'
             tr -d '\r' < "$RUNNER_TEMP/jpx-android-probe.log" | grep -x 'JPX_ANDROID_RIGHTS_REFRESH_OK'
