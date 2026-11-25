@@ -79,6 +79,31 @@ final class ValueAlertMeter {
         return new Score(score, 1, confirmed);
     }
 
+    /**
+     * Conservative JPX fallback for current annual reports with two comparable
+     * profitable fiscal years. Neither missing cash flow nor missing peer data
+     * is represented as verified evidence. Because the ordinary score assigns
+     * neutral (50) to unknown evidence, strong PER/PBR + two-year earnings can
+     * reach 85 points without manufacturing a third EPS or cash-flow value.
+     *
+     * This is a screening tier, not an intrinsic valuation or buy signal.
+     */
+    static Score assessJpx(BigDecimal price, BigDecimal profit, BigDecimal equity,
+                           List<BigDecimal> annualEps) {
+        var measured = assess(price, profit, equity, annualEps, null, null, null);
+        if (measured.ceiling() == 0 || annualEps == null || annualEps.size() < 2
+                || annualEps.get(0) == null || annualEps.get(1) == null
+                || annualEps.get(0).signum() <= 0 || annualEps.get(1).signum() <= 0) {
+            return measured;
+        }
+        // Reject 20% or greater EPS declines, even when price multiples look cheap.
+        if (annualEps.get(0).compareTo(annualEps.get(1).multiply(new BigDecimal("0.8"))) <= 0)
+            return measured;
+        if (atMost(price, profit, "7") && atMost(price, equity, "0.6"))
+            return new Score(measured.points(), 3, measured.confirmed());
+        return measured;
+    }
+
     /** US SEC path: verified balance health can replace the unknown balance slot,
      * but cannot replace a missing sector-relative comparison without strict valuation. */
     static Score assessUs(BigDecimal price, BigDecimal profit, BigDecimal equity, List<BigDecimal> annualEps,
