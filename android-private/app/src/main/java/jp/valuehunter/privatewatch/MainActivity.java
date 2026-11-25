@@ -178,6 +178,8 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "画面を消すと点灯も確認できる", Toast.LENGTH_SHORT).show();
             testNotificationButton.postDelayed(sendTestNotification, 5000);
         });
+        button(notifications, "当日＋過去3日の通知銘柄一覧", PAGE, 5)
+                .setOnClickListener(view -> startActivity(new Intent(this, RecentAlertsActivity.class)));
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
         button(notifications, "米国株の通知成績（試験）", PAGE, 5)
