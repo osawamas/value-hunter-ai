@@ -459,6 +459,12 @@ final class NotificationDeliveryProbe {
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
+                // Catch blank header regressions even when all switches still work.
+                require(control(root, "他力本願寺", TextView.class) != null
+                        && control(root, "VALUE HUNTER AI", TextView.class) != null,
+                        "Branded header is blank or the approved title disappeared");
+                require(control(root, "他力本願寺", TextView.class).getHeight() > 0,
+                        "Brand header title has no visible height");
                 var alerts = control(root, "無音通知", Switch.class);
                 var wake = control(root, "通知時に画面を点灯", Switch.class);
                 var network = control(root, "相場データの通信", Switch.class);
