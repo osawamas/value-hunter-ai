@@ -95,7 +95,7 @@ jobs:
           buildtools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
           "$buildtools/apksigner" verify --verbose --print-certs "$apk"
           "$buildtools/aapt" dump badging "$apk" | tee /tmp/build30-badging.txt
-          grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic19' .*versionCode='29'" /tmp/build30-badging.txt
+          grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic19' .*versionCode='30'" /tmp/build30-badging.txt
           grep -Fq "sdkVersion:'26'" /tmp/build30-badging.txt
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
