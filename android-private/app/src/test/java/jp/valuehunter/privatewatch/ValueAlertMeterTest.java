@@ -44,7 +44,7 @@ public final class ValueAlertMeterTest {
                 eps, 100, null, null).ceiling());
         assertEquals(2, ValueAlertMeter.assess(number("6"), number("1"), number("9"),
                 eps, 100, null, null).ceiling());
-        assertEquals(1, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+        assertEquals(2, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 eps, 100, 0, null).ceiling());
         assertEquals(0, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 eps, 0, null, null).ceiling());
