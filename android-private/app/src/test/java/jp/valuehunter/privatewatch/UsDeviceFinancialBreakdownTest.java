@@ -17,7 +17,7 @@ public class UsDeviceFinancialBreakdownTest {
         rows.put(financial("DDD",4,1000,5000,6000));    // missing price
         rows.put(financial("EEE",5,1000,5000,6000));    // split hold
         rows.put(financial("FFF",6,1000,5,5));          // expensive valuation
-        var closes=Map.of("AAA",new BigDecimal("5"),"BBB",new BigDecimal("500"),
+        var closes=Map.of("AAA",new BigDecimal("5"),"BBB",new BigDecimal("1000"),
                 "CCC",new BigDecimal("10"),"EEE",new BigDecimal("5"),"FFF",new BigDecimal("10"));
         var ledger=UsDeviceFinancials.screen(LocalDate.parse("2026-11-23"),UsDoltCloses.SOURCE,
                 "a".repeat(64),rows,closes,new UsScreen.Fx(LocalDate.parse("2026-11-23"),150),
@@ -33,7 +33,7 @@ public class UsDeviceFinancialBreakdownTest {
         assertEquals(0,d.getInt("reference"));
         assertEquals(1,d.getInt("affordable_100"));
         assertEquals(2,d.getInt("single_share"));
-        assertEquals(4,ledger.getJSONObject("reference_screen").getJSONArray("observations").length());
+        assertEquals(3,ledger.getJSONObject("reference_screen").getJSONArray("observations").length());
     }
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
