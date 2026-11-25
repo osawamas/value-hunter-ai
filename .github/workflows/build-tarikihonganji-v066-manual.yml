@@ -65,6 +65,14 @@ jobs:
               assert png[:8] == bytes([137, 80, 78, 71, 13, 10, 26, 10]), name
               assert struct.unpack('>II',png[16:24]) == (432,432), name
           PY
+      - name: Verify installable APK signature and app identity
+        run: |
+          apk=android-private/app/build/outputs/apk/debug/app-debug.apk
+          buildtools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$buildtools/apksigner" verify --verbose --print-certs "$apk"
+          "$buildtools/aapt" dump badging "$apk" | tee /tmp/build29-badging.txt
+          grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic18' .*versionCode='29'" /tmp/build29-badging.txt
+          grep -Fq "sdkVersion:'26'" /tmp/build29-badging.txt
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
