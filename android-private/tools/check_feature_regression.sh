@@ -21,7 +21,7 @@ grep -Fq 'setOnClickPendingIntent' "$src/BrandLaunchWidget.java"
 grep -Fq 'android:targetCellWidth="2" android:targetCellHeight="1"' android-private/app/src/main/res/xml/brand_widget_info.xml
 grep -Fq 'android:scaleType="fitCenter"' android-private/app/src/main/res/layout/brand_widget.xml
 grep -Fq 'android:name=".SplashActivity" android:exported="true"' "$manifest"
-grep -Fq 'android:icon="@mipmap/ic_launcher"' "$manifest"
+grep -Fq 'android:icon="@drawable/launcher_exact"' "$manifest"
 grep -Fq 'android:name=".BrandLaunchWidget"' "$manifest"
 grep -Fq 'android:name=".CurrentCandidatesActivity"' "$manifest"
 grep -Fq 'android:name=".RecentAlertsActivity"' "$manifest"

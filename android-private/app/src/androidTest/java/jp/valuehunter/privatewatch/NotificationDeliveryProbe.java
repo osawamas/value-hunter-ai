@@ -459,12 +459,21 @@ final class NotificationDeliveryProbe {
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
-                // Catch blank header regressions even when all switches still work.
-                require(control(root, "他力本願寺", TextView.class) != null
-                        && control(root, "VALUE HUNTER AI", TextView.class) != null,
-                        "Branded header is blank or the approved title disappeared");
-                require(control(root, "他力本願寺", TextView.class).getHeight() > 0,
-                        "Brand header title has no visible height");
+                // The real build23 banner is a bitmap, not fallback TextViews.
+                var header = brandImage(root);
+                require(header != null && header.getDrawable() != null,
+                        "Approved build23 banner was not decoded/displayed");
+                require(header.getHeight() > 0 && header.getWidth() > header.getHeight(),
+                        "Banner has zero height or an incorrect aspect ratio");
+                try (var headerStream = context.getAssets().open("brand_header.webp");
+                     var splashStream = context.getAssets().open("brand_splash.webp");
+                     var widgetStream = context.getAssets().open("brand_widget.webp")) {
+                    require(headerStream.read() >= 0 && splashStream.read() >= 0
+                            && widgetStream.read() >= 0,
+                            "One or more approved build23 art assets are empty");
+                } catch (IOException missing) {
+                    throw new AssertionError("Approved build23 assets missing from APK", missing);
+                }
                 var alerts = control(root, "無音通知", Switch.class);
                 var wake = control(root, "通知時に画面を点灯", Switch.class);
                 var network = control(root, "相場データの通信", Switch.class);
@@ -578,6 +587,20 @@ final class NotificationDeliveryProbe {
                     && report.contains("テスト通知をAndroidに投稿") && report.contains("点灯を観測")
                     && !report.contains(JP_DETAIL) && !report.contains(US_DETAIL);
         }), "Offline diagnostic copy was missing stages or included notification details");
+    }
+
+    private static android.widget.ImageView brandImage(View view) {
+        if (view instanceof android.widget.ImageView iv
+                && iv.getContentDescription() != null
+                && "他力本願寺 VALUE HUNTER AI".contentEquals(iv.getContentDescription()))
+            return iv;
+        if (view instanceof ViewGroup group) {
+            for (int i = 0; i < group.getChildCount(); i++) {
+                var found = brandImage(group.getChildAt(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private static <T extends TextView> T control(View view, String text, Class<T> type) {

@@ -27,10 +27,17 @@ final class BrandHeader {
             var original = BitmapFactory.decodeStream(stream);
             if (original != null) {
                 FrameLayout frame = new FrameLayout(activity);
-                ImageView image = new ImageView(activity);
+                frame.setBackgroundColor(0xff05111d);
+                ImageView image = new ImageView(activity) {
+                    @Override protected void onMeasure(int widthSpec, int heightSpec) {
+                        int width = View.MeasureSpec.getSize(widthSpec);
+                        if (width <= 0) width = activity.getResources().getDisplayMetrics().widthPixels;
+                        // The approved build23 header is exactly 941 x 246.
+                        setMeasuredDimension(width, Math.max(1, Math.round(width * 246f / 941f)));
+                    }
+                };
                 image.setImageBitmap(original);
                 image.setScaleType(ImageView.ScaleType.FIT_XY);
-                image.setAdjustViewBounds(true);
                 image.setContentDescription("他力本願寺 VALUE HUNTER AI");
                 frame.addView(image, new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
