@@ -32,6 +32,8 @@ def sync(destination, *, runner=subprocess.run, sleeper=time.sleep, attempts=2):
         if destination.is_symlink() or (destination.exists() and not _valid_metadata(destination)):
             return 'invalid_repository_after_command'
         existing = _valid_metadata(destination)
+        if attempt > 0 and not existing:
+            return 'invalid_repository_after_command'
         command = (['dolt', 'pull', '--ff-only'] if existing else
                    ['dolt', 'clone', '--depth', '1', REMOTE, destination.name])
         try:
