@@ -46,6 +46,8 @@ jobs:
           grep -Fq 'android:minWidth="110dp" android:minHeight="40dp"' android-private/app/src/main/res/xml/brand_widget_info.xml
           grep -Fq 'android:targetCellWidth="2" android:targetCellHeight="1"' android-private/app/src/main/res/xml/brand_widget_info.xml
           test -s android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          grep -Fq 'android:theme="@style/Theme.ValueHunter"' android-private/app/src/main/AndroidManifest.xml
+          grep -Fq 'android:windowSplashScreenBackground' android-private/app/src/main/res/values-v31/brand_theme.xml
       - name: Verify restored legacy launcher icon is used
         run: |
           grep -Fq 'android:icon="@drawable/launcher_exact"' android-private/app/src/main/AndroidManifest.xml
