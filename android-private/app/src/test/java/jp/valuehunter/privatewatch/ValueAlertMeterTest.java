@@ -29,6 +29,43 @@ public final class ValueAlertMeterTest {
         assertEquals(1, unavailable.level(ValueAlertMeter.DEFAULT));
     }
 
+    @Test public void usSecOnlyStrictValuationCanReachTopTierWithoutInventedPeerEvidence() throws Exception {
+        var eps = List.of(number("3"), number("2"), number("1"));
+        var strict = ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+                eps, 100, null, null);
+        assertEquals(3, strict.confirmed());
+        assertEquals(3, strict.ceiling());
+        assertEquals(3, strict.level(ValueAlertMeter.DEFAULT));
+        assertEquals(0, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+                List.of(number("0.8"), number("2"), number("1")), 100, null, null).ceiling());
+        assertEquals(1, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+                eps, null, null, null).ceiling());
+        assertEquals(2, ValueAlertMeter.assess(number("8"), number("1"), number("12"),
+                eps, 100, null, null).ceiling());
+        assertEquals(2, ValueAlertMeter.assess(number("6"), number("1"), number("9"),
+                eps, 100, null, null).ceiling());
+        assertEquals(1, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+                eps, 100, 0, null).ceiling());
+        assertEquals(0, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
+                eps, 0, null, null).ceiling());
+
+        // Verify that the same score survives the production US screen's meter serialization.
+        var day = LocalDate.of(2026, 11, 19);
+        var row = new JSONObject().put("symbol", "TEST").put("exchange", "NYSE").put("cik", 123)
+                .put("share_date", "2026-10-31").put("profit", "100")
+                .put("equity", "2000").put("shares", "100")
+                .put("meter_eps", new JSONArray().put("3").put("2").put("1"))
+                .put("meter_cash", 100);
+        // Close 6 USD * 100 shares = 600 USD, PER 6, PBR 0.3.
+        var ledger = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64),
+                new JSONArray().put(row), Map.of("TEST", number("6")),
+                new UsScreen.Fx(day, 150), Map.of());
+        var recorded = ledger.getJSONObject("reference_screen").getJSONObject("meter_rows")
+                .getJSONArray("NYSE:123:TEST");
+        assertEquals(3, recorded.getInt(1));
+        assertTrue(recorded.getInt(0) >= ValueAlertMeter.DEFAULT.third());
+    }
+
     @Test public void profitDeclineOrRepeatedNegativeCashCannotBeOffsetByLowMultiples() {
         assertEquals(0, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 List.of(number("0.8"), number("1"), number("1")), 100, 100, 100).ceiling());
