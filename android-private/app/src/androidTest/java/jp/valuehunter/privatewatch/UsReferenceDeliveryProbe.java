@@ -63,6 +63,13 @@ final class UsReferenceDeliveryProbe {
             }
         };
         notifications.cancelAll();
+        // This probe verifies the legacy reference-alert path; explicitly opt out of
+        // the new default three-tier meter, which has separate delivery probes below.
+        var alertPreferences = ScanWorker.prefs(context);
+        boolean originalMeter = alertPreferences.getBoolean(ValueAlertPreview.LIVE, true);
+        if (!alertPreferences.edit().putBoolean(ValueAlertPreview.LIVE, false).commit()) {
+            throw new AssertionError("Could not configure legacy reference alert probe");
+        }
         try {
             writeClose(close, FIRST, 20, wifi);
             verifyResult(context, factory, ListenableWorker.Result.retry());
@@ -122,6 +129,7 @@ final class UsReferenceDeliveryProbe {
                 verifyOutcomeRecoveryWithoutQuotes(context, notifications, factory);
             }
         } finally {
+            alertPreferences.edit().putBoolean(ValueAlertPreview.LIVE, originalMeter).commit();
             notifications.cancelAll();
             close.delete();
             checkpoint.delete();
