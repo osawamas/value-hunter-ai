@@ -37,8 +37,8 @@ jobs:
             test -s "android-private/app/src/main/java/jp/valuehunter/privatewatch/${name}.java"
           done
           grep -Fq 'BrandNav.create(this' android-private/app/src/main/java/jp/valuehunter/privatewatch/MainActivity.java
-          grep -Fq "applicationIdSuffix '.diagnostic17'" android-private/app/build.gradle
-          grep -Fq "versionCode 28" android-private/app/build.gradle
+          grep -Fq "applicationIdSuffix '.diagnostic18'" android-private/app/build.gradle
+          grep -Fq "versionCode 29" android-private/app/build.gradle
           grep -Fq '他力本願寺' android-private/app/src/main/java/jp/valuehunter/privatewatch/BrandHeader.java
           grep -Fq 'drawNativeBrand' android-private/app/src/main/java/jp/valuehunter/privatewatch/SplashActivity.java
           grep -Fq 'android:name=".SplashActivity"' android-private/app/src/main/AndroidManifest.xml
@@ -46,6 +46,9 @@ jobs:
           grep -Fq 'android:minWidth="110dp" android:minHeight="40dp"' android-private/app/src/main/res/xml/brand_widget_info.xml
           grep -Fq 'android:targetCellWidth="2" android:targetCellHeight="1"' android-private/app/src/main/res/xml/brand_widget_info.xml
           test -s android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+      - name: Verify adaptive launcher does not contain solid background
+        run: |
+          grep -Fq 'android:drawable="@android:color/transparent"' android-private/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
       - name: Verify tests and build independent APK
         working-directory: android-private
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
@@ -62,10 +65,18 @@ jobs:
               assert png[:8] == bytes([137, 80, 78, 71, 13, 10, 26, 10]), name
               assert struct.unpack('>II',png[16:24]) == (432,432), name
           PY
+      - name: Verify installable APK signature and app identity
+        run: |
+          apk=android-private/app/build/outputs/apk/debug/app-debug.apk
+          buildtools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$buildtools/apksigner" verify --verbose --print-certs "$apk"
+          "$buildtools/aapt" dump badging "$apk" | tee /tmp/build29-badging.txt
+          grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic18' .*versionCode='29'" /tmp/build29-badging.txt
+          grep -Fq "sdkVersion:'26'" /tmp/build29-badging.txt
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
-          name: tarikihonganji-v0622-build28-diagnostic17-ui-fixed-apk
+          name: tarikihonganji-v0623-build29-diagnostic18-ui-fixed-apk
           path: android-private/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7

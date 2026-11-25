@@ -69,7 +69,7 @@ def generateBrandIcon = tasks.register('generateBrandIcon') {
                     java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC)
             // Both formats have transparent corners. Never paint a square tile
             // behind the approved circular logo (Huawei launcher showed it as white).
-            int size = adaptive ? 282 : 402
+            int size = adaptive ? 320 : 402
             int inset = (432 - size) / 2
             g.setClip(new java.awt.geom.Ellipse2D.Double(inset, inset, size, size))
             g.drawImage(original, inset, inset, size, size, null)
@@ -111,14 +111,14 @@ android {
         minSdk 26
         targetSdk 34
         testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
-        versionCode 28
-        versionName '0.6.22-test'
+        versionCode 29
+        versionName '0.6.23-test'
     }
     buildTypes {
         debug {
             // Temporary second diagnostic package: preserve both existing installations when CI debug signing changes.
-            applicationIdSuffix '.diagnostic17'
-            versionNameSuffix '-separate17'
+            applicationIdSuffix '.diagnostic18'
+            versionNameSuffix '-separate18'
         }
     }
     compileOptions {
