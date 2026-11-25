@@ -63,7 +63,7 @@ public final class CurrentCandidatesActivity extends Activity {
         var adapter=new ArrayAdapter<CurrentCandidates.Row>(this,android.R.layout.simple_list_item_2,
                 android.R.id.text1,visible){
             @Override public View getView(int pos,View old,ViewGroup parent){
-                var item=(LinearLayout)super.getView(pos,old,parent);
+                View item=super.getView(pos,old,parent);
                 var row=getItem(pos);
                 TextView top=item.findViewById(android.R.id.text1);
                 TextView bottom=item.findViewById(android.R.id.text2);
