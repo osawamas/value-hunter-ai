@@ -22,6 +22,7 @@ import android.text.method.LinkMovementMethod;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -38,15 +39,18 @@ import java.util.Locale;
 public final class MainActivity extends Activity {
     private static final String METER_DRAFT = "valueMeterDraft";
     private static final String PAUSED = "public_jpx_watch_paused";
-    private static final int PAGE = 0xfff3f5f0;
+    private static final int PAGE = 0xfffffbf6;
     private static final int SURFACE = 0xffffffff;
-    private static final int FOREST = 0xff173b33;
-    private static final int INK = 0xff182e28;
-    private static final int MUTED = 0xff53665e;
-    private static final int LIGHT_TEXT = 0xffd5e6d8;
-    private static final int ACCENT = 0xffdbf183;
-    private static final int OUTLINE = 0xffdbe3da;
+    private static final int FOREST = 0xff091b2e;
+    private static final int INK = 0xff142336;
+    private static final int MUTED = 0xff536071;
+    private static final int LIGHT_TEXT = 0xffffe3ca;
+    private static final int ACCENT = 0xffd79b72;
+    private static final int OUTLINE = 0xffdac8ba;
 
+    private ScrollView rootScroll;
+    private View notificationSection;
+    private View usSection;
     private SharedPreferences state;
     private Switch monitorSwitch;
     private TextView monitorStatus;
@@ -97,17 +101,25 @@ public final class MainActivity extends Activity {
         scroll.setBackgroundColor(PAGE);
         var content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(20), dp(22), dp(20), dp(24));
+        content.setPadding(0, 0, 0, dp(24));
         int availableWidth = getResources().getConfiguration().screenWidthDp;
         int contentWidth = availableWidth > 620 ? dp(620) : ScrollView.LayoutParams.MATCH_PARENT;
         scroll.addView(content, new ScrollView.LayoutParams(contentWidth,
                 ScrollView.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
-        setContentView(scroll);
+        rootScroll=scroll;
+        LinearLayout shell=new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setBackgroundColor(PAGE);
+        shell.addView(scroll,new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,0,1f));
+        shell.addView(BrandNav.create(this,"ホーム"),new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
+        setContentView(shell);
 
+        content.addView(BrandHeader.create(this),new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
         var hero = section(content, FOREST, false);
-        var brand = label(hero, getString(R.string.app_name), 11, LIGHT_TEXT, true, 0);
-        brand.setLetterSpacing(0.13f);
-        label(hero, "株式モニター", 30, SURFACE, true, 7);
+        hero.setBackgroundColor(FOREST);
         monitorStatus = label(hero, "", 15, ACCENT, true, 10);
         label(hero, "新しく条件に入った銘柄を無音で通知", 13, LIGHT_TEXT, false, 5);
 
@@ -126,9 +138,15 @@ public final class MainActivity extends Activity {
             scheduleMarketChecks();
             render();
         });
+        button(communication, "SEC財務取得用の連絡先メールを設定", PAGE, 5)
+                .setOnClickListener(view -> showSecContactSettings());
+        label(communication, SecAccess.validEmail(SecAccess.contact(this))
+                ? "SEC連絡先: 設定済み" : "SEC連絡先: 未設定（米国株財務の取得には設定が必要）",
+                13, MUTED, false, 5);
         button(communication, "通信量について", PAGE, 5).setOnClickListener(view -> showCommunicationNotice(false));
 
         var notifications = section(content, SURFACE, true);
+        notificationSection=notifications;
         label(notifications, "通知", 19, INK, true, 0);
         var notificationSwitch = optionSwitch(notifications, "無音通知", ScanWorker.notificationsRequested(this));
         notificationSwitch.setOnCheckedChangeListener((view, checked) -> {
@@ -160,6 +178,8 @@ public final class MainActivity extends Activity {
             Toast.makeText(this, "画面を消すと点灯も確認できる", Toast.LENGTH_SHORT).show();
             testNotificationButton.postDelayed(sendTestNotification, 5000);
         });
+        button(notifications, "当日＋過去3日の通知銘柄一覧", PAGE, 5)
+                .setOnClickListener(view -> startActivity(new Intent(this, RecentAlertsActivity.class)));
         button(notifications, "通知履歴（" + NotificationHistory.DAYS + "日間）", PAGE, 5)
                 .setOnClickListener(view -> showNotificationHistory());
         button(notifications, "米国株の通知成績（試験）", PAGE, 5)
@@ -176,7 +196,11 @@ public final class MainActivity extends Activity {
         label(notifications, "オンで新規入り・昇格を3段階で通知。比較資料のある銘柄が対象。", 13, MUTED, false, 5);
         button(notifications, "割安アラートの境界", PAGE, 5)
                 .setOnClickListener(view -> showValueAlertMeter());
-        button(notifications, "診断ログ", PAGE, 5).setOnClickListener(view -> showDiagnostics());
+        button(notifications, "デバッグ診断・エラー一覧", PAGE, 5)
+                .setOnClickListener(view -> startActivity(new Intent(this, DebugDiagnosticsActivity.class)));
+
+        button(notifications, "現在の米国株・割安候補一覧（通知なしでも確認）", PAGE, 5)
+                .setOnClickListener(view -> startActivity(new Intent(this, CurrentCandidatesActivity.class)));
 
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
@@ -199,10 +223,13 @@ public final class MainActivity extends Activity {
         });
 
         var unitedStates = section(content, SURFACE, true);
+        usSection=unitedStates;
         label(unitedStates, "米国株  ·  NYSE / Nasdaq", 17, INK, true, 0);
         usCoverage = label(unitedStates, "", 13, MUTED, false, 5);
         usCoverageButton = button(unitedStates, "米国株の未判定の内訳", PAGE, 4);
         usCoverageButton.setOnClickListener(view -> showCoverage(MarketCoverage.US, "米国株"));
+        button(unitedStates, "参考予算候補一覧（銘柄・購入額）", PAGE, 4)
+                .setOnClickListener(view -> showUsBudgetCandidates());
         usDailyStatus = label(unitedStates, "", 13, MUTED, false, 4);
 
         var singapore = section(content, SURFACE, true);
@@ -223,6 +250,7 @@ public final class MainActivity extends Activity {
         showDetail.setOnClickListener(view -> checkDetails());
 
         render();
+        scrollToFocus(getIntent().getStringExtra("focus"));
         String draft = saved == null ? null : saved.getString(METER_DRAFT);
         if (draft != null && !MarketNetwork.noticeRequired(this)) {
             showValueAlertMeter(ValueAlertMeter.Thresholds.read(draft));
@@ -234,6 +262,17 @@ public final class MainActivity extends Activity {
         if (valueMeterDialog != null && valueMeterDialog.isShowing() && valueMeterDraft != null) {
             out.putString(METER_DRAFT, valueMeterDraft.encode());
         }
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        scrollToFocus(intent.getStringExtra("focus"));
+    }
+    private void scrollToFocus(String focus) {
+        if(rootScroll==null || focus==null)return;
+        View target="us".equals(focus)?usSection:"notifications".equals(focus)?notificationSection:null;
+        rootScroll.post(()->rootScroll.smoothScrollTo(0,target==null?0:target.getTop()));
     }
 
     @Override protected void onStart() {
@@ -260,6 +299,37 @@ public final class MainActivity extends Activity {
             }
         }
         render();
+    }
+
+    private void showSecContactSettings() {
+        var field = new EditText(this);
+        field.setSingleLine(true);
+        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        field.setText(SecAccess.contact(this));
+        field.setHint("contact@example.com");
+        var dialog = new AlertDialog.Builder(this)
+                .setTitle("SEC自動取得の連絡先")
+                .setMessage("米国SECの公式データ取得には、利用者の連絡先メールが必要。設定したメールはSEC宛の通信ヘッダーだけに送信される。端末内に保存し、診断ログには表示しない。")
+                .setView(field)
+                .setNegativeButton("キャンセル", null)
+                .setPositiveButton("保存して再取得", (d, button) -> {
+                    var address = field.getText().toString().trim();
+                    if (!SecAccess.validEmail(address)) {
+                        Toast.makeText(this, "メールアドレスの形式を確認して", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (!state.edit().putString(SecAccess.CONTACT_KEY, address).commit()) {
+                        Toast.makeText(this, "SEC連絡先を保存できなかった", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    DiagnosticLog.record(this, DiagnosticLog.Area.US_FINANCE, "SEC連絡先を端末に設定");
+                    if (MarketNetwork.requested()) UsSecFinanceWorker.contactUpdated(this);
+                    Toast.makeText(this, "保存した。米国株財務の再取得を予約", Toast.LENGTH_SHORT).show();
+                    recreate();
+                })
+                .create();
+        dialog.show();
     }
 
     private void showCommunicationNotice(boolean firstLaunch) {
@@ -332,7 +402,7 @@ public final class MainActivity extends Activity {
                 .append('\n');
         appendUpdateStatus(usStatus, "終値", MarketUpdate.US_CLOSE.display(state));
         appendUpdateStatus(usStatus, "財務", MarketUpdate.US_FINANCE.display(state));
-        usDailyStatus.setText(usStatus.append(UsDailyWorker.displayStatus(state)));
+        usDailyStatus.setText(usStatus.append(UsDailyWorker.displayStatus(this, state)));
         boolean connected = MarketNetwork.allowed();
         boolean awaitingNotice = MarketNetwork.noticeRequired(this);
         networkSwitch.setChecked(MarketNetwork.requested());
@@ -387,9 +457,17 @@ public final class MainActivity extends Activity {
                 message = Html.fromHtml(daily.html(rights.rights(), history, finance) + "<br><br>" + rights.status(),
                         Html.FROM_HTML_MODE_LEGACY);
             } catch (IOException error) {
-                message = "東証日報の確認に失敗\n" + error.getMessage();
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.JPX, "東証詳細 · 日報の取得", error);
+                message = "東証日報の確認に失敗（診断ログに詳細を保存）";
             } catch (RuntimeException error) {
-                message = "東証日報のPDFを読み取れなかった";
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.JPX, "東証詳細 · 解析", error);
+                message = "東証日報のPDFを読み取れなかった（診断ログに詳細を保存）";
+            } catch (LinkageError error) {
+                // On Android 9 a library can call an API absent on the device.
+                // Preserve the failing method in the on-device stack instead of
+                // crashing the process from the detail worker thread.
+                DiagnosticLog.recordError(this, DiagnosticLog.Area.JPX, "東証詳細 · Android互換性", error);
+                message = "東証詳細の互換性エラー（診断ログに詳細を保存）";
             }
             CharSequence result = message;
             boolean cancelled = Thread.currentThread().isInterrupted();
@@ -401,6 +479,34 @@ public final class MainActivity extends Activity {
             });
         }, "jpx-daily-detail");
         detailThread.start();
+    }
+
+    private void showUsBudgetCandidates() {
+        var day = state.getString(UsSecFinanceWorker.BUDGET_RESULTS_DAY, "");
+        var json = state.getString(UsSecFinanceWorker.BUDGET_RESULTS, "");
+        var dialog = new AlertDialog.Builder(this).setTitle("米国株 · 参考予算候補一覧");
+        if (day.isEmpty() || json.isEmpty()) {
+            dialog.setMessage("このビルドで保存した候補一覧はまだない。次の財務・予算判定で自動保存される。\n"
+                    + "以前の判定は米国株欄の「予算入り」で確認できる。")
+                    .setPositiveButton("閉じる", null).show();
+            return;
+        }
+        try {
+            var values = new org.json.JSONArray(json);
+            var detail = new StringBuilder("取引日 " + day + "（米東部）\n"
+                    + "100株購入額・円換算・手数料別。株価による参考判定で、財務的な割安評価ではない。\n");
+            if (values.length() == 0) detail.append("\n候補なし");
+            for (int i = 0; i < values.length(); i++) {
+                var row = values.getJSONObject(i);
+                detail.append("\n").append(row.getString("code"))
+                        .append("  ·  ").append(row.getString("yen"))
+                        .append("円 / 100株\n    ").append(row.getString("source"));
+            }
+            dialog.setMessage(detail.toString()).setPositiveButton("閉じる", null).show();
+        } catch (org.json.JSONException invalid) {
+            dialog.setMessage("保存した候補一覧を読み取れなかった。診断ログを確認して。")
+                    .setPositiveButton("閉じる", null).show();
+        }
     }
 
     private void showCoverage(MarketCoverage market, String name) {
@@ -619,9 +725,16 @@ public final class MainActivity extends Activity {
     private LinearLayout section(LinearLayout parent, int color, boolean border) {
         var group = new LinearLayout(this);
         group.setOrientation(LinearLayout.VERTICAL);
-        group.setPadding(dp(17), dp(15), dp(17), dp(15));
-        group.setBackground(shape(color, 17, border));
-        place(parent, group, border ? 11 : 0);
+        group.setPadding(dp(20), dp(19), dp(20), dp(19));
+        group.setBackground(border ? shape(color, 17, true) : shape(color, 0, false));
+        if (border) {
+            var layout = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT);
+            layout.setMargins(dp(17),dp(12),dp(17),0);
+            parent.addView(group,layout);
+        } else {
+            place(parent,group,0);
+        }
         return group;
     }
 
@@ -630,7 +743,7 @@ public final class MainActivity extends Activity {
         view.setText(value);
         view.setTextSize(size);
         view.setTextColor(color);
-        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        if (bold) view.setTypeface(size >= 17 ? Typeface.create("serif", Typeface.BOLD) : Typeface.DEFAULT, Typeface.BOLD);
         place(parent, view, margin);
         return view;
     }
@@ -656,15 +769,15 @@ public final class MainActivity extends Activity {
     private Button button(LinearLayout parent, String value, int color, int margin) {
         var view = new Button(this);
         view.setText(value);
-        view.setTextSize(14);
+        view.setTextSize(15);
         view.setAllCaps(false);
         view.setTextColor(INK);
-        view.setMinHeight(dp(48));
-        view.setMinimumHeight(dp(48));
+        view.setMinHeight(dp(54));
+        view.setMinimumHeight(dp(54));
         view.setPadding(dp(12), dp(5), dp(12), dp(5));
         view.setBackgroundTintList(null);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22173b33),
-                shape(color, 11, false), null));
+                shape(color, 19, color == PAGE), null));
         place(parent, view, margin);
         return view;
     }

@@ -49,7 +49,7 @@ final class UsFinancialFacts {
         return foreign.facts() == null ? domestic : foreign;
     }
 
-    record MeterHistory(List<BigDecimal> annualEps, Integer cash) {}
+    record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {}
 
     static MeterHistory meterHistory(JSONObject payload, LocalDate day) {
         var document = payload.optJSONObject("facts");
@@ -58,7 +58,7 @@ final class UsFinancialFacts {
                 .filter(row -> "10-K".equals(row.form) && fullYear(row)).collect(Collectors.toList());
         var latest = latest(eps, true);
         if (latest == null || latest.end.isBefore(day.minusMonths(16))) {
-            return new MeterHistory(List.of(), null);
+            return new MeterHistory(List.of(), null, null);
         }
         // The same filing reports prior per-share values on the current share basis.
         var series = new ArrayList<BigDecimal>();
@@ -80,7 +80,26 @@ final class UsFinancialFacts {
             cashScore = cashNow.value.signum() > 0 && cashPrior.value.signum() > 0 ? 100
                     : cashNow.value.signum() < 0 && cashPrior.value.signum() < 0 ? 0 : 50;
         }
-        return new MeterHistory(List.copyOf(series), cashScore);
+        // Verify balance-sheet evidence from the same filing and fiscal period as the EPS
+        // comparison. Missing/ambiguous assets are unknown, never treated as positive.
+        var equityRows = facts(gaap, "StockholdersEquity", "USD", day, false).stream()
+                .filter(row -> sameFiling(row, latest) && row.start == null
+                        && row.end.equals(latest.end)).collect(Collectors.toList());
+        var assetRows = facts(gaap, "Assets", "USD", day, false).stream()
+                .filter(row -> sameFiling(row, latest) && row.start == null
+                        && row.end.equals(latest.end)).collect(Collectors.toList());
+        var currentEquity = one(equityRows);
+        var currentAssets = one(assetRows);
+        Integer balanceScore = null;
+        if (currentEquity != null && currentAssets != null
+                && currentEquity.value.signum() > 0 && currentAssets.value.signum() > 0
+                && currentEquity.value.compareTo(currentAssets.value) <= 0) {
+            // Conservative capital-adequacy proxy, not a banking/regulatory rating.
+            double ratio = currentEquity.value.divide(currentAssets.value,
+                    java.math.MathContext.DECIMAL64).doubleValue();
+            balanceScore = ratio >= 0.40 ? 100 : ratio >= 0.25 ? 70 : ratio >= 0.15 ? 50 : 0;
+        }
+        return new MeterHistory(List.copyOf(series), cashScore, balanceScore);
     }
 
     private static Fact precedingAnnual(List<Fact> rows, Fact filing, LocalDate end) {

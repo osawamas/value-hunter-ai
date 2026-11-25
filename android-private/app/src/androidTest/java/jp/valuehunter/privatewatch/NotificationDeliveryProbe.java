@@ -547,11 +547,20 @@ final class NotificationDeliveryProbe {
     private static void exerciseDiagnosticCopy(Instrumentation instrumentation, android.app.Activity activity) {
         var context = instrumentation.getTargetContext();
         instrumentation.runOnMainSync(() -> {
-            var button = control(activity.getWindow().getDecorView(), "診断ログ", Button.class);
+            var button = control(activity.getWindow().getDecorView(), "デバッグ診断・エラー一覧", Button.class);
             require(button != null && button.performClick(), "Cannot open diagnostics offline");
         });
-        require(await(() -> findDialogText(instrumentation, "診断ログをコピー") != null), "Diagnostics dialog is not visible");
-        var copy = findDialogText(instrumentation, "診断ログをコピー");
+        require(await(() -> findDialogText(instrumentation, "診断ログをすべてコピー") != null), "Branded diagnostics screen is not visible");
+        var copy = findDialogText(instrumentation, "診断ログをすべてコピー");
+        // Scroll the dedicated diagnostics page so its action is visible on
+        // small Android 9, 14 and 15 emulator screens.
+        if (copy != null && !copy.isVisibleToUser())
+            copy.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId());
+        require(await(() -> {
+            var node = findDialogText(instrumentation, "診断ログをすべてコピー");
+            return node != null && node.isVisibleToUser();
+        }), "Diagnostic copy control could not be scrolled into view");
+        copy = findDialogText(instrumentation, "診断ログをすべてコピー");
         require(copy != null && copy.performAction(AccessibilityNodeInfo.ACTION_CLICK), "Cannot copy the diagnostic report");
         var clipboard = context.getSystemService(android.content.ClipboardManager.class);
         require(await(() -> {

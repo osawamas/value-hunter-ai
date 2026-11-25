@@ -38,8 +38,25 @@ def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
     into(privateAssets)
 }
 
+// Reuse the actual bundled bronze emblem for the launcher icon instead
+// of substituting a newly drawn lookalike. The image never leaves the APK.
+def generatedBrandRes = layout.buildDirectory.dir('generated/brandRes')
+def generateBrandIcon = tasks.register('generateBrandIcon') {
+    def source = file('src/main/java/jp/valuehunter/privatewatch/BrandEmblem.java')
+    inputs.file(source)
+    outputs.dir(generatedBrandRes)
+    doLast {
+        def matcher = (source.getText('UTF-8') =~ /private static final String IMAGE = "([^"]+)"/)
+        if (!matcher.find()) throw new GradleException('Canonical bronze emblem not found')
+        def image = generatedBrandRes.get().file('drawable/launcher_exact.png').asFile
+        image.parentFile.mkdirs()
+        image.bytes = java.util.Base64.getDecoder().decode(matcher.group(1))
+    }
+}
+
 android {
     sourceSets.main.assets.srcDir(privateAssets)
+    sourceSets.main.res.srcDir(generatedBrandRes)
     namespace 'jp.valuehunter.privatewatch'
     compileSdk 35
     defaultConfig {
@@ -47,15 +64,14 @@ android {
         minSdk 26
         targetSdk 34
         testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
-        versionCode 24
-        versionName '0.6.18-test'
+        versionCode 25
+        versionName '0.6.19-test'
     }
     buildTypes {
         debug {
-            // This CI build uses an ephemeral debug signing key. A fresh package
-            // avoids conflicting with earlier independently signed test APKs.
-            applicationIdSuffix '.diagnostic13'
-            versionNameSuffix '-separate13'
+            // Temporary second diagnostic package: preserve both existing installations when CI debug signing changes.
+            applicationIdSuffix '.diagnostic14'
+            versionNameSuffix '-separate14'
         }
     }
     compileOptions {
@@ -67,6 +83,7 @@ android {
 
 tasks.named('preBuild').configure {
     dependsOn(syncPrivateAssets)
+    dependsOn(generateBrandIcon)
 }
 
 dependencies {
