@@ -610,6 +610,12 @@ public final class UsDailyWorker extends Worker {
         }
     }
 
+    static LocalDate targetDay(String archived, Instant now) {
+        return archived == null
+                ? UsDailyCloses.onOrBeforeTradingDay(UsDailyCloses.mostRecentEligibleDay(now))
+                : LocalDate.parse(archived);
+    }
+
     static String financialScreenReceipt(LocalDate day, String provider, String hash, JSONObject evidence,
                                          boolean meter, String thresholds, boolean requested, boolean allowed,
                                          long alertGeneration, long financialGeneration) {
