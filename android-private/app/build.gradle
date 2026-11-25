@@ -89,14 +89,14 @@ android {
         minSdk 26
         targetSdk 34
         testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
-        versionCode 26
-        versionName '0.6.20-test'
+        versionCode 27
+        versionName '0.6.21-test'
     }
     buildTypes {
         debug {
             // Temporary second diagnostic package: preserve both existing installations when CI debug signing changes.
-            applicationIdSuffix '.diagnostic15'
-            versionNameSuffix '-separate15'
+            applicationIdSuffix '.diagnostic16'
+            versionNameSuffix '-separate16'
         }
     }
     compileOptions {

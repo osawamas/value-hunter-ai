@@ -4,6 +4,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.BitmapFactory;
+import android.widget.ImageView;
+import java.io.IOException;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
@@ -17,6 +20,34 @@ final class BrandHeader {
     private BrandHeader() {}
 
     static View create(Activity activity) {
+        // The approved header is a 941x246 image recovered from build 23.
+        // It must be USED, not merely placed in assets/ after the APK was signed.
+        // With adjustViewBounds, every tablet keeps its original 941:246 ratio.
+        try (var stream = activity.getAssets().open("brand_header.webp")) {
+            var original = BitmapFactory.decodeStream(stream);
+            if (original != null) {
+                FrameLayout frame = new FrameLayout(activity);
+                ImageView image = new ImageView(activity);
+                image.setImageBitmap(original);
+                image.setScaleType(ImageView.ScaleType.FIT_XY);
+                image.setAdjustViewBounds(true);
+                image.setContentDescription("他力本願寺 VALUE HUNTER AI");
+                frame.addView(image, new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.WRAP_CONTENT));
+                View menuHit = new View(activity);
+                menuHit.setContentDescription("他力本願寺のメニュー");
+                menuHit.setClickable(true);
+                menuHit.setFocusable(true);
+                FrameLayout.LayoutParams hitParams = new FrameLayout.LayoutParams(
+                        dp(activity, 74), dp(activity, 92), Gravity.TOP | Gravity.END);
+                frame.addView(menuHit, hitParams);
+                menuHit.setOnClickListener(v -> showBrandMenu(activity));
+                return frame;
+            }
+        } catch (IOException ignored) {
+            // Native offline header below is only the emergency fallback.
+        }
         FrameLayout root = new FrameLayout(activity);
         root.setBackground(new CopperWaveDrawable());
         root.setMinimumHeight(dp(activity, 152));
@@ -79,6 +110,20 @@ final class BrandHeader {
         result.setIncludeFontPadding(false);
         if (bold) result.setTypeface(Typeface.create("serif", Typeface.BOLD));
         return result;
+    }
+
+    private static void showBrandMenu(Activity activity) {
+        new AlertDialog.Builder(activity).setTitle("他力本願寺")
+                .setItems(new String[]{"ホーム", "デバッグ診断", "閉じる"}, (dialog, which) -> {
+                    if (which == 0 && !(activity instanceof MainActivity)) {
+                        Intent intent = new Intent(activity, MainActivity.class);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        activity.startActivity(intent);
+                        activity.finish();
+                    } else if (which == 1 && !(activity instanceof DebugDiagnosticsActivity)) {
+                        activity.startActivity(new Intent(activity, DebugDiagnosticsActivity.class));
+                    }
+                }).show();
     }
 
     private static int dp(Activity a, int n) {
