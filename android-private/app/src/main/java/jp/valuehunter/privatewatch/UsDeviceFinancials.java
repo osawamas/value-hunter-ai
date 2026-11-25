@@ -98,7 +98,8 @@ final class UsDeviceFinancials {
             var oldResults = previous.getJSONArray("results");
             for (int index = 0; index < oldResults.length(); index++) {
                 var item = oldResults.getJSONObject(index);
-                if (reusable(item, day) && !changed.contains(item.getInt("cik"))) {
+                if (reusable(item, day) && item.has("meter_balance")
+                        && !changed.contains(item.getInt("cik"))) {
                     matching.put(item.getString("symbol"), item);
                 }
             }
@@ -156,7 +157,7 @@ final class UsDeviceFinancials {
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
         return new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
-                .put("meter_balance", history.balance())
+                .put("meter_balance", history.balance() == null ? JSONObject.NULL : history.balance())
                 .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
                 .put("equity_date", figures.equityDate().toString()).put("filed", figures.filed().toString())
