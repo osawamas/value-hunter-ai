@@ -2,6 +2,13 @@ name: Android silent notifications and history
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-notification-emulator.yml'
+      - 'android-private/app/build.gradle'
+      - 'android-private/app/src/**'
+      - 'android-private/tools/check_notification_emulator.sh'
   pull_request:
     branches: [main]
     paths:
