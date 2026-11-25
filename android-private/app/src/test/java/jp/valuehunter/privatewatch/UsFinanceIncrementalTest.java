@@ -61,11 +61,26 @@ public class UsFinanceIncrementalTest {
         assertNull(UsDeviceFinancials.reuseFrom(previous, NEXT));
     }
 
+    @Test public void legacyCachedRowsRefreshToAcquireMissingCapitalEvidence() throws Exception {
+        var old = cached("LEGACY", 100, OLD.minusDays(10));
+        old.remove("meter_balance");
+        var previous = new JSONObject().put("day", OLD.toString())
+                .put("full_refresh_day", OLD.toString()).put("cursor", 1)
+                .put("targets", new JSONArray().put(target("LEGACY", 100)))
+                .put("results", new JSONArray().put(old));
+        var next = UsDeviceFinancials.startScan("new_hash", NEXT,
+                new JSONArray().put(target("LEGACY", 100)), previous, Set.of());
+        assertEquals(0, next.getInt("reused"));
+        assertEquals(1, next.getJSONArray("targets").length());
+    }
+
     private static JSONObject target(String symbol, int cik) throws JSONException {
         return new JSONObject().put("symbol", symbol).put("cik", cik).put("exchange", "NYSE");
     }
 
     private static JSONObject cached(String symbol, int cik, LocalDate period) throws JSONException {
-        return target(symbol, cik).put("equity_date", period.toString()).put("filed", OLD.minusDays(1).toString());
+        return target(symbol, cik).put("equity_date", period.toString())
+                .put("meter_balance", JSONObject.NULL)
+                .put("filed", OLD.minusDays(1).toString());
     }
 }
