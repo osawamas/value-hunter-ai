@@ -69,6 +69,7 @@ public final class UsDailyWorker extends Worker {
     private static final String QUOTE_REPAIR_AFTER = "us_quote_repair_after";
     private static final String PRIVATE_PENDING = "us_private_sec_pending";
     private static final String PRIVATE_PENDING_SIGNALS = "us_private_sec_pending_signals";
+    private static final String PRIVATE_SCREEN_RECEIPT = "us_private_sec_screen_receipt_v2";
     private static final int US_NOTIFICATION_ID = 6;
     static final String PREVIOUS_QUOTE_FILE = "us-previous-daily-closes.json";
     static final String PRICE_ONLY_STATUS = "us_price_only_status";
@@ -499,6 +500,16 @@ public final class UsDailyWorker extends Worker {
                         .putString(PRIVATE_STATUS, status + " · 判定に使える財務・株数が未確認").apply();
                 return true;
             }
+            var reference = ledger.getJSONObject("reference_screen");
+            String screenReceipt = financialScreenReceipt(day, provider, closeHash, reference,
+                    state.getBoolean(ValueAlertPreview.LIVE, true),
+                    state.getString(ValueAlertPreview.SETTINGS, ""),
+                    ScanWorker.notificationsRequested(context), ScanWorker.systemAllowsAlerts(context),
+                    state.getLong(ScanWorker.ALERT_GENERATION, 0),
+                    state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0));
+            if (previous != null && day.equals(previous.day())
+                    && !hasPendingFinancialAlert(state)
+                    && screenReceipt.equals(state.getString(PRIVATE_SCREEN_RECEIPT, ""))) return true;
             status += " · 参考判定 " + screen.rows().size() + "銘柄";
             long count = 0;
             for (var observation : screen.rows().values()) if (observation.candidate()) count++;
@@ -538,9 +549,8 @@ public final class UsDailyWorker extends Worker {
             // Recalculate from the current screen, including same-day corrections to SEC evidence.
             // The queue only signals outstanding work; only the delivery receipt suppresses repeats.
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
-            var reference = ledger.getJSONObject("reference_screen");
             var meter = reference.optJSONObject("meter_rows");
-            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, false);
+            boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, true);
             var ranks = useMeter && meter != null && anchor != null
                     && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
                     ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent,
@@ -572,6 +582,7 @@ public final class UsDailyWorker extends Worker {
             var update = state.edit().putString(PRIVATE_BASELINE, baseline.toString())
                     .putString(PRIVATE_PENDING, pending)
                     .putString(PRIVATE_PENDING_SIGNALS, new JSONObject(queued).toString())
+                    .putString(PRIVATE_SCREEN_RECEIPT, screenReceipt)
                     .putStringSet(PRIVATE_SENT, sent).putString(PRIVATE_STATUS, status);
             if (!sameDay) update.putString(PRIVATE_PRIOR_BASELINE, state.getString(PRIVATE_BASELINE, ""));
             if (meter != null) {
@@ -597,6 +608,15 @@ public final class UsDailyWorker extends Worker {
                     .putString(PRIVATE_STATUS, "財務自動更新の結果を読み取れず · 次回確認").apply();
             return true;
         }
+    }
+
+    static String financialScreenReceipt(LocalDate day, String provider, String hash, JSONObject evidence,
+                                         boolean meter, String thresholds, boolean requested, boolean allowed,
+                                         long alertGeneration, long financialGeneration) {
+        String identity = day + "\n" + provider + "\n" + hash + "\n" + evidence
+                + "\n" + meter + "\n" + thresholds + "\n" + requested + "\n" + allowed
+                + "\n" + alertGeneration + "\n" + financialGeneration;
+        return UsReferenceAlerts.sha256(identity.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     static boolean hasPendingFinancialAlert(SharedPreferences state) {
