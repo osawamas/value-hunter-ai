@@ -10,6 +10,7 @@
         <activity android:name=".NotificationOpenActivity" android:exported="false"
             android:noHistory="true" android:theme="@android:style/Theme.NoDisplay" />
         <activity android:name=".DebugDiagnosticsActivity" android:exported="false" />
+        <activity android:name=".RecentAlertsActivity" android:exported="false" />
         <receiver android:name=".BrandLaunchWidget" android:exported="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/brand_widget_info"/>
