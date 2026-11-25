@@ -1123,6 +1123,12 @@ final class UsReferenceDeliveryProbe {
 
     private static void verifyFreshness(Context context, AtomicFile checkpoint) throws Exception {
         var state = ScanWorker.prefs(context);
+        // Same-day repair fixture intentionally checks the legacy reference notification.
+        // The default meter path is covered independently by verifyMeterDelivery.
+        boolean savedMeter = state.getBoolean(ValueAlertPreview.LIVE, true);
+        if (!state.edit().putBoolean(ValueAlertPreview.LIVE, false).commit())
+            throw new AssertionError("Cannot select legacy notification for same-day repair");
+        try {
         var market = MarketFreshness.US_FINANCE;
         if (!SECOND.equals(market.day(state)) || market.phase(state) != null) {
             throw new AssertionError("US did not display the completed trading day");
@@ -1172,7 +1178,9 @@ final class UsReferenceDeliveryProbe {
         // Keep the worker-produced coverage snapshot for the independent coverage UI probe.
         var original = UsSecFinanceWorker.coverage(scan, java.util.Set.of("TEST", "AAA"), java.util.Set.of());
         marketCoverage.save(state.edit(), original).commit();
-
+        } finally {
+            state.edit().putBoolean(ValueAlertPreview.LIVE, savedMeter).commit();
+        }
     }
 
     private static void verifyResult(Context context, WorkerFactory factory, ListenableWorker.Result expected) {
