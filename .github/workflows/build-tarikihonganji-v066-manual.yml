@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/build-tarikihonganji-v066-manual.yml'
       - 'android-private/app/build.gradle'
+      - 'android-private/app/src/main/**'
 
 permissions:
   contents: read
