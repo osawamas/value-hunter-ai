@@ -1,14 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <application android:name=".MarketWatchApplication" android:label="@string/app_name" android:allowBackup="false"
+    <application android:name=".MarketWatchApplication" android:label="@string/app_name" android:icon="@drawable/launcher_exact" android:allowBackup="false"
         android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <receiver android:name=".NotificationDismissal" android:exported="false" />
         <activity android:name=".NotificationOpenActivity" android:exported="false"
             android:noHistory="true" android:theme="@android:style/Theme.NoDisplay" />
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".DebugDiagnosticsActivity" android:exported="false" />
+        <activity android:name=".RecentAlertsActivity" android:exported="false" />
+        <activity android:name=".CurrentCandidatesActivity" android:exported="false" />
+        <receiver android:name=".BrandLaunchWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/brand_widget_info"/>
+        </receiver>
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".SplashActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
