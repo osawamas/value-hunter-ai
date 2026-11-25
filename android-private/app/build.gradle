@@ -69,7 +69,7 @@ def generateBrandIcon = tasks.register('generateBrandIcon') {
             }
             int size = adaptive ? 258 : 344
             int inset = (432 - size) / 2
-            g.setClip(new java.awt.geom.Ellipse2D.Float(inset + size * .055f,
+            g.setClip(new java.awt.geom.Ellipse2D.Double(inset + size * .055f,
                     inset + size * .055f, size * .89f, size * .89f))
             g.drawImage(original, inset, inset, size, size, null)
             g.dispose()
