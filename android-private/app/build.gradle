@@ -111,14 +111,14 @@ android {
         minSdk 26
         targetSdk 34
         testInstrumentationRunner 'jp.valuehunter.privatewatch.JpxPdfGeometryProbe'
-        versionCode 29
-        versionName '0.6.23-test'
+        versionCode 30
+        versionName '0.6.24-test'
     }
     buildTypes {
         debug {
             // Temporary second diagnostic package: preserve both existing installations when CI debug signing changes.
-            applicationIdSuffix '.diagnostic18'
-            versionNameSuffix '-separate18'
+            applicationIdSuffix '.diagnostic19'
+            versionNameSuffix '-separate19'
         }
     }
     compileOptions {
@@ -130,7 +130,7 @@ android {
 
 tasks.named('preBuild').configure {
     dependsOn(syncPrivateAssets)
-    dependsOn(generateBrandIcon)
+    dependsOn(verifyBrandIcons)
 }
 
 dependencies {
