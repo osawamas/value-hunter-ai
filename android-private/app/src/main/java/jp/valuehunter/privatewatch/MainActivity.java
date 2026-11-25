@@ -199,6 +199,9 @@ public final class MainActivity extends Activity {
         button(notifications, "デバッグ診断・エラー一覧", PAGE, 5)
                 .setOnClickListener(view -> startActivity(new Intent(this, DebugDiagnosticsActivity.class)));
 
+        button(notifications, "現在の米国株・割安候補一覧（通知なしでも確認）", PAGE, 5)
+                .setOnClickListener(view -> startActivity(new Intent(this, CurrentCandidatesActivity.class)));
+
         var japan = section(content, SURFACE, true);
         label(japan, "日本株  ·  東証日報", 19, INK, true, 0);
         label(japan, "普通株の終値を一括取得 · 通期決算を順次自動取得", 13, MUTED, false, 5);
