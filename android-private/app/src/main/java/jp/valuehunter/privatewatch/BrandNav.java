@@ -36,7 +36,10 @@ final class BrandNav {
             button.setBackgroundTintList(null);
             button.setBackground(bg);
             button.setOnClickListener(v->{
-                if(index<3) {
+                if(index==2) {
+                    if(!(activity instanceof RecentAlertsActivity))
+                        activity.startActivity(new Intent(activity,RecentAlertsActivity.class));
+                } else if(index<3) {
                     Intent open=new Intent(activity,MainActivity.class);
                     open.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
                     open.putExtra("focus", index==1?"us":index==2?"notifications":"top");
