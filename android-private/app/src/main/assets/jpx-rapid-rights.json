@@ -1,21 +1,6 @@
 {
   "intervals": [
     {
-      "previousDay": "2026-11-17",
-      "latestDay": "2026-11-18",
-      "excludedCodes": [],
-      "sources": {
-        "2026-11-17": {
-          "url": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261117.xls",
-          "sha256": "2da0a2e4b294dbbd6e3b63d9ea996b7e9b8cbd036f7ec0cb6dc7719f9d2c85d5"
-        },
-        "2026-11-18": {
-          "url": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261118.xls",
-          "sha256": "4f95209a095b45041099331758ed81a2aa3a601ec525ab9f8817d577f7754c8b"
-        }
-      }
-    },
-    {
       "previousDay": "2026-11-18",
       "latestDay": "2026-11-19",
       "excludedCodes": [
@@ -81,6 +66,24 @@
         "2026-11-24": {
           "url": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261124.xls",
           "sha256": "80e1c6bb031b5b5cd911446121e252e6ed03e1ac5a359a57ddd496bec6dfd253"
+        }
+      }
+    },
+    {
+      "previousDay": "2026-11-24",
+      "latestDay": "2026-11-25",
+      "excludedCodes": [
+        "2241",
+        "2242"
+      ],
+      "sources": {
+        "2026-11-24": {
+          "url": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261124.xls",
+          "sha256": "80e1c6bb031b5b5cd911446121e252e6ed03e1ac5a359a57ddd496bec6dfd253"
+        },
+        "2026-11-25": {
+          "url": "https://www.jpx.co.jp/listing/others/ex-rights/nlsgeu000004rws9-att/20261125.xls",
+          "sha256": "fa982c04104eb86592c7f6df72eaa7fc40a823bc8757e7a0e01f078c06c0318f"
         }
       }
     }
