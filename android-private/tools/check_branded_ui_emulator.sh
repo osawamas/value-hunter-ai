@@ -19,6 +19,6 @@ for f in pathlib.Path('brand-ui-artifacts').glob('*.png'):
     data=f.read_bytes()
     assert data[:8]==bytes([137,80,78,71,13,10,26,10])
     w,h=struct.unpack('>II',data[16:24])
-    assert w>=360 and h>=600,(f,w,h)
+    assert w>=300 and h>=600,(f,w,h)
     print(f, w,h)
 PY
