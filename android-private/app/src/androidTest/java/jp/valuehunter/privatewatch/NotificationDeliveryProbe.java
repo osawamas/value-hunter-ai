@@ -591,6 +591,7 @@ final class NotificationDeliveryProbe {
 
     private static android.widget.ImageView brandImage(View view) {
         if (view instanceof android.widget.ImageView iv
+                && iv.getContentDescription() != null
                 && "他力本願寺 VALUE HUNTER AI".contentEquals(iv.getContentDescription()))
             return iv;
         if (view instanceof ViewGroup group) {
