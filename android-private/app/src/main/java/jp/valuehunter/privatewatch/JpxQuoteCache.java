@@ -7,6 +7,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -29,7 +30,14 @@ final class JpxQuoteCache {
 
     static synchronized JSONObject read(AtomicFile file) {
         try (var input = file.openRead()) {
-            byte[] content = input.readNBytes(MAX_BYTES + 1);
+            var output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            while (output.size() <= MAX_BYTES) {
+                int count = input.read(buffer, 0, Math.min(buffer.length, MAX_BYTES + 1 - output.size()));
+                if (count < 0) break;
+                output.write(buffer, 0, count);
+            }
+            byte[] content = output.toByteArray();
             if (content.length <= MAX_BYTES) return new JSONObject(new String(content, StandardCharsets.UTF_8));
         } catch (IOException | JSONException unavailable) {
             // A missing or broken cache can be rebuilt from the official PDFs.
