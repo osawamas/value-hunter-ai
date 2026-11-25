@@ -7,7 +7,8 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
+import android.widget.TextView;
+import android.util.TypedValue;
 import android.widget.LinearLayout;
 
 /** Shared bottom navigation, matching the approved ivory/navy/copper layout. */
@@ -23,18 +24,23 @@ final class BrandNav {
         String[] marks={"⌂","▥","♧","◇"};
         for(int i=0;i<names.length;i++){
             final int index=i;
-            Button button=new Button(activity);
+            TextView button=new TextView(activity);
+            button.setGravity(Gravity.CENTER);
+            button.setIncludeFontPadding(false);
+            button.setMinWidth(0);
+            button.setMinimumWidth(0);
+            button.setPadding(dp(activity,2),0,dp(activity,2),0);
             button.setText(marks[i]+"  "+names[i]);
-            button.setAllCaps(false);
-            button.setTextSize(13);
+            button.setTextSize(TypedValue.COMPLEX_UNIT_SP,12);
             button.setSingleLine(true);
             boolean active=names[i].equals(selected);
             button.setTextColor(active?0xff9a4c22:0xff435365);
             GradientDrawable bg=new GradientDrawable();
             bg.setColor(active?0xfff3d9c5:0xfffffbf6);
             bg.setCornerRadius(dp(activity,17));
-            button.setBackgroundTintList(null);
             button.setBackground(bg);
+            button.setClickable(true);
+            button.setFocusable(true);
             button.setOnClickListener(v->{
                 if(index==2) {
                     if(!(activity instanceof RecentAlertsActivity))
@@ -49,7 +55,7 @@ final class BrandNav {
                     activity.startActivity(new Intent(activity,DebugDiagnosticsActivity.class));
                 }
             });
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(activity,54),1f);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(activity,50),1f);
             lp.setMargins(dp(activity,2),0,dp(activity,2),0);
             bar.addView(button,lp);
         }
