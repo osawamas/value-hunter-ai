@@ -549,7 +549,7 @@ public final class MainActivity extends Activity {
         controls.setPadding(dp(20), dp(8), dp(20), dp(12));
         scroll.addView(controls);
         label(controls, "0〜100点の境界を変更。下の件数は端末に保存された取引日の試算。", 14, INK, false, 0);
-        label(controls, "利益の急減や資料不足があると段階を抑える。米国株はSECの利益・営業CFが確認できれば厳格なPER・PBR条件で超割安まで判定。", 13, MUTED, false, 5);
+        label(controls, "日本株の超割安は直近2期の黒字・大幅減益なし・PER7倍以下・PBR0.6倍以下を使う簡易判定。米国株は利益・営業CFと厳格なPER・PBRで簡易判定。", 13, MUTED, false, 5);
         var band = new LinearLayout(this);
         band.setOrientation(LinearLayout.HORIZONTAL);
         place(controls, band, 12);
