@@ -289,7 +289,7 @@ public final class JpxWatchWorker extends Worker {
                 long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
                 long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
-                boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, false);
+                boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, true);
                 var added = notifyEnabled && !useMeter ? pending(baseline, last, date, screen.entered(), ValueAlertPreview.previouslyNotified(alerted))
                         : List.<JpxDailyCheck.Candidate>of();
                 var priceOnly = comparison.priceOnly(screen);
@@ -354,6 +354,9 @@ public final class JpxWatchWorker extends Worker {
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
+                            if (entries.values().stream().anyMatch(item -> item.level() == 3)) {
+                                detail.append("\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
+                            }
                             for (var entry : entries.values()) detail.append("\n").append(entry.summary());
                             queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
                                     detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった",

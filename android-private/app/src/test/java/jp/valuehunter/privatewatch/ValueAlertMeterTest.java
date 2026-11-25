@@ -66,6 +66,40 @@ public final class ValueAlertMeterTest {
         assertTrue(recorded.getInt(0) >= ValueAlertMeter.DEFAULT.third());
     }
 
+    @Test public void jpxStrictTwoYearProfitCanReachUltraValueWithoutInventedCashOrPeers() {
+        var eps = List.of(number("12"), number("10"));
+        var strong = ValueAlertMeter.assessJpx(number("6"), number("1"), number("12"), eps);
+        assertEquals(3, strong.confirmed()); // PER, PBR and observed two-year EPS only
+        assertEquals(3, strong.ceiling());
+        assertTrue(strong.points() >= ValueAlertMeter.DEFAULT.third());
+        assertEquals(3, strong.level(ValueAlertMeter.DEFAULT));
+
+        // Unknown prior-year profit cannot masquerade as two verified years.
+        assertEquals(1, ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("12"), List.of(number("12"))).ceiling());
+        assertEquals(1, ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("12"), List.of()).ceiling());
+        assertEquals(0, ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("12"), List.of(number("-2"), number("10"))).ceiling());
+        assertEquals(0, ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("12"), List.of(number("8"), number("10"))).ceiling());
+        assertEquals(0, ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("12"), List.of(number("7"), number("10"))).ceiling());
+
+        // Relaxing only one price multiple must not grant the top tier.
+        assertTrue(ValueAlertMeter.assessJpx(number("7.01"), number("1"),
+                number("12"), eps).ceiling() < 3);
+        assertTrue(ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("9.99"), eps).ceiling() < 3);
+        assertEquals(0, ValueAlertMeter.assessJpx(number("6"), number("0"),
+                number("12"), eps).level(ValueAlertMeter.DEFAULT));
+        assertEquals(0, ValueAlertMeter.assessJpx(number("6"), number("1"),
+                number("-12"), eps).level(ValueAlertMeter.DEFAULT));
+
+        // Custom user threshold still controls whether the level can be displayed.
+        assertEquals(2, strong.level(new ValueAlertMeter.Thresholds(60, 75, 90)));
+    }
+
     @Test public void profitDeclineOrRepeatedNegativeCashCannotBeOffsetByLowMultiples() {
         assertEquals(0, ValueAlertMeter.assess(number("6"), number("1"), number("12"),
                 List.of(number("0.8"), number("1"), number("1")), 100, 100, 100).ceiling());

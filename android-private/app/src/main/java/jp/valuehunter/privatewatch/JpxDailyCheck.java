@@ -261,9 +261,9 @@ final class JpxDailyCheck {
                 var entry = finance.entries().get(code);
                 var annual = entry == null ? null : entry.annualFor(day);
                 var score = annual == null ? JpxReferenceFinancials.meterScore(code, day, close)
-                        : ValueAlertMeter.assess(annual.onShareBasis(day, close, true),
+                        : ValueAlertMeter.assessJpx(annual.onShareBasis(day, close, true),
                         annual.onShareBasis(day, annual.eps(), false), annual.onShareBasis(day, annual.bps(), false),
-                        recentEps(code, entry, annual, day, rights), null, null, null);
+                        recentEps(code, entry, annual, day, rights));
                 if (score != null && score.confirmed() > 0) rows.put(code, ValueAlertPreview.encode(score, shares));
             }
             return rows;
