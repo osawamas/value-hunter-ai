@@ -289,7 +289,7 @@ public final class JpxWatchWorker extends Worker {
                 long alertGeneration = state.getLong(ScanWorker.ALERT_GENERATION, 0);
                 long financialGeneration = state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0);
                 boolean notifyEnabled = ScanWorker.alertsEnabled(context);
-                boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, false);
+                boolean useMeter = automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, true);
                 var added = notifyEnabled && !useMeter ? pending(baseline, last, date, screen.entered(), ValueAlertPreview.previouslyNotified(alerted))
                         : List.<JpxDailyCheck.Candidate>of();
                 var priceOnly = comparison.priceOnly(screen);
