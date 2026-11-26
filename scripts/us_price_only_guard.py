@@ -5,7 +5,7 @@ ordinary-share class, corporate actions and provenance for both trade dates.
 """
 import re
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException, Inexact, InvalidOperation, localcontext
 from collections.abc import Mapping
 
 BUDGET_JPY = Decimal("100000")
@@ -60,8 +60,17 @@ def evaluate_budget_entry(previous, current, *, ordinary_share_verified,
     rates = [_positive(item.get("usd_jpy")) for item in (previous, current)]
     if None in prices or None in rates:
         return False, "invalid_close_or_fx"
-    old_cost = prices[0] * rates[0] * 100
-    new_cost = prices[1] * rates[1] * 100
+    try:
+        with localcontext() as ctx:
+            ctx.prec = max(len(p.as_tuple().digits) + len(r.as_tuple().digits) + 3
+                           for p, r in zip(prices, rates))
+            ctx.traps[Inexact] = True
+            old_cost = prices[0] * rates[0] * 100
+            new_cost = prices[1] * rates[1] * 100
+            if not old_cost.is_finite() or not new_cost.is_finite():
+                return False, "invalid_close_or_fx"
+    except (DecimalException, ValueError):
+        return False, "invalid_close_or_fx"
     if old_cost > BUDGET_JPY >= new_cost:
         return True, "entered_100_share_budget"
     return False, "no_budget_crossing"
