@@ -88,6 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
+    static final int METER_EVIDENCE_VERSION = 2;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {
@@ -99,6 +100,7 @@ final class UsDeviceFinancials {
             for (int index = 0; index < oldResults.length(); index++) {
                 var item = oldResults.getJSONObject(index);
                 if (reusable(item, day) && item.has("meter_balance")
+                        && item.optInt("meter_evidence_version", 0) == METER_EVIDENCE_VERSION
                         && !changed.contains(item.getInt("cik"))) {
                     matching.put(item.getString("symbol"), item);
                 }
@@ -163,7 +165,8 @@ final class UsDeviceFinancials {
         var history = UsFinancialFacts.meterHistory(payload, day);
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
-        var row = new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
+        var row = new JSONObject().put("meter_evidence_version", METER_EVIDENCE_VERSION)
+                .put("meter_eps", eps).put("meter_cash", history.cash())
                 .put("meter_balance", history.balance() == null ? JSONObject.NULL : history.balance())
                 .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
