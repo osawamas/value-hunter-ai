@@ -79,6 +79,26 @@ public class UsFinanceIncrementalTest {
                 day, "dolt", "hash", evidence, true, "", true, true, 0, 0));
     }
 
+    @Test public void missingReasonsSurviveCheckpointAndClearAfterRecovery() throws Exception {
+        var scan = new JSONObject();
+        UsDeviceFinancials.recordFetchOutcome(scan, "AAA", new UsDeviceFinancials.FetchAssessment(null, "sec_not_found"));
+        UsDeviceFinancials.recordFetchOutcome(scan, "BBB", new UsDeviceFinancials.FetchAssessment(null, "parent_equity_missing"));
+        scan = new JSONObject(scan.toString());
+        assertEquals(java.util.Map.of("sec_not_found", 1, "parent_equity_missing", 1), UsDeviceFinancials.fetchHoldCounts(scan));
+        UsDeviceFinancials.recordFetchOutcome(scan, "AAA", new UsDeviceFinancials.FetchAssessment(new JSONObject(), ""));
+        assertEquals(java.util.Map.of("parent_equity_missing", 1), UsDeviceFinancials.fetchHoldCounts(scan));
+        UsDeviceFinancials.recordFetchOutcome(scan, "BBB", new UsDeviceFinancials.FetchAssessment(null, "shares_for_filing_missing"));
+        assertEquals(java.util.Map.of("shares_for_filing_missing", 1), UsDeviceFinancials.fetchHoldCounts(scan));
+    }
+
+    @Test public void oldCachedScreenRequiresRecalculation() throws Exception {
+        var screen = new JSONObject().put("meter_rows", new JSONObject());
+        var ledger = new JSONObject().put("reference_screen", screen);
+        org.junit.Assert.assertFalse(UsDeviceFinancials.currentScreenVersion(ledger));
+        screen.put("diagnostics", new JSONObject().put("budget_count_version", 2));
+        org.junit.Assert.assertTrue(UsDeviceFinancials.currentScreenVersion(ledger));
+    }
+
     private static JSONObject target(String symbol, int cik) throws JSONException {
         return new JSONObject().put("symbol", symbol).put("cik", cik).put("exchange", "NYSE");
     }
