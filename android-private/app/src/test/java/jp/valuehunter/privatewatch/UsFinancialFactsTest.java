@@ -202,6 +202,32 @@ public class UsFinancialFactsTest {
         assertNull(UsFinancialFacts.meterHistory(document, SESSION).balance());
     }
 
+    @Test public void foreignAnnualMeterUsesOnlyMatchingDollarEvidence() throws Exception {
+        var document = new JSONObject().put("cik", 1).put("facts", new JSONObject());
+        var gaap = new JSONObject();
+        document.getJSONObject("facts").put("us-gaap", gaap);
+        var eps = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 5))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 4))
+                .put(row("2023-01-01", "2023-12-31", "2026-02-01", K, "20-F", 3));
+        gaap.put("EarningsPerShareBasic", units("USD/shares", eps));
+        gaap.put("StockholdersEquity", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 350))));
+        gaap.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 700))));
+        var cash = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 40));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", cash));
+        var result = UsFinancialFacts.meterHistory(document, SESSION);
+        assertEquals(3, result.annualEps().size());
+        assertEquals(Integer.valueOf(100), result.cash());
+        assertEquals(Integer.valueOf(100), result.balance());
+        cash.getJSONObject(1).put("form", "10-K");
+        assertNull(UsFinancialFacts.meterHistory(document, SESSION).cash());
+        assertTrue(UsFinancialFacts.meterHistory(document, LocalDate.parse("2026-02-01")).annualEps().isEmpty());
+    }
+
     private static JSONObject payload() throws JSONException {
         var equity = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 350));
         var profit = new JSONArray()
