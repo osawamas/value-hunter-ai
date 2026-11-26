@@ -382,6 +382,7 @@ public final class UsSecFinanceWorker extends Worker {
         }
         var ready = new HashSet<String>();
         var repair = new JSONArray();
+        var fetchHolds = scan.optJSONObject("fetch_holds");
         for (int index = 0; index < results.length(); index++) {
             var row = results.getJSONObject(index);
             var symbol = row.getString("symbol");
@@ -390,9 +391,18 @@ public final class UsSecFinanceWorker extends Worker {
         }
         for (int index = 0; index < targets.length(); index++) {
             var target = targets.getJSONObject(index);
-            if (!ready.contains(target.getString("symbol"))) repair.put(target);
+            String symbol = target.getString("symbol");
+            String reason = fetchHolds == null ? "" : fetchHolds.optString(symbol, "");
+            if (!ready.contains(symbol) && retrySameSession(reason)) repair.put(target);
         }
         return repair;
+    }
+
+    // A complete response with missing/ambiguous dated facts is not a transport failure.
+    // Revisit on the next session; do not repeatedly download unchanged companyfacts today.
+    static boolean retrySameSession(String reason) {
+        return reason == null || reason.isEmpty() || "unknown".equals(reason)
+                || "invalid_sec_payload".equals(reason);
     }
 
     static boolean prepareRepair(JSONObject scan) throws JSONException {
