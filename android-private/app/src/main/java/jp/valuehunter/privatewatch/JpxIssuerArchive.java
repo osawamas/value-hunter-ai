@@ -196,7 +196,7 @@ final class JpxIssuerArchive {
                 }
             }
             URI pdfLink = null;
-            if (shareChange(title)) {
+            if (shareChange(title) || JpxDisclosureEvidence.relevant(title)) {
                 var pdfs = PDF_LINK.matcher(rows.group(4));
                 if (pdfs.find()) {
                     URI link = HOME.resolve(pdfs.group(1));
