@@ -27,6 +27,16 @@ public class UsFinancialFactsTest {
         assertEquals(Q, facts.accession());
     }
 
+    @Test public void usesLatestCoverDateWithoutMixingConflictingShareClasses() throws Exception {
+        var document = payload();
+        var cover = document.getJSONObject("facts").getJSONObject("dei").getJSONObject("EntityCommonStockSharesOutstanding")
+                .getJSONObject("units").getJSONArray("shares");
+        cover.put(row(null, "2026-10-01", "2026-10-20", Q, "10-Q", 39));
+        assertEquals(new BigDecimal("40"), UsFinancialFacts.read(document, 1, SESSION).shares());
+        cover.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
     @Test public void sameDayFilingAndDuplicateShareCountsHold() throws Exception {
         assertNull(UsFinancialFacts.read(payload(), 1, LocalDate.parse("2026-10-20")));
         var duplicate = payload();
