@@ -563,6 +563,9 @@ public final class UsDailyWorker extends Worker {
                     ? ValueAlertPreview.discoveries(state, day, provider, meter, meterPrior, sent, verifiedSymbols::get)
                     : java.util.Map.<String, ValueAlertPreview.Entry>of();
             var entrants = useMeter ? java.util.Map.<String, String>of() : UsReferenceAlerts.entrantRows(anchor, screen, ValueAlertPreview.previouslyNotified(sent));
+            if (useMeter && meter != null) DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    "米国株 · " + ValueAlertPreview.discoveryDiagnostics(state, day, provider, meter,
+                            meterPrior, sent, verifiedSymbols::get));
             String notificationState = ScanWorker.alertBlockReason(context);
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
