@@ -43,8 +43,9 @@ final class UsFinancialFacts {
         var primary = assess(document, session, false, false);
         if (primary.facts() != null) return primary;
         var domestic = assess(document, session, true, false);
-        if (!"parent_equity_missing".equals(domestic.hold())) return domestic;
-        // Some foreign issuers list ordinary shares and report annual US-GAAP figures in 20-F/40-F.
+        if (domestic.facts() != null) return domestic;
+        // A foreign annual report can supply a complete independent set even when
+        // domestic facts exist but lack compatible shares or profit. Never mix regimes.
         var foreign = assess(document, session, true, true);
         return foreign.facts() == null ? domestic : foreign;
     }
