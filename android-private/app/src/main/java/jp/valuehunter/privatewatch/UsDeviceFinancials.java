@@ -149,14 +149,21 @@ final class UsDeviceFinancials {
         }
     }
 
+    record FetchAssessment(JSONObject row, String hold) {}
+
     static JSONObject financialRow(JSONObject target, JSONObject payload, LocalDate day) throws JSONException {
+        return assessFetch(target, payload, day).row();
+    }
+
+    static FetchAssessment assessFetch(JSONObject target, JSONObject payload, LocalDate day) throws JSONException {
         int cik = target.getInt("cik");
-        var figures = UsFinancialFacts.read(payload, cik, day);
-        if (figures == null) return null;
+        var assessed = UsFinancialFacts.assess(payload, cik, day);
+        var figures = assessed.facts();
+        if (figures == null) return new FetchAssessment(null, assessed.hold());
         var history = UsFinancialFacts.meterHistory(payload, day);
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
-        return new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
+        var row = new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
                 .put("meter_balance", history.balance() == null ? JSONObject.NULL : history.balance())
                 .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
@@ -164,6 +171,31 @@ final class UsDeviceFinancials {
                 .put("profit_basis", figures.profitBasis())
                 .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
                 .put("equity", figures.equity().toPlainString());
+        return new FetchAssessment(row, "");
+    }
+
+    static void recordFetchOutcome(JSONObject scan, String symbol, FetchAssessment result) throws JSONException {
+        var holds = scan.optJSONObject("fetch_holds");
+        if (holds == null) { holds = new JSONObject(); scan.put("fetch_holds", holds); }
+        if (result.row() != null) holds.remove(symbol);
+        else holds.put(symbol, result.hold() == null || result.hold().isEmpty() ? "unknown" : result.hold());
+    }
+
+    static Map<String, Integer> fetchHoldCounts(JSONObject scan) {
+        var counts = new java.util.TreeMap<String, Integer>();
+        var holds = scan.optJSONObject("fetch_holds");
+        if (holds != null) {
+            var keys = holds.keys();
+            while (keys.hasNext()) counts.merge(holds.optString(keys.next(), "unknown"), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    static boolean currentScreenVersion(JSONObject ledger) {
+        var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");
+        var diagnostics = screen == null ? null : screen.optJSONObject("diagnostics");
+        return screen != null && screen.has("meter_rows") && diagnostics != null
+                && diagnostics.optInt("budget_count_version", 0) == 2;
     }
 
     static boolean nonPositiveFinancials(JSONObject row) {
