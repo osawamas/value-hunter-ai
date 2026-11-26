@@ -2,16 +2,23 @@ name: Build Tarikihonganji verified branded APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-tarikihonganji-v066-manual.yml'
+      - 'android-private/**'
   push:
     branches: [main]
     paths:
       - '.github/workflows/build-tarikihonganji-v066-manual.yml'
-      - 'android-private/app/build.gradle'
-      - 'android-private/app/src/main/**'
-      - 'android-private/tools/check_feature_regression.sh'
+      - 'android-private/**'
 
 permissions:
   contents: read
+
+concurrency:
+  group: verified-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   android-build12:
@@ -20,6 +27,8 @@ jobs:
     steps:
       - name: Checkout triggering source commit
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -29,6 +38,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Verify Android SDK 35 and build tools
+        run: |
+          test -n "$ANDROID_HOME"
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          test -d "$ANDROID_HOME/build-tools"
+          java -version
+          gradle --version
       - name: Guard prior app features and icon/widget regression
         run: bash android-private/tools/check_feature_regression.sh
       - name: Guard branded UI, splash, icon and 2x1 widget
@@ -97,10 +113,18 @@ jobs:
           "$buildtools/aapt" dump badging "$apk" | tee /tmp/build30-badging.txt
           grep -Eq "package: name='jp.valuehunter.privatewatch.diagnostic19' .*versionCode='30'" /tmp/build30-badging.txt
           grep -Fq "sdkVersion:'26'" /tmp/build30-badging.txt
+      - name: Record source revision and APK checksum
+        run: |
+          mkdir -p apk-provenance
+          git rev-parse HEAD > apk-provenance/SOURCE_SHA.txt
+          sha256sum android-private/app/build/outputs/apk/debug/app-debug.apk > apk-provenance/APK_SHA256.txt
       - name: Upload independent diagnostic APK
         uses: actions/upload-artifact@v4
         with:
           name: tarikihonganji-v0624-build30-diagnostic19-ui-fixed-apk
-          path: android-private/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            android-private/app/build/outputs/apk/debug/app-debug.apk
+            apk-provenance/SOURCE_SHA.txt
+            apk-provenance/APK_SHA256.txt
           if-no-files-found: error
           retention-days: 7
