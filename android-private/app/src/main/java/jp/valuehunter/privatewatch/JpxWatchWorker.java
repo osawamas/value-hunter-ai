@@ -304,6 +304,11 @@ public final class JpxWatchWorker extends Worker {
                         + screen.entered().size() + "件・予算 " + priceOnly.entered().size() + "件・急変 "
                         + rapid.size() + "件 · 通知待ち " + (added.size() + budgetAdded.size() + rapidAdded.size())
                         + "件" + (notifyEnabled ? "" : " · " + ScanWorker.alertBlockReason(context)));
+                DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証財務判定の内訳: 判定済み "
+                        + screen.assessed() + "件・現在候補 " + screen.candidates().size()
+                        + "件・比較保留 " + screen.held() + "件・自動財務確認 "
+                        + finance.entries().size() + "/" + finance.budget() + "件"
+                        + "・割安度通知方式 " + (useMeter ? "有効" : "無効"));
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
