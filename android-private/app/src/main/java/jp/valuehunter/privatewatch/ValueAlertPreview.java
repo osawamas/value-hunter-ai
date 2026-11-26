@@ -39,6 +39,38 @@ final class ValueAlertPreview {
         }
     }
 
+    // Discovery is separate from a verified price-session promotion.
+    // Missing previous evidence must not hide a currently verified candidate.
+    static Map<String, Entry> discoveries(SharedPreferences state, LocalDate day, String source,
+            JSONObject rows, Session prior, Set<String> sent, Function<String,String> verifiedCode)
+            throws JSONException {
+        var current = session(day, source, rows);
+        if (current == null) return Map.of();
+        var thresholds = ValueAlertMeter.Thresholds.read(state.getString(SETTINGS, ""));
+        var found = new java.util.ArrayList<Entry>();
+        for (var candidate : current.rows().entrySet()) {
+            var row = candidate.getValue();
+            String code = verifiedCode.apply(candidate.getKey());
+            if (code == null || row.shares() == 0 || sent.contains(code)) continue;
+            var before = prior == null ? null : prior.rows().get(candidate.getKey());
+            int level = discoveryLevel(before, row, thresholds);
+            if (level == 0) continue;
+            boolean delivered = false;
+            for (int rank = level; rank <= 3; rank++) delivered |= sent.contains(receiptKey(code,rank));
+            if (!delivered) found.add(new Entry(code,row.shares(),level,row.score().points()));
+        }
+        found.sort(java.util.Comparator.comparingInt(Entry::shares).reversed()
+            .thenComparing(java.util.Comparator.comparingInt(Entry::level).reversed()).thenComparing(Entry::code));
+        var result = new LinkedHashMap<String,Entry>();
+        for (var entry : found) result.put(entry.key(),entry);
+        return result;
+    }
+
+    static int discoveryLevel(Row before, Row current, ValueAlertMeter.Thresholds thresholds) {
+        if (current.shares() == 0 || current.score().confirmed() == 0) return 0;
+        return before == null ? current.score().level(thresholds) : promotion(before,current,thresholds);
+    }
+
     private static String receiptKey(String code, int level) { return "meter:" + level + ":" + code; }
 
     static Map<String, Entry> entries(SharedPreferences state, Market market, LocalDate day, String source,
