@@ -42,7 +42,11 @@ final class JpxAutomaticFinance {
     private static final String ARCHIVE_RETRY = "archive-retry-after";
 
     record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
-                 JpxAnnualSummary.Annual previousAnnual) {
+                 JpxAnnualSummary.Annual previousAnnual, List<JpxDisclosureEvidence.Event> events) {
+        Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
+              JpxAnnualSummary.Annual previousAnnual) {
+            this(checkedThrough, annual, hold, previousAnnual, List.of());
+        }
         Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold) {
             this(checkedThrough, annual, hold, null);
         }
@@ -335,6 +339,13 @@ final class JpxAutomaticFinance {
     private static Entry fromPublicFiling(String code, LocalDate through, Entry old, Sources sources) throws IOException {
         var page = sources.archive(code);
         if (page == null) return held(through, old, "東証の決算開示一覧を確認できなかった");
+        var events = JpxDisclosureEvidence.extract(code, through, page);
+        var result = fromArchive(code, through, old, sources, page);
+        return new Entry(result.checkedThrough(), result.annual(), result.hold(), result.previousAnnual(), events);
+    }
+
+    private static Entry fromArchive(String code, LocalDate through, Entry old, Sources sources,
+                                     JpxIssuerArchive.Page page) throws IOException {
         LocalDate followingDay = through.plusDays(1);
         var filing = page.annualOn(followingDay);
         if (filing == null) return held(through, old, "通期決算の開示を特定できなかった");
@@ -364,7 +375,7 @@ final class JpxAutomaticFinance {
 
     private static Entry held(LocalDate through, Entry old, String reason) {
         var previous = old == null ? null : old.annual() != null ? old.annual() : old.previousAnnual();
-        return new Entry(through, null, reason, previous);
+        return new Entry(through, null, reason, previous, old == null ? List.of() : old.events());
     }
 
     private static JpxAnnualSummary.Annual withShareBasis(String code, JpxIssuerArchive.Page page,
@@ -402,7 +413,8 @@ final class JpxAutomaticFinance {
             String hold = json.getString("hold");
             var annual = decodeAnnual(json, code);
             var previous = json.optJSONObject("previous");
-            return new Entry(checked, annual, hold, previous == null ? null : decodeAnnual(previous, code));
+            return new Entry(checked, annual, hold, previous == null ? null : decodeAnnual(previous, code),
+                    JpxDisclosureEvidence.decode(code, json.optJSONArray("events"), checked));
         } catch (JSONException | IllegalArgumentException | java.time.DateTimeException invalid) {
             return null;
         }
@@ -427,7 +439,8 @@ final class JpxAutomaticFinance {
 
     private static JSONObject encode(Entry entry) {
         try {
-            var json = new JSONObject().put("checked", entry.checkedThrough().toString()).put("hold", entry.hold());
+            var json = new JSONObject().put("checked", entry.checkedThrough().toString()).put("hold", entry.hold())
+                    .put("events", JpxDisclosureEvidence.encode(entry.events()));
             if (entry.annual() != null) encodeAnnual(json, entry.annual());
             if (entry.previousAnnual() != null) {
                 json.put("previous", encodeAnnual(new JSONObject(), entry.previousAnnual()));
