@@ -186,6 +186,7 @@ final class UsDeviceFinancials {
         int missingClose = 0, splitHoldCount = 0, unusableFinancials = 0;
         int outsideBudget = 0, outsideValuation = 0, referenceCount = 0, priorityCount = 0;
         int affordable100 = 0, singleShare = 0;
+        int nonPositiveProfit = 0, nonPositiveEquity = 0, nonPositiveBoth = 0, otherFinancialHold = 0;
         var rate = BigDecimal.valueOf(fx.yenPerDollar());
         for (int index = 0; index < records.length(); index++) {
             var row = records.getJSONObject(index);
@@ -205,10 +206,18 @@ final class UsDeviceFinancials {
             var profit = new BigDecimal(row.getString("profit"));
             var equity = new BigDecimal(row.getString("equity"));
             var level = ValueCandidateScreen.assess(cap, profit, equity);
-            if (level == ValueCandidateScreen.Level.HELD) { unusableFinancials++; continue; }
+            if (level == ValueCandidateScreen.Level.HELD) {
+                unusableFinancials++;
+                if (profit.signum() <= 0 && equity.signum() <= 0) nonPositiveBoth++;
+                else if (profit.signum() <= 0) nonPositiveProfit++;
+                else if (equity.signum() <= 0) nonPositiveEquity++;
+                else otherFinancialHold++;
+                continue;
+            }
             var yen = close.multiply(rate);
             int quantity = yen.movePointRight(2).compareTo(BUDGET) <= 0 ? 100 : 1;
-            if (quantity == 100) affordable100++; else singleShare++;
+            if (quantity == 100) affordable100++;
+            else if (yen.compareTo(BUDGET) <= 0) singleShare++;
             String status = yen.compareTo(BUDGET) > 0 ? "outside_budget" : switch (level) {
                 case PRIORITY -> "priority";
                 case REFERENCE -> "reference";
@@ -233,6 +242,11 @@ final class UsDeviceFinancials {
                 .put("missing_close", missingClose)
                 .put("split_hold", splitHoldCount)
                 .put("unusable_financials", unusableFinancials)
+                .put("non_positive_profit_only", nonPositiveProfit)
+                .put("non_positive_equity_only", nonPositiveEquity)
+                .put("non_positive_both", nonPositiveBoth)
+                .put("other_financial_hold", otherFinancialHold)
+                .put("budget_count_version", 2)
                 .put("outside_budget", outsideBudget)
                 .put("outside_valuation", outsideValuation)
                 .put("reference", referenceCount)
