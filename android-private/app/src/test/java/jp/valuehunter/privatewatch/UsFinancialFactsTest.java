@@ -173,6 +173,35 @@ public class UsFinancialFactsTest {
         assertNull(UsFinancialFacts.read(document, 1, SESSION));
     }
 
+    @Test public void numericallyIdenticalRepeatedSharesDoNotBlockFinancials() throws Exception {
+        var document = payload();
+        var shares = document.getJSONObject("facts").getJSONObject("dei")
+                .getJSONObject("EntityCommonStockSharesOutstanding").getJSONObject("units").getJSONArray("shares");
+        shares.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 40)
+                .put("val", new BigDecimal("40.00")));
+        assertEquals(0, new BigDecimal("40").compareTo(UsFinancialFacts.read(document, 1, SESSION).shares()));
+        shares.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void independentCashAndBalanceEvidenceSurvivesMissingEps() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        gaap.put("StockholdersEquity", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "10-K", 350))));
+        gaap.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "10-K", 700))));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "10-K", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "10-K", 40))));
+        var history = UsFinancialFacts.meterHistory(document, SESSION);
+        assertTrue(history.annualEps().isEmpty());
+        assertEquals(Integer.valueOf(100), history.cash());
+        assertEquals(Integer.valueOf(100), history.balance());
+        gaap.remove("Assets");
+        assertNull(UsFinancialFacts.meterHistory(document, SESSION).balance());
+    }
+
     private static JSONObject payload() throws JSONException {
         var equity = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 350));
         var profit = new JSONArray()
