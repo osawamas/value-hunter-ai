@@ -99,12 +99,26 @@ public class UsFinanceIncrementalTest {
         org.junit.Assert.assertTrue(UsDeviceFinancials.currentScreenVersion(ledger));
     }
 
+    @Test public void outdatedEvidenceIsRefetchedRatherThanReused() throws Exception {
+        var old = cached("LEGACY", 1, OLD.minusDays(10));
+        old.remove("meter_evidence_version");
+        var current = cached("CURRENT", 2, OLD.minusDays(10));
+        var targets = new JSONArray().put(target("LEGACY", 1)).put(target("CURRENT", 2));
+        var previous = new JSONObject().put("day", OLD.toString()).put("full_refresh_day", OLD.toString())
+                .put("cursor", 2).put("targets", targets).put("results", new JSONArray().put(old).put(current));
+        var scan = UsDeviceFinancials.startScan("hash", NEXT, targets, previous, Set.of());
+        assertEquals(1, scan.getInt("reused"));
+        assertEquals("LEGACY", scan.getJSONArray("targets").getJSONObject(0).getString("symbol"));
+        assertEquals("CURRENT", scan.getJSONArray("results").getJSONObject(0).getString("symbol"));
+    }
+
     private static JSONObject target(String symbol, int cik) throws JSONException {
         return new JSONObject().put("symbol", symbol).put("cik", cik).put("exchange", "NYSE");
     }
 
     private static JSONObject cached(String symbol, int cik, LocalDate period) throws JSONException {
         return target(symbol, cik).put("equity_date", period.toString()).put("filed", OLD.minusDays(1).toString())
-                .put("meter_balance", 80);
+                .put("meter_balance", 80)
+                .put("meter_evidence_version", UsDeviceFinancials.METER_EVIDENCE_VERSION);
     }
 }
