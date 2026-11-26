@@ -264,6 +264,7 @@ final class JpxDailyCheck {
                         : ValueAlertMeter.assessJpx(annual.onShareBasis(day, close, true),
                         annual.onShareBasis(day, annual.eps(), false), annual.onShareBasis(day, annual.bps(), false),
                         recentEps(code, entry, annual, day, rights));
+                if (entry != null) score = JpxDisclosureEvidence.adjust(score, entry.events(), day);
                 if (score != null && score.confirmed() > 0) rows.put(code, ValueAlertPreview.encode(score, shares));
             }
             return rows;
