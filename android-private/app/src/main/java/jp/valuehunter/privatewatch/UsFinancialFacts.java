@@ -146,7 +146,10 @@ final class UsFinancialFacts {
         var shareRows = facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session, foreignAnnual);
         var cover = shareRows.stream().filter(f -> sameFiling(f, equity)
                 && f.start == null && !f.end.isBefore(equity.end)).collect(Collectors.toList());
-        var shares = one(cover);
+        // One filing may contain several as-of dates. Select the most recent
+        // cover date, retaining the strict rejection of conflicting same-date values.
+        var coverDay = cover.stream().map(Fact::end).max(LocalDate::compareTo).orElse(null);
+        var shares = one(cover.stream().filter(row -> row.end.equals(coverDay)).collect(Collectors.toList()));
         String sharesBasis = "cover";
         if (supplementary && cover.isEmpty()) {
             var balanceSheet = facts(gaap, "CommonStockSharesOutstanding", "shares", session, foreignAnnual).stream()
