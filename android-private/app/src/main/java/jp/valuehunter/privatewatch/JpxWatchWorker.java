@@ -352,6 +352,10 @@ public final class JpxWatchWorker extends Worker {
                         var entries = ValueAlertPreview.discoveries(state, date, "JPX",
                                 meter.rows(), baseline == null || date.equals(baseline) ? null : meter.prior(),
                                 alerted, code -> code);
+                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                                "東証 · " + ValueAlertPreview.discoveryDiagnostics(state, date, "JPX", meter.rows(),
+                                        baseline == null || date.equals(baseline) ? null : meter.prior(),
+                                        alerted, code -> code));
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
