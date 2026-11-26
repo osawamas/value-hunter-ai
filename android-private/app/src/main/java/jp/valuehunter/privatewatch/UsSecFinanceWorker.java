@@ -761,7 +761,19 @@ public final class UsSecFinanceWorker extends Worker {
         try {
             int cik = target.getInt("cik");
             var payload = new JSONObject(download.get(String.format(Locale.ROOT, SEC_FACTS, cik)));
-            return UsDeviceFinancials.assessFetch(target, payload, day);
+            var assessed = UsDeviceFinancials.assessFetch(target, payload, day);
+            if (assessed.row() != null && !networkStopped()) {
+                try {
+                    var filings = new JSONObject(download.get(UsDisclosureEvidence.url(cik)));
+                    assessed.row().put("disclosure_events", UsDisclosureEvidence.read(filings, cik, day));
+                } catch (UsDailyWorker.HttpStatus unavailable) {
+                    if (unavailable.code == 403 || unavailable.code == 429) throw unavailable;
+                    assessed.row().put("disclosure_unavailable", true);
+                } catch (IOException | JSONException unavailable) {
+                    assessed.row().put("disclosure_unavailable", true);
+                }
+            }
+            return assessed;
         } catch (UsDailyWorker.HttpStatus error) {
             if (error.code == 404) return new UsDeviceFinancials.FetchAssessment(null, "sec_not_found");
             throw error;
