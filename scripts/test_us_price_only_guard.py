@@ -80,6 +80,29 @@ class PriceOnlyGuardTests(unittest.TestCase):
             self.assertFalse(check({**previous, "close_usd": value},
                                    {**observation, "close_usd": "10.0001"}, **self.flags)[0])
 
+    def test_subcent_precision_cannot_round_overbudget_into_budget(self):
+        previous = {**self.old, "close_usd": "11", "usd_jpy": "100"}
+        for value, crossed in (("10.00000000000000000000000000001", False),
+                               ("9.99999999999999999999999999999", True)):
+            with self.subTest(value=value):
+                current = {**self.new, "close_usd": value, "usd_jpy": "100"}
+                self.assertEqual(check(previous, current, **self.flags)[0], crossed)
+
+    def test_budget_crossing_does_not_depend_on_ambient_decimal_precision(self):
+        from decimal import localcontext
+        previous = {**self.old, "close_usd": "10.0001", "usd_jpy": "100"}
+        current = {**self.new, "close_usd": "10", "usd_jpy": "100"}
+        with localcontext() as ctx:
+            ctx.prec = 5
+            self.assertEqual(check(previous, current, **self.flags),
+                             (True, "entered_100_share_budget"))
+
+    def test_unrepresentable_cost_fails_closed(self):
+        from decimal import Decimal
+        current = {**self.new, "close_usd": Decimal("1e999999"), "usd_jpy": "100"}
+        self.assertEqual(check(self.old, current, **self.flags),
+                         (False, "invalid_close_or_fx"))
+
     def test_session_boundaries_reject_stale_fallback(self):
         args = dict(expected_previous_date="2026-11-16",
                     expected_current_date="2026-11-17", **self.flags)
