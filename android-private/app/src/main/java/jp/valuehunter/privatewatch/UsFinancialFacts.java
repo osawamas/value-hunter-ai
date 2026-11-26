@@ -58,7 +58,14 @@ final class UsFinancialFacts {
                 .filter(row -> "10-K".equals(row.form) && fullYear(row)).collect(Collectors.toList());
         var latest = latest(eps, true);
         if (latest == null || latest.end.isBefore(day.minusMonths(16))) {
-            return new MeterHistory(List.of(), null, null);
+            // EPS is still required for the profit-continuity score. Independently
+            // available annual cash and balance evidence must not be discarded.
+            var annualEquity = latest(facts(gaap, "StockholdersEquity", "USD", day, false).stream()
+                    .filter(row -> "10-K".equals(row.form) && row.start == null)
+                    .collect(Collectors.toList()), false);
+            if (annualEquity == null || annualEquity.end.isBefore(day.minusMonths(16)))
+                return new MeterHistory(List.of(), null, null);
+            return annualHistory(gaap, day, annualEquity, List.of());
         }
         // The same filing reports prior per-share values on the current share basis.
         var series = new ArrayList<BigDecimal>();
@@ -70,6 +77,10 @@ final class UsFinancialFacts {
             series.add(prior.value);
             end = prior.end;
         }
+        return annualHistory(gaap, day, latest, List.copyOf(series));
+    }
+
+    private static MeterHistory annualHistory(JSONObject gaap, LocalDate day, Fact latest, List<BigDecimal> series) {
         var cash = facts(gaap, "NetCashProvidedByUsedInOperatingActivities", "USD", day, false).stream()
                 .filter(row -> sameFiling(row, latest) && fullYear(row)).collect(Collectors.toList());
         var cashNow = one(cash.stream().filter(row -> row.end.equals(latest.end))
@@ -314,7 +325,7 @@ final class UsFinancialFacts {
         if (latest == null) return null;
         var tied = facts.stream().filter(f -> order.compare(f, latest) == 0).collect(Collectors.toList());
         if (allowRepeatedAnnual) {
-            if (tied.stream().anyMatch(f -> !f.start.equals(latest.start) || f.value.compareTo(latest.value) != 0)) return null;
+            if (tied.stream().anyMatch(f -> !Objects.equals(f.start, latest.start) || f.value.compareTo(latest.value) != 0)) return null;
             return latest;
         }
         return one(tied);
@@ -323,7 +334,11 @@ final class UsFinancialFacts {
     private static Fact one(List<Fact> facts) {
         if (facts.isEmpty()) return null;
         var first = facts.get(0);
-        return facts.stream().allMatch(first::equals) ? first : null;
+        // SEC may repeat the same numeric fact with a different decimal scale.
+        // Preserve all period and filing identity checks; conflicting values stay held.
+        return facts.stream().allMatch(f -> samePeriod(first, f)
+                && first.value.compareTo(f.value) == 0
+                && first.reconciled == f.reconciled) ? first : null;
     }
 
     private static boolean sameFiling(Fact left, Fact right) {
