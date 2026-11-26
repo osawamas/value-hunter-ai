@@ -229,16 +229,17 @@ public final class UsSecFinanceWorker extends Worker {
                     int end = Math.min(targets.length(), position + BATCH);
                     while (position < end && !networkStopped() && SystemClock.elapsedRealtime() < deadline) {
                         var target = targets.getJSONObject(position);
-                        JSONObject row;
+                        UsDeviceFinancials.FetchAssessment assessment;
                         try {
-                            row = facts(target, day);
+                            assessment = facts(target, day);
                         } catch (IOException unavailable) {
                             if (!networkStopped()) scan.put("coverage_failed", target.getString("symbol"));
                             throw unavailable;
                         }
                         if (networkStopped()) break;
                         scan.remove("coverage_failed");
-                        if (row != null) results.put(row);
+                        if (assessment.row() != null) results.put(assessment.row());
+                        UsDeviceFinancials.recordFetchOutcome(scan, target.getString("symbol"), assessment);
                         scan.put("cursor", ++position);
                         if (position < end) Thread.sleep(BETWEEN_REQUESTS_MILLIS);
                     }
@@ -262,7 +263,7 @@ public final class UsSecFinanceWorker extends Worker {
             if (networkStopped()) return paused();
             var ledger = scan.optJSONObject("ledger");
             if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)
-                    || (!ledger.getJSONObject("reference_screen").has("meter_rows")
+                    || (!UsDeviceFinancials.currentScreenVersion(ledger)
                     && scan.optJSONObject("valuation_evidence") != null)) {
                 var evidence = scan.optJSONObject("valuation_evidence");
                 if (evidence == null) {
@@ -289,6 +290,9 @@ public final class UsSecFinanceWorker extends Worker {
                 scan.remove("supplement_recheck");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
+            var missingReasons = UsDeviceFinancials.fetchHoldCounts(scan);
+            if (!missingReasons.isEmpty()) DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "SEC財務未取得の理由別集計 · " + missingReasons);
             var budget = prepareBudget(quote, ledger, directory, day, hash, preferences);
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 if (networkStopped()) return paused();
@@ -753,17 +757,17 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    private JSONObject facts(JSONObject target, LocalDate day) throws IOException, JSONException {
+    private UsDeviceFinancials.FetchAssessment facts(JSONObject target, LocalDate day) throws IOException, JSONException {
         try {
             int cik = target.getInt("cik");
             var payload = new JSONObject(download.get(String.format(Locale.ROOT, SEC_FACTS, cik)));
-            return UsDeviceFinancials.financialRow(target, payload, day);
+            return UsDeviceFinancials.assessFetch(target, payload, day);
         } catch (UsDailyWorker.HttpStatus error) {
-            if (error.code == 404) return null;
+            if (error.code == 404) return new UsDeviceFinancials.FetchAssessment(null, "sec_not_found");
             throw error;
         } catch (JSONException invalidIssuer) {
             // Invalid issuer facts cannot become a candidate.
-            return null;
+            return new UsDeviceFinancials.FetchAssessment(null, "invalid_sec_payload");
         }
     }
 
