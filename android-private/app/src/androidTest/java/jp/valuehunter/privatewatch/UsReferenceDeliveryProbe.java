@@ -156,11 +156,11 @@ final class UsReferenceDeliveryProbe {
                 || UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Retry did not acknowledge delivery");
         }
-        verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄",
+        verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の発掘・昇格 1銘柄",
                 "METER · 100株 · かなり割安 · 84点");
         var receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis());
         if (receipts.stream().noneMatch(row -> row.title().contains("かなり割安")
-                && row.detail().contains("METER · 100株 · かなり割安 · 84点"))) {
+                && includesExpectedIssuer(row.detail(), "METER · 100株 · かなり割安 · 84点"))) {
             throw new AssertionError("US notification did not use the saved meter band");
         }
         var pilot = AlertOutcomes.report(context, AlertOutcomes.Market.US);
@@ -848,7 +848,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Could not reconcile the posted alert");
         }
         var posted = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
-                .stream().filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 81点"))
+                .stream().filter(row -> includesExpectedIssuer(row.detail(), "METER · 100株 · かなり割安 · 81点"))
                 .findFirst().orElseThrow(() -> new AssertionError("Original receipt missing"));
         var outcomeFile = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(),
                 "us-alert-outcomes-v1.json"));
@@ -877,7 +877,7 @@ final class UsReferenceDeliveryProbe {
                     || !UsDailyWorker.hasPendingFinancialAlert(state)) {
                 throw new AssertionError("History write failure was acknowledged prematurely");
             }
-            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄", "METER · 100株 · かなり割安 · 80点");
+            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の発掘・昇格 1銘柄", "METER · 100株 · かなり割安 · 80点");
         } finally {
             notifications.cancelAll();
             blocker.delete();
@@ -890,7 +890,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Next session did not reconcile the original delivery");
         }
         var original = NotificationHistory.recent(history, System.currentTimeMillis()).stream()
-                .filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 80点"))
+                .filter(row -> includesExpectedIssuer(row.detail(), "METER · 100株 · かなり割安 · 80点"))
                 .collect(java.util.stream.Collectors.toList());
         if (original.size() != 1) throw new AssertionError("The original notification history was not restored exactly once");
         var file = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(), "us-alert-outcomes-v1.json"));
@@ -932,7 +932,7 @@ final class UsReferenceDeliveryProbe {
                     || !UsDailyWorker.hasPendingFinancialAlert(state)) {
                 throw new AssertionError("Posted alert was acknowledged even though both outcome stores failed");
             }
-            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄", detail);
+            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の発掘・昇格 1銘柄", detail);
             notifications.cancelAll();
             if (UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false,
                     (app, id, title, message) -> { throw new AssertionError("Failed storage repeated the alert"); })
