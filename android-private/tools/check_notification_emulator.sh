@@ -47,6 +47,9 @@ tr -d '\r' < "$RUNNER_TEMP/alert-reboot.txt" | grep -x 'US_LISTING_ARCHIVE_AFTER
 run_phase recovery market-recovery.txt
 tr -d '\r' < "$RUNNER_TEMP/market-recovery.txt" | grep -x 'MARKET_WIFI_RECOVERY_OK'
 
+# A separate reboot fixture starts with its own quote and SEC history.
+timeout 30 adb shell pm clear "$app"
+grant_notifications
 run_phase archive_repair_prep archive-repair-prep.txt
 tr -d '\r' < "$RUNNER_TEMP/archive-repair-prep.txt" | grep -x 'US_ARCHIVE_REPAIR_BEFORE_REBOOT_OK'
 

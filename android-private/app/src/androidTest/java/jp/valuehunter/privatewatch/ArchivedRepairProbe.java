@@ -54,7 +54,9 @@ final class ArchivedRepairProbe {
         var beforeFacts = new AtomicInteger();
         var stableFacts = new AtomicInteger();
         verifyFinance(context, beforeFacts, stableFacts);
-        require(beforeFacts.get() == 1 && stableFacts.get() == 1, "The baseline was not acquired");
+        require(beforeFacts.get() == 1 && stableFacts.get() == 1,
+                "The baseline was not acquired (FIX=" + beforeFacts.get() + ", AAA=" + stableFacts.get()
+                        + ")\n" + DiagnosticLog.read(context));
         UsReferenceDeliveryProbe.expectQuiet(manager);
 
         writeClose(context, DAY, false);
