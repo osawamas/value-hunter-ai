@@ -238,6 +238,32 @@ public class UsFinancialFactsTest {
         assertTrue(UsFinancialFacts.meterHistory(document, LocalDate.parse("2026-02-01")).annualEps().isEmpty());
     }
 
+    @Test public void independentIfrsAnnualEvidenceCanReachTheHighestFlexibleTier() throws Exception {
+        var document = new JSONObject().put("cik", 1).put("facts", new JSONObject());
+        var ifrs = new JSONObject();
+        document.getJSONObject("facts").put("ifrs-full", ifrs);
+        var eps = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 5))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 4))
+                .put(row("2023-01-01", "2023-12-31", "2026-02-01", K, "20-F", 3));
+        ifrs.put("BasicEarningsLossPerShare", units("USD/shares", eps));
+        ifrs.put("CashFlowsFromUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 40))));
+        ifrs.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 700))));
+        ifrs.put("EquityAttributableToOwnersOfParent", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 350))));
+        var result = UsFinancialFacts.partialValue(document, 1, SESSION);
+        org.junit.Assert.assertNotNull(result);
+        assertEquals(3, FlexibleValueMeter.assess(java.math.BigDecimal.TEN,
+                result.eps(), result.cash(), result.balance()).level(ValueAlertMeter.DEFAULT));
+        assertNull(UsFinancialFacts.partialValue(document, 2, SESSION));
+        assertNull(UsFinancialFacts.partialValue(document, 1, LocalDate.parse("2026-02-01")));
+        ifrs.put("BasicEarningsLossPerShare", units("EUR/shares", eps));
+        assertNull(UsFinancialFacts.partialValue(document, 1, SESSION));
+    }
+
     private static JSONObject payload() throws JSONException {
         var equity = new JSONArray().put(row(null, "2026-09-30", "2026-10-20", Q, "10-Q", 350));
         var profit = new JSONArray()

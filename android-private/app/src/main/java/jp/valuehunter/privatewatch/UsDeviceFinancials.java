@@ -88,7 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
-    static final int METER_EVIDENCE_VERSION = 5;
+    static final int METER_EVIDENCE_VERSION = 6;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {

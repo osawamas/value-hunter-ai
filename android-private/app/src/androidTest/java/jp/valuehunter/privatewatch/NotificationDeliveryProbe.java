@@ -235,8 +235,7 @@ final class NotificationDeliveryProbe {
         shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
         shell(instrumentation, "wm dismiss-keyguard");
         shell(instrumentation, "svc data enable");
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         Runnable disconnect = () -> changeWifi(instrumentation, false);
         Runnable reconnect = () -> changeWifi(instrumentation, true);
         try {
@@ -270,7 +269,6 @@ final class NotificationDeliveryProbe {
             shell(instrumentation, "svc wifi enable");
             shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
         }
     }
 
@@ -303,8 +301,7 @@ final class NotificationDeliveryProbe {
         shell(instrumentation, "svc data enable");
         shell(instrumentation, "svc wifi disable");
         require(await(power::isInteractive), "Screen could not turn on for the Wi-Fi test");
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
@@ -349,7 +346,6 @@ final class NotificationDeliveryProbe {
             shell(instrumentation, "svc wifi enable");
             shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
         }
     }
 
@@ -400,12 +396,8 @@ final class NotificationDeliveryProbe {
 
     private static void chooseCommunication(Instrumentation instrumentation, String choice) {
         var context = instrumentation.getTargetContext();
-        var monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
-        android.app.Activity activity = null;
+        var activity = startMainActivity(instrumentation);
         try {
-            context.startActivity(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            activity = instrumentation.waitForMonitorWithTimeout(monitor, 12_000);
-            require(activity != null, "Communication notice activity did not start");
             require(await(() -> findDialogText(instrumentation, "通信量について") != null, 12_000),
                     "First-open communication notice was not visible for " + choice);
             require(await(() -> findDialogText(instrumentation, "従量制のモバイル回線") != null
@@ -416,11 +408,22 @@ final class NotificationDeliveryProbe {
                     "Could not select " + choice);
             require(await(() -> !MarketNetwork.noticeRequired(context)), "Communication choice was not saved");
         } finally {
+            instrumentation.runOnMainSync(activity::finish);
+        }
+    }
+
+    private static android.app.Activity startMainActivity(Instrumentation instrumentation) {
+        var context = instrumentation.getTargetContext();
+        var monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
+        try {
+            context.startActivity(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            var activity = instrumentation.waitForMonitorWithTimeout(monitor, 12_000);
+            require(activity != null, "Main activity did not start");
+            require(await(() -> activity.getWindow().getDecorView().getHeight() > 0),
+                    "Main activity did not lay out");
+            return activity;
+        } finally {
             instrumentation.removeMonitor(monitor);
-            if (activity != null) {
-                var shown = activity;
-                instrumentation.runOnMainSync(shown::finish);
-            }
         }
     }
 
@@ -490,8 +493,7 @@ final class NotificationDeliveryProbe {
         shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
         shell(instrumentation, "wm dismiss-keyguard");
         require(await(power::isInteractive), "Screen could not turn on to inspect settings");
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
@@ -547,7 +549,6 @@ final class NotificationDeliveryProbe {
             requireBlocked();
         } finally {
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
         }
     }
 

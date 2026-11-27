@@ -66,6 +66,8 @@ def jpx(out, journal):
                 if stream.read(5) != b"%PDF-":
                     pdf.unlink()
                     return {"status": "invalid_daily_pdf", "trade_date": day.isoformat()}
+            for name, page in (("listings", "new"), ("delistings", "delisted")):
+                get(f"https://www.jpx.co.jp/listing/stocks/{page}/", out / f"jpx-{name}.html", journal)
             try:
                 stocks = ordinary_stocks(workbook)
                 quotes, ambiguous = read_quotes(pdf, stocks)

@@ -100,8 +100,14 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         JpxStockUniverse universe;
         if (liveCoverage) {
             var base = JpxStockUniverse.load(context);
-            var listings = JpxStockUniverse.listings();
-            var delistings = JpxStockUniverse.delistings();
+            var listingPage = new File(directory, "jpx-listings.html");
+            var delistingPage = new File(directory, "jpx-delistings.html");
+            var listings = listingPage.isFile()
+                    ? JpxStockUniverse.readListings(new String(java.nio.file.Files.readAllBytes(listingPage.toPath()), StandardCharsets.UTF_8))
+                    : JpxStockUniverse.listings();
+            var delistings = delistingPage.isFile()
+                    ? JpxStockUniverse.readDelistings(new String(java.nio.file.Files.readAllBytes(delistingPage.toPath()), StandardCharsets.UTF_8))
+                    : JpxStockUniverse.delistings();
             if (base.asOf().isAfter(day) || listings.isEmpty() || delistings.isEmpty()) {
                 throw new IOException("Cannot verify listing events for the live JPX scope");
             }

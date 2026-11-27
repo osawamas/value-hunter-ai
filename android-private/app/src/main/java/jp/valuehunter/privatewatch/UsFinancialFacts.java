@@ -58,17 +58,21 @@ final class UsFinancialFacts {
         if (!matchesIssuer(payload,cik)) return null;
         var document=payload.optJSONObject("facts");
         var gaap=document==null?null:document.optJSONObject("us-gaap");
-        var domestic=partialAnnual(gaap,day,false);
-        return domestic!=null?domestic:partialAnnual(gaap,day,true);
+        var domestic = partialAnnual(gaap, day, false, false);
+        if (domestic != null) return domestic;
+        var foreign = partialAnnual(gaap, day, true, false);
+        if (foreign != null || !annualEpsFacts(gaap, day, false, false).isEmpty()
+                || !annualEpsFacts(gaap, day, true, false).isEmpty()) return foreign;
+        return partialAnnual(document == null ? null : document.optJSONObject("ifrs-full"), day, true, true);
     }
 
-    private static PartialValue partialAnnual(JSONObject gaap, LocalDate day, boolean foreign) {
-        var rows=annualEpsFacts(gaap,day,foreign);
-        var anchor=latest(rows,true);
-        if(anchor==null || anchor.end.isBefore(day.minusMonths(16))) return null;
-        var history=annualMeterHistory(gaap,day,foreign);
-        if(history.annualEps().isEmpty()) return null;
-        return new PartialValue(anchor.end,anchor.filed,anchor.accession,history.annualEps(),history.cash(),history.balance());
+    private static PartialValue partialAnnual(JSONObject namespace, LocalDate day, boolean foreign, boolean ifrs) {
+        var rows = annualEpsFacts(namespace, day, foreign, ifrs);
+        var anchor = latest(rows, true);
+        if (anchor == null || anchor.end.isBefore(day.minusMonths(16))) return null;
+        var history = annualHistory(namespace, day, anchor, annualSeries(rows, anchor), foreign, ifrs);
+        return new PartialValue(anchor.end, anchor.filed, anchor.accession,
+                history.annualEps(), history.cash(), history.balance());
     }
 
     record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {}
@@ -84,18 +88,18 @@ final class UsFinancialFacts {
         return annualMeterHistory(gaap, day, true);
     }
 
-    private static List<Fact> annualEpsFacts(JSONObject gaap, LocalDate day, boolean foreign) {
-        var basic=facts(gaap,"EarningsPerShareBasic","USD/shares",day,foreign).stream()
+    private static List<Fact> annualEpsFacts(JSONObject gaap, LocalDate day, boolean foreign, boolean ifrs) {
+        var basic=facts(gaap, ifrs ? "BasicEarningsLossPerShare" : "EarningsPerShareBasic", "USD/shares", day, foreign).stream()
                 .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
         // Diluted EPS is a separately reported valuation denominator. Never mix
         // basic and diluted observations in a comparison or bypass ambiguous basic facts.
         if (!basic.isEmpty()) return basic;
-        return facts(gaap,"EarningsPerShareDiluted","USD/shares",day,foreign).stream()
+        return facts(gaap, ifrs ? "DilutedEarningsLossPerShare" : "EarningsPerShareDiluted", "USD/shares", day, foreign).stream()
                 .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
     }
 
     private static MeterHistory annualMeterHistory(JSONObject gaap, LocalDate day, boolean foreign) {
-        var eps = annualEpsFacts(gaap,day,foreign);
+        var eps = annualEpsFacts(gaap, day, foreign, false);
         var latest = latest(eps, true);
         if (latest == null || latest.end.isBefore(day.minusMonths(16))) {
             // EPS is still required for the profit-continuity score. Independently
@@ -105,8 +109,12 @@ final class UsFinancialFacts {
                     .collect(Collectors.toList()), false);
             if (annualEquity == null || annualEquity.end.isBefore(day.minusMonths(16)))
                 return new MeterHistory(List.of(), null, null);
-            return annualHistory(gaap, day, annualEquity, List.of(), foreign);
+            return annualHistory(gaap, day, annualEquity, List.of(), foreign, false);
         }
+        return annualHistory(gaap, day, latest, annualSeries(eps, latest), foreign, false);
+    }
+
+    private static List<BigDecimal> annualSeries(List<Fact> eps, Fact latest) {
         // The same filing reports prior per-share values on the current share basis.
         var series = new ArrayList<BigDecimal>();
         series.add(latest.value);
@@ -117,11 +125,12 @@ final class UsFinancialFacts {
             series.add(prior.value);
             end = prior.end;
         }
-        return annualHistory(gaap, day, latest, List.copyOf(series), foreign);
+        return List.copyOf(series);
     }
 
-    private static MeterHistory annualHistory(JSONObject gaap, LocalDate day, Fact latest, List<BigDecimal> series, boolean foreign) {
-        var cash = facts(gaap, "NetCashProvidedByUsedInOperatingActivities", "USD", day, foreign).stream()
+    private static MeterHistory annualHistory(JSONObject gaap, LocalDate day, Fact latest, List<BigDecimal> series, boolean foreign, boolean ifrs) {
+        var cash = facts(gaap, ifrs ? "CashFlowsFromUsedInOperatingActivities"
+                : "NetCashProvidedByUsedInOperatingActivities", "USD", day, foreign).stream()
                 .filter(row -> sameFiling(row, latest) && fullYear(row)).collect(Collectors.toList());
         var cashNow = one(cash.stream().filter(row -> row.end.equals(latest.end))
                 .collect(Collectors.toList()));
@@ -133,7 +142,8 @@ final class UsFinancialFacts {
         }
         // Verify balance-sheet evidence from the same filing and fiscal period as the EPS
         // comparison. Missing/ambiguous assets are unknown, never treated as positive.
-        var equityRows = facts(gaap, "StockholdersEquity", "USD", day, foreign).stream()
+        var equityRows = facts(gaap, ifrs ? "EquityAttributableToOwnersOfParent"
+                : "StockholdersEquity", "USD", day, foreign).stream()
                 .filter(row -> sameFiling(row, latest) && row.start == null
                         && row.end.equals(latest.end)).collect(Collectors.toList());
         var assetRows = facts(gaap, "Assets", "USD", day, foreign).stream()
