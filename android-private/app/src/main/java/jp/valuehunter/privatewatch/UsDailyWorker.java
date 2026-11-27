@@ -543,6 +543,11 @@ public final class UsDailyWorker extends Worker {
                             + "件・純資産のみ非正値 " + equityOnly
                             + "件・両方非正値 " + both + "件・その他 " + other + "件";
                 }
+                if (reasons.optInt("assessment_count_version") == 1)
+                    breakdown += "\n判定可能数: 厳格 " + reasons.optInt("strict_assessed")
+                            + "件・柔軟追加 " + reasons.optInt("partial_assessed")
+                            + "件・合計 " + reasons.optInt("total_assessed")
+                            + "件・予算内三段階該当（標準設定） " + reasons.optInt("total_eligible_default") + "件";
                 status += "\n" + breakdown;
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                         "割安判定の除外理由を集計 · " + breakdown.replace('\n', ' '));
