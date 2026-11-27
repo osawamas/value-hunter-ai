@@ -1,6 +1,7 @@
 """Capture a small, reproducible sample of the public JPX archive transport."""
 import http.cookiejar
 import json
+import xml.etree.ElementTree as ET
 import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -54,5 +55,24 @@ def inspect(out):
                                                     encoding="utf-8")
 
 
+def verify_storage(preferences, audit_file):
+    audit = json.loads(audit_file.read_text(encoding="utf-8"))
+    saved = {row.get("name", ""): row.text for row in ET.parse(preferences).getroot().findall("string")}
+    for symbol, row in audit["issuer"].items():
+        record = saved.get("annual-" + symbol)
+        try:
+            stored = json.loads(record) if record is not None else None
+        except json.JSONDecodeError:
+            row["persisted"] = "invalid"
+        else:
+            row["persisted"] = isinstance(stored, dict)
+            if row["persisted"]:
+                row["persisted_hold"] = stored.get("hold", "")
+    audit_file.write_text(json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 if __name__ == "__main__":
-    inspect(Path(sys.argv[1]))
+    if sys.argv[1:2] == ["--storage"]:
+        verify_storage(Path(sys.argv[2]), Path(sys.argv[3]))
+    else:
+        inspect(Path(sys.argv[1]))

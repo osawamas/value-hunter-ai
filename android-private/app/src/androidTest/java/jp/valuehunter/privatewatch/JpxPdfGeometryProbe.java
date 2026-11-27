@@ -165,7 +165,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             var annual = entry.annualFor(day);
             String hold = entry.hold();
             if (!hold.isEmpty()) holdCounts.merge(hold, 1, Integer::sum);
-            acquisition.put(code, new JSONObject().put("stored", true).put("hold", hold)
+            acquisition.put(code, new JSONObject().put("entry_present", true).put("hold", hold)
                     .put("dated_financial", annual != null)
                     .put("source", annual == null ? JSONObject.NULL : annual.source())
                     .put("strict_assessed", screening.assessedCodes().contains(code))

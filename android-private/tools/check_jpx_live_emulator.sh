@@ -38,4 +38,8 @@ if [[ ! -s coverage-results/jpx-valuation.json ]]; then
   exit 1
 fi
 adb exec-out run-as "$app" cat jpx-finance-audit.json > coverage-results/jpx-finance-audit.json
+save_public_finance_cache
+if [[ -s "$cache_dir/$cache_name" ]]; then
+  python android-private/tools/probe_jpx_archive.py --storage "$cache_dir/$cache_name" coverage-results/jpx-finance-audit.json
+fi
 python -m json.tool coverage-results/jpx-valuation.json
