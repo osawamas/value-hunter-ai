@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
@@ -13,6 +14,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from jpx_daily_probe import ordinary_stocks, read_quotes
+from openpyxl import load_workbook
 
 JPX_INDEX = "https://www.jpx.co.jp/markets/statistics-equities/misc/01.html"
 DIRECTORY = "https://www.nasdaqtrader.com/dynamic/SymDir/"
@@ -41,6 +43,15 @@ def get(url, path, journal):
 
 def save(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def listing_breakdown(workbook):
+    source = load_workbook(workbook, read_only=True, data_only=True)
+    try:
+        return dict(Counter(str(row[3]) for row in source.worksheets[0].iter_rows(
+            min_row=2, values_only=True) if len(row) > 3 and row[3]))
+    finally:
+        source.close()
 
 
 def jpx(out, journal):
@@ -75,7 +86,9 @@ def jpx(out, journal):
                 return {"status": "reference_parser_unavailable", "trade_date": day.isoformat(),
                         "error": type(error).__name__}
             return {"status": "price_inputs_only", "trade_date": day.isoformat(),
-                    "listing_reference_count": len(stocks), "matched_close_count": sum(
+                    "listing_reference_count": len(stocks), "listing_reference_segments": dict(Counter(stocks.values())),
+                    "official_workbook_all_product_rows": listing_breakdown(workbook),
+                    "matched_close_count": sum(
                         (morning is not None or afternoon is not None) for morning, afternoon in quotes.values()),
                     "ambiguous_count": len(ambiguous),
                     "valuation": None}
