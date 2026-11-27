@@ -295,7 +295,7 @@ final class JpxDailyCheck {
         private List<BigDecimal> recentEps(String code, JpxAutomaticFinance.Entry entry,
                                            JpxAnnualSummary.Annual annual, LocalDate day, JpxShareRights rights) {
             var prior = entry.previousAnnual();
-            if (prior == null || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
+            if (prior == null || !prior.released().isBefore(day) || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
             long gap = java.time.temporal.ChronoUnit.DAYS.between(prior.end(), annual.end());
             if (gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())
                     || rights.firstUnadjustedChange(code, prior.end(), day, prior.adjustments()) != null) {
@@ -337,6 +337,7 @@ final class JpxDailyCheck {
             String reason = entry.failure(code, latest.date(), finance.updates());
             if (!reason.isEmpty()) return new ReferenceChange(held, held, reason);
             var annual = entry.annualFor(latest.date());
+            if (annual.bps()==null) return new ReferenceChange(held,held,"BPS未取得・柔軟判定経路");
             if (!rights.adjustments().containsAll(annual.adjustments())) {
                 return new ReferenceChange(held, held, "JPX分割比率の再確認待ち");
             }
