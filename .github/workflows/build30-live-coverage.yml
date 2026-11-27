@@ -1,7 +1,7 @@
 name: Build30 public market coverage
 on:
-  push:
-    branches: [integration/valuehunter-flexible-coverage]
+  pull_request:
+    types: [opened, synchronize, reopened]
     paths:
       - '.github/workflows/build30-live-coverage.yml'
       - 'android-private/tools/build30_public_sources.py'
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   public-data:
-    if: github.event.repository.visibility == 'public'
+    if: github.event.repository.private == false && (github.event_name != 'pull_request' || github.head_ref == 'integration/valuehunter-flexible-coverage')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
