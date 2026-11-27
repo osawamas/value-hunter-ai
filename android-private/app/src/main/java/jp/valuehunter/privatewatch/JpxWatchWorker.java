@@ -368,6 +368,7 @@ public final class JpxWatchWorker extends Worker {
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
+                            detail.append("\n企業開示の補助評価を含む場合あり（見出しベース・財務評価とは別）");
                             if (entries.values().stream().anyMatch(item -> item.level() == 3)) {
                                 detail.append("\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
                             }
