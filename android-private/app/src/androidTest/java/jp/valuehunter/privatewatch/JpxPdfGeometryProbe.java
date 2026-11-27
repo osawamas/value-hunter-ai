@@ -138,6 +138,8 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                                 .getBytes(StandardCharsets.UTF_8))
                         : digest(snapshot))
                 .put("status", liveCoverage ? "bounded_financial_pass" : "cached_financial_pass")
+                .put("annual_acquisition_confirmed", finance.fetched())
+                .put("annual_acquisition_pending_retry", JpxAutomaticFinance.failedAcquisitions(context).size())
                 .put("financial_records", finance.entries().values().stream()
                         .filter(entry -> entry.annualFor(day) != null).count());
     }

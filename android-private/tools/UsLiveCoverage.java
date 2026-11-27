@@ -50,7 +50,13 @@ public final class UsLiveCoverage {
         var scope = new TreeSet<>(nyse.symbols());
         scope.addAll(nasdaq.symbols());
         report.put("scope", scope.size());
-        var closes = UsDoltCloses.fetch(day, url -> new JSONObject(read(url, "")));
+        JSONArray closes;
+        try {
+            closes = UsDoltCloses.fetch(day, url -> new JSONObject(read(url, "")));
+        } catch (org.json.JSONException invalidCloses) {
+            report.put("status", "dated_close_provider_response_unverified");
+            return;
+        }
         var prices = UsDeviceFinancials.prices(closes);
         report.put("closes", scope.stream().filter(prices::containsKey).count());
         if (prices.isEmpty()) {

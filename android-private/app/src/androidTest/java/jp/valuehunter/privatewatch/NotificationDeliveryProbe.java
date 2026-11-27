@@ -415,10 +415,10 @@ final class NotificationDeliveryProbe {
         var context = instrumentation.getTargetContext();
         var monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
         try {
-            shell(instrumentation, "am start -n " + context.getPackageName()
-                    + "/jp.valuehunter.privatewatch.SplashActivity");
+            String launch = shell(instrumentation, "am start -W -f 0x10008000 -n "
+                    + context.getPackageName() + "/jp.valuehunter.privatewatch.SplashActivity");
             var activity = instrumentation.waitForMonitorWithTimeout(monitor, 12_000);
-            require(activity != null, "Main activity did not start");
+            require(activity != null, "Main activity did not start: " + launch.trim());
             require(await(() -> activity.getWindow().getDecorView().getHeight() > 0),
                     "Main activity did not lay out");
             return activity;
@@ -690,10 +690,13 @@ final class NotificationDeliveryProbe {
         require(await(() -> !power.isInteractive()), "Emulator could not enter screen-off state");
     }
 
-    private static void shell(Instrumentation instrumentation, String command) throws IOException {
+    private static String shell(Instrumentation instrumentation, String command) throws IOException {
         try (var input = new ParcelFileDescriptor.AutoCloseInputStream(
-                instrumentation.getUiAutomation().executeShellCommand(command))) {
-            while (input.read() >= 0) { /* Wait for the command to finish. */ }
+                instrumentation.getUiAutomation().executeShellCommand(command));
+             var output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            for (int size; (size = input.read(buffer)) != -1;) output.write(buffer, 0, size);
+            return output.toString("UTF-8");
         }
     }
 
