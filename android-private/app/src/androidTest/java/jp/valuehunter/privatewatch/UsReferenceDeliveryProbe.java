@@ -1265,7 +1265,7 @@ final class UsReferenceDeliveryProbe {
         verifySilentNotice(manager, day, "米国株の参考条件入り 1銘柄", ticker + " · 100株 · 優先候補");
     }
 
-    private static boolean includesExpectedIssuer(String detail, String expected) {
+    static boolean includesExpectedIssuer(String detail, String expected) {
         if (detail.contains(expected)) return true;
         int delimiter = expected.indexOf(" · ");
         if (delimiter <= 0) return false;

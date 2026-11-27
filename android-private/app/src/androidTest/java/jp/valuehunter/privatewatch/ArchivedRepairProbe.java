@@ -113,7 +113,8 @@ final class ArchivedRepairProbe {
         verifyFinance(context, restoredFacts, reusedFacts);
         UsReferenceDeliveryProbe.expectQuiet(manager);
         long delivered = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
-                .stream().filter(row -> row.detail().contains(TICKER + " · ") && row.detail().contains(DAY.toString())).count();
+                .stream().filter(row -> UsReferenceDeliveryProbe.includesExpectedIssuer(
+                        row.detail(), TICKER + " · 100株 · 優先候補") && row.detail().contains(DAY.toString())).count();
         require(delivered == 1 && restoredFacts.get() == 1 && reusedFacts.get() == 0,
                 "The resumed job repeated a financial download or notification");
         return "US_ARCHIVE_REPAIR_AFTER_REBOOT_OK";
@@ -158,11 +159,11 @@ final class ArchivedRepairProbe {
         var factory = new WorkerFactory() {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
                 return new UsSecFinanceWorker(app, parameters, url -> {
-                    if (url.endsWith("/CIK0000043210.json")) {
+                    if (url.endsWith("/companyfacts/CIK0000043210.json")) {
                         stable.incrementAndGet();
                         return UsReferenceDeliveryProbe.facts().replace("12345", "43210");
                     }
-                    if (url.endsWith("/CIK0000012345.json")) {
+                    if (url.endsWith("/companyfacts/CIK0000012345.json")) {
                         missing.incrementAndGet();
                         return UsReferenceDeliveryProbe.facts();
                     }
