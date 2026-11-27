@@ -108,7 +108,11 @@ final class ArchivedRepairProbe {
         require(UsDailyWorker.repairStatus(state, DAY.toString()).contains(EXPECTED_SCREEN_PROGRESS),
                 "The recovered issuer did not complete screening");
         var manager = context.getSystemService(NotificationManager.class);
-        UsReferenceDeliveryProbe.verifySilentNotice(manager, TICKER, DAY);
+        try {
+            UsReferenceDeliveryProbe.verifySilentNotice(manager, TICKER, DAY);
+        } catch (AssertionError error) {
+            throw new AssertionError(error.getMessage() + "\n" + DiagnosticLog.read(context), error);
+        }
         manager.cancelAll();
         verifyFinance(context, restoredFacts, reusedFacts);
         UsReferenceDeliveryProbe.expectQuiet(manager);

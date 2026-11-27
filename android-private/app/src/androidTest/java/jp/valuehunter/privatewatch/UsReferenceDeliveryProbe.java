@@ -1289,7 +1289,8 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("US reference notification channel is not silent");
         }
         var observed = new java.util.LinkedHashSet<String>();
-        for (int attempt = 0; attempt < 30; attempt++) {
+        long deadline = android.os.SystemClock.elapsedRealtime() + 8_000;
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
             for (var active : manager.getActiveNotifications()) {
                 var note = active.getNotification();
                 String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
