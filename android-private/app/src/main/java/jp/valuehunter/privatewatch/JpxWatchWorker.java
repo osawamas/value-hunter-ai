@@ -284,6 +284,8 @@ public final class JpxWatchWorker extends Worker {
                     MarketCoverage.JPX.track(state, preview, coverage(comparison.latest(), screen,
                             automaticFinance ? JpxAutomaticFinance.failedAcquisitions(context) : Set.of()), true);
                     if (automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, true)
+                            && (last == null || !date.isBefore(last))
+                            && (expected == null || !date.isBefore(expected))
                             && ScanWorker.alertsEnabled(context)) {
                         var pending = pendingAlerts(state);
                         var alerted = date.equals(last)
