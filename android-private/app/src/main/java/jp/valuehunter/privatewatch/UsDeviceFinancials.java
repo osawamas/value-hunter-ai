@@ -161,7 +161,23 @@ final class UsDeviceFinancials {
         int cik = target.getInt("cik");
         var assessed = UsFinancialFacts.assess(payload, cik, day);
         var figures = assessed.facts();
-        if (figures == null) return new FetchAssessment(null, assessed.hold());
+        if (figures == null) {
+            // Preserve a separate alternative evidence row; never invent missing aggregate figures.
+            var partial = UsFinancialFacts.partialValue(payload,cik,day);
+            if (partial == null || !List.of("parent_equity_missing","shares_for_filing_missing",
+                    "annual_profit_unconfirmed","previous_annual_profit_unconfirmed").contains(assessed.hold()))
+                return new FetchAssessment(null,assessed.hold());
+            var eps = new JSONArray();
+            for (var value : partial.eps()) eps.put(value.toPlainString());
+            var row = new JSONObject().put("partial_value",true)
+                .put("meter_evidence_version",METER_EVIDENCE_VERSION)
+                .put("symbol",target.getString("symbol")).put("exchange",target.getString("exchange"))
+                .put("cik",cik).put("share_date",partial.end().toString()).put("equity_date",partial.end().toString())
+                .put("filed",partial.filed().toString()).put("accession",partial.accession())
+                .put("meter_eps",eps).put("meter_cash",partial.cash()).put("meter_balance",partial.balance())
+                .put("strict_hold",assessed.hold());
+            return new FetchAssessment(row,assessed.hold());
+        }
         var history = UsFinancialFacts.meterHistory(payload, day);
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
@@ -180,7 +196,7 @@ final class UsDeviceFinancials {
     static void recordFetchOutcome(JSONObject scan, String symbol, FetchAssessment result) throws JSONException {
         var holds = scan.optJSONObject("fetch_holds");
         if (holds == null) { holds = new JSONObject(); scan.put("fetch_holds", holds); }
-        if (result.row() != null) holds.remove(symbol);
+        if (result.row() != null && !result.row().optBoolean("partial_value")) holds.remove(symbol);
         else holds.put(symbol, result.hold() == null || result.hold().isEmpty() ? "unknown" : result.hold());
     }
 
@@ -221,6 +237,7 @@ final class UsDeviceFinancials {
         int missingClose = 0, splitHoldCount = 0, unusableFinancials = 0;
         int outsideBudget = 0, outsideValuation = 0, referenceCount = 0, priorityCount = 0;
         int affordable100 = 0, singleShare = 0;
+        int partialAssessed = 0, partialEligible = 0;
         int nonPositiveProfit = 0, nonPositiveEquity = 0, nonPositiveBoth = 0, otherFinancialHold = 0;
         var rate = BigDecimal.valueOf(fx.yenPerDollar());
         for (int index = 0; index < records.length(); index++) {
@@ -235,6 +252,22 @@ final class UsDeviceFinancials {
             if (split != null && !split.isBefore(LocalDate.parse(row.getString("share_date")))) {
                 splitHolds.put(symbol);
                 splitHoldCount++;
+                continue;
+            }
+            if (row.optBoolean("partial_value")) {
+                var score=FlexibleValueMeter.assess(close,meterEps(row),meterCash(row),meterBalance(row));
+                score=UsDisclosureEvidence.adjust(score,row,day);
+                var yen=close.multiply(rate);
+                int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
+                if(quantity==100) affordable100++; else if(quantity==1) singleShare++;
+                if(score.confirmed()>0) partialAssessed++;
+                if(quantity>0 && score.level(ValueAlertMeter.DEFAULT)>0) partialEligible++;
+                String status=quantity==0?"outside_budget":"outside_valuation";
+                if(quantity==0) outsideBudget++; else outsideValuation++;
+                observations.put(new JSONObject().put("symbol",symbol).put("exchange",exchange)
+                    .put("cik",row.getInt("cik")).put("status",status).put("quantity",quantity==0?1:quantity));
+                meter.put(UsReferenceAlerts.meterKey(exchange,row.getInt("cik"),symbol),
+                    ValueAlertPreview.encode(score,quantity));
                 continue;
             }
             var cap = close.multiply(new BigDecimal(row.getString("shares")));
@@ -282,6 +315,7 @@ final class UsDeviceFinancials {
                 .put("non_positive_equity_only", nonPositiveEquity)
                 .put("non_positive_both", nonPositiveBoth)
                 .put("other_financial_hold", otherFinancialHold)
+                .put("partial_assessed",partialAssessed).put("partial_eligible_default",partialEligible)
                 .put("budget_count_version", 2)
                 .put("outside_budget", outsideBudget)
                 .put("outside_valuation", outsideValuation)
