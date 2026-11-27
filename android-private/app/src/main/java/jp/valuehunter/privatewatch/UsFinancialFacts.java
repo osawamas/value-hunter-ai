@@ -63,8 +63,7 @@ final class UsFinancialFacts {
     }
 
     private static PartialValue partialAnnual(JSONObject gaap, LocalDate day, boolean foreign) {
-        var rows=facts(gaap,"EarningsPerShareBasic","USD/shares",day,foreign).stream()
-            .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
+        var rows=annualEpsFacts(gaap,day,foreign);
         var anchor=latest(rows,true);
         if(anchor==null || anchor.end.isBefore(day.minusMonths(16))) return null;
         var history=annualMeterHistory(gaap,day,foreign);
@@ -85,9 +84,18 @@ final class UsFinancialFacts {
         return annualMeterHistory(gaap, day, true);
     }
 
-    private static MeterHistory annualMeterHistory(JSONObject gaap, LocalDate day, boolean foreign) {
-        var eps = facts(gaap, "EarningsPerShareBasic", "USD/shares", day, foreign).stream()
+    private static List<Fact> annualEpsFacts(JSONObject gaap, LocalDate day, boolean foreign) {
+        var basic=facts(gaap,"EarningsPerShareBasic","USD/shares",day,foreign).stream()
                 .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
+        // Diluted EPS is a separately reported valuation denominator. Never mix
+        // basic and diluted observations in a comparison or bypass ambiguous basic facts.
+        if (!basic.isEmpty()) return basic;
+        return facts(gaap,"EarningsPerShareDiluted","USD/shares",day,foreign).stream()
+                .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
+    }
+
+    private static MeterHistory annualMeterHistory(JSONObject gaap, LocalDate day, boolean foreign) {
+        var eps = annualEpsFacts(gaap,day,foreign);
         var latest = latest(eps, true);
         if (latest == null || latest.end.isBefore(day.minusMonths(16))) {
             // EPS is still required for the profit-continuity score. Independently
