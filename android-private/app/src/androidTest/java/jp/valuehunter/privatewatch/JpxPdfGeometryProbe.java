@@ -154,10 +154,16 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var comparison = new JpxDailyCheck.Comparison(report, null);
         var rights = liveCoverage ? JpxShareRights.refresh(context).rights() : JpxShareRights.cached(context);
         var trace = new java.util.TreeMap<String, org.json.JSONArray>();
-        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, () -> false,
-                (code, stage, source, outcome) -> trace.computeIfAbsent(code, unused -> new org.json.JSONArray())
-                        .put(new JSONObject(Map.of("stage", stage, "source", source, "outcome", outcome))))
+        JpxAutomaticFinance.AcquisitionAudit auditTransport = (code, stage, source, outcome) ->
+                trace.computeIfAbsent(code, unused -> new org.json.JSONArray())
+                        .put(new JSONObject(Map.of("stage", stage, "source", source, "outcome", outcome)));
+        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, () -> false, auditTransport)
                 : JpxAutomaticFinance.cached(context, report);
+        int checked = finance.fetched();
+        if (liveCoverage && finance.continueInitial()) {
+            finance = JpxAutomaticFinance.refresh(context, comparison, rights, () -> false, auditTransport);
+            checked += finance.fetched();
+        }
         var screening = comparison.screen(rights, finance);
         var rows = comparison.meterRows(screening, finance, rights);
         var acquisition = new JSONObject();
@@ -190,7 +196,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                                 .getBytes(StandardCharsets.UTF_8))
                         : digest(snapshot))
                 .put("status", liveCoverage ? "bounded_financial_pass" : "cached_financial_pass")
-                .put("annual_acquisition_confirmed", finance.fetched())
+                .put("annual_acquisition_confirmed", checked)
                 .put("annual_acquisition_pending_retry", JpxAutomaticFinance.failedAcquisitions(context).size())
                 .put("financial_records", finance.entries().values().stream()
                         .filter(entry -> entry.annualFor(day) != null).count());
