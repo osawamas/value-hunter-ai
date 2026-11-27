@@ -88,7 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
-    static final int METER_EVIDENCE_VERSION = 4;
+    static final int METER_EVIDENCE_VERSION = 5;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {
@@ -165,7 +165,7 @@ final class UsDeviceFinancials {
             // Preserve a separate alternative evidence row; never invent missing aggregate figures.
             var partial = UsFinancialFacts.partialValue(payload,cik,day);
             if (partial == null || !List.of("parent_equity_missing","shares_for_filing_missing",
-                    "annual_profit_unconfirmed","previous_annual_profit_unconfirmed",
+                    "annual_profit_unconfirmed","previous_annual_profit_unconfirmed","parent_equity_stale",
                     "current_ytd_profit_unconfirmed","prior_ytd_profit_unconfirmed").contains(assessed.hold()))
                 return new FetchAssessment(null,assessed.hold());
             var eps = new JSONArray();
@@ -252,8 +252,10 @@ final class UsDeviceFinancials {
             if (!seen.add(symbol)) throw new JSONException("Duplicate financial assessment symbol");
             var close = prices.get(symbol);
             if (close == null) { missingClose++; continue; }
-            if ("NYSE".equals(exchange)) nyse++;
-            else nasdaq++;
+            if (!row.optBoolean("partial_value")) {
+                if ("NYSE".equals(exchange)) nyse++;
+                else nasdaq++;
+            }
             var split = splits.get(symbol);
             if (split != null && !split.isBefore(LocalDate.parse(row.getString("share_date")))) {
                 splitHolds.put(symbol);
