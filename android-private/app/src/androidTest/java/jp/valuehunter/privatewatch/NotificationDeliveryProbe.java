@@ -74,8 +74,15 @@ final class NotificationDeliveryProbe {
             ListingArchiveProbe.checkAfterReboot(context);
             return "ALERT_HISTORY_AFTER_REBOOT_OK\nUS_LISTING_ARCHIVE_AFTER_REBOOT_OK";
         }
-        if (!"post".equals(phase)) throw new IllegalArgumentException("Unknown alert probe phase");
-        exerciseCommunicationNotice(instrumentation, power);
+        boolean coreOnly = "delivery_core".equals(phase);
+        if (!coreOnly && !"post".equals(phase)) throw new IllegalArgumentException("Unknown alert probe phase");
+        if (coreOnly) {
+            require(MarketNetwork.setAllowed(context, true), "Cannot enable communication for core delivery");
+        } else {
+            progress(instrumentation, "communication_notice");
+            exerciseCommunicationNotice(instrumentation, power);
+        }
+        progress(instrumentation, "silent_post_and_wake");
         manager.cancelAll();
         if (history.exists() && !history.delete()) throw new IOException("Cannot clear alert probe state");
         require(prefs.edit().putBoolean(NotificationScreenWake.ENABLED, true).commit(), "Cannot enable wake");
@@ -117,6 +124,8 @@ final class NotificationDeliveryProbe {
                 "Diagnostic notification ignored disabled wake or changed real history");
         manager.cancel(ScanWorker.TEST_NOTIFICATION_ID);
 
+        if (coreOnly) return "ALERT_CORE_DELIVERY_OK";
+        progress(instrumentation, "settings_and_wifi");
         var disconnected = new CountDownLatch(1);
         var connection = MarketNetwork.open(openUntilStopped(disconnected));
         var input = MarketNetwork.input(connection);
@@ -141,6 +150,12 @@ final class NotificationDeliveryProbe {
         exerciseWifiOnly(instrumentation, power);
         ListingArchiveProbe.prepare(context);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static void progress(Instrumentation instrumentation, String phase) {
+        var status = new android.os.Bundle();
+        status.putString("stream", "\nALERT_PROBE_PHASE " + phase + "\n");
+        instrumentation.sendStatus(1, status);
     }
 
     private static final int INTERRUPTED_ID = 54;
@@ -370,9 +385,12 @@ final class NotificationDeliveryProbe {
 
     private static void chooseCommunication(Instrumentation instrumentation, String choice) {
         var context = instrumentation.getTargetContext();
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
+        android.app.Activity activity = null;
         try {
+            context.startActivity(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            activity = instrumentation.waitForMonitorWithTimeout(monitor, 12_000);
+            require(activity != null, "Communication notice activity did not start");
             require(await(() -> findDialogText(instrumentation, "通信量について") != null, 12_000),
                     "First-open communication notice was not visible for " + choice);
             require(await(() -> findDialogText(instrumentation, "従量制のモバイル回線") != null
@@ -383,8 +401,11 @@ final class NotificationDeliveryProbe {
                     "Could not select " + choice);
             require(await(() -> !MarketNetwork.noticeRequired(context)), "Communication choice was not saved");
         } finally {
-            instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
+            instrumentation.removeMonitor(monitor);
+            if (activity != null) {
+                var shown = activity;
+                instrumentation.runOnMainSync(shown::finish);
+            }
         }
     }
 
