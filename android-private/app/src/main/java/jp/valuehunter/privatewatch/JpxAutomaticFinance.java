@@ -96,8 +96,18 @@ final class JpxAutomaticFinance {
 
     private JpxAutomaticFinance() {}
 
+    @FunctionalInterface
+    interface AcquisitionAudit {
+        void record(String code, String stage, String source, String result);
+    }
+
     static Batch refresh(Context context, JpxDailyCheck.Comparison comparison, JpxShareRights rights,
                          BooleanSupplier stopped) {
+        return refresh(context, comparison, rights, stopped, null);
+    }
+
+    static Batch refresh(Context context, JpxDailyCheck.Comparison comparison, JpxShareRights rights,
+                         BooleanSupplier stopped, AcquisitionAudit audit) {
         var state = context.getSharedPreferences("jpx-automatic-finance-v1", Context.MODE_PRIVATE);
         var report = comparison.latest();
         var session = new JpxIssuerArchive.Session();
@@ -106,11 +116,30 @@ final class JpxAutomaticFinance {
         LocalDate through = LocalDate.now(TOKYO).minusDays(2);
         return refresh(state, report, through, new Sources() {
             @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
-                return session.archive(code);
+                if (audit == null) return session.archive(code);
+                var source = JpxIssuerArchive.archiveEndpoint();
+                try {
+                    var page = session.archive(code);
+                    audit.record(code, "company_archive", source, page == null ? "archive_parse_rejected" : "parsed");
+                    return page;
+                } catch (IOException failure) {
+                    audit.record(code, "company_archive", source, acquisitionFailure(failure));
+                    throw failure;
+                }
             }
 
             @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
-                return session.annual(disclosure.annualLink());
+                var link = disclosure.annualLink();
+                if (audit == null) return session.annual(link);
+                String code = link.getPath().split("/")[2].substring(0, 4);
+                try {
+                    String body = session.annual(link);
+                    audit.record(code, "inline_xbrl_download", link.toString(), "received");
+                    return body;
+                } catch (IOException failure) {
+                    audit.record(code, "inline_xbrl_download", link.toString(), acquisitionFailure(failure));
+                    throw failure;
+                }
             }
 
             @Override public LocalDate effective(JpxIssuerArchive.Disclosure disclosure) throws IOException {
@@ -151,6 +180,11 @@ final class JpxAutomaticFinance {
             }
         }, stopped, System::currentTimeMillis, System::nanoTime, JpxIssuerArchive::publicPage,
                 comparison.previous() == null ? report.date() : comparison.previous().date());
+    }
+
+    private static String acquisitionFailure(IOException failure) {
+        return failure instanceof JpxIssuerArchive.HttpFailure http ? "http_" + http.status
+                : failure.getClass().getSimpleName();
     }
 
     static Set<String> failedAcquisitions(Context context) {

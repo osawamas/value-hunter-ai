@@ -50,6 +50,10 @@ final class JpxIssuerArchive {
         }
     }
 
+    static String archiveEndpoint() {
+        return DETAIL.toString();
+    }
+
     private JpxIssuerArchive() {}
 
     record Disclosure(LocalDate day, String title, URI annualLink, URI pdfLink, boolean results) {

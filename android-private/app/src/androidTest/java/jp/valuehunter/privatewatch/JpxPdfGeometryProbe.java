@@ -153,7 +153,10 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var report = JpxDailyCheck.readReport(context, pdf, day, universe, "");
         var comparison = new JpxDailyCheck.Comparison(report, null);
         var rights = liveCoverage ? JpxShareRights.refresh(context).rights() : JpxShareRights.cached(context);
-        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, () -> false)
+        var trace = new java.util.TreeMap<String, org.json.JSONArray>();
+        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, () -> false,
+                (code, stage, source, outcome) -> trace.computeIfAbsent(code, unused -> new org.json.JSONArray())
+                        .put(new JSONObject(Map.of("stage", stage, "source", source, "outcome", outcome))))
                 : JpxAutomaticFinance.cached(context, report);
         var screening = comparison.screen(rights, finance);
         var rows = comparison.meterRows(screening, finance, rights);
@@ -175,7 +178,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             if (!acquisition.has(code)) acquisition.put(code, new JSONObject().put("transport_retry", true));
         }
         var audit = new JSONObject().put("trade_date", day.toString()).put("issuer", acquisition)
-                .put("hold_counts", new JSONObject(holdCounts));
+                .put("hold_counts", new JSONObject(holdCounts)).put("transport", new JSONObject(trace));
         if (liveCoverage) java.nio.file.Files.write(new File(directory, "jpx-finance-audit.json").toPath(),
                 audit.toString(2).getBytes(StandardCharsets.UTF_8));
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
