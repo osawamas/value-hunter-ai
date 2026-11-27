@@ -268,8 +268,16 @@ final class JpxDailyCheck {
                     || !rights.adjustments().containsAll(annual.adjustments())
                     || rights.firstUnadjustedChange(code,annual.end(),day,annual.adjustments())!=null) continue;
                 var eps=recentEps(code,entry,annual,day,rights);
-                var score = JpxDisclosureEvidence.adjust(FlexibleValueMeter.assess(close, eps, null, null),
-                        entry.events(), day);
+                var prior = entry.previousAnnual();
+                BigDecimal priorBook = null;
+                // recentEps establishes comparable annual periods and verified share actions.
+                if (eps.size() == 2 && !annual.reportingBasis().isEmpty()
+                        && annual.reportingBasis().equals(prior.reportingBasis()) && prior.bps() != null) {
+                    priorBook = prior.onShareBasis(day, prior.bps(), false)
+                            .divide(prior.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+                }
+                var score = JpxDisclosureEvidence.adjust(
+                        FlexibleValueMeter.withVerifiedPriorBook(close, eps, priorBook), entry.events(), day);
                 if(score.confirmed()>=2) rows.put(code,ValueAlertPreview.encode(score,budgetQuantity(close)));
             }
             return rows;

@@ -3,6 +3,19 @@ import java.math.BigDecimal;
 import java.util.List;
 /** Provisional screening model. Missing metrics contribute neither points nor weights. */
 final class FlexibleValueMeter {
+    static ValueAlertMeter.Score withVerifiedPriorBook(BigDecimal price, List<BigDecimal> eps,
+                                                       BigDecimal priorBook) {
+        var earnings = assess(price, eps, null, null);
+        if (earnings.ceiling() != 1 || priorBook == null || priorBook.signum() <= 0
+                || price.compareTo(priorBook.multiply(new BigDecimal("0.5"))) > 0
+                || price.compareTo(eps.get(0).multiply(BigDecimal.valueOf(7))) > 0) {
+            return earnings;
+        }
+        // A prior balance sheet corroborates the earnings valuation, but stale book
+        // value alone cannot support the highest tier or substitute for current equity.
+        return new ValueAlertMeter.Score(earnings.points(), 2, earnings.confirmed() + 1);
+    }
+
     static ValueAlertMeter.Score assess(BigDecimal price,List<BigDecimal> eps,Integer cash,Integer balance) {
         if(price==null || price.signum()<=0 || eps==null || eps.isEmpty() || eps.get(0).signum()<=0)
             return new ValueAlertMeter.Score(0,0,0);

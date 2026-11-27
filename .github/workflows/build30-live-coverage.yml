@@ -48,9 +48,22 @@ jobs:
       - name: Measure the free alternative JPX annual input
         if: steps.acquire.outputs.jpx == 'true'
         run: |
+          day="${{ steps.acquire.outputs.jpx_day }}"
+          year="${day:0:4}"
+          month="${day:5:2}"
+          reports=()
+          timeout 60 python android-private/tools/jpx_rights_sources.py \
+            --year "$year" --start-month "$((year - 1))-01" --cutoff-month "$((10#$month))" \
+            --output "$RUNNER_TEMP/build30-rights" > coverage-results/jpx-rights-sources.json || true
+          for report in "$RUNNER_TEMP"/build30-rights/rights-*.pdf; do
+            if [[ -s "$report" ]]; then reports+=(--rights-report "$report"); fi
+          done
+          for report in "$RUNNER_TEMP"/build30-rights/*.xls; do
+            if [[ -s "$report" ]]; then reports+=(--daily-rights "$report"); fi
+          done
           if timeout 145 python android-private/tools/jpx_hachiquant_coverage.py \
             coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf --budget-samples-per-market 2 \
-            > coverage-results/jpx-alternative-input.json; then
+            "${reports[@]}" > coverage-results/jpx-alternative-input.json; then
             python -m json.tool coverage-results/jpx-alternative-input.json
           else
             printf '{"status":"alternative_input_unavailable"}\n' > coverage-results/jpx-alternative-input.json

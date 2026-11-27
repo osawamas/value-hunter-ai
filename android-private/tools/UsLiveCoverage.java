@@ -57,10 +57,15 @@ public final class UsLiveCoverage {
             report.put("status", "dated_close_provider_response_unverified");
             return;
         }
+        if (closes.length() == 0) {
+            report.put("closes", 0).put("status", "dated_closes_unavailable");
+            return;
+        }
         var prices = UsDeviceFinancials.prices(closes);
-        report.put("closes", scope.stream().filter(prices::containsKey).count());
-        if (prices.isEmpty()) {
-            report.put("status", "dated_closes_unavailable");
+        long matchingCloses = scope.stream().filter(prices::containsKey).count();
+        report.put("closes", matchingCloses);
+        if (matchingCloses == 0) {
+            report.put("status", "no_dated_closes_for_listed_scope");
             return;
         }
         var contact = System.getenv().getOrDefault("SEC_USER_AGENT", "").trim();

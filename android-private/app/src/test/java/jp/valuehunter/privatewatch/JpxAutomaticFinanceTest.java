@@ -123,6 +123,22 @@ public class JpxAutomaticFinanceTest {
         assertEquals(100,row.getInt(3));
     }
 
+    @Test public void verifiedPriorBookCanSupportSecondFlexibleTier() throws Exception {
+        var latest = new JpxAnnualSummary.Annual(LocalDate.of(2026, 3, 31), RELEASED,
+                new BigDecimal("60"), null, "current", List.of(), "ConsolidatedMember/NetIncomePerShare");
+        var prior = new JpxAnnualSummary.Annual(LocalDate.of(2025, 3, 31), LocalDate.of(2025, 5, 12),
+                new BigDecimal("50"), new BigDecimal("940"), "prior", List.of(), latest.reportingBasis());
+        var entry = new JpxAutomaticFinance.Entry(DAY, latest, "", prior);
+        var batch = new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "300"), null);
+        var screen = comparison.screen(rights, batch);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        var row = comparison.meterRows(screen, batch, rights).getJSONArray(CODE);
+        assertEquals(2, row.getInt(1));
+        assertEquals(3, row.getInt(2));
+    }
+
     @Test public void twoComparableAnnualFilingsEnableRealJpxUltraValueMeterAndPromotion() throws Exception {
         var latest = new JpxAnnualSummary.Annual(LocalDate.of(2026, 3, 31), RELEASED,
                 new BigDecimal("60"), new BigDecimal("1000"), "current-verified");
