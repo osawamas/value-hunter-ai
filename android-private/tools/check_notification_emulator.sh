@@ -23,6 +23,8 @@ reboot_emulator() {
   timeout 180 bash -c 'until [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r") == 1 ]]; do sleep 2; done'
   adb shell input keyevent KEYCODE_WAKEUP
   adb shell wm dismiss-keyguard
+  # Runtime grants on some emulator images are reset during boot.
+  grant_notifications
 }
 
 grant_notifications

@@ -74,3 +74,5 @@ Hachiquantで、月末マスター3,686件中3,623件の終値・円建て通期
 米国DoltHubの終値取得は、タイムアウトを同じ種類として扱い、小さいページへ切り替えて同じコミットの続きを取得する。11月27日取引分はHTTP 200で終値0件の回とタイムアウトした回を確認し、全市場の判定率は未計測。Android単体234件、米国の保存データ再現4件、デバッグ・計装APKの組立に成功。ブランド画面CIはAPI 28・35で成功。[市場再検証](https://github.com/osawamas/value-hunter-ai/actions/runs/46063404288) · [ブランド画面CI](https://github.com/osawamas/value-hunter-ai/actions/runs/46062488585)
 
 通知CIではAPI 28・34・35で無音、画面点灯、履歴と再起動後の重複防止、Wi-Fi復帰を確認。後続の終値補完テストが、SEC財務と開示の同形URLをどちらも財務取得として数えて失敗したため、計数をcompanyfactsに限定した。実機の動作は未検証。[通知の検証](https://github.com/osawamas/value-hunter-ai/actions/runs/46062488708) · [修正後の通知CI](https://github.com/osawamas/value-hunter-ai/actions/runs/46064200091)
+
+API 28・35は通知計装の全工程に成功。API 34の再起動後は補完した銘柄が優先候補に入り、通知権限が未許可だったことを診断ログで確認した。再起動完了時に計装用の通知権限を再付与するよう変更した。[API 34の診断](https://github.com/osawamas/value-hunter-ai/actions/runs/46064986867/job/140728022839)
