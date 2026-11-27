@@ -1061,7 +1061,8 @@ final class UsReferenceDeliveryProbe {
             var row = UsDeviceFinancials.financialRow(target, payload, day);
             if (row == null) throw new AssertionError("SEC fixture did not qualify for financial screening: " + ticker);
             financials.put(row);
-            prices.put(ticker, java.math.BigDecimal.valueOf(close));
+            // The other two rows exercise changed listing identities outside this alert's band.
+            prices.put(ticker, java.math.BigDecimal.valueOf(ticker.equals("METER") ? close : 15));
         }
         // Exercise the same persisted composite keys as the SEC finance worker.
         var ledger = UsDeviceFinancials.screen(day, PROVIDER, hash, financials, prices,
@@ -1287,11 +1288,13 @@ final class UsReferenceDeliveryProbe {
                 || channel.getSound() != null || channel.shouldVibrate()) {
             throw new AssertionError("US reference notification channel is not silent");
         }
+        var observed = new java.util.LinkedHashSet<String>();
         for (int attempt = 0; attempt < 30; attempt++) {
             for (var active : manager.getActiveNotifications()) {
                 var note = active.getNotification();
                 String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
                 String detail = note.extras.getCharSequence(Notification.EXTRA_BIG_TEXT, "").toString();
+                observed.add(title + " [" + detail.replace('\n', ' ') + "]");
                 if (title.equals(expectedTitle) && includesExpectedIssuer(detail, expectedDetail)
                         && detail.contains(day.toString()) && ScanWorker.CHANNEL.equals(note.getChannelId())) {
                     return;
@@ -1299,6 +1302,7 @@ final class UsReferenceDeliveryProbe {
             }
             Thread.sleep(100);
         }
-        throw new AssertionError("Android did not receive the US reference notification: " + expectedDetail);
+        throw new AssertionError("Android did not receive the US reference notification: " + expectedDetail
+                + "; observed: " + observed);
     }
 }

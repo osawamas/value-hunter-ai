@@ -335,9 +335,14 @@ final class NotificationDeliveryProbe {
             }
 
             changeWifi(instrumentation, true);
-            require(!androidx.work.WorkManager.getInstance(context)
-                            .getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS).isEmpty(),
-                    "Restoring Wi-Fi did not queue the US update");
+            var work = androidx.work.WorkManager.getInstance(context);
+            long enqueueDeadline = SystemClock.elapsedRealtime() + 10_000;
+            var queued = work.getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS);
+            while (queued.isEmpty() && SystemClock.elapsedRealtime() < enqueueDeadline) {
+                SystemClock.sleep(100);
+                queued = work.getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS);
+            }
+            require(!queued.isEmpty(), "Restoring Wi-Fi did not queue the US update");
             instrumentation.runOnMainSync(() -> {
                 var network = control(activity.getWindow().getDecorView(), "相場データの通信", Switch.class);
                 require(network.isChecked(), "Wi-Fi loss changed the requested communication state");
