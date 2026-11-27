@@ -17,11 +17,19 @@ run_phase() {
   timeout 150 adb shell am instrument -w -e alert_phase "$phase" "$runner" | tee "$RUNNER_TEMP/$file"
 }
 
+reboot_emulator() {
+  adb reboot
+  timeout 120 adb wait-for-device
+  timeout 180 bash -c 'until [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r") == 1 ]]; do sleep 2; done'
+  adb shell input keyevent KEYCODE_WAKEUP
+  adb shell wm dismiss-keyguard
+}
+
 grant_notifications
 adb shell settings put global stay_on_while_plugged_in 0
 run_phase delivery_core alert-core.txt
 tr -d '\r' < "$RUNNER_TEMP/alert-core.txt" | grep -x 'ALERT_CORE_DELIVERY_OK'
-timeout 30 adb shell am force-stop "$app"
+reboot_emulator
 run_phase delivery_core_restore alert-core-restart.txt
 tr -d '\r' < "$RUNNER_TEMP/alert-core-restart.txt" | grep -x 'ALERT_CORE_RESTART_OK'
 timeout 30 adb shell pm clear "$app"
@@ -30,11 +38,7 @@ run_phase post alert-post.txt
 tr -d '\r' < "$RUNNER_TEMP/alert-post.txt" | grep -x 'ALERT_SILENT_WAKE_AND_HISTORY_OK'
 tr -d '\r' < "$RUNNER_TEMP/alert-post.txt" | grep -x 'MARKET_WIFI_SWITCH_OK'
 
-adb reboot
-timeout 120 adb wait-for-device
-timeout 180 bash -c 'until [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r") == 1 ]]; do sleep 2; done'
-adb shell input keyevent KEYCODE_WAKEUP
-adb shell wm dismiss-keyguard
+reboot_emulator
 run_phase restore alert-reboot.txt
 tr -d '\r' < "$RUNNER_TEMP/alert-reboot.txt" | grep -x 'ALERT_HISTORY_AFTER_REBOOT_OK'
 
@@ -49,11 +53,7 @@ tr -d '\r' < "$RUNNER_TEMP/archive-repair-prep.txt" | grep -x 'US_ARCHIVE_REPAIR
 run_phase interrupted_prepare interrupted-prep.txt
 tr -d '\r' < "$RUNNER_TEMP/interrupted-prep.txt" | grep -x 'INTERRUPTED_NOTIFICATION_BEFORE_REBOOT_OK'
 
-adb reboot
-timeout 120 adb wait-for-device
-timeout 180 bash -c 'until [[ $(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r") == 1 ]]; do sleep 2; done'
-adb shell input keyevent KEYCODE_WAKEUP
-adb shell wm dismiss-keyguard
+reboot_emulator
 run_phase archive_repair_resume archive-repair-resume.txt
 tr -d '\r' < "$RUNNER_TEMP/archive-repair-resume.txt" | grep -x 'US_ARCHIVE_REPAIR_AFTER_REBOOT_OK'
 

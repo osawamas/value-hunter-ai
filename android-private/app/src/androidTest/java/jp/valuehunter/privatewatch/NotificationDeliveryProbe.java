@@ -3,7 +3,6 @@ package jp.valuehunter.privatewatch;
 import android.app.Instrumentation;
 import android.app.Notification;
 import android.app.NotificationManager;
-import android.content.Intent;
 import android.os.ParcelFileDescriptor;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -50,7 +49,7 @@ final class NotificationDeliveryProbe {
             var saved = NotificationHistory.recent(history, System.currentTimeMillis());
             require(saved.size() == 2 && saved.stream().anyMatch(row -> row.detail().equals(JP_DETAIL))
                     && saved.stream().anyMatch(row -> row.detail().equals(US_DETAIL)),
-                    "Core delivery history should survive a process restart");
+                    "Core delivery history should survive restart");
             require(prefs.edit().putBoolean(NotificationScreenWake.ENABLED, true).commit(),
                     "Cannot enable wake for replay check");
             sleep(instrumentation, power);
@@ -416,12 +415,15 @@ final class NotificationDeliveryProbe {
         var context = instrumentation.getTargetContext();
         var monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
         try {
-            context.startActivity(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            shell(instrumentation, "am start -n " + context.getPackageName()
+                    + "/jp.valuehunter.privatewatch.SplashActivity");
             var activity = instrumentation.waitForMonitorWithTimeout(monitor, 12_000);
             require(activity != null, "Main activity did not start");
             require(await(() -> activity.getWindow().getDecorView().getHeight() > 0),
                     "Main activity did not lay out");
             return activity;
+        } catch (IOException unavailable) {
+            throw new AssertionError("Could not launch the app from the emulator shell", unavailable);
         } finally {
             instrumentation.removeMonitor(monitor);
         }
