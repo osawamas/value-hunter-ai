@@ -351,9 +351,13 @@ public final class JpxWatchWorker extends Worker {
                 }
                 var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 if (meter != null) {
-                    var assessment = assessmentCounts(comparison.latest(), screen, meter.rows());
-                    DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証判定可能数実測 · 取引日 " + date
-                            + " · " + assessment);
+                    try {
+                        var assessment = assessmentCounts(comparison.latest(), screen, meter.rows());
+                        DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証判定可能数実測 · 取引日 " + date
+                                + " · " + assessment);
+                    } catch (JSONException invalid) {
+                        DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証判定可能数の集計を保留");
+                    }
                 }
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
@@ -427,7 +431,7 @@ public final class JpxWatchWorker extends Worker {
     static JSONObject assessmentCounts(JpxDailyCheck.Report report, JpxDailyCheck.Screening screen,
                                        JSONObject meter) throws JSONException {
         var scope = report.universe() == null ? report.quotes().keySet() : report.universe().codes();
-        int closes=0, strict=0, budget=0, assessed=0;
+        int closes=0, strict=0, budget=0, assessed=0, flexible=0;
         int[] tiers=new int[4];
         for(String code:scope) {
             var close=report.close(code);
@@ -438,13 +442,15 @@ public final class JpxWatchWorker extends Worker {
             var row=meter.optJSONArray(code);
             if(row==null || row.length()!=4 || row.optInt(2,0)<=0) continue;
             assessed++;
+            if(!screen.assessedCodes().contains(code)) flexible++;
             if(row.optInt(3,0)<=0) continue;
             var score=new ValueAlertMeter.Score(row.getInt(0),row.getInt(1),row.getInt(2));
             tiers[score.level(ValueAlertMeter.DEFAULT)]++;
         }
         return new JSONObject().put("universe_verified",report.universe()!=null)
             .put("scope",scope.size()).put("closes",closes).put("strict_assessed",strict)
-            .put("meter_assessed",assessed).put("price_budget_only_or_overlap",budget)
+            .put("meter_assessed",assessed).put("flexible_added",flexible)
+            .put("total_assessed",strict+flexible).put("price_budget_only_or_overlap",budget)
             .put("eligible_default",tiers[1]+tiers[2]+tiers[3])
             .put("tiers",new JSONArray().put(tiers[1]).put(tiers[2]).put(tiers[3]));
     }
