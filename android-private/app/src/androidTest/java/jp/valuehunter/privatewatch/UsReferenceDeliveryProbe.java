@@ -43,11 +43,11 @@ final class UsReferenceDeliveryProbe {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
                 if (!name.equals(UsSecFinanceWorker.class.getName())) return null;
                 return new UsSecFinanceWorker(app, parameters, url -> {
-                    if (wifi && url.endsWith("/CIK0000043210.json")) {
+                    if (wifi && url.endsWith("/companyfacts/CIK0000043210.json")) {
                         extraRequests.incrementAndGet();
                         return facts().replace("12345", "43210");
                     }
-                    if (wifi && url.endsWith("/CIK0000012345.json") && factRequests.get() == 0) {
+                    if (wifi && url.endsWith("/companyfacts/CIK0000012345.json") && factRequests.get() == 0) {
                         disconnect.run();
                     }
                     String data = payload(url, factRequests, indexRequests);
@@ -1213,6 +1213,11 @@ final class UsReferenceDeliveryProbe {
         if (url.equals(UsDeviceFinancials.SEC_DIRECTORY)) {
             return "{\"fields\":[\"cik\",\"name\",\"ticker\",\"exchange\"],"
                     + "\"data\":[[12345,\"Test Corp\",\"TEST\",\"NYSE\"]]}";
+        }
+        if (url.equals(UsDisclosureEvidence.url(12345)) || url.equals(UsDisclosureEvidence.url(43210))) {
+            int cik = url.equals(UsDisclosureEvidence.url(12345)) ? 12345 : 43210;
+            return "{\"cik\":" + cik + ",\"filings\":{\"recent\":{"
+                    + "\"form\":[],\"filingDate\":[],\"items\":[],\"accessionNumber\":[]}}}";
         }
         if (url.endsWith("/CIK0000012345.json")) {
             if (factRequests.incrementAndGet() == 1) throw new IOException("Simulated connection loss");
