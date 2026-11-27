@@ -88,7 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
-    static final int METER_EVIDENCE_VERSION = 3;
+    static final int METER_EVIDENCE_VERSION = 4;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {
@@ -175,7 +175,8 @@ final class UsDeviceFinancials {
                 .put("symbol",target.getString("symbol")).put("exchange",target.getString("exchange"))
                 .put("cik",cik).put("share_date",partial.end().toString()).put("equity_date",partial.end().toString())
                 .put("filed",partial.filed().toString()).put("accession",partial.accession())
-                .put("meter_eps",eps).put("meter_cash",partial.cash()).put("meter_balance",partial.balance())
+                .put("meter_eps",eps).put("meter_cash",partial.cash()==null?JSONObject.NULL:partial.cash())
+                .put("meter_balance",partial.balance()==null?JSONObject.NULL:partial.balance())
                 .put("strict_hold",assessed.hold());
             return new FetchAssessment(row,assessed.hold());
         }
