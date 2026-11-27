@@ -520,7 +520,8 @@ public final class UsDailyWorker extends Worker {
                 int distinct = reasons.optInt("missing_close") + reasons.optInt("split_hold")
                         + reasons.optInt("unusable_financials") + reasons.optInt("outside_budget")
                         + reasons.optInt("outside_valuation") + reasons.optInt("reference")
-                        + reasons.optInt("priority");
+                        + reasons.optInt("priority") + reasons.optInt("partial_insufficient")
+                        + reasons.optInt("partial_within_budget");
                 if (distinct != total) throw new JSONException("Financial screen counts do not reconcile");
                 String breakdown = "判定内訳（SEC有効財務 " + total + "件）"
                         + "\n財務・純資産が判定不可 " + reasons.optInt("unusable_financials") + "件"
@@ -543,7 +544,7 @@ public final class UsDailyWorker extends Worker {
                             + "件・純資産のみ非正値 " + equityOnly
                             + "件・両方非正値 " + both + "件・その他 " + other + "件";
                 }
-                if (reasons.optInt("assessment_count_version") == 1)
+                if (reasons.optInt("assessment_count_version") == 2)
                     breakdown += "\n判定可能数: 厳格 " + reasons.optInt("strict_assessed")
                             + "件・柔軟追加 " + reasons.optInt("partial_assessed")
                             + "件・合計 " + reasons.optInt("total_assessed")

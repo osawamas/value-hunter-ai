@@ -231,7 +231,7 @@ public final class UsSecFinanceWorker extends Worker {
                         var target = targets.getJSONObject(position);
                         UsDeviceFinancials.FetchAssessment assessment;
                         try {
-                            assessment = facts(target, day);
+                            assessment = facts(target, day, scan.optBoolean("disclosure_suspended"));
                         } catch (IOException unavailable) {
                             if (!networkStopped()) scan.put("coverage_failed", target.getString("symbol"));
                             throw unavailable;
@@ -241,6 +241,10 @@ public final class UsSecFinanceWorker extends Worker {
                         if (assessment.row() != null) results.put(assessment.row());
                         UsDeviceFinancials.recordFetchOutcome(scan, target.getString("symbol"), assessment);
                         scan.put("cursor", ++position);
+                        if (disclosureThrottle != null) {
+                            scan.put("disclosure_suspended", true);
+                            throw disclosureThrottle;
+                        }
                         if (position < end) Thread.sleep(BETWEEN_REQUESTS_MILLIS);
                     }
                 } finally {
@@ -288,11 +292,21 @@ public final class UsSecFinanceWorker extends Worker {
                 }
                 ledger = UsDeviceFinancials.screen(day, provider, hash, results, prices, fx, splits);
                 scan.put("ledger", ledger).remove("retained_ledger");
+                if (day.toString().equals(scan.optString("coverage_listing_date"))) {
+                    try {
+                        var summary = UsDeviceFinancials.scopedAssessment(day, provider, hash, scan, prices, fx, splits);
+                        UsDailyWorker.writeSnapshot(new AtomicFile(new File(directory, "us-assessment.json")), summary);
+                        DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                                "米国株全監視対象の判定集計 · " + summary);
+                    } catch (IOException | JSONException unavailable) {
+                        DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE, "米国株全監視対象の判定集計を保留");
+                    }
+                }
                 scan.remove("supplement_recheck");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var measured = ledger.getJSONObject("reference_screen").optJSONObject("diagnostics");
-            if (measured != null && measured.optInt("assessment_count_version") == 1) {
+            if (measured != null && measured.optInt("assessment_count_version") == 2) {
                 var scope = scan.optJSONArray("coverage_symbols");
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                     "米国株判定可能数実測 · 取引日 " + day
@@ -357,7 +371,7 @@ public final class UsSecFinanceWorker extends Worker {
         } catch (IOException | JSONException | DateTimeParseException unavailable) {
             if (networkStopped()) return paused();
             boolean secAccessDenied = unavailable instanceof UsDailyWorker.HttpStatus http
-                    && http.code == 403 && SecAccess.isSecHost(lastHttpErrorHost);
+                    && http != disclosureThrottle && http.code == 403 && SecAccess.isSecHost(lastHttpErrorHost);
             if (unavailable instanceof UsDailyWorker.HttpStatus http) {
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                         "米国株財務取得先 " + lastHttpErrorHost + " · HTTP " + http.code
@@ -495,10 +509,13 @@ public final class UsSecFinanceWorker extends Worker {
         var day = LocalDate.parse(scan.getString("day"));
         if (UsReferenceAlerts.hasTradeDateFx(ledger, day)
                 && scan.getString("hash").equals(ledger.optString("close_sha256"))) {
-            screened = new HashSet<>(UsReferenceAlerts.read(ledger).rows().keySet());
+            var observations = UsReferenceAlerts.read(ledger).rows();
+            screened = new HashSet<>(observations.keySet());
             for (int index = 0; index < results.length(); index++) {
                 var row = results.getJSONObject(index);
-                if (row.optBoolean("partial_value")) {
+                var observation = observations.get(row.getString("symbol"));
+                if (row.optBoolean("partial_value")
+                        && (observation == null || !"partial_assessed".equals(observation.status()))) {
                     screened.remove(row.getString("symbol"));
                     reasons.put(row.getString("symbol"), MarketCoverage.Reason.FINANCIALS);
                 } else if (UsDeviceFinancials.nonPositiveFinancials(row)) {
@@ -784,17 +801,22 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    private UsDeviceFinancials.FetchAssessment facts(JSONObject target, LocalDate day) throws IOException, JSONException {
+    private UsDailyWorker.HttpStatus disclosureThrottle;
+
+    private UsDeviceFinancials.FetchAssessment facts(JSONObject target, LocalDate day, boolean disclosureSuspended)
+            throws IOException, JSONException {
         try {
             int cik = target.getInt("cik");
             var payload = new JSONObject(download.get(String.format(Locale.ROOT, SEC_FACTS, cik)));
             var assessed = UsDeviceFinancials.assessFetch(target, payload, day);
-            if (assessed.row() != null && !networkStopped()) {
+            if (assessed.row() != null && disclosureSuspended) {
+                assessed.row().put("disclosure_unavailable", true);
+            } else if (assessed.row() != null && !networkStopped()) {
                 try {
                     var filings = new JSONObject(download.get(UsDisclosureEvidence.url(cik)));
                     assessed.row().put("disclosure_events", UsDisclosureEvidence.read(filings, cik, day));
                 } catch (UsDailyWorker.HttpStatus unavailable) {
-                    if (unavailable.code == 403 || unavailable.code == 429) throw unavailable;
+                    if (unavailable.code == 403 || unavailable.code == 429) disclosureThrottle = unavailable;
                     assessed.row().put("disclosure_unavailable", true);
                 } catch (IOException | JSONException unavailable) {
                     assessed.row().put("disclosure_unavailable", true);

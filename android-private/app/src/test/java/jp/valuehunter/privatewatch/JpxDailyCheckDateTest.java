@@ -8,6 +8,29 @@ import java.util.Set;
 import org.junit.Test;
 
 public class JpxDailyCheckDateTest {
+    @Test public void assessmentKeepsMissingClosesAndWeakMeterRowsInTheFixedScope() throws Exception {
+        var day = LocalDate.of(2026, 11, 19);
+        var scope = new JpxStockUniverse(day, Set.of("1301", "1302", "1303", "1304", "1305"));
+        var cheap = new JpxCloseTable.Sessions(java.math.BigDecimal.valueOf(500), null);
+        var costly = new JpxCloseTable.Sessions(java.math.BigDecimal.valueOf(100001), null);
+        var report = new JpxDailyCheck.Report(day, "official", Map.of(
+                "1301", cheap, "1302", cheap, "1303", cheap, "1304", costly), Set.of(), "a", scope);
+        var screening = new JpxDailyCheck.Screening(java.util.List.of(), java.util.List.of(),
+                java.util.List.of(), Set.of("1301"));
+        var rows = new org.json.JSONObject()
+                .put("1301", ValueAlertPreview.encode(new ValueAlertMeter.Score(90, 2, 2), 100))
+                .put("1302", ValueAlertPreview.encode(new ValueAlertMeter.Score(85, 1, 2), 100))
+                .put("1303", ValueAlertPreview.encode(new ValueAlertMeter.Score(90, 0, 1), 100));
+        var result = JpxWatchWorker.assessmentCounts(report, screening, rows);
+        assertEquals(5, result.getInt("scope"));
+        assertEquals(1, result.getInt("strict_assessed"));
+        assertEquals(1, result.getInt("flexible_added"));
+        assertEquals(40.0, result.getDouble("full_scope_assessed_percent"), 0.0);
+        assertEquals(2, result.getInt("budget_assessed"));
+        assertEquals(3, result.getInt("unassessed"));
+        assertEquals(3, result.getJSONObject("unassessed_reasons").length());
+    }
+
     @Test public void savedQuotesReuseTheExactEditionAndPreserveNoTradeAndAmbiguity() throws Exception {
         var day = LocalDate.of(2026, 11, 19);
         var universe = new JpxStockUniverse(day.minusDays(2), Set.of("1301", "1302", "1332"));

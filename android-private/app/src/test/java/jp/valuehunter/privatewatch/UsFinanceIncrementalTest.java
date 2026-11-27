@@ -97,7 +97,7 @@ public class UsFinanceIncrementalTest {
         org.junit.Assert.assertFalse(UsDeviceFinancials.currentScreenVersion(ledger));
         screen.put("diagnostics", new JSONObject().put("budget_count_version", 2));
         org.junit.Assert.assertFalse(UsDeviceFinancials.currentScreenVersion(ledger));
-        screen.getJSONObject("diagnostics").put("assessment_count_version",1);
+        screen.getJSONObject("diagnostics").put("assessment_count_version", 2);
         org.junit.Assert.assertTrue(UsDeviceFinancials.currentScreenVersion(ledger));
     }
 

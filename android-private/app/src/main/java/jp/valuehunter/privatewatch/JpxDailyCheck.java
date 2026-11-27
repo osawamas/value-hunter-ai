@@ -268,7 +268,8 @@ final class JpxDailyCheck {
                     || !rights.adjustments().containsAll(annual.adjustments())
                     || rights.firstUnadjustedChange(code,annual.end(),day,annual.adjustments())!=null) continue;
                 var eps=recentEps(code,entry,annual,day,rights);
-                var score=FlexibleValueMeter.assess(close,eps,null,null);
+                var score = JpxDisclosureEvidence.adjust(FlexibleValueMeter.assess(close, eps, null, null),
+                        entry.events(), day);
                 if(score.confirmed()>=2) rows.put(code,ValueAlertPreview.encode(score,budgetQuantity(close)));
             }
             return rows;

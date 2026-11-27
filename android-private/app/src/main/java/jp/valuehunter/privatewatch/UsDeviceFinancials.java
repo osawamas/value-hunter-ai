@@ -218,7 +218,7 @@ final class UsDeviceFinancials {
         var diagnostics = screen == null ? null : screen.optJSONObject("diagnostics");
         return screen != null && screen.has("meter_rows") && diagnostics != null
                 && diagnostics.optInt("budget_count_version", 0) == 2
-                && diagnostics.optInt("assessment_count_version", 0) == 1;
+                && diagnostics.optInt("assessment_count_version", 0) == 2;
     }
 
     static boolean nonPositiveFinancials(JSONObject row) {
@@ -241,6 +241,7 @@ final class UsDeviceFinancials {
         int missingClose = 0, splitHoldCount = 0, unusableFinancials = 0;
         int outsideBudget = 0, outsideValuation = 0, referenceCount = 0, priorityCount = 0;
         int affordable100 = 0, singleShare = 0;
+        int partialInsufficient = 0, partialWithinBudget = 0;
         int partialAssessed = 0, partialEligible = 0, strictAssessed = 0, strictEligible = 0;
         int[] flexibleTiers = new int[4], strictTiers = new int[4];
         var seen = new HashSet<String>();
@@ -269,14 +270,18 @@ final class UsDeviceFinancials {
                 var yen=close.multiply(rate);
                 int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
                 if(quantity==100) affordable100++; else if(quantity==1) singleShare++;
-                if(score.confirmed()>=2) partialAssessed++;
+                if (score.confirmed() < 2) {
+                    partialInsufficient++;
+                    continue;
+                }
+                partialAssessed++;
                 if(quantity>0 && score.level(ValueAlertMeter.DEFAULT)>0) {
                     partialEligible++; flexibleTiers[score.level(ValueAlertMeter.DEFAULT)]++;
                 }
-                String status=quantity==0?"outside_budget":"outside_valuation";
-                if(quantity==0) outsideBudget++; else outsideValuation++;
+                if (quantity == 0) outsideBudget++;
+                else partialWithinBudget++;
                 observations.put(new JSONObject().put("symbol",symbol).put("exchange",exchange)
-                    .put("cik",row.getInt("cik")).put("status",status).put("quantity",quantity==0?1:quantity));
+                    .put("cik",row.getInt("cik")).put("status","partial_assessed").put("quantity",quantity==0?1:quantity));
                 meter.put(UsReferenceAlerts.meterKey(exchange,row.getInt("cik"),symbol),
                     new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed()).put(quantity));
                 continue;
@@ -330,7 +335,9 @@ final class UsDeviceFinancials {
                 .put("non_positive_equity_only", nonPositiveEquity)
                 .put("non_positive_both", nonPositiveBoth)
                 .put("other_financial_hold", otherFinancialHold)
-                .put("assessment_count_version",1)
+                .put("assessment_count_version", 2)
+                .put("partial_insufficient", partialInsufficient)
+                .put("partial_within_budget", partialWithinBudget)
                 .put("strict_assessed",strictAssessed).put("strict_eligible_default",strictEligible)
                 .put("partial_assessed",partialAssessed).put("partial_eligible_default",partialEligible)
                 .put("total_assessed",strictAssessed+partialAssessed)
@@ -350,6 +357,66 @@ final class UsDeviceFinancials {
                 .put("reference_screen", new JSONObject().put("provider", provider).put("close_sha256", hash)
                         .put("fx_date", fx.date().toString()).put("observations", observations)
                         .put("diagnostics", diagnostics).put("meter_rows", meter));
+    }
+
+    static JSONObject scopedAssessment(LocalDate day, String source, String hash, JSONObject checkpoint,
+                                       Map<String, BigDecimal> allPrices, UsScreen.Fx fx,
+                                       Map<String, LocalDate> splits) throws JSONException {
+        var listingDay = LocalDate.parse(checkpoint.getString("coverage_listing_date"));
+        if (!listingDay.equals(day)) throw new JSONException("Expected a same-session listing scope");
+        var symbols = checkpoint.getJSONArray("coverage_symbols");
+        var scope = new java.util.HashSet<String>();
+        for (int i = 0; i < symbols.length(); i++) {
+            if (!scope.add(symbols.getString(i))) throw new JSONException("Duplicate listing symbol");
+        }
+        if (scope.isEmpty()) throw new JSONException("Listing scope is empty");
+        var prices = new HashMap<>(allPrices);
+        prices.keySet().retainAll(scope);
+        var raw = checkpoint.getJSONArray("results");
+        var records = new JSONArray();
+        var recordsBySymbol = new HashMap<String, JSONObject>();
+        for (int i = 0; i < raw.length(); i++) {
+            var row = raw.getJSONObject(i);
+            String symbol = row.getString("symbol");
+            if (scope.contains(symbol)) {
+                records.put(row);
+                recordsBySymbol.put(symbol, row);
+            }
+        }
+        var ledger = screen(day, source, hash, records, prices, fx, splits);
+        var assessed = UsReferenceAlerts.read(ledger).rows();
+        var diagnostics = ledger.getJSONObject("reference_screen").getJSONObject("diagnostics");
+        int budget = 0, budgetAssessed = 0;
+        var reasonCounts = new java.util.TreeMap<String, Integer>();
+        var holds = checkpoint.optJSONObject("fetch_holds");
+        var splitHolds = new java.util.HashSet<String>();
+        var heldSplits = ledger.getJSONArray("split_holds");
+        for (int i = 0; i < heldSplits.length(); i++) splitHolds.add(heldSplits.getString(i));
+        for (String symbol : scope) {
+            var price = prices.get(symbol);
+            var financial = recordsBySymbol.get(symbol);
+            if (price != null && price.multiply(BigDecimal.valueOf(fx.yenPerDollar())).compareTo(BUDGET) <= 0) {
+                budget++;
+                if (assessed.containsKey(symbol)) budgetAssessed++;
+            }
+            if (assessed.containsKey(symbol)) continue;
+            String reason;
+            if (price == null) reason = "missing_close";
+            else if (splitHolds.contains(symbol)) reason = "split_hold";
+            else if (financial != null && nonPositiveFinancials(financial)) reason = "non_positive_financials";
+            else if (financial != null) reason = "insufficient_valuation_evidence";
+            else reason = holds == null ? "financial_or_identity_unavailable"
+                    : holds.optString(symbol, "financial_or_identity_unavailable");
+            reasonCounts.merge(reason, 1, Integer::sum);
+        }
+        return diagnostics.put("trading_date", day.toString()).put("listing_date", listingDay.toString())
+                .put("close_provider", source).put("close_sha256", hash)
+                .put("scope", scope.size()).put("closes", prices.size())
+                .put("unassessed", scope.size() - assessed.size())
+                .put("full_scope_assessed_percent", 100.0 * assessed.size() / scope.size())
+                .put("budget", budget).put("budget_assessed", budgetAssessed)
+                .put("budget_assessed_percent", budget == 0 ? JSONObject.NULL : 100.0 * budgetAssessed / budget)
+                .put("unassessed_reasons", new JSONObject(reasonCounts));
     }
 
     private static List<BigDecimal> meterEps(JSONObject row) {

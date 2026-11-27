@@ -9,6 +9,7 @@ on:
       - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_monitor_*.py'
       - 'android-private/tools/UsRetryReplay.java'
+      - 'android-private/tools/compile_us_replay.sh'
       - 'android-private/tools/UsDatedRetryReplay.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ValueAlertMeter.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/FlexibleValueMeter.java'
@@ -40,6 +41,7 @@ on:
       - 'android-private/tools/*us_daily_coverage.py'
       - 'android-private/tools/*us_monitor_*.py'
       - 'android-private/tools/UsRetryReplay.java'
+      - 'android-private/tools/compile_us_replay.sh'
       - 'android-private/tools/UsDatedRetryReplay.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ValueAlertMeter.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/FlexibleValueMeter.java'
@@ -86,22 +88,5 @@ jobs:
           dir="$(mktemp -d)"
           curl --fail --silent --show-error --retry 2 \
             https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
-          src=app/src/main/java/jp/valuehunter/privatewatch
-          # The replay does not invoke outcome tracking. Stub only its Android-bound
-          # type references so the pure-Java replay can compile outside Android.
-          cat > "$dir/AlertOutcomes.java" <<'JAVA'
-          package jp.valuehunter.privatewatch;
-          import java.time.LocalDate;
-          final class AlertOutcomes {
-              static final int MAX_BATCH = 32;
-              record Window(LocalDate entry, LocalDate exit) {}
-              record Prices(double entry, double exit) {}
-              static boolean validSymbol(String symbol) {
-                  return symbol.matches("[A-Z0-9.$+^=/_-]{1,24}");
-              }
-          }
-          JAVA
-          javac --release 17 -cp "$dir/json.jar" -d "$dir/classes" \
-            "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget,ValueAlertMeter,FlexibleValueMeter,UsDisclosureEvidence}.java \
-            "$dir/AlertOutcomes.java" tools/{UsRetryReplay,UsDatedRetryReplay}.java
+          bash tools/compile_us_replay.sh "$dir"
           python3 tools/test_us_dated_retry_replay.py "$dir/classes:$dir/json.jar"

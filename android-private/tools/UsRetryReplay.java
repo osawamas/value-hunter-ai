@@ -26,6 +26,16 @@ public final class UsRetryReplay {
     }
 
     public static void main(String[] args) throws Exception {
+        if (args.length == 3 && "--coverage".equals(args[0])) {
+            byte[] quoteBytes = Files.readAllBytes(Path.of(args[1]));
+            var quote = new JSONObject(new String(quoteBytes, StandardCharsets.UTF_8));
+            byte[] checkpointBytes = Files.readAllBytes(Path.of(args[2]));
+            var checkpoint = new JSONObject(new String(checkpointBytes, StandardCharsets.UTF_8));
+            System.out.println(coverage(quote, checkpoint, UsReferenceAlerts.sha256(quoteBytes))
+                    .put("checkpoint_sha256", UsReferenceAlerts.sha256(checkpointBytes))
+                    .toString(2));
+            return;
+        }
         if (args.length != 5 || args[3].equals(args[4])) {
             throw new IllegalArgumentException("Usage: UsRetryReplay INPUT_DIR PRIOR_DATE DATE WITHHELD_CLOSE WITHHELD_FACTS");
         }
@@ -92,6 +102,27 @@ public final class UsRetryReplay {
                 .put("nonpositive_financials", nonPositive)
                 .put("screening_holds_after_retry", quotes.keySet().stream()
                         .filter(symbol -> !after.screen().rows().containsKey(symbol)).sorted().toList()).toString(2));
+    }
+
+    static JSONObject coverage(JSONObject quote, JSONObject checkpoint, String hash) {
+        var day = LocalDate.parse(quote.getString("trading_date_et"));
+        String source = quote.getString("source");
+        if (!UsDailyCloses.tradingDay(day) || !day.toString().equals(checkpoint.getString("day"))
+                || !hash.equals(checkpoint.getString("hash")) || checkpoint.getInt("cursor")
+                != checkpoint.getJSONArray("targets").length()) {
+            throw new IllegalArgumentException("Expected matching closes and a completed SEC pass");
+        }
+        var evidence = checkpoint.getJSONObject("valuation_evidence");
+        double rate = evidence.getDouble("fx_rate");
+        if (evidence.getInt("split_window_version") != 2 || !Double.isFinite(rate) || rate <= 0) {
+            throw new IllegalArgumentException("Expected verified split window and FX");
+        }
+        var splits = new HashMap<String, LocalDate>();
+        var splitDates = evidence.getJSONObject("splits");
+        for (var symbol : splitDates.keySet()) splits.put(symbol, LocalDate.parse(splitDates.getString(symbol)));
+
+        return UsDeviceFinancials.scopedAssessment(day, source, hash, checkpoint,
+                UsDeviceFinancials.prices(quote.getJSONArray("closes")), new UsScreen.Fx(day, rate), splits);
     }
 
     static Map<String, BigDecimal> closes(JSONArray bars, LocalDate day) throws JSONException {

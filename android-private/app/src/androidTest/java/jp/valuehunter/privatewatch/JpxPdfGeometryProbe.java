@@ -24,10 +24,12 @@ import org.json.JSONObject;
 
 public final class JpxPdfGeometryProbe extends Instrumentation {
     private String alertPhase;
+    private String coverageDay;
     @Override
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         alertPhase = arguments == null ? null : arguments.getString("alert_phase");
+        coverageDay = arguments == null ? null : arguments.getString("coverage_day");
         start();
     }
 
@@ -37,6 +39,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         try {
             if (alertPhase != null) {
                 result.putString("stream", "\n" + NotificationDeliveryProbe.run(this, alertPhase) + "\n");
+                finish(Activity.RESULT_OK, result);
+                return;
+            }
+            if (coverageDay != null) {
+                result.putString("stream", "\n" + replayCoverage(LocalDate.parse(coverageDay)) + "\n");
                 finish(Activity.RESULT_OK, result);
                 return;
             }
@@ -69,6 +76,44 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
             finish(Activity.RESULT_CANCELED, result);
         }
+    }
+
+    private JSONObject replayCoverage(LocalDate day) throws Exception {
+        var context = getTargetContext();
+        var directory = context.getDataDir();
+        var pdf = new File(directory, "jpx-" + day.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + ".pdf");
+        var snapshot = new File(directory, "jpx-coverage-universe.txt");
+        var codes = new HashSet<String>();
+        try (var input = new BufferedReader(new FileReader(snapshot))) {
+            if (!day.toString().equals(input.readLine())) throw new IOException("Expected a same-session listing scope");
+            for (String code; (code = input.readLine()) != null;) {
+                if (!code.matches("[0-9][0-9A-Z]{3}") || !codes.add(code)) throw new IOException("Invalid JPX listing scope");
+            }
+        }
+        if (codes.size() < 3000) throw new IOException("Incomplete JPX listing scope");
+        var universe = new JpxStockUniverse(day, Set.copyOf(codes));
+        var report = JpxDailyCheck.readReport(context, pdf, day, universe, "");
+        var finance = JpxAutomaticFinance.cached(context, report);
+        var rights = JpxShareRights.cached(context);
+        var comparison = new JpxDailyCheck.Comparison(report, null);
+        var screening = comparison.screen(rights, finance);
+        var rows = comparison.meterRows(screening, finance, rights);
+        return JpxWatchWorker.assessmentCounts(report, screening, rows)
+                .put("trading_date", day.toString()).put("close_source", report.source())
+                .put("source_pdf_sha256", digest(pdf)).put("listing_scope_sha256", digest(snapshot))
+                .put("financial_records", finance.entries().values().stream()
+                        .filter(entry -> entry.annualFor(day) != null).count());
+    }
+
+    private static String digest(File file) throws Exception {
+        var digest = MessageDigest.getInstance("SHA-256");
+        try (var input = new java.io.FileInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            for (int size; (size = input.read(buffer)) != -1;) digest.update(buffer, 0, size);
+        }
+        var hex = new StringBuilder();
+        for (byte value : digest.digest()) hex.append(String.format(Locale.ROOT, "%02x", value & 0xff));
+        return hex.toString();
     }
 
     private static String digestReport(android.content.Context context, File directory,

@@ -81,6 +81,33 @@ public class UsDeviceFinancialBreakdownTest {
         assertEquals(1,d.getInt("split_hold"));
     }
 
+    @Test public void incompletePartialRowsCannotAnchorLegacyEntrants() throws Exception {
+        var day = LocalDate.parse("2026-11-23");
+        var partial = new JSONObject().put("symbol", "AAA").put("exchange", "NYSE").put("cik", 1)
+                .put("partial_value", true).put("share_date", "2026-09-30")
+                .put("meter_eps", new JSONArray().put("2"));
+        var prices = Map.of("AAA", BigDecimal.valueOf(5));
+        var hash = "a".repeat(64);
+        var incomplete = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, hash,
+                new JSONArray().put(partial), prices, new UsScreen.Fx(day, 150), Map.of());
+        assertTrue(UsReferenceAlerts.read(incomplete).rows().isEmpty());
+        assertEquals(1, incomplete.getJSONObject("reference_screen").getJSONObject("diagnostics")
+                .getInt("partial_insufficient"));
+
+        partial.put("meter_eps", new JSONArray().put("2").put("1.9"));
+        var complete = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, hash,
+                new JSONArray().put(partial), prices, new UsScreen.Fx(day, 150), Map.of());
+        var prior = UsReferenceAlerts.read(complete);
+        assertEquals("partial_assessed", prior.rows().get("AAA").status());
+        assertEquals(1, complete.getJSONObject("reference_screen").getJSONObject("meter_rows").length());
+
+        var next = day.plusDays(1);
+        var strict = UsDeviceFinancials.screen(next, UsDoltCloses.SOURCE, hash,
+                new JSONArray().put(financial("AAA", 1, 1000, 5000, 6000)),
+                prices, new UsScreen.Fx(next, 150), Map.of());
+        assertTrue(UsReferenceAlerts.entrants(prior, UsReferenceAlerts.read(strict)).isEmpty());
+    }
+
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
                 .put("shares",String.valueOf(shares)).put("profit",String.valueOf(profit))

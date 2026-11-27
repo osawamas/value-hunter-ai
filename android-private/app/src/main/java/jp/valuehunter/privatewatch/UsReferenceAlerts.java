@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 final class UsReferenceAlerts {
-    private static final Set<String> SCREENED = Set.of("priority", "reference", "outside_budget", "outside_valuation");
+    private static final Set<String> SCREENED = Set.of("priority", "reference", "outside_budget", "outside_valuation", "partial_assessed");
 
     record Observation(int cik, String exchange, String status, int quantity) {
         boolean candidate() {
@@ -25,7 +25,7 @@ final class UsReferenceAlerts {
         }
 
         boolean enteredFrom(Observation previous) {
-            return candidate() && sameSecurity(previous) && (!previous.candidate() || ("priority".equals(status) && "reference".equals(previous.status)));
+            return candidate() && sameSecurity(previous) && !"partial_assessed".equals(previous.status) && (!previous.candidate() || ("priority".equals(status) && "reference".equals(previous.status)));
         }
     }
 
