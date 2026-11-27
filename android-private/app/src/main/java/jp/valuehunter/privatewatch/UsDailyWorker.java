@@ -551,11 +551,21 @@ public final class UsDailyWorker extends Worker {
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
             var meter = reference.optJSONObject("meter_rows");
             boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, true);
-            var ranks = useMeter && meter != null && anchor != null
-                    && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
-                    ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent,
-                            UsReferenceAlerts.comparableMeterSymbols(anchor, screen)::get) : java.util.Map.<String, ValueAlertPreview.Entry>of();
+            var meterHistory = ValueAlertPreview.history(state, ValueAlertPreview.Market.US);
+            var meterPrior = meterHistory.latest();
+            if (meterPrior != null && day.equals(meterPrior.day())) meterPrior = meterHistory.previous();
+            if (meterPrior != null && (!provider.equals(meterPrior.source())
+                    || !UsPriceOnlyBudget.previousSession(day).equals(meterPrior.day()))) meterPrior = null;
+            var verifiedSymbols = new java.util.HashMap<String,String>();
+            screen.rows().forEach((symbol, observation) -> verifiedSymbols.put(
+                    UsReferenceAlerts.meterKey(observation.exchange(), observation.cik(), symbol),symbol));
+            var ranks = useMeter && meter != null
+                    ? ValueAlertPreview.discoveries(state, day, provider, meter, meterPrior, sent, verifiedSymbols::get)
+                    : java.util.Map.<String, ValueAlertPreview.Entry>of();
             var entrants = useMeter ? java.util.Map.<String, String>of() : UsReferenceAlerts.entrantRows(anchor, screen, ValueAlertPreview.previouslyNotified(sent));
+            if (useMeter && meter != null) DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    "米国株 · " + ValueAlertPreview.discoveryDiagnostics(state, day, provider, meter,
+                            meterPrior, sent, verifiedSymbols::get));
             String notificationState = ScanWorker.alertBlockReason(context);
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
@@ -569,7 +579,7 @@ public final class UsDailyWorker extends Worker {
                     entrants.keySet().forEach(symbol -> queued.put(symbol, "priority".equals(screen.rows().get(symbol).status())
                             ? "優先候補" : "参考候補"));
                 } else if (!ranks.isEmpty()) {
-                    pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
+                    pending = ValueAlertPreview.title("米国株", ranks).replace("新規・昇格", "発掘・昇格") + "\n" + day + "の終値（参考）\n"
                             + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
                                     .map(row -> UsCompanyNames.decorate(row, issuerNames))
                                     .collect(java.util.stream.Collectors.joining("\n"));

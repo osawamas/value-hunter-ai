@@ -347,10 +347,15 @@ public final class JpxWatchWorker extends Worker {
                 var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights());
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
-                if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meter != null) {
+                if (useMeter && notifyEnabled && meter != null) {
                     try {
-                        var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, date, "JPX",
-                                meter.rows(), meter.prior(), alerted, code -> code);
+                        var entries = ValueAlertPreview.discoveries(state, date, "JPX",
+                                meter.rows(), baseline == null || date.equals(baseline) ? null : meter.prior(),
+                                alerted, code -> code);
+                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                                "東証 · " + ValueAlertPreview.discoveryDiagnostics(state, date, "JPX", meter.rows(),
+                                        baseline == null || date.equals(baseline) ? null : meter.prior(),
+                                        alerted, code -> code));
                         DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
                         if (!entries.isEmpty()) {
                             var detail = new StringBuilder(date + "の東証終値（参考）");
@@ -358,7 +363,7 @@ public final class JpxWatchWorker extends Worker {
                                 detail.append("\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
                             }
                             for (var entry : entries.values()) detail.append("\n").append(entry.summary());
-                            queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
+                            queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries).replace("新規・昇格", "発掘・昇格"),
                                     detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった",
                                     alertGeneration, financialGeneration);
                         }
