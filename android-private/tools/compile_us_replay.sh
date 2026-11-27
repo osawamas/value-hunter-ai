@@ -19,4 +19,4 @@ final class AlertOutcomes {
 JAVA
 javac --release 17 -cp "$dir/json.jar" -d "$dir/classes" \
   "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget,ValueAlertMeter,FlexibleValueMeter,UsDisclosureEvidence}.java \
-  "$dir/AlertOutcomes.java" tools/{UsRetryReplay,UsDatedRetryReplay}.java
+  "$dir/AlertOutcomes.java" tools/{UsRetryReplay,UsDatedRetryReplay,UsLiveCoverage}.java

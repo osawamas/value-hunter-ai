@@ -1,0 +1,48 @@
+name: Build30 public market coverage
+on:
+  push:
+    branches: [integration/valuehunter-flexible-coverage]
+    paths:
+      - '.github/workflows/build30-live-coverage.yml'
+      - 'android-private/tools/build30_public_sources.py'
+      - 'android-private/tools/UsLiveCoverage.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: build30-live-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-data:
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Collect public JPX and US inputs
+        run: |
+          python -m pip install openpyxl pymupdf
+          python android-private/tools/build30_public_sources.py coverage-results
+      - name: Run Android US valuation engine against acquired data
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          dir="$(mktemp -d)"
+          curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
+          bash android-private/tools/compile_us_replay.sh "$dir"
+          java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build30-coverage
+          path: coverage-results/*.json
+          retention-days: 3
