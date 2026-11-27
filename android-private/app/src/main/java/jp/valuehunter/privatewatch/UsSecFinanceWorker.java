@@ -290,6 +290,19 @@ public final class UsSecFinanceWorker extends Worker {
                 scan.remove("supplement_recheck");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
+            var measured = ledger.getJSONObject("reference_screen").optJSONObject("diagnostics");
+            if (measured != null && measured.optInt("assessment_count_version") == 1) {
+                var scope = scan.optJSONArray("coverage_symbols");
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "米国株判定可能数実測 · 取引日 " + day
+                    + " · 上場対象 " + (scope == null ? "未確認" : scope.length())
+                    + " · 終値取得 " + prices.size()
+                    + " · 厳格判定 " + measured.getInt("strict_assessed")
+                    + " · 柔軟判定追加 " + measured.getInt("partial_assessed")
+                    + " · 合計 " + measured.getInt("total_assessed")
+                    + " · 予算内三段階該当（標準設定） " + measured.getInt("total_eligible_default")
+                    + " · 柔軟三段階内訳 " + measured.getJSONArray("flexible_tiers"));
+            }
             var missingReasons = UsDeviceFinancials.fetchHoldCounts(scan);
             if (!missingReasons.isEmpty()) DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                     "SEC財務未取得の理由別集計 · " + missingReasons);
@@ -481,10 +494,13 @@ public final class UsSecFinanceWorker extends Worker {
         var day = LocalDate.parse(scan.getString("day"));
         if (UsReferenceAlerts.hasTradeDateFx(ledger, day)
                 && scan.getString("hash").equals(ledger.optString("close_sha256"))) {
-            screened = UsReferenceAlerts.read(ledger).rows().keySet();
+            screened = new HashSet<>(UsReferenceAlerts.read(ledger).rows().keySet());
             for (int index = 0; index < results.length(); index++) {
                 var row = results.getJSONObject(index);
-                if (UsDeviceFinancials.nonPositiveFinancials(row)) {
+                if (row.optBoolean("partial_value")) {
+                    screened.remove(row.getString("symbol"));
+                    reasons.put(row.getString("symbol"), MarketCoverage.Reason.FINANCIALS);
+                } else if (UsDeviceFinancials.nonPositiveFinancials(row)) {
                     reasons.put(row.getString("symbol"), MarketCoverage.Reason.NON_POSITIVE_FINANCIALS);
                 }
             }
