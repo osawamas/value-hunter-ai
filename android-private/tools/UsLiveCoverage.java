@@ -21,6 +21,7 @@ public final class UsLiveCoverage {
     private static final String FX = "https://api.frankfurter.dev/v2/rates?base=USD&quotes=JPY";
     private static final String FACTS = "https://data.sec.gov/api/xbrl/companyfacts/CIK%010d.json";
     private static final JSONArray SOURCES = new JSONArray();
+    private static final java.util.Set<String> SEEN_HOSTS = new java.util.HashSet<>();
 
     public static void main(String[] args) throws Exception {
         var directory = Path.of(args[0]);
@@ -90,6 +91,14 @@ public final class UsLiveCoverage {
                             new UsDeviceFinancials.FetchAssessment(null, "sec_not_found"));
                     Thread.sleep(350);
                     continue;
+                } catch (org.json.JSONException invalidIssuer) {
+                    UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
+                            new UsDeviceFinancials.FetchAssessment(null, "sec_invalid_payload"));
+                    Thread.sleep(350);
+                    continue;
+                } catch (IOException unavailable) {
+                    report.put("financial_stop", unavailable.getClass().getSimpleName());
+                    break;
                 }
                 Thread.sleep(350);
             }
@@ -112,7 +121,7 @@ public final class UsLiveCoverage {
             // SEC facts are uniform requests. Record the first response and every failure without
             // publishing the contact or a ticker-by-ticker issuer list.
             String host = request.uri().getHost();
-            if (!host.equals("data.sec.gov") || SOURCES.length() == 0 || response.statusCode() != 200) {
+            if (SEEN_HOSTS.add(host) || response.statusCode() != 200) {
                 SOURCES.put(new JSONObject().put("host", host).put("http", response.statusCode())
                         .put("at", Instant.now().toString()));
             }

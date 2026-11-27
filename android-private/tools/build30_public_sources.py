@@ -62,8 +62,16 @@ def jpx(out, journal):
         pdf = out / "jpx-session.pdf"
         url = JPX_ROOT + f"{day:%Y%m}/stq_{day:%Y%m%d}.pdf"
         if get(url, pdf, journal):
-            stocks = ordinary_stocks(workbook)
-            quotes, ambiguous = read_quotes(pdf, stocks)
+            with pdf.open("rb") as stream:
+                if stream.read(5) != b"%PDF-":
+                    pdf.unlink()
+                    return {"status": "invalid_daily_pdf", "trade_date": day.isoformat()}
+            try:
+                stocks = ordinary_stocks(workbook)
+                quotes, ambiguous = read_quotes(pdf, stocks)
+            except (ValueError, OSError) as error:
+                return {"status": "reference_parser_unavailable", "trade_date": day.isoformat(),
+                        "error": type(error).__name__}
             return {"status": "price_inputs_only", "trade_date": day.isoformat(),
                     "listing_reference_count": len(stocks), "matched_close_count": sum(
                         (morning is not None or afternoon is not None) for morning, afternoon in quotes.values()),

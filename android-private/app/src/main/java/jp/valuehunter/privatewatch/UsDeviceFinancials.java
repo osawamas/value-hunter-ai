@@ -213,12 +213,14 @@ final class UsDeviceFinancials {
         return counts;
     }
 
+    static final int ASSESSMENT_COUNT_VERSION = 3;
+
     static boolean currentScreenVersion(JSONObject ledger) {
         var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");
         var diagnostics = screen == null ? null : screen.optJSONObject("diagnostics");
         return screen != null && screen.has("meter_rows") && diagnostics != null
                 && diagnostics.optInt("budget_count_version", 0) == 2
-                && diagnostics.optInt("assessment_count_version", 0) == 2;
+                && diagnostics.optInt("assessment_count_version", 0) == ASSESSMENT_COUNT_VERSION;
     }
 
     static boolean nonPositiveFinancials(JSONObject row) {
@@ -335,7 +337,7 @@ final class UsDeviceFinancials {
                 .put("non_positive_equity_only", nonPositiveEquity)
                 .put("non_positive_both", nonPositiveBoth)
                 .put("other_financial_hold", otherFinancialHold)
-                .put("assessment_count_version", 2)
+                .put("assessment_count_version", ASSESSMENT_COUNT_VERSION)
                 .put("partial_insufficient", partialInsufficient)
                 .put("partial_within_budget", partialWithinBudget)
                 .put("strict_assessed",strictAssessed).put("strict_eligible_default",strictEligible)

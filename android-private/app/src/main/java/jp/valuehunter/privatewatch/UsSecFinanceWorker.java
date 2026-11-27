@@ -306,7 +306,7 @@ public final class UsSecFinanceWorker extends Worker {
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
             var measured = ledger.getJSONObject("reference_screen").optJSONObject("diagnostics");
-            if (measured != null && measured.optInt("assessment_count_version") == 2) {
+            if (measured != null && measured.optInt("assessment_count_version") == UsDeviceFinancials.ASSESSMENT_COUNT_VERSION) {
                 var scope = scan.optJSONArray("coverage_symbols");
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                     "米国株判定可能数実測 · 取引日 " + day

@@ -34,7 +34,8 @@ final class JpxDisclosureEvidence {
             String url = item.pdfLink().toString(), kind = kind(item.title());
             if (!kind.isEmpty() && source(code, url)) events.add(new Event(item.day(), item.title(), url, kind));
         }
-        return events.stream().distinct().sorted(Comparator.comparing(Event::day).reversed()).limit(100).toList();
+        return events.stream().distinct().sorted(Comparator.comparing(Event::day).reversed()).limit(100)
+                .collect(java.util.stream.Collectors.toUnmodifiableList());
     }
     static JSONArray encode(List<Event> events) {
         var rows = new JSONArray();
