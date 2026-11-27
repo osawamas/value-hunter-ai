@@ -165,7 +165,8 @@ final class UsDeviceFinancials {
             // Preserve a separate alternative evidence row; never invent missing aggregate figures.
             var partial = UsFinancialFacts.partialValue(payload,cik,day);
             if (partial == null || !List.of("parent_equity_missing","shares_for_filing_missing",
-                    "annual_profit_unconfirmed","previous_annual_profit_unconfirmed").contains(assessed.hold()))
+                    "annual_profit_unconfirmed","previous_annual_profit_unconfirmed",
+                    "current_ytd_profit_unconfirmed","prior_ytd_profit_unconfirmed").contains(assessed.hold()))
                 return new FetchAssessment(null,assessed.hold());
             var eps = new JSONArray();
             for (var value : partial.eps()) eps.put(value.toPlainString());
