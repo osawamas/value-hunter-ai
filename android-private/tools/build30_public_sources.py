@@ -128,6 +128,13 @@ def summarize(out):
         labels.append(f"{market} {day} {state} strict={result['strict_assessed']} flexible={flexible}"
                       f" total={result['total_assessed']}/{result['scope']} {rate_label} tiers="
                       + "/".join(map(str, tiers)))
+    alternative = load("jpx-alternative-input.json")
+    for day, counts in alternative.get("reports", {}).items():
+        relevant = counts["all"]
+        labels.append(f"JPX alternative {day} close+FY EPS/BPS inputs="
+                      f"{relevant.get('close_and_eps_bps', 0)}/{relevant['listed']} valuation unverified")
+    if alternative.get("status") == "alternative_input_unavailable":
+        labels.append("JPX alternative input unavailable")
     if os.getenv("JPX_BUILD_OUTCOME") == "failure":
         log = out / "jpx-build.log"
         data = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
