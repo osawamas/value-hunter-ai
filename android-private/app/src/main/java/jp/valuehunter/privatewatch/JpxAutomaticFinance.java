@@ -56,7 +56,7 @@ final class JpxAutomaticFinance {
             if (annual == null || !hold.isEmpty()) return hold;
             var asOf = annualFor(day);
             if (asOf == null) return "立会日時点の通期決算なし";
-            if (asOf.eps().signum() <= 0 || asOf.bps().signum() <= 0) return "実績EPS・BPSのいずれかがゼロ以下";
+            if (asOf.eps().signum() <= 0 || (asOf.bps()!=null && asOf.bps().signum() <= 0)) return "実績EPS・BPSのいずれかがゼロ以下";
             for (LocalDate next = checkedThrough.plusDays(1); !next.isAfter(day); next = next.plusDays(1)) {
                 var update = updates.get(next);
                 if (update == null) return "TDnet日次開示の確認待ち";
@@ -422,7 +422,7 @@ final class JpxAutomaticFinance {
         }
         return new JpxAnnualSummary.Annual(LocalDate.parse(object.getString("end")),
                 LocalDate.parse(object.getString("released")), new BigDecimal(object.getString("eps")),
-                new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments));
+                object.isNull("bps") ? null : new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments));
     }
 
     private static JSONObject encode(Entry entry) {
@@ -448,7 +448,7 @@ final class JpxAutomaticFinance {
             destination.put("basis", rows);
         }
         return destination.put("end", annual.end().toString()).put("released", annual.released().toString())
-                .put("eps", annual.eps().toPlainString()).put("bps", annual.bps().toPlainString())
+                .put("eps", annual.eps().toPlainString()).put("bps", annual.bps()==null ? JSONObject.NULL : annual.bps().toPlainString())
                 .put("source", annual.source());
     }
 }
