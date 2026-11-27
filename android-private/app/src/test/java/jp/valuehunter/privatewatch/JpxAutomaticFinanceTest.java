@@ -263,6 +263,28 @@ public class JpxAutomaticFinanceTest {
                 Set.of("price-budget:" + CODE)).isEmpty());
     }
 
+    @Test public void missingBookValueCanUseVerifiedPriorAnnualFromTheArchive() throws Exception {
+        String source = "https://www2.jpx.co.jp" + PATH;
+        String earlierSource = source.replace("/140120", "/140119");
+        var earlierDay = RELEASED.minusYears(1);
+        var page = new JpxIssuerArchive.Page(List.of(
+                new JpxIssuerArchive.Disclosure(RELEASED, "2026年3月期決算短信", java.net.URI.create(source), null, true),
+                new JpxIssuerArchive.Disclosure(earlierDay, "2025年3月期決算短信", java.net.URI.create(earlierSource), null, true)));
+        String current = filing().replace("name=\"tse-ed-t:NetAssetsPerShare\"", "name=\"tse-ed-t:AbsentBookValue\"");
+        String prior = filing().replace("2026年５月11日", "2025年5月11日")
+                .replace("2025-04-01", "2024-04-01").replace("2026-03-31", "2025-03-31");
+        var entry = JpxAutomaticFinance.acquire(CODE, DAY, null, new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) { return page; }
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) {
+                return disclosure.day().equals(RELEASED) ? current : prior;
+            }
+        });
+        assertNotNull(entry.annual());
+        assertNull(entry.annual().bps());
+        assertNotNull(entry.previousAnnual());
+        assertEquals(earlierDay, entry.previousAnnual().released());
+    }
+
     @Test public void rejectsExternalXmlEntitiesInPublicAnnualFilings() throws Exception {
         String malicious = filing().replaceFirst("<", "<!DOCTYPE html [<!ENTITY leak SYSTEM \"file:///etc/passwd\">]><");
         assertNull(JpxAnnualSummary.read(malicious, CODE, RELEASED,

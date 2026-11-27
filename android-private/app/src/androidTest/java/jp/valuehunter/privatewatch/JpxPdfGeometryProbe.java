@@ -26,12 +26,14 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
     private String alertPhase;
     private String coverageDay;
     private boolean liveCoverage;
+    private boolean annualParserProbe;
     @Override
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         alertPhase = arguments == null ? null : arguments.getString("alert_phase");
         coverageDay = arguments == null ? null : arguments.getString("coverage_day");
         liveCoverage = arguments != null && "true".equals(arguments.getString("coverage_fetch"));
+        annualParserProbe = arguments != null && "true".equals(arguments.getString("jpx_xml_probe"));
         start();
     }
 
@@ -41,6 +43,12 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         try {
             if (alertPhase != null) {
                 result.putString("stream", "\n" + NotificationDeliveryProbe.run(this, alertPhase) + "\n");
+                finish(Activity.RESULT_OK, result);
+                return;
+            }
+            if (annualParserProbe) {
+                verifyAnnualParser();
+                result.putString("stream", "\nJPX_ANNUAL_PARSER_OK\n");
                 finish(Activity.RESULT_OK, result);
                 return;
             }
@@ -77,6 +85,25 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
             finish(Activity.RESULT_CANCELED, result);
+        }
+    }
+
+    private void verifyAnnualParser() throws Exception {
+        try (var input = getContext().getAssets().open("jpx-annual-parser-sample.xhtml")) {
+            var bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[2048];
+            for (int size; (size = input.read(buffer)) != -1;) bytes.write(buffer, 0, size);
+            String filing = bytes.toString("UTF-8");
+            var released = LocalDate.of(2026, 5, 11);
+            var annual = JpxAnnualSummary.read(filing, "1420", released, "public-fixture", false);
+            if (annual == null || annual.eps().compareTo(BigDecimal.valueOf(60)) != 0
+                    || annual.bps().compareTo(BigDecimal.valueOf(1000)) != 0) {
+                throw new AssertionError("Android could not parse verified annual EPS and BPS");
+            }
+            if (JpxAnnualSummary.read("<!DOCTYPE html SYSTEM 'file:///untrusted.dtd'>" + filing,
+                    "1420", released, "public-fixture", false) != null) {
+                throw new AssertionError("Android accepted an external DTD");
+            }
         }
     }
 

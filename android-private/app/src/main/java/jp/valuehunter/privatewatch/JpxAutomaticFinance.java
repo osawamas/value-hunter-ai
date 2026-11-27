@@ -388,10 +388,33 @@ final class JpxAutomaticFinance {
             if (previous != null && (!previous.released().isBefore(annual.released())
                     || !previous.usable(annual.released()))) previous = null;
         }
+        if (previous == null && annual.bps() == null) {
+            previous = archivedPreviousAnnual(code, annual, page, sources);
+        }
         var resolved = withShareBasis(code, page, annual, sources);
         if (previous != null) previous = withShareBasis(code, page, previous, sources);
         return resolved == null ? new Entry(through, annual, "株式分割・併合等の開示を確認中", previous)
                 : new Entry(through, resolved, "", previous);
+    }
+
+    private static JpxAnnualSummary.Annual archivedPreviousAnnual(String code, JpxAnnualSummary.Annual annual,
+                                                                  JpxIssuerArchive.Page page, Sources sources)
+            throws IOException {
+        var filing = page.annualOn(annual.released());
+        if (filing == null || filing.annualLink() == null || filing.fiscalMonth() == null) return null;
+        var expected = java.time.YearMonth.from(annual.end()).minusYears(1);
+        if (!expected.equals(filing.fiscalMonth())) return null;
+        JpxAnnualSummary.Annual previous;
+        try {
+            previous = JpxAnnualSummary.read(sources.financial(filing), code, filing.day(),
+                    filing.annualLink().toString(), filing.corrected());
+        } catch (JpxIssuerArchive.HttpFailure unavailable) {
+            if (unavailable.status == 404 || unavailable.status == 410) return null;
+            throw unavailable;
+        }
+        if (previous == null || !expected.equals(java.time.YearMonth.from(previous.end()))
+                || !previous.usable(annual.released())) return null;
+        return previous;
     }
 
     private static Entry held(LocalDate through, Entry old, String reason) {

@@ -57,14 +57,12 @@ final class JpxAnnualSummary {
         try {
             var factory = DocumentBuilderFactory.newInstance();
             factory.setNamespaceAware(true);
-            factory.setExpandEntityReferences(false);
-            factory.setXIncludeAware(false);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            // Android's DOM factory does not implement the Xerces feature URIs.
+            // Reject declarations before DOM parsing and refuse any external resolution.
             var builder = factory.newDocumentBuilder();
-            builder.setEntityResolver((publicName, systemName) -> new InputSource(new StringReader("")));
+            builder.setEntityResolver((publicName, systemName) -> {
+                throw new org.xml.sax.SAXException("External XML identifiers are not allowed");
+            });
             var root = builder.parse(new InputSource(new StringReader(body))).getDocumentElement();
             String issuer = uniqueFact(root, "nonNumeric", "SecuritiesCode", "CurrentYearInstant");
             if (!issuer.equals(code) && !issuer.equals(code + "0")) return null;

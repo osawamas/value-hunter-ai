@@ -73,8 +73,8 @@ jobs:
         if: steps.acquire.outputs.jpx == 'true'
         with:
           path: coverage-jpx-cache
-          key: build30-jpx-v1-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: build30-jpx-v1-${{ steps.acquire.outputs.jpx_day }}-
+          key: build30-jpx-v2-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: build30-jpx-v2-${{ steps.acquire.outputs.jpx_day }}-
       - name: Run bounded JPX financial acquisition and Android valuation
         if: steps.acquire.outputs.jpx == 'true'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
@@ -89,7 +89,7 @@ jobs:
         if: always() && hashFiles('coverage-jpx-cache/jpx-automatic-finance-v1.xml') != ''
         with:
           path: coverage-jpx-cache
-          key: build30-jpx-v1-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: build30-jpx-v2-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Summarize source and valuation outcomes
         if: always()
         id: results
@@ -103,6 +103,7 @@ jobs:
             coverage-results/*.json
             coverage-results/jpx-probe.log
             coverage-results/jpx-build.log
+            coverage-results/jpx-parser.log
             coverage-results/*listed.txt
             coverage-results/jpx-*.html
           retention-days: 3

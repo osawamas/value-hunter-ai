@@ -5,6 +5,9 @@ day=$(python -c 'import json; print(json.load(open("coverage-results/jpx-public-
 pdf="jpx-${day//-/}.pdf"
 adb install android-private/app/build/outputs/apk/debug/app-debug.apk
 adb install android-private/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+runner="$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe"
+timeout 45 adb shell am instrument -w -e jpx_xml_probe true "$runner"   | tr -d '\r' | tee coverage-results/jpx-parser.log
+grep -x 'JPX_ANNUAL_PARSER_OK' coverage-results/jpx-parser.log
 adb shell -T "run-as $app sh -c 'cat > $pdf'" < coverage-results/jpx-session.pdf
 for name in listings delistings; do
   file="jpx-$name.html"
