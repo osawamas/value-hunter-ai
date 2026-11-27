@@ -27,6 +27,16 @@ public class UsFinancialFactsTest {
         assertEquals(Q, facts.accession());
     }
 
+    @Test public void usesLatestCoverDateWithoutMixingConflictingShareClasses() throws Exception {
+        var document = payload();
+        var cover = document.getJSONObject("facts").getJSONObject("dei").getJSONObject("EntityCommonStockSharesOutstanding")
+                .getJSONObject("units").getJSONArray("shares");
+        cover.put(row(null, "2026-10-01", "2026-10-20", Q, "10-Q", 39));
+        assertEquals(new BigDecimal("40"), UsFinancialFacts.read(document, 1, SESSION).shares());
+        cover.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
     @Test public void sameDayFilingAndDuplicateShareCountsHold() throws Exception {
         assertNull(UsFinancialFacts.read(payload(), 1, LocalDate.parse("2026-10-20")));
         var duplicate = payload();
@@ -171,6 +181,61 @@ public class UsFinancialFactsTest {
         assertEquals(new BigDecimal("100"), UsFinancialFacts.read(document, 1, SESSION).profit());
         quarters.getJSONObject(1).put("start", "2025-01-02");
         assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void numericallyIdenticalRepeatedSharesDoNotBlockFinancials() throws Exception {
+        var document = payload();
+        var shares = document.getJSONObject("facts").getJSONObject("dei")
+                .getJSONObject("EntityCommonStockSharesOutstanding").getJSONObject("units").getJSONArray("shares");
+        shares.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 40)
+                .put("val", new BigDecimal("40.00")));
+        assertEquals(0, new BigDecimal("40").compareTo(UsFinancialFacts.read(document, 1, SESSION).shares()));
+        shares.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void independentCashAndBalanceEvidenceSurvivesMissingEps() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        gaap.put("StockholdersEquity", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "10-K", 350))));
+        gaap.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "10-K", 700))));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "10-K", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "10-K", 40))));
+        var history = UsFinancialFacts.meterHistory(document, SESSION);
+        assertTrue(history.annualEps().isEmpty());
+        assertEquals(Integer.valueOf(100), history.cash());
+        assertEquals(Integer.valueOf(100), history.balance());
+        gaap.remove("Assets");
+        assertNull(UsFinancialFacts.meterHistory(document, SESSION).balance());
+    }
+
+    @Test public void foreignAnnualMeterUsesOnlyMatchingDollarEvidence() throws Exception {
+        var document = new JSONObject().put("cik", 1).put("facts", new JSONObject());
+        var gaap = new JSONObject();
+        document.getJSONObject("facts").put("us-gaap", gaap);
+        var eps = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 5))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 4))
+                .put(row("2023-01-01", "2023-12-31", "2026-02-01", K, "20-F", 3));
+        gaap.put("EarningsPerShareBasic", units("USD/shares", eps));
+        gaap.put("StockholdersEquity", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 350))));
+        gaap.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 700))));
+        var cash = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 40));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", cash));
+        var result = UsFinancialFacts.meterHistory(document, SESSION);
+        assertEquals(3, result.annualEps().size());
+        assertEquals(Integer.valueOf(100), result.cash());
+        assertEquals(Integer.valueOf(100), result.balance());
+        cash.getJSONObject(1).put("form", "10-K");
+        assertNull(UsFinancialFacts.meterHistory(document, SESSION).cash());
+        assertTrue(UsFinancialFacts.meterHistory(document, LocalDate.parse("2026-02-01")).annualEps().isEmpty());
     }
 
     private static JSONObject payload() throws JSONException {

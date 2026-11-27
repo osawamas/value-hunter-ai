@@ -79,12 +79,48 @@ public class UsFinanceIncrementalTest {
                 day, "dolt", "hash", evidence, true, "", true, true, 0, 0));
     }
 
+    @Test public void missingReasonsSurviveCheckpointAndClearAfterRecovery() throws Exception {
+        var scan = new JSONObject();
+        UsDeviceFinancials.recordFetchOutcome(scan, "AAA", new UsDeviceFinancials.FetchAssessment(null, "sec_not_found"));
+        UsDeviceFinancials.recordFetchOutcome(scan, "BBB", new UsDeviceFinancials.FetchAssessment(null, "parent_equity_missing"));
+        scan = new JSONObject(scan.toString());
+        assertEquals(java.util.Map.of("sec_not_found", 1, "parent_equity_missing", 1), UsDeviceFinancials.fetchHoldCounts(scan));
+        UsDeviceFinancials.recordFetchOutcome(scan, "AAA", new UsDeviceFinancials.FetchAssessment(new JSONObject(), ""));
+        assertEquals(java.util.Map.of("parent_equity_missing", 1), UsDeviceFinancials.fetchHoldCounts(scan));
+        UsDeviceFinancials.recordFetchOutcome(scan, "BBB", new UsDeviceFinancials.FetchAssessment(null, "shares_for_filing_missing"));
+        assertEquals(java.util.Map.of("shares_for_filing_missing", 1), UsDeviceFinancials.fetchHoldCounts(scan));
+    }
+
+    @Test public void oldCachedScreenRequiresRecalculation() throws Exception {
+        var screen = new JSONObject().put("meter_rows", new JSONObject());
+        var ledger = new JSONObject().put("reference_screen", screen);
+        org.junit.Assert.assertFalse(UsDeviceFinancials.currentScreenVersion(ledger));
+        screen.put("diagnostics", new JSONObject().put("budget_count_version", 2));
+        org.junit.Assert.assertFalse(UsDeviceFinancials.currentScreenVersion(ledger));
+        screen.getJSONObject("diagnostics").put("assessment_count_version",1);
+        org.junit.Assert.assertTrue(UsDeviceFinancials.currentScreenVersion(ledger));
+    }
+
+    @Test public void outdatedEvidenceIsRefetchedRatherThanReused() throws Exception {
+        var old = cached("LEGACY", 1, OLD.minusDays(10));
+        old.remove("meter_evidence_version");
+        var current = cached("CURRENT", 2, OLD.minusDays(10));
+        var targets = new JSONArray().put(target("LEGACY", 1)).put(target("CURRENT", 2));
+        var previous = new JSONObject().put("day", OLD.toString()).put("full_refresh_day", OLD.toString())
+                .put("cursor", 2).put("targets", targets).put("results", new JSONArray().put(old).put(current));
+        var scan = UsDeviceFinancials.startScan("hash", NEXT, targets, previous, Set.of());
+        assertEquals(1, scan.getInt("reused"));
+        assertEquals("LEGACY", scan.getJSONArray("targets").getJSONObject(0).getString("symbol"));
+        assertEquals("CURRENT", scan.getJSONArray("results").getJSONObject(0).getString("symbol"));
+    }
+
     private static JSONObject target(String symbol, int cik) throws JSONException {
         return new JSONObject().put("symbol", symbol).put("cik", cik).put("exchange", "NYSE");
     }
 
     private static JSONObject cached(String symbol, int cik, LocalDate period) throws JSONException {
         return target(symbol, cik).put("equity_date", period.toString()).put("filed", OLD.minusDays(1).toString())
-                .put("meter_balance", 80);
+                .put("meter_balance", 80)
+                .put("meter_evidence_version", UsDeviceFinancials.METER_EVIDENCE_VERSION);
     }
 }

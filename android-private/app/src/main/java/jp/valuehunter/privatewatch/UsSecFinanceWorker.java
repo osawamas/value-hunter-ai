@@ -229,16 +229,17 @@ public final class UsSecFinanceWorker extends Worker {
                     int end = Math.min(targets.length(), position + BATCH);
                     while (position < end && !networkStopped() && SystemClock.elapsedRealtime() < deadline) {
                         var target = targets.getJSONObject(position);
-                        JSONObject row;
+                        UsDeviceFinancials.FetchAssessment assessment;
                         try {
-                            row = facts(target, day);
+                            assessment = facts(target, day);
                         } catch (IOException unavailable) {
                             if (!networkStopped()) scan.put("coverage_failed", target.getString("symbol"));
                             throw unavailable;
                         }
                         if (networkStopped()) break;
                         scan.remove("coverage_failed");
-                        if (row != null) results.put(row);
+                        if (assessment.row() != null) results.put(assessment.row());
+                        UsDeviceFinancials.recordFetchOutcome(scan, target.getString("symbol"), assessment);
                         scan.put("cursor", ++position);
                         if (position < end) Thread.sleep(BETWEEN_REQUESTS_MILLIS);
                     }
@@ -262,18 +263,19 @@ public final class UsSecFinanceWorker extends Worker {
             if (networkStopped()) return paused();
             var ledger = scan.optJSONObject("ledger");
             if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)
-                    || (!ledger.getJSONObject("reference_screen").has("meter_rows")
-                    && scan.optJSONObject("valuation_evidence") != null)) {
+                    || !UsDeviceFinancials.currentScreenVersion(ledger)
+                    || scan.optJSONObject("valuation_evidence") == null
+                    || scan.optJSONObject("valuation_evidence").optInt("split_window_version",0)!=2) {
                 var evidence = scan.optJSONObject("valuation_evidence");
-                if (evidence == null) {
+                if (evidence == null || evidence.optInt("split_window_version",0)!=2) {
                     var rates = new JSONArray(download.get(
                             FX + "&from=" + day.minusDays(UsScreen.FX_LOOKBACK_DAYS) + "&to=" + day));
                     var fx = tradeDateFx(rates, day);
-                    var splits = UsDoltCloses.allSplits(day.minusDays(150), day,
+                    var splits = UsDoltCloses.allSplits(day.minusMonths(16), day,
                             url -> new JSONObject(download.get(url)));
                     var dates = new JSONObject();
                     for (var entry : splits.entrySet()) dates.put(entry.getKey(), entry.getValue().toString());
-                    evidence = new JSONObject().put("fx_rate", fx.yenPerDollar()).put("splits", dates);
+                    evidence = new JSONObject().put("fx_rate", fx.yenPerDollar()).put("splits", dates).put("split_window_version",2);
                     scan.put("valuation_evidence", evidence);
                 }
                 var fx = new UsScreen.Fx(day, evidence.getDouble("fx_rate"));
@@ -289,6 +291,22 @@ public final class UsSecFinanceWorker extends Worker {
                 scan.remove("supplement_recheck");
                 UsDailyWorker.writeSnapshot(checkpoint, scan);
             }
+            var measured = ledger.getJSONObject("reference_screen").optJSONObject("diagnostics");
+            if (measured != null && measured.optInt("assessment_count_version") == 1) {
+                var scope = scan.optJSONArray("coverage_symbols");
+                DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "米国株判定可能数実測 · 取引日 " + day
+                    + " · 上場対象 " + (scope == null ? "未確認" : scope.length())
+                    + " · 終値取得 " + prices.size()
+                    + " · 厳格判定 " + measured.getInt("strict_assessed")
+                    + " · 柔軟判定追加 " + measured.getInt("partial_assessed")
+                    + " · 合計 " + measured.getInt("total_assessed")
+                    + " · 予算内三段階該当（標準設定） " + measured.getInt("total_eligible_default")
+                    + " · 柔軟三段階内訳 " + measured.getJSONArray("flexible_tiers"));
+            }
+            var missingReasons = UsDeviceFinancials.fetchHoldCounts(scan);
+            if (!missingReasons.isEmpty()) DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
+                    "SEC財務未取得の理由別集計 · " + missingReasons);
             var budget = prepareBudget(quote, ledger, directory, day, hash, preferences);
             synchronized (UsDailyWorker.QUOTE_LOCK) {
                 if (networkStopped()) return paused();
@@ -378,6 +396,7 @@ public final class UsSecFinanceWorker extends Worker {
         }
         var ready = new HashSet<String>();
         var repair = new JSONArray();
+        var fetchHolds = scan.optJSONObject("fetch_holds");
         for (int index = 0; index < results.length(); index++) {
             var row = results.getJSONObject(index);
             var symbol = row.getString("symbol");
@@ -386,9 +405,18 @@ public final class UsSecFinanceWorker extends Worker {
         }
         for (int index = 0; index < targets.length(); index++) {
             var target = targets.getJSONObject(index);
-            if (!ready.contains(target.getString("symbol"))) repair.put(target);
+            String symbol = target.getString("symbol");
+            String reason = fetchHolds == null ? "" : fetchHolds.optString(symbol, "");
+            if (!ready.contains(symbol) && retrySameSession(reason)) repair.put(target);
         }
         return repair;
+    }
+
+    // A complete response with missing/ambiguous dated facts is not a transport failure.
+    // Revisit on the next session; do not repeatedly download unchanged companyfacts today.
+    static boolean retrySameSession(String reason) {
+        return reason == null || reason.isEmpty() || "unknown".equals(reason)
+                || "invalid_sec_payload".equals(reason);
     }
 
     static boolean prepareRepair(JSONObject scan) throws JSONException {
@@ -467,10 +495,13 @@ public final class UsSecFinanceWorker extends Worker {
         var day = LocalDate.parse(scan.getString("day"));
         if (UsReferenceAlerts.hasTradeDateFx(ledger, day)
                 && scan.getString("hash").equals(ledger.optString("close_sha256"))) {
-            screened = UsReferenceAlerts.read(ledger).rows().keySet();
+            screened = new HashSet<>(UsReferenceAlerts.read(ledger).rows().keySet());
             for (int index = 0; index < results.length(); index++) {
                 var row = results.getJSONObject(index);
-                if (UsDeviceFinancials.nonPositiveFinancials(row)) {
+                if (row.optBoolean("partial_value")) {
+                    screened.remove(row.getString("symbol"));
+                    reasons.put(row.getString("symbol"), MarketCoverage.Reason.FINANCIALS);
+                } else if (UsDeviceFinancials.nonPositiveFinancials(row)) {
                     reasons.put(row.getString("symbol"), MarketCoverage.Reason.NON_POSITIVE_FINANCIALS);
                 }
             }
@@ -753,17 +784,29 @@ public final class UsSecFinanceWorker extends Worker {
         }
     }
 
-    private JSONObject facts(JSONObject target, LocalDate day) throws IOException, JSONException {
+    private UsDeviceFinancials.FetchAssessment facts(JSONObject target, LocalDate day) throws IOException, JSONException {
         try {
             int cik = target.getInt("cik");
             var payload = new JSONObject(download.get(String.format(Locale.ROOT, SEC_FACTS, cik)));
-            return UsDeviceFinancials.financialRow(target, payload, day);
+            var assessed = UsDeviceFinancials.assessFetch(target, payload, day);
+            if (assessed.row() != null && !networkStopped()) {
+                try {
+                    var filings = new JSONObject(download.get(UsDisclosureEvidence.url(cik)));
+                    assessed.row().put("disclosure_events", UsDisclosureEvidence.read(filings, cik, day));
+                } catch (UsDailyWorker.HttpStatus unavailable) {
+                    if (unavailable.code == 403 || unavailable.code == 429) throw unavailable;
+                    assessed.row().put("disclosure_unavailable", true);
+                } catch (IOException | JSONException unavailable) {
+                    assessed.row().put("disclosure_unavailable", true);
+                }
+            }
+            return assessed;
         } catch (UsDailyWorker.HttpStatus error) {
-            if (error.code == 404) return null;
+            if (error.code == 404) return new UsDeviceFinancials.FetchAssessment(null, "sec_not_found");
             throw error;
         } catch (JSONException invalidIssuer) {
             // Invalid issuer facts cannot become a candidate.
-            return null;
+            return new UsDeviceFinancials.FetchAssessment(null, "invalid_sec_payload");
         }
     }
 

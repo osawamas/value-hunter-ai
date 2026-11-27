@@ -532,6 +532,22 @@ public final class UsDailyWorker extends Worker {
                         + " · 優先候補 " + reasons.optInt("priority") + "件"
                         + "\n100株で10万円以内 " + reasons.optInt("affordable_100") + "件"
                         + " · 1株購入枠 " + reasons.optInt("single_share") + "件";
+                if (reasons.has("non_positive_profit_only")) {
+                    int profitOnly = reasons.optInt("non_positive_profit_only");
+                    int equityOnly = reasons.optInt("non_positive_equity_only");
+                    int both = reasons.optInt("non_positive_both");
+                    int other = reasons.optInt("other_financial_hold");
+                    if (profitOnly + equityOnly + both + other != reasons.optInt("unusable_financials"))
+                        throw new JSONException("Financial hold counts do not reconcile");
+                    breakdown += "\n財務判定不可の内訳: 利益のみ非正値 " + profitOnly
+                            + "件・純資産のみ非正値 " + equityOnly
+                            + "件・両方非正値 " + both + "件・その他 " + other + "件";
+                }
+                if (reasons.optInt("assessment_count_version") == 1)
+                    breakdown += "\n判定可能数: 厳格 " + reasons.optInt("strict_assessed")
+                            + "件・柔軟追加 " + reasons.optInt("partial_assessed")
+                            + "件・合計 " + reasons.optInt("total_assessed")
+                            + "件・予算内三段階該当（標準設定） " + reasons.optInt("total_eligible_default") + "件";
                 status += "\n" + breakdown;
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                         "割安判定の除外理由を集計 · " + breakdown.replace('\n', ' '));

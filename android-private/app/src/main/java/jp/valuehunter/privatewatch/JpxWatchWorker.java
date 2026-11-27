@@ -304,6 +304,11 @@ public final class JpxWatchWorker extends Worker {
                         + screen.entered().size() + "件・予算 " + priceOnly.entered().size() + "件・急変 "
                         + rapid.size() + "件 · 通知待ち " + (added.size() + budgetAdded.size() + rapidAdded.size())
                         + "件" + (notifyEnabled ? "" : " · " + ScanWorker.alertBlockReason(context)));
+                DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証財務判定の内訳: 判定済み "
+                        + screen.assessed() + "件・現在候補 " + screen.candidates().size()
+                        + "件・比較保留 " + screen.held() + "件・自動財務確認 "
+                        + finance.entries().size() + "/" + finance.budget() + "件"
+                        + "・割安度通知方式 " + (useMeter ? "有効" : "無効"));
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
@@ -345,6 +350,15 @@ public final class JpxWatchWorker extends Worker {
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
                 var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights());
+                if (meter != null) {
+                    try {
+                        var assessment = assessmentCounts(comparison.latest(), screen, meter.rows());
+                        DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証判定可能数実測 · 取引日 " + date
+                                + " · " + assessment);
+                    } catch (JSONException invalid) {
+                        DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証判定可能数の集計を保留");
+                    }
+                }
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
                 if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meter != null) {
@@ -412,6 +426,33 @@ public final class JpxWatchWorker extends Worker {
         } catch (JSONException unavailable) {
             return null;
         }
+    }
+
+    static JSONObject assessmentCounts(JpxDailyCheck.Report report, JpxDailyCheck.Screening screen,
+                                       JSONObject meter) throws JSONException {
+        var scope = report.universe() == null ? report.quotes().keySet() : report.universe().codes();
+        int closes=0, strict=0, budget=0, assessed=0, flexible=0;
+        int[] tiers=new int[4];
+        for(String code:scope) {
+            var close=report.close(code);
+            if(close==null) continue;
+            closes++;
+            if(screen.assessedCodes().contains(code)) strict++;
+            if(JpxDailyCheck.budgetQuantity(close)>0) budget++;
+            var row=meter.optJSONArray(code);
+            if(row==null || row.length()!=4 || row.optInt(2,0)<=0) continue;
+            assessed++;
+            if(!screen.assessedCodes().contains(code)) flexible++;
+            if(row.optInt(3,0)<=0) continue;
+            var score=new ValueAlertMeter.Score(row.getInt(0),row.getInt(1),row.getInt(2));
+            tiers[score.level(ValueAlertMeter.DEFAULT)]++;
+        }
+        return new JSONObject().put("universe_verified",report.universe()!=null)
+            .put("scope",scope.size()).put("closes",closes).put("strict_assessed",strict)
+            .put("meter_assessed",assessed).put("flexible_added",flexible)
+            .put("total_assessed",strict+flexible).put("price_budget_only_or_overlap",budget)
+            .put("eligible_default",tiers[1]+tiers[2]+tiers[3])
+            .put("tiers",new JSONArray().put(tiers[1]).put(tiers[2]).put(tiers[3]));
     }
 
     private static JSONArray pendingAlerts(SharedPreferences state) throws IOException {

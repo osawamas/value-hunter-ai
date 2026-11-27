@@ -88,6 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
+    static final int METER_EVIDENCE_VERSION = 5;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {
@@ -99,6 +100,7 @@ final class UsDeviceFinancials {
             for (int index = 0; index < oldResults.length(); index++) {
                 var item = oldResults.getJSONObject(index);
                 if (reusable(item, day) && item.has("meter_balance")
+                        && item.optInt("meter_evidence_version", 0) == METER_EVIDENCE_VERSION
                         && !changed.contains(item.getInt("cik"))) {
                     matching.put(item.getString("symbol"), item);
                 }
@@ -143,20 +145,47 @@ final class UsDeviceFinancials {
         try {
             var period = LocalDate.parse(row.getString("equity_date"));
             var filed = LocalDate.parse(row.getString("filed"));
-            return !period.isBefore(day.minusDays(150)) && filed.isBefore(day);
+            var earliest = row.optBoolean("partial_value") ? day.minusMonths(16) : day.minusDays(150);
+            return !period.isBefore(earliest) && !period.isAfter(filed) && filed.isBefore(day);
         } catch (JSONException | DateTimeParseException invalid) {
             return false;
         }
     }
 
+    record FetchAssessment(JSONObject row, String hold) {}
+
     static JSONObject financialRow(JSONObject target, JSONObject payload, LocalDate day) throws JSONException {
+        return assessFetch(target, payload, day).row();
+    }
+
+    static FetchAssessment assessFetch(JSONObject target, JSONObject payload, LocalDate day) throws JSONException {
         int cik = target.getInt("cik");
-        var figures = UsFinancialFacts.read(payload, cik, day);
-        if (figures == null) return null;
+        var assessed = UsFinancialFacts.assess(payload, cik, day);
+        var figures = assessed.facts();
+        if (figures == null) {
+            // Preserve a separate alternative evidence row; never invent missing aggregate figures.
+            var partial = UsFinancialFacts.partialValue(payload,cik,day);
+            if (partial == null || !List.of("parent_equity_missing","shares_for_filing_missing",
+                    "annual_profit_unconfirmed","previous_annual_profit_unconfirmed","parent_equity_stale",
+                    "current_ytd_profit_unconfirmed","prior_ytd_profit_unconfirmed").contains(assessed.hold()))
+                return new FetchAssessment(null,assessed.hold());
+            var eps = new JSONArray();
+            for (var value : partial.eps()) eps.put(value.toPlainString());
+            var row = new JSONObject().put("partial_value",true)
+                .put("meter_evidence_version",METER_EVIDENCE_VERSION)
+                .put("symbol",target.getString("symbol")).put("exchange",target.getString("exchange"))
+                .put("cik",cik).put("share_date",partial.end().toString()).put("equity_date",partial.end().toString())
+                .put("filed",partial.filed().toString()).put("accession",partial.accession())
+                .put("meter_eps",eps).put("meter_cash",partial.cash()==null?JSONObject.NULL:partial.cash())
+                .put("meter_balance",partial.balance()==null?JSONObject.NULL:partial.balance())
+                .put("strict_hold",assessed.hold());
+            return new FetchAssessment(row,assessed.hold());
+        }
         var history = UsFinancialFacts.meterHistory(payload, day);
         var eps = new JSONArray();
         for (var value : history.annualEps()) eps.put(value.toPlainString());
-        return new JSONObject().put("meter_eps", eps).put("meter_cash", history.cash())
+        var row = new JSONObject().put("meter_evidence_version", METER_EVIDENCE_VERSION)
+                .put("meter_eps", eps).put("meter_cash", history.cash())
                 .put("meter_balance", history.balance() == null ? JSONObject.NULL : history.balance())
                 .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
                 .put("cik", cik).put("share_date", figures.shareDate().toString())
@@ -164,6 +193,32 @@ final class UsDeviceFinancials {
                 .put("profit_basis", figures.profitBasis())
                 .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
                 .put("equity", figures.equity().toPlainString());
+        return new FetchAssessment(row, "");
+    }
+
+    static void recordFetchOutcome(JSONObject scan, String symbol, FetchAssessment result) throws JSONException {
+        var holds = scan.optJSONObject("fetch_holds");
+        if (holds == null) { holds = new JSONObject(); scan.put("fetch_holds", holds); }
+        if (result.row() != null && !result.row().optBoolean("partial_value")) holds.remove(symbol);
+        else holds.put(symbol, result.hold() == null || result.hold().isEmpty() ? "unknown" : result.hold());
+    }
+
+    static Map<String, Integer> fetchHoldCounts(JSONObject scan) {
+        var counts = new java.util.TreeMap<String, Integer>();
+        var holds = scan.optJSONObject("fetch_holds");
+        if (holds != null) {
+            var keys = holds.keys();
+            while (keys.hasNext()) counts.merge(holds.optString(keys.next(), "unknown"), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    static boolean currentScreenVersion(JSONObject ledger) {
+        var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");
+        var diagnostics = screen == null ? null : screen.optJSONObject("diagnostics");
+        return screen != null && screen.has("meter_rows") && diagnostics != null
+                && diagnostics.optInt("budget_count_version", 0) == 2
+                && diagnostics.optInt("assessment_count_version", 0) == 1;
     }
 
     static boolean nonPositiveFinancials(JSONObject row) {
@@ -186,29 +241,63 @@ final class UsDeviceFinancials {
         int missingClose = 0, splitHoldCount = 0, unusableFinancials = 0;
         int outsideBudget = 0, outsideValuation = 0, referenceCount = 0, priorityCount = 0;
         int affordable100 = 0, singleShare = 0;
+        int partialAssessed = 0, partialEligible = 0, strictAssessed = 0, strictEligible = 0;
+        int[] flexibleTiers = new int[4], strictTiers = new int[4];
+        var seen = new HashSet<String>();
+        int nonPositiveProfit = 0, nonPositiveEquity = 0, nonPositiveBoth = 0, otherFinancialHold = 0;
         var rate = BigDecimal.valueOf(fx.yenPerDollar());
         for (int index = 0; index < records.length(); index++) {
             var row = records.getJSONObject(index);
             String symbol = row.getString("symbol");
             String exchange = row.getString("exchange");
+            if (!seen.add(symbol)) throw new JSONException("Duplicate financial assessment symbol");
             var close = prices.get(symbol);
             if (close == null) { missingClose++; continue; }
-            if ("NYSE".equals(exchange)) nyse++;
-            else nasdaq++;
+            if (!row.optBoolean("partial_value")) {
+                if ("NYSE".equals(exchange)) nyse++;
+                else nasdaq++;
+            }
             var split = splits.get(symbol);
             if (split != null && !split.isBefore(LocalDate.parse(row.getString("share_date")))) {
                 splitHolds.put(symbol);
                 splitHoldCount++;
                 continue;
             }
+            if (row.optBoolean("partial_value")) {
+                var score=FlexibleValueMeter.assess(close,meterEps(row),meterCash(row),meterBalance(row));
+                score=UsDisclosureEvidence.adjust(score,row,day);
+                var yen=close.multiply(rate);
+                int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
+                if(quantity==100) affordable100++; else if(quantity==1) singleShare++;
+                if(score.confirmed()>=2) partialAssessed++;
+                if(quantity>0 && score.level(ValueAlertMeter.DEFAULT)>0) {
+                    partialEligible++; flexibleTiers[score.level(ValueAlertMeter.DEFAULT)]++;
+                }
+                String status=quantity==0?"outside_budget":"outside_valuation";
+                if(quantity==0) outsideBudget++; else outsideValuation++;
+                observations.put(new JSONObject().put("symbol",symbol).put("exchange",exchange)
+                    .put("cik",row.getInt("cik")).put("status",status).put("quantity",quantity==0?1:quantity));
+                meter.put(UsReferenceAlerts.meterKey(exchange,row.getInt("cik"),symbol),
+                    new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed()).put(quantity));
+                continue;
+            }
             var cap = close.multiply(new BigDecimal(row.getString("shares")));
             var profit = new BigDecimal(row.getString("profit"));
             var equity = new BigDecimal(row.getString("equity"));
             var level = ValueCandidateScreen.assess(cap, profit, equity);
-            if (level == ValueCandidateScreen.Level.HELD) { unusableFinancials++; continue; }
+            if (level == ValueCandidateScreen.Level.HELD) {
+                unusableFinancials++;
+                if (profit.signum() <= 0 && equity.signum() <= 0) nonPositiveBoth++;
+                else if (profit.signum() <= 0) nonPositiveProfit++;
+                else if (equity.signum() <= 0) nonPositiveEquity++;
+                else otherFinancialHold++;
+                continue;
+            }
+            strictAssessed++;
             var yen = close.multiply(rate);
             int quantity = yen.movePointRight(2).compareTo(BUDGET) <= 0 ? 100 : 1;
-            if (quantity == 100) affordable100++; else singleShare++;
+            if (quantity == 100) affordable100++;
+            else if (yen.compareTo(BUDGET) <= 0) singleShare++;
             String status = yen.compareTo(BUDGET) > 0 ? "outside_budget" : switch (level) {
                 case PRIORITY -> "priority";
                 case REFERENCE -> "reference";
@@ -224,6 +313,10 @@ final class UsDeviceFinancials {
             observations.put(new JSONObject().put("symbol", symbol).put("exchange", exchange)
                     .put("cik", row.getInt("cik")).put("status", status).put("quantity", quantity));
             var score = ValueAlertMeter.assessUs(cap, profit, equity, meterEps(row), meterCash(row), null, meterBalance(row));
+            score = UsDisclosureEvidence.adjust(score, row, day);
+            if (!"outside_budget".equals(status) && score.level(ValueAlertMeter.DEFAULT)>0) {
+                strictEligible++; strictTiers[score.level(ValueAlertMeter.DEFAULT)]++;
+            }
             meter.put(UsReferenceAlerts.meterKey(exchange, row.getInt("cik"), symbol),
                     new JSONArray().put(score.points()).put(score.ceiling()).put(score.confirmed())
                             .put("outside_budget".equals(status) ? 0 : quantity));
@@ -233,6 +326,18 @@ final class UsDeviceFinancials {
                 .put("missing_close", missingClose)
                 .put("split_hold", splitHoldCount)
                 .put("unusable_financials", unusableFinancials)
+                .put("non_positive_profit_only", nonPositiveProfit)
+                .put("non_positive_equity_only", nonPositiveEquity)
+                .put("non_positive_both", nonPositiveBoth)
+                .put("other_financial_hold", otherFinancialHold)
+                .put("assessment_count_version",1)
+                .put("strict_assessed",strictAssessed).put("strict_eligible_default",strictEligible)
+                .put("partial_assessed",partialAssessed).put("partial_eligible_default",partialEligible)
+                .put("total_assessed",strictAssessed+partialAssessed)
+                .put("total_eligible_default",strictEligible+partialEligible)
+                .put("strict_tiers",new JSONArray().put(strictTiers[1]).put(strictTiers[2]).put(strictTiers[3]))
+                .put("flexible_tiers",new JSONArray().put(flexibleTiers[1]).put(flexibleTiers[2]).put(flexibleTiers[3]))
+                .put("budget_count_version", 2)
                 .put("outside_budget", outsideBudget)
                 .put("outside_valuation", outsideValuation)
                 .put("reference", referenceCount)

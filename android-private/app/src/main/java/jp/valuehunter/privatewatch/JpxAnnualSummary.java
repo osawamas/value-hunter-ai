@@ -98,7 +98,17 @@ final class JpxAnnualSummary {
                 return null;
             }
             var eps = number(root, epsTag, duration);
-            var bps = number(root, bpsTag, instant);
+            // Only an absent BPS fact is optional. Conflicting or invalid supplied facts remain rejected.
+            BigDecimal bps = null;
+            var candidates = root.getElementsByTagNameNS(IX, "nonFraction");
+            for (int i=0;i<candidates.getLength();i++) {
+                var candidate=(Element)candidates.item(i);
+                if (instant.equals(candidate.getAttribute("contextRef"))
+                        && ("tse-ed-t:"+bpsTag).equals(candidate.getAttribute("name"))) {
+                    bps=number(root,bpsTag,instant);
+                    break;
+                }
+            }
             return new Annual(end, released, eps, bps, source);
         } catch (Exception invalid) {
             // A changed taxonomy, incomplete filing or ambiguous financials cannot enter the screen.
