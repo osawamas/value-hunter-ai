@@ -49,7 +49,7 @@ jobs:
         if: steps.acquire.outputs.jpx == 'true'
         run: |
           if timeout 145 python android-private/tools/jpx_hachiquant_coverage.py \
-            coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf \
+            coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf --budget-samples-per-market 2 \
             > coverage-results/jpx-alternative-input.json; then
             python -m json.tool coverage-results/jpx-alternative-input.json
           else

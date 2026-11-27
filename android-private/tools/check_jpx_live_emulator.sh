@@ -31,7 +31,7 @@ save_public_finance_cache() {
   fi
 }
 trap save_public_finance_cache EXIT
-timeout 460 adb shell am instrument -w -e coverage_day "$day" -e coverage_fetch true "$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe" | tee coverage-results/jpx-probe.log
+timeout 820 adb shell am instrument -w -e coverage_day "$day" -e coverage_fetch true "$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe" | tee coverage-results/jpx-probe.log
 sed -n '/^{.*}/p' coverage-results/jpx-probe.log | tr -d '\r' > coverage-results/jpx-valuation.json
 if [[ ! -s coverage-results/jpx-valuation.json ]]; then
   rm coverage-results/jpx-valuation.json

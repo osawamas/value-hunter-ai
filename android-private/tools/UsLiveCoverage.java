@@ -136,6 +136,10 @@ public final class UsLiveCoverage {
             }
             if (response.statusCode() != 200) throw new HttpFailure(response.statusCode());
             return response.body();
+        } catch (java.net.http.HttpTimeoutException timeout) {
+            var failure = new java.net.SocketTimeoutException(timeout.getMessage());
+            failure.initCause(timeout);
+            throw failure;
         } catch (InterruptedException cancelled) {
             Thread.currentThread().interrupt();
             throw new IOException(cancelled);

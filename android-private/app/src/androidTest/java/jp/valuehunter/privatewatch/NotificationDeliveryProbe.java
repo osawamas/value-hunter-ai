@@ -275,6 +275,9 @@ final class NotificationDeliveryProbe {
         try {
             if (connected) {
                 shell(instrumentation, "svc wifi enable");
+                if (android.os.Build.VERSION.SDK_INT >= 30 && !await(MarketNetwork::allowed, 5_000)) {
+                    shell(instrumentation, "cmd wifi connect-network AndroidWifi open");
+                }
                 if (!await(MarketNetwork::allowed, 10_000)) {
                     // Some emulator images prefer their cellular transport after reconnecting.
                     // Force route selection for the fixture, then require the normal Wi-Fi gate to open.

@@ -29,7 +29,13 @@ final class UsDoltCloses {
 
     static JSONArray fetch(LocalDate day, Download download) throws IOException, JSONException {
         String filter = " FROM ohlcv WHERE date = '" + day + "' AND close > 0";
-        JSONArray manifest = query(download, "SELECT DOLT_HASHOF('HEAD') AS revision, COUNT(*) AS n" + filter);
+        String manifestQuery = "SELECT DOLT_HASHOF('HEAD') AS revision, COUNT(*) AS n" + filter;
+        JSONArray manifest;
+        try {
+            manifest = query(download, manifestQuery);
+        } catch (SocketTimeoutException timeout) {
+            manifest = query(download, manifestQuery);
+        }
         if (manifest.length() != 1) {
             throw new JSONException("Unexpected Dolt close manifest");
         }
@@ -46,14 +52,31 @@ final class UsDoltCloses {
         var closes = new JSONArray();
         var seen = new HashSet<String>();
         String select = "SELECT act_symbol AS symbol, date AS trading_date, close" + pinnedFilter;
-        for (int offset = 0; offset < total; offset += PAGE_SIZE) {
-            int expected = Math.min(PAGE_SIZE, total - offset);
+        int pageSize = PAGE_SIZE;
+        String lastSymbol = null;
+        boolean useCursor = false;
+        for (int offset = 0; offset < total;) {
+            int expected = Math.min(pageSize, total - offset);
             JSONArray rows;
             try {
-                rows = query(download, select + " ORDER BY act_symbol LIMIT " + PAGE_SIZE + " OFFSET " + offset);
+                String cursor = useCursor && lastSymbol != null ? " AND act_symbol > '" + lastSymbol + "'" : "";
+                String position = useCursor ? "" : " OFFSET " + offset;
+                rows = query(download, select + cursor + " ORDER BY act_symbol LIMIT " + pageSize + position);
             } catch (SocketTimeoutException timeout) {
-                if (offset == 0 || total - offset > PAGE_SIZE) throw timeout;
-                rows = recoverLastPage(download, select, closes, day, expected);
+                if (!useCursor && offset > 0 && total - offset <= PAGE_SIZE) {
+                    try {
+                        rows = recoverLastPage(download, select, closes, day, expected);
+                    } catch (SocketTimeoutException reverseTimeout) {
+                        useCursor = true;
+                        pageSize = PAGE_SIZE / 2;
+                        continue;
+                    }
+                } else {
+                    if (pageSize <= 125) throw timeout;
+                    useCursor = true;
+                    pageSize /= 2;
+                    continue;
+                }
             }
             if (rows.length() != expected) {
                 throw new JSONException("Incomplete Dolt close page");
@@ -63,12 +86,15 @@ final class UsDoltCloses {
                 String symbol = row.getString("symbol");
                 double price = row.getDouble("close");
                 if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}") || !seen.add(symbol)
+                        || (useCursor && lastSymbol != null && symbol.compareTo(lastSymbol) <= 0)
                         || !day.toString().equals(row.getString("trading_date"))
                         || !Double.isFinite(price) || price <= 0) {
                     throw new JSONException("Invalid or duplicate Dolt close");
                 }
                 closes.put(new JSONObject().put("symbol", symbol).put("close_usd", price));
+                lastSymbol = symbol;
             }
+            offset += rows.length();
         }
         return closes;
     }

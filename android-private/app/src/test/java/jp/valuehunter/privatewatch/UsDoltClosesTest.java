@@ -50,6 +50,31 @@ public class UsDoltClosesTest {
         assertEquals("T1001", closes.getJSONObject(1001).getString("symbol"));
     }
 
+    @Test public void retriesAnEarlyTimeoutWithSmallerPinnedCursorPages() throws Exception {
+        var calls = new AtomicInteger();
+        var closes = UsDoltCloses.fetch(DAY, address -> {
+            int call = calls.getAndIncrement();
+            String query = URLDecoder.decode(address, StandardCharsets.UTF_8);
+            if (call == 0) return manifest(501);
+            assertTrue(query.contains("ohlcv AS OF '" + REVISION + "'"));
+            if (call == 1) throw new SocketTimeoutException("first page timed out");
+            assertTrue(query.endsWith("ORDER BY act_symbol LIMIT 500"));
+            var rows = new JSONArray();
+            if (call == 2) {
+                for (int i = 0; i < 500; i++) {
+                    rows.put(row(String.format(java.util.Locale.ROOT, "T%04d", i), DAY));
+                }
+            } else {
+                assertTrue(query.contains("AND act_symbol > 'T0499'"));
+                rows.put(row("T0500", DAY));
+            }
+            return response(rows);
+        });
+        assertEquals(4, calls.get());
+        assertEquals(501, closes.length());
+        assertEquals("T0500", closes.getJSONObject(500).getString("symbol"));
+    }
+
     @Test public void rejectsAReversePageThatDoesNotMatchThePreviouslyReadRows() {
         var calls = new AtomicInteger();
         assertThrows(JSONException.class, () ->

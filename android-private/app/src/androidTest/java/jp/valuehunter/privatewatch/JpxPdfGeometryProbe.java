@@ -157,38 +157,50 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         JpxAutomaticFinance.AcquisitionAudit auditTransport = (code, stage, source, outcome) ->
                 trace.computeIfAbsent(code, unused -> new org.json.JSONArray())
                         .put(new JSONObject(Map.of("stage", stage, "source", source, "outcome", outcome)));
-        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, () -> false, auditTransport)
+        long deadline = android.os.SystemClock.elapsedRealtime() + 600_000;
+        java.util.function.BooleanSupplier expired = () -> android.os.SystemClock.elapsedRealtime() >= deadline;
+        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, expired, auditTransport)
                 : JpxAutomaticFinance.cached(context, report);
         int checked = finance.fetched();
-        if (liveCoverage && finance.continueInitial()) {
-            finance = JpxAutomaticFinance.refresh(context, comparison, rights, () -> false, auditTransport);
+        for (int pass = 1; liveCoverage && pass < 4 && !expired.getAsBoolean()
+                && finance.continueInitial(); pass++) {
+            finance = JpxAutomaticFinance.refresh(context, comparison, rights, expired, auditTransport);
             checked += finance.fetched();
         }
         var screening = comparison.screen(rights, finance);
         var rows = comparison.meterRows(screening, finance, rights);
         var acquisition = new JSONObject();
         var holdCounts = new java.util.TreeMap<String, Integer>();
+        var strictExclusionsWithAnnual = new java.util.TreeMap<String, Integer>();
         for (var item : finance.entries().entrySet()) {
             String code = item.getKey();
             var entry = item.getValue();
             var annual = entry.annualFor(day);
             String hold = entry.hold();
+            boolean strictAssessed = screening.assessedCodes().contains(code);
+            String datedFinanceHold = entry.failure(code, day, finance.updates());
+            if (annual != null && !strictAssessed) {
+                String reason = report.close(code) == null ? "終値なし" : datedFinanceHold;
+                strictExclusionsWithAnnual.merge(reason.isEmpty() ? "その他" : reason, 1, Integer::sum);
+            }
             if (!hold.isEmpty()) holdCounts.merge(hold, 1, Integer::sum);
             acquisition.put(code, new JSONObject().put("entry_present", true).put("hold", hold)
                     .put("dated_financial", annual != null)
                     .put("source", annual == null ? JSONObject.NULL : annual.source())
                     .put("close_present", report.close(code) != null)
-                    .put("dated_finance_hold", entry.failure(code, day, finance.updates()))
+                    .put("dated_finance_hold", datedFinanceHold)
                     .put("eps_sign", annual == null ? JSONObject.NULL : annual.eps().signum())
                     .put("bps_sign", annual == null || annual.bps() == null ? JSONObject.NULL : annual.bps().signum())
-                    .put("strict_assessed", screening.assessedCodes().contains(code))
+                    .put("strict_assessed", strictAssessed)
                     .put("meter_scored", rows.has(code)));
         }
         for (String code : JpxAutomaticFinance.failedAcquisitions(context)) {
             if (!acquisition.has(code)) acquisition.put(code, new JSONObject().put("transport_retry", true));
         }
         var audit = new JSONObject().put("trade_date", day.toString()).put("issuer", acquisition)
-                .put("hold_counts", new JSONObject(holdCounts)).put("transport", new JSONObject(trace));
+                .put("hold_counts", new JSONObject(holdCounts))
+                .put("strict_exclusions_with_annual", new JSONObject(strictExclusionsWithAnnual))
+                .put("transport", new JSONObject(trace));
         if (liveCoverage) java.nio.file.Files.write(new File(directory, "jpx-finance-audit.json").toPath(),
                 audit.toString(2).getBytes(StandardCharsets.UTF_8));
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
