@@ -130,7 +130,29 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 : JpxAutomaticFinance.cached(context, report);
         var screening = comparison.screen(rights, finance);
         var rows = comparison.meterRows(screening, finance, rights);
+        var acquisition = new JSONObject();
+        var holdCounts = new java.util.TreeMap<String, Integer>();
+        for (var item : finance.entries().entrySet()) {
+            String code = item.getKey();
+            var entry = item.getValue();
+            var annual = entry.annualFor(day);
+            String hold = entry.hold();
+            if (!hold.isEmpty()) holdCounts.merge(hold, 1, Integer::sum);
+            acquisition.put(code, new JSONObject().put("stored", true).put("hold", hold)
+                    .put("dated_financial", annual != null)
+                    .put("source", annual == null ? JSONObject.NULL : annual.source())
+                    .put("strict_assessed", screening.assessedCodes().contains(code))
+                    .put("meter_scored", rows.has(code)));
+        }
+        for (String code : JpxAutomaticFinance.failedAcquisitions(context)) {
+            if (!acquisition.has(code)) acquisition.put(code, new JSONObject().put("transport_retry", true));
+        }
+        var audit = new JSONObject().put("trade_date", day.toString()).put("issuer", acquisition)
+                .put("hold_counts", new JSONObject(holdCounts));
+        if (liveCoverage) java.nio.file.Files.write(new File(directory, "jpx-finance-audit.json").toPath(),
+                audit.toString(2).getBytes(StandardCharsets.UTF_8));
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
+                .put("annual_hold_reasons", new JSONObject(holdCounts))
                 .put("trading_date", day.toString()).put("close_source", report.source())
                 .put("source_pdf_sha256", digest(pdf))
                 .put("listing_scope_sha256", liveCoverage

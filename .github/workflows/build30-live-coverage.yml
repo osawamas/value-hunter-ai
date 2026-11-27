@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/build30-live-coverage.yml'
       - 'android-private/tools/build30_public_sources.py'
+      - 'android-private/tools/probe_jpx_archive.py'
       - 'android-private/tools/UsLiveCoverage.java'
       - 'android-private/tools/check_jpx_live_emulator.sh'
       - 'android-private/app/src/androidTest/java/jp/valuehunter/privatewatch/JpxPdfGeometryProbe.java'
@@ -37,6 +38,7 @@ jobs:
         run: |
           python -m pip install openpyxl pymupdf
           python android-private/tools/build30_public_sources.py coverage-results
+          python android-private/tools/probe_jpx_archive.py coverage-results
           if [ -s coverage-results/jpx-session.pdf ]; then
             echo 'jpx=true' >> "$GITHUB_OUTPUT"
             day=$(python -c 'import json; print(json.load(open("coverage-results/jpx-public-coverage.json"))["trade_date"])')

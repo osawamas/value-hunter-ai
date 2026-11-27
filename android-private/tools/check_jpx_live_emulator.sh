@@ -34,4 +34,5 @@ if [[ ! -s coverage-results/jpx-valuation.json ]]; then
   rm coverage-results/jpx-valuation.json
   exit 1
 fi
+adb exec-out run-as "$app" cat jpx-finance-audit.json > coverage-results/jpx-finance-audit.json
 python -m json.tool coverage-results/jpx-valuation.json
