@@ -13,4 +13,8 @@ public class FlexibleValueMeterTest {
   assertEquals(0,FlexibleValueMeter.assess(n("10"),e,0,100).level(ValueAlertMeter.DEFAULT));
   assertEquals(0,FlexibleValueMeter.assess(n("10"),List.of(n("2")),null,null).level(ValueAlertMeter.DEFAULT));
  }
+ @Test public void exceptionalTierRequiresContinuityAcrossBothYearPairs() {
+  var oldDrop = List.of(n("2"), n("1.9"), n("4.0"));
+  assertEquals(2, FlexibleValueMeter.assess(n("10"), oldDrop, 100, 100).level(ValueAlertMeter.DEFAULT));
+ }
 }

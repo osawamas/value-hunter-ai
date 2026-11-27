@@ -207,7 +207,7 @@ final class JpxAutomaticFinance {
         if (sources == null || stopped.getAsBoolean() || state.getLong(ARCHIVE_RETRY, 0L) > now) {
             return new Batch(Map.copyOf(entries), updates, eligible.size(), 0);
         }
-        var pending = eligible.stream()
+        var ordered = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
                 .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now)
                 .filter(code -> due(entries.get(code), code, through, report.date(), updates)
@@ -220,6 +220,8 @@ final class JpxAutomaticFinance {
                         .thenComparing(code -> entries.containsKey(code) ? entries.get(code).checkedThrough() : LocalDate.MIN)
                         .thenComparing(Comparator.naturalOrder()))
                 .collect(Collectors.toUnmodifiableList());
+
+        var pending = explorationOrder(ordered, report.date(), code -> !entries.containsKey(code));
 
         int checked = 0;
         int attempted = 0;
@@ -307,6 +309,25 @@ final class JpxAutomaticFinance {
         } catch (java.time.DateTimeException | IllegalArgumentException | ArithmeticException invalid) {
             return fallback;
         }
+    }
+
+    // Reserve one existing request slot per fifty for eligible, unverified names.
+    // Use the trading date as seed. Retries and urgent filings keep their own priority.
+    static List<String> explorationOrder(List<String> ordered, LocalDate day,
+                                         java.util.function.Predicate<String> mayExplore) {
+        if (ordered.size() < 50) return ordered;
+        var result = new ArrayList<>(ordered);
+        var random = new java.util.Random(day.toEpochDay());
+        for (int slot = 49; slot < result.size(); slot += 50) {
+            if (!mayExplore.test(result.get(slot))) continue;
+            int selected = -1;
+            int candidates = 0;
+            for (int index = slot + 1; index < result.size(); index++) {
+                if (mayExplore.test(result.get(index)) && random.nextInt(++candidates) == 0) selected = index;
+            }
+            if (selected >= 0) java.util.Collections.swap(result, slot, selected);
+        }
+        return List.copyOf(result);
     }
 
     private static boolean urgent(Entry entry, String code, LocalDate day,

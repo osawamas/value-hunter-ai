@@ -18,7 +18,9 @@ jobs:
   public-data:
     if: github.event.repository.private == false && (github.event_name != 'pull_request' || github.head_ref == 'integration/valuehunter-flexible-coverage')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    outputs:
+      results: ${{ steps.results.outputs.labels }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,9 +31,11 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Collect public JPX and US inputs
+        id: acquire
         run: |
           python -m pip install openpyxl pymupdf
           python android-private/tools/build30_public_sources.py coverage-results
+          if [ -s coverage-results/jpx-session.pdf ]; then echo 'jpx=true' >> "$GITHUB_OUTPUT"; fi
       - name: Run Android US valuation engine against acquired data
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
@@ -40,9 +44,59 @@ jobs:
           curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
           bash android-private/tools/compile_us_replay.sh "$dir"
           java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.acquire.outputs.jpx == 'true'
+        with:
+          gradle-version: '8.9'
+          cache-read-only: true
+      - name: Build JPX instrumentation and enable KVM
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
+          (cd android-private && gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest)
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run bounded JPX financial acquisition and Android valuation
+        if: steps.acquire.outputs.jpx == 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: |
+            set -euo pipefail
+            app=jp.valuehunter.privatewatch.diagnostic19
+            day=$(python -c 'import json; print(json.load(open("coverage-results/jpx-public-coverage.json"))["trade_date"])')
+            pdf="jpx-${day//-/}.pdf"
+            adb install android-private/app/build/outputs/apk/debug/app-debug.apk
+            adb install android-private/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell -T "run-as $app sh -c 'cat > $pdf'" < coverage-results/jpx-session.pdf
+            timeout 360 adb shell am instrument -w -e coverage_day "$day" -e coverage_fetch true "$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe" | tee coverage-results/jpx-probe.log
+            sed -n '/^{.*}/p' coverage-results/jpx-probe.log | tr -d '\r' > coverage-results/jpx-valuation.json
+            python -m json.tool coverage-results/jpx-valuation.json
+      - name: Summarize source and valuation outcomes
+        if: always()
+        id: results
+        run: |
+          python android-private/tools/build30_public_sources.py --summary coverage-results
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: build30-coverage
-          path: coverage-results/*.json
+          path: |
+            coverage-results/*.json
+            coverage-results/jpx-probe.log
           retention-days: 3
+  publish-results:
+    if: always() && needs.public-data.outputs.results != ''
+    needs: public-data
+    strategy:
+      matrix:
+        result: ${{ fromJSON(needs.public-data.outputs.results) }}
+    name: ${{ matrix.result }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo 'Coverage details are attached to the public-data job.'

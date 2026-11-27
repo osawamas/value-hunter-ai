@@ -21,7 +21,10 @@ final class FlexibleValueMeter {
             return new ValueAlertMeter.Score(points,0,confirmed);
         int ceiling=1;
         if(stable && cash!=null && cash>=70 && pe<=10) ceiling=2;
-        if(stable && eps.size()>=3 && cash!=null && cash>=70 && balance!=null && balance>=70 && pe<=7) ceiling=3;
+        boolean threeYearContinuity = stable && eps.size() >= 3
+                && eps.get(1).compareTo(eps.get(2).multiply(new BigDecimal("0.8"))) > 0;
+        if (threeYearContinuity && cash != null && cash >= 70
+                && balance != null && balance >= 70 && pe <= 7) ceiling = 3;
         return new ValueAlertMeter.Score(points,ceiling,confirmed);
     }
 }

@@ -2,6 +2,7 @@
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -74,7 +75,58 @@ def jpx(out, journal):
     return {"status": "dated_closes_unavailable"}
 
 
+def summarize(out):
+    def load(name):
+        path = out / name
+        if not path.exists():
+            return {}
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {"status": "invalid_result"}
+
+    jpx_source = load("jpx-public-coverage.json")
+    us = load("us-public-coverage.json")
+    jpx = load("jpx-valuation.json")
+    labels = []
+    for market, detail, result in (("JPX", jpx_source, jpx), ("US", us, us.get("valuation", {}))):
+        state = result.get("status", detail.get("status", "unavailable"))
+        day = result.get("trading_date", detail.get("trade_date", "undated"))
+        if "total_assessed" not in result:
+            closes = detail.get("closes", detail.get("matched_close_count", "unknown"))
+            labels.append(f"{market} {day} {state} closes={closes}")
+            continue
+        tiers = result.get("tiers")
+        if tiers is None:
+            tiers = [a + b for a, b in zip(result["strict_tiers"], result["flexible_tiers"])]
+        flexible = result.get("flexible_added", result.get("partial_assessed", 0))
+        rate = result.get("full_scope_assessed_percent")
+        rate_label = f"{rate:.2f}%" if rate is not None else "unverified"
+        labels.append(f"{market} {day} {state} strict={result['strict_assessed']} flexible={flexible}"
+                      f" total={result['total_assessed']}/{result['scope']} {rate_label} tiers="
+                      + "/".join(map(str, tiers)))
+    journal = load("public-source-status.json")
+    sources = (journal if isinstance(journal, list) else []) + us.get("sources", [])
+    from urllib.parse import urlparse
+    status = {}
+    for item in sources:
+        host = item.get("host") or urlparse(item.get("url", "")).hostname
+        if host:
+            status.setdefault(host, set()).add(str(item.get("http", item.get("error", "unknown"))))
+    labels.extend(f"Source {host} {','.join(sorted(values))}" for host, values in sorted(status.items()))
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+        print("labels=" + json.dumps(labels), file=output)
+    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+        print("## Observed results", file=output)
+        for label in labels:
+            print(f"- {label}", file=output)
+        print("\nBounded financial passes report observed coverage from collected inputs.", file=output)
+
+
 def main():
+    if sys.argv[1:2] == ["--summary"]:
+        summarize(Path(sys.argv[2]))
+        return
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
     journal = []

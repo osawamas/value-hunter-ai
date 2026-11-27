@@ -25,11 +25,13 @@ import org.json.JSONObject;
 public final class JpxPdfGeometryProbe extends Instrumentation {
     private String alertPhase;
     private String coverageDay;
+    private boolean liveCoverage;
     @Override
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         alertPhase = arguments == null ? null : arguments.getString("alert_phase");
         coverageDay = arguments == null ? null : arguments.getString("coverage_day");
+        liveCoverage = arguments != null && "true".equals(arguments.getString("coverage_fetch"));
         start();
     }
 
@@ -83,24 +85,41 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         var directory = context.getDataDir();
         var pdf = new File(directory, "jpx-" + day.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + ".pdf");
         var snapshot = new File(directory, "jpx-coverage-universe.txt");
-        var codes = new HashSet<String>();
-        try (var input = new BufferedReader(new FileReader(snapshot))) {
-            if (!day.toString().equals(input.readLine())) throw new IOException("Expected a same-session listing scope");
-            for (String code; (code = input.readLine()) != null;) {
-                if (!code.matches("[0-9][0-9A-Z]{3}") || !codes.add(code)) throw new IOException("Invalid JPX listing scope");
+        JpxStockUniverse universe;
+        if (liveCoverage) {
+            var base = JpxStockUniverse.load(context);
+            var listings = JpxStockUniverse.listings();
+            var delistings = JpxStockUniverse.delistings();
+            if (base.asOf().isAfter(day) || listings.isEmpty() || delistings.isEmpty()) {
+                throw new IOException("Cannot verify listing events for the live JPX scope");
             }
+            universe = base.forTradingDay(day, listings, delistings);
+        } else {
+            var codes = new HashSet<String>();
+            try (var input = new BufferedReader(new FileReader(snapshot))) {
+                if (!day.toString().equals(input.readLine())) throw new IOException("Expected a same-session listing scope");
+                for (String code; (code = input.readLine()) != null;) {
+                    if (!code.matches("[0-9][0-9A-Z]{3}") || !codes.add(code)) throw new IOException("Invalid JPX listing scope");
+                }
+            }
+            if (codes.size() < 3000) throw new IOException("Incomplete JPX listing scope");
+            universe = new JpxStockUniverse(day, Set.copyOf(codes));
         }
-        if (codes.size() < 3000) throw new IOException("Incomplete JPX listing scope");
-        var universe = new JpxStockUniverse(day, Set.copyOf(codes));
         var report = JpxDailyCheck.readReport(context, pdf, day, universe, "");
-        var finance = JpxAutomaticFinance.cached(context, report);
-        var rights = JpxShareRights.cached(context);
         var comparison = new JpxDailyCheck.Comparison(report, null);
+        var rights = liveCoverage ? JpxShareRights.refresh(context).rights() : JpxShareRights.cached(context);
+        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, () -> false)
+                : JpxAutomaticFinance.cached(context, report);
         var screening = comparison.screen(rights, finance);
         var rows = comparison.meterRows(screening, finance, rights);
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
                 .put("trading_date", day.toString()).put("close_source", report.source())
-                .put("source_pdf_sha256", digest(pdf)).put("listing_scope_sha256", digest(snapshot))
+                .put("source_pdf_sha256", digest(pdf))
+                .put("listing_scope_sha256", liveCoverage
+                        ? UsReferenceAlerts.sha256(String.join("\n", new TreeSet<>(universe.codes()))
+                                .getBytes(StandardCharsets.UTF_8))
+                        : digest(snapshot))
+                .put("status", liveCoverage ? "bounded_financial_pass" : "cached_financial_pass")
                 .put("financial_records", finance.entries().values().stream()
                         .filter(entry -> entry.annualFor(day) != null).count());
     }

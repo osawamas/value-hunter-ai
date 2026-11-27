@@ -22,4 +22,14 @@ public class JpxDisclosureEvidenceTest {
         assertFalse(JpxDisclosureEvidence.relevant("自己株式の取得状況"));
         assertFalse(JpxDisclosureEvidence.relevant("自己株式取得の中止"));
     }
+    @Test public void verifiedDistressSuppressesEvenStrongFinancialEvidence() {
+        var date = LocalDate.of(2026, 11, 26);
+        var notice = new JpxIssuerArchive.Disclosure(date.minusDays(1), "民事再生手続開始の申立に関するお知らせ",
+                null, URI.create("https://www2.jpx.co.jp/disc/12340/123.pdf"), false);
+        var events = JpxDisclosureEvidence.extract("1234", date, new JpxIssuerArchive.Page(List.of(notice)));
+        assertEquals(1, events.size());
+        var score = new ValueAlertMeter.Score(100, 3, 4);
+        assertEquals(0, JpxDisclosureEvidence.adjust(score, events, date).level(ValueAlertMeter.DEFAULT));
+        assertEquals(3, JpxDisclosureEvidence.adjust(score, events, date.minusDays(1)).level(ValueAlertMeter.DEFAULT));
+    }
 }

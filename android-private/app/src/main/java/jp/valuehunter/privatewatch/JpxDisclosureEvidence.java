@@ -9,7 +9,11 @@ import org.json.JSONException;
 final class JpxDisclosureEvidence {
     record Event(LocalDate day, String title, String source, String kind) {}
     private static String kind(String title) {
-        if (title.contains("訂正") || title.contains("取消") || title.contains("中止")
+        if (title.contains("訂正")) return "";
+        if (title.contains("債務超過に関するお知らせ") || title.contains("民事再生手続開始の申立")
+                || title.contains("会社更生手続開始の申立")
+                || title.contains("監理銘柄（確認中）への指定")) return "distress";
+        if (title.contains("取消") || title.contains("中止")
                 || title.contains("終了") || title.contains("取得状況")) return "";
         if (title.contains("下方修正") || title.contains("業績予想の下方") || title.contains("行政処分")
                 || title.contains("不正会計") || title.contains("継続企業の前提")) return "risk";
@@ -54,6 +58,9 @@ final class JpxDisclosureEvidence {
         if (score == null || score.ceiling() == 0) return score;
         var kinds = new HashSet<String>();
         for (var e : events) if (e.day().isBefore(session) && !e.day().isBefore(session.minusDays(30))) kinds.add(e.kind());
+        if (kinds.contains("distress")) {
+            return new ValueAlertMeter.Score(Math.max(0, score.points() - 10), 0, score.confirmed());
+        }
         // One contribution per category; title-only positives cannot lift the existing evidence ceiling.
         int delta = kinds.contains("risk") ? -10 : Math.min(6, (kinds.contains("buyback") ? 3 : 0)
                 + (kinds.contains("order") ? 2 : 0) + (kinds.contains("patent") ? 1 : 0));

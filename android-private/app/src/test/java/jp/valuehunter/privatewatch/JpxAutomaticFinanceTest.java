@@ -812,4 +812,14 @@ public class JpxAutomaticFinanceTest {
                 </xbrli:context>
                 """.formatted(period, dates);
     }
+    @Test public void explorationKeepsTheRequestSetAndProtectsPriorityEntries() {
+        var ordinary = java.util.stream.IntStream.range(0, 101).mapToObj(Integer::toString).toList();
+        var day = java.time.LocalDate.of(2026, 11, 26);
+        var ordered = JpxAutomaticFinance.explorationOrder(ordinary, day, code -> !code.equals("99"));
+        org.junit.Assert.assertEquals(ordinary.subList(0, 49), ordered.subList(0, 49));
+        org.junit.Assert.assertNotEquals("49", ordered.get(49));
+        org.junit.Assert.assertEquals("99", ordered.get(99));
+        org.junit.Assert.assertEquals(new java.util.HashSet<>(ordinary), new java.util.HashSet<>(ordered));
+        org.junit.Assert.assertEquals(ordered, JpxAutomaticFinance.explorationOrder(ordinary, day, code -> !code.equals("99")));
+    }
 }
