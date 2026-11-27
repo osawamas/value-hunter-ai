@@ -37,7 +37,11 @@ jobs:
         run: |
           python -m pip install openpyxl pymupdf
           python android-private/tools/build30_public_sources.py coverage-results
-          if [ -s coverage-results/jpx-session.pdf ]; then echo 'jpx=true' >> "$GITHUB_OUTPUT"; fi
+          if [ -s coverage-results/jpx-session.pdf ]; then
+            echo 'jpx=true' >> "$GITHUB_OUTPUT"
+            day=$(python -c 'import json; print(json.load(open("coverage-results/jpx-public-coverage.json"))["trade_date"])')
+            echo "jpx_day=$day" >> "$GITHUB_OUTPUT"
+          fi
       - name: Run Android US valuation engine against acquired data
         env:
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
@@ -63,6 +67,12 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - uses: actions/cache/restore@v4
+        if: steps.acquire.outputs.jpx == 'true'
+        with:
+          path: coverage-jpx-cache
+          key: build30-jpx-v1-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: build30-jpx-v1-${{ steps.acquire.outputs.jpx_day }}-
       - name: Run bounded JPX financial acquisition and Android valuation
         if: steps.acquire.outputs.jpx == 'true'
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
@@ -73,6 +83,11 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: bash android-private/tools/check_jpx_live_emulator.sh
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('coverage-jpx-cache/jpx-automatic-finance-v1.xml') != ''
+        with:
+          path: coverage-jpx-cache
+          key: build30-jpx-v1-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Summarize source and valuation outcomes
         if: always()
         id: results
@@ -87,6 +102,7 @@ jobs:
             coverage-results/jpx-probe.log
             coverage-results/jpx-build.log
             coverage-results/*listed.txt
+            coverage-results/jpx-*.html
           retention-days: 3
   publish-results:
     if: always() && needs.public-data.outputs.results != ''

@@ -12,6 +12,22 @@ for name in listings delistings; do
     adb shell -T "run-as $app sh -c 'cat > $file'" < "coverage-results/$file"
   fi
 done
+cache_name=jpx-automatic-finance-v1.xml
+cache_dir=coverage-jpx-cache
+if [[ -s "$cache_dir/$cache_name" ]]; then
+  adb shell -T "run-as $app sh -c 'mkdir -p shared_prefs && cat > shared_prefs/$cache_name'" < "$cache_dir/$cache_name"
+fi
+save_public_finance_cache() {
+  mkdir -p "$cache_dir"
+  local temp
+  temp=$(mktemp "$cache_dir/finance.XXXX")
+  if timeout 15 adb exec-out run-as "$app" cat "shared_prefs/$cache_name" > "$temp"       && grep -q '^<map>' "$temp"; then
+    mv "$temp" "$cache_dir/$cache_name"
+  else
+    rm -f "$temp"
+  fi
+}
+trap save_public_finance_cache EXIT
 timeout 360 adb shell am instrument -w -e coverage_day "$day" -e coverage_fetch true "$app.test/jp.valuehunter.privatewatch.JpxPdfGeometryProbe" | tee coverage-results/jpx-probe.log
 sed -n '/^{.*}/p' coverage-results/jpx-probe.log | tr -d '\r' > coverage-results/jpx-valuation.json
 if [[ ! -s coverage-results/jpx-valuation.json ]]; then
