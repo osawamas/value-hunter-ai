@@ -107,6 +107,22 @@ public class JpxAutomaticFinanceTest {
         assertNull(noPrior.prior());
     }
 
+    @Test public void missingBookValueDoesNotPreventFlexibleAssessment() throws Exception {
+        var latest=new JpxAnnualSummary.Annual(LocalDate.of(2026,3,31),RELEASED,new BigDecimal("60"),null,"current");
+        var previous=new JpxAnnualSummary.Annual(LocalDate.of(2025,3,31),LocalDate.of(2025,5,12),
+                new BigDecimal("50"),new BigDecimal("940"),"prior");
+        var entry=new JpxAutomaticFinance.Entry(DAY,latest,"",previous);
+        var batch=new JpxAutomaticFinance.Batch(Map.of(CODE,entry),Map.of(),1,1);
+        var rights=new JpxShareRights(Set.of(),Set.of(),List.of());
+        var comparison=new JpxDailyCheck.Comparison(report(DAY,"300"),report(DAY.minusDays(1),"1000"));
+        var screen=comparison.screen(rights,batch);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        var row=comparison.meterRows(screen,batch,rights).getJSONArray(CODE);
+        assertEquals(1,row.getInt(1));
+        assertEquals(2,row.getInt(2));
+        assertEquals(100,row.getInt(3));
+    }
+
     @Test public void twoComparableAnnualFilingsEnableRealJpxUltraValueMeterAndPromotion() throws Exception {
         var latest = new JpxAnnualSummary.Annual(LocalDate.of(2026, 3, 31), RELEASED,
                 new BigDecimal("60"), new BigDecimal("1000"), "current-verified");
