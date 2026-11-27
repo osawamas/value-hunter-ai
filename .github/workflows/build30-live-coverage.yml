@@ -49,10 +49,15 @@ jobs:
         with:
           gradle-version: '8.9'
           cache-read-only: true
-      - name: Build JPX instrumentation and enable KVM
+      - name: Build JPX instrumentation
+        id: jpx_build
         if: steps.acquire.outputs.jpx == 'true'
         run: |
-          (cd android-private && gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest)
+          set -o pipefail
+          (cd android-private && gradle --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx2g :app:assembleDebug :app:assembleDebugAndroidTest) 2>&1 | tee coverage-results/jpx-build.log
+      - name: Enable JPX emulator KVM
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
@@ -80,7 +85,7 @@ jobs:
         if: always()
         id: results
         run: |
-          python android-private/tools/build30_public_sources.py --summary coverage-results
+          JPX_BUILD_OUTCOME="${{ steps.jpx_build.outcome }}" python android-private/tools/build30_public_sources.py --summary coverage-results
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -88,6 +93,8 @@ jobs:
           path: |
             coverage-results/*.json
             coverage-results/jpx-probe.log
+            coverage-results/jpx-build.log
+            coverage-results/*listed.txt
           retention-days: 3
   publish-results:
     if: always() && needs.public-data.outputs.results != ''

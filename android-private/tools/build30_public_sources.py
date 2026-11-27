@@ -113,6 +113,15 @@ def summarize(out):
         labels.append(f"{market} {day} {state} strict={result['strict_assessed']} flexible={flexible}"
                       f" total={result['total_assessed']}/{result['scope']} {rate_label} tiers="
                       + "/".join(map(str, tiers)))
+    if os.getenv("JPX_BUILD_OUTCOME") == "failure":
+        log = out / "jpx-build.log"
+        data = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
+        failures = (("Gradle daemon disappeared", "daemon_exited"),
+                    ("Could not resolve", "dependency_resolution"),
+                    ("Compilation failed", "compilation"),
+                    ("SDK location not found", "sdk_configuration"))
+        reason = next((label for phrase, label in failures if phrase in data), "see_build_log")
+        labels.append(f"JPX instrumentation build failed {reason}")
     journal = load("public-source-status.json")
     sources = (journal if isinstance(journal, list) else []) + us.get("sources", [])
     from urllib.parse import urlparse
