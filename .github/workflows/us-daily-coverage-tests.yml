@@ -11,6 +11,8 @@ on:
       - 'android-private/tools/UsRetryReplay.java'
       - 'android-private/tools/UsDatedRetryReplay.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ValueAlertMeter.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/FlexibleValueMeter.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDisclosureEvidence.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsFinancialFacts.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSingleSessionBudget.java'
@@ -40,6 +42,8 @@ on:
       - 'android-private/tools/UsRetryReplay.java'
       - 'android-private/tools/UsDatedRetryReplay.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/ValueAlertMeter.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/FlexibleValueMeter.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDisclosureEvidence.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsFinancialFacts.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsSingleSessionBudget.java'
@@ -98,6 +102,6 @@ jobs:
           }
           JAVA
           javac --release 17 -cp "$dir/json.jar" -d "$dir/classes" \
-            "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget,ValueAlertMeter}.java \
+            "$src"/{UsFinancialFacts,UsDeviceFinancials,UsReferenceAlerts,ValueCandidateScreen,UsDoltCloses,UsScreen,UsDailyValuation,UsMarketCoverage,JapanScreen,UsDailyCloses,UsMonthlyHistory,UsSingleSessionBudget,ValueAlertMeter,FlexibleValueMeter,UsDisclosureEvidence}.java \
             "$dir/AlertOutcomes.java" tools/{UsRetryReplay,UsDatedRetryReplay}.java
           python3 tools/test_us_dated_retry_replay.py "$dir/classes:$dir/json.jar"
