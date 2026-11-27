@@ -21,6 +21,9 @@ grant_notifications
 adb shell settings put global stay_on_while_plugged_in 0
 run_phase delivery_core alert-core.txt
 tr -d '\r' < "$RUNNER_TEMP/alert-core.txt" | grep -x 'ALERT_CORE_DELIVERY_OK'
+timeout 30 adb shell am force-stop "$app"
+run_phase delivery_core_restore alert-core-restart.txt
+tr -d '\r' < "$RUNNER_TEMP/alert-core-restart.txt" | grep -x 'ALERT_CORE_RESTART_OK'
 timeout 30 adb shell pm clear "$app"
 grant_notifications
 run_phase post alert-post.txt

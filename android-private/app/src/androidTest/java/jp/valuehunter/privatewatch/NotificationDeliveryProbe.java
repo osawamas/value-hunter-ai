@@ -46,6 +46,21 @@ final class NotificationDeliveryProbe {
         if ("archive_repair_resume".equals(phase)) return ArchivedRepairProbe.resume(context);
         if ("interrupted_prepare".equals(phase)) return prepareInterruptedDelivery(context, manager, history);
         if ("interrupted_resume".equals(phase)) return resumeInterruptedDelivery(context, manager, history);
+        if ("delivery_core_restore".equals(phase)) {
+            var saved = NotificationHistory.recent(history, System.currentTimeMillis());
+            require(saved.size() == 2 && saved.stream().anyMatch(row -> row.detail().equals(JP_DETAIL))
+                    && saved.stream().anyMatch(row -> row.detail().equals(US_DETAIL)),
+                    "Core delivery history should survive a process restart");
+            require(prefs.edit().putBoolean(NotificationScreenWake.ENABLED, true).commit(),
+                    "Cannot enable wake for replay check");
+            sleep(instrumentation, power);
+            require(ScanWorker.postNotification(context, JAPAN, JP_TITLE, JP_DETAIL),
+                    "Saved JPX receipt was not acknowledged");
+            SystemClock.sleep(350);
+            require(active(manager, JAPAN) == null && !power.isInteractive(),
+                    "Saved receipt allowed a duplicate or a second screen wake");
+            return "ALERT_CORE_RESTART_OK";
+        }
         if ("restore".equals(phase)) {
             require("60,75,90".equals(ScanWorker.prefs(context).getString(ValueAlertPreview.SETTINGS, "")),
                     "Saved alert thresholds did not survive reboot");
