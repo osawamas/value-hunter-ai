@@ -177,6 +177,10 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             acquisition.put(code, new JSONObject().put("entry_present", true).put("hold", hold)
                     .put("dated_financial", annual != null)
                     .put("source", annual == null ? JSONObject.NULL : annual.source())
+                    .put("close_present", report.close(code) != null)
+                    .put("dated_finance_hold", entry.failure(code, day, finance.updates()))
+                    .put("eps_sign", annual == null ? JSONObject.NULL : annual.eps().signum())
+                    .put("bps_sign", annual == null || annual.bps() == null ? JSONObject.NULL : annual.bps().signum())
                     .put("strict_assessed", screening.assessedCodes().contains(code))
                     .put("meter_scored", rows.has(code)));
         }

@@ -1264,6 +1264,21 @@ final class UsReferenceDeliveryProbe {
         verifySilentNotice(manager, day, "米国株の参考条件入り 1銘柄", ticker + " · 100株 · 優先候補");
     }
 
+    private static boolean includesExpectedIssuer(String detail, String expected) {
+        if (detail.contains(expected)) return true;
+        int delimiter = expected.indexOf(" · ");
+        if (delimiter <= 0) return false;
+        String ticker = expected.substring(0, delimiter);
+        String metrics = expected.substring(delimiter);
+        for (String line : detail.split("\\n")) {
+            int separator = line.indexOf(" · ");
+            if (separator <= 0 || !line.substring(separator).equals(metrics)) continue;
+            String issuer = line.substring(0, separator);
+            if (issuer.startsWith(ticker + " (") && issuer.endsWith(")")) return true;
+        }
+        return false;
+    }
+
     private static void verifySilentNotice(NotificationManager manager, LocalDate day, String expectedTitle,
                                            String expectedDetail)
             throws InterruptedException {
@@ -1277,7 +1292,7 @@ final class UsReferenceDeliveryProbe {
                 var note = active.getNotification();
                 String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
                 String detail = note.extras.getCharSequence(Notification.EXTRA_BIG_TEXT, "").toString();
-                if (title.equals(expectedTitle) && detail.contains(expectedDetail)
+                if (title.equals(expectedTitle) && includesExpectedIssuer(detail, expectedDetail)
                         && detail.contains(day.toString()) && ScanWorker.CHANNEL.equals(note.getChannelId())) {
                     return;
                 }
