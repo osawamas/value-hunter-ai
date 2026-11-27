@@ -50,6 +50,28 @@ final class UsFinancialFacts {
         return foreign.facts() == null ? domestic : foreign;
     }
 
+    record PartialValue(LocalDate end, LocalDate filed, String accession, List<BigDecimal> eps,
+                        Integer cash, Integer balance) {}
+
+    // Directly reported annual EPS is independent of the market-cap/share-count join.
+    static PartialValue partialValue(JSONObject payload, int cik, LocalDate day) {
+        if (!matchesIssuer(payload,cik)) return null;
+        var document=payload.optJSONObject("facts");
+        var gaap=document==null?null:document.optJSONObject("us-gaap");
+        var domestic=partialAnnual(gaap,day,false);
+        return domestic!=null?domestic:partialAnnual(gaap,day,true);
+    }
+
+    private static PartialValue partialAnnual(JSONObject gaap, LocalDate day, boolean foreign) {
+        var rows=facts(gaap,"EarningsPerShareBasic","USD/shares",day,foreign).stream()
+            .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
+        var anchor=latest(rows,true);
+        if(anchor==null || anchor.end.isBefore(day.minusMonths(16))) return null;
+        var history=annualMeterHistory(gaap,day,foreign);
+        if(history.annualEps().isEmpty()) return null;
+        return new PartialValue(anchor.end,anchor.filed,anchor.accession,history.annualEps(),history.cash(),history.balance());
+    }
+
     record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {}
 
     static MeterHistory meterHistory(JSONObject payload, LocalDate day) {
