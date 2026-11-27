@@ -263,8 +263,9 @@ public final class UsSecFinanceWorker extends Worker {
             if (networkStopped()) return paused();
             var ledger = scan.optJSONObject("ledger");
             if (!UsReferenceAlerts.hasTradeDateFx(ledger, day)
-                    || (!UsDeviceFinancials.currentScreenVersion(ledger)
-                    && scan.optJSONObject("valuation_evidence") != null)) {
+                    || !UsDeviceFinancials.currentScreenVersion(ledger)
+                    || scan.optJSONObject("valuation_evidence") == null
+                    || scan.optJSONObject("valuation_evidence").optInt("split_window_version",0)!=2) {
                 var evidence = scan.optJSONObject("valuation_evidence");
                 if (evidence == null || evidence.optInt("split_window_version",0)!=2) {
                     var rates = new JSONArray(download.get(
