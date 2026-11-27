@@ -299,7 +299,9 @@ final class JpxDailyCheck {
             var prior = entry.previousAnnual();
             if (prior == null || !prior.released().isBefore(day) || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
             long gap = java.time.temporal.ChronoUnit.DAYS.between(prior.end(), annual.end());
-            if (gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())
+            boolean distinctBasis = !prior.reportingBasis().isEmpty() && !annual.reportingBasis().isEmpty()
+                    && !prior.reportingBasis().equals(annual.reportingBasis());
+            if (distinctBasis || gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())
                     || rights.firstUnadjustedChange(code, prior.end(), day, prior.adjustments()) != null) {
                 return List.of(annual.eps());
             }

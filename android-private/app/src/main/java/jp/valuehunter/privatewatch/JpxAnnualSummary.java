@@ -25,9 +25,14 @@ final class JpxAnnualSummary {
     private static final Pattern FORBIDDEN_XML = Pattern.compile("<!\\s*(?:DOCTYPE|ENTITY)", Pattern.CASE_INSENSITIVE);
 
     record Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source,
-                  List<JpxShareRights.Adjustment> adjustments) {
+                  List<JpxShareRights.Adjustment> adjustments, String reportingBasis) {
         Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source) {
-            this(end, released, eps, bps, source, List.of());
+            this(end, released, eps, bps, source, List.of(), "");
+        }
+
+        Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source,
+               List<JpxShareRights.Adjustment> adjustments) {
+            this(end, released, eps, bps, source, adjustments, "");
         }
 
         boolean usable(LocalDate day) {
@@ -107,7 +112,7 @@ final class JpxAnnualSummary {
                     break;
                 }
             }
-            return new Annual(end, released, eps, bps, source);
+            return new Annual(end, released, eps, bps, source, List.of(), member + "/" + epsTag);
         } catch (Exception invalid) {
             // A changed taxonomy, incomplete filing or ambiguous financials cannot enter the screen.
             return null;

@@ -447,6 +447,7 @@ final class JpxAutomaticFinance {
             throw unavailable;
         }
         if (previous == null || !expected.equals(java.time.YearMonth.from(previous.end()))
+                || !previous.reportingBasis().equals(annual.reportingBasis())
                 || !previous.usable(annual.released())) return null;
         return previous;
     }
@@ -478,7 +479,7 @@ final class JpxAutomaticFinance {
             }
         }
         return new JpxAnnualSummary.Annual(annual.end(), annual.released(), annual.eps(), annual.bps(),
-                annual.source(), List.copyOf(adjustments));
+                annual.source(), List.copyOf(adjustments), annual.reportingBasis());
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {
@@ -512,7 +513,7 @@ final class JpxAutomaticFinance {
         }
         return new JpxAnnualSummary.Annual(LocalDate.parse(object.getString("end")),
                 LocalDate.parse(object.getString("released")), new BigDecimal(object.getString("eps")),
-                object.isNull("bps") ? null : new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments));
+                object.isNull("bps") ? null : new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments), object.optString("reporting_basis"));
     }
 
     private static JSONObject encode(Entry entry) {
@@ -538,6 +539,7 @@ final class JpxAutomaticFinance {
             }
             destination.put("basis", rows);
         }
+        if (!annual.reportingBasis().isEmpty()) destination.put("reporting_basis", annual.reportingBasis());
         return destination.put("end", annual.end().toString()).put("released", annual.released().toString())
                 .put("eps", annual.eps().toPlainString()).put("bps", annual.bps()==null ? JSONObject.NULL : annual.bps().toPlainString())
                 .put("source", annual.source());
