@@ -160,7 +160,8 @@ public final class UsSecFinanceWorker extends Worker {
             var prices = UsDeviceFinancials.prices(quote.getJSONArray("closes"));
             var verifiedListings = UsListingHistory.verifiedSupplementSymbols(directory, day);
             var scan = resume(checkpoint);
-            if (scan == null || !hash.equals(scan.optString("hash"))) {
+            if (scan == null || !hash.equals(scan.optString("hash"))
+                    || scan.optInt("meter_evidence_version") != UsDeviceFinancials.METER_EVIDENCE_VERSION) {
                 var nasdaq = listings("nasdaqlisted.txt", true);
                 var nyse = listings("otherlisted.txt", false);
                 try {

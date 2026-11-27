@@ -111,6 +111,7 @@ public class UsFinanceIncrementalTest {
         var previous = new JSONObject().put("day", OLD.toString()).put("full_refresh_day", OLD.toString())
                 .put("cursor", 2).put("targets", targets).put("results", new JSONArray().put(old).put(current));
         var scan = UsDeviceFinancials.startScan("hash", NEXT, targets, previous, Set.of());
+        assertEquals(UsDeviceFinancials.METER_EVIDENCE_VERSION, scan.getInt("meter_evidence_version"));
         assertEquals(1, scan.getInt("reused"));
         assertEquals("LEGACY", scan.getJSONArray("targets").getJSONObject(0).getString("symbol"));
         assertEquals("CURRENT", scan.getJSONArray("results").getJSONObject(0).getString("symbol"));

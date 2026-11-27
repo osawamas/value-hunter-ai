@@ -119,7 +119,7 @@ final class UsDeviceFinancials {
             }
         }
         return new JSONObject().put("hash", hash).put("day", day.toString())
-                .put("full_refresh_day", fullRefresh.toString()).put("cursor", 0)
+                .put("meter_evidence_version", METER_EVIDENCE_VERSION).put("full_refresh_day", fullRefresh.toString()).put("cursor", 0)
                 .put("reused", reused.length()).put("results", reused).put("targets", refresh);
     }
 
