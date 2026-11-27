@@ -285,6 +285,21 @@ public class JpxAutomaticFinanceTest {
         assertEquals(earlierDay, entry.previousAnnual().released());
     }
 
+    @Test public void retriesSameDayParserHoldsAfterAnUpgrade() throws Exception {
+        var data = new HashMap<String, Object>();
+        data.put("annual-" + CODE, new org.json.JSONObject().put("checked", DAY.toString())
+                .put("hold", "通期EPS・BPSを照合できなかった").toString());
+        data.put("repair-after-" + CODE, 100L);
+        var state = preferences(data);
+        var report = new JpxDailyCheck.Report(DAY, "", Map.of(CODE,
+                new JpxCloseTable.Sessions(BigDecimal.valueOf(100), null)), Set.of());
+        var source = sources(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var recovered = JpxAutomaticFinance.refresh(state, report, DAY, source, () -> false, () -> 1L);
+        assertEquals(1, recovered.fetched());
+        assertNotNull(recovered.entries().get(CODE).annual());
+        assertEquals(0, JpxAutomaticFinance.refresh(state, report, DAY, source, () -> false, () -> 2L).fetched());
+    }
+
     @Test public void rejectsExternalXmlEntitiesInPublicAnnualFilings() throws Exception {
         String malicious = filing().replaceFirst("<", "<!DOCTYPE html [<!ENTITY leak SYSTEM \"file:///etc/passwd\">]><");
         assertNull(JpxAnnualSummary.read(malicious, CODE, RELEASED,

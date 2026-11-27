@@ -34,6 +34,8 @@ final class JpxAutomaticFinance {
     private static final long MAX_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(165);
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
+    private static final int ANNUAL_PARSER_VERSION = 1;
+    private static final String ANNUAL_PARSE_HOLD = "通期EPS・BPSを照合できなかった";
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
     private static final String RETRY_PREFIX = "retry-after-";
@@ -42,7 +44,13 @@ final class JpxAutomaticFinance {
     private static final String ARCHIVE_RETRY = "archive-retry-after";
 
     record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
-                 JpxAnnualSummary.Annual previousAnnual, List<JpxDisclosureEvidence.Event> events) {
+                 JpxAnnualSummary.Annual previousAnnual, List<JpxDisclosureEvidence.Event> events,
+                 int parserVersion) {
+        Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
+              JpxAnnualSummary.Annual previousAnnual, List<JpxDisclosureEvidence.Event> events) {
+            this(checkedThrough, annual, hold, previousAnnual, events, ANNUAL_PARSER_VERSION);
+        }
+
         Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
               JpxAnnualSummary.Annual previousAnnual) {
             this(checkedThrough, annual, hold, previousAnnual, List.of());
@@ -243,11 +251,14 @@ final class JpxAutomaticFinance {
         }
         var ordered = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
-                .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now)
+                .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now
+                        || staleParserHold(entries.get(code)))
                 .filter(code -> due(entries.get(code), code, through, report.date(), updates)
+                        || staleParserHold(entries.get(code))
                         || state.getLong(RETRY_PREFIX + code, Long.MAX_VALUE) <= now
                         || state.getLong(MISSING_RETRY_PREFIX + code, Long.MAX_VALUE) <= now)
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
+                        .thenComparingInt(code -> staleParserHold(entries.get(code)) ? 0 : 1)
                         // Finish first-time coverage before routine rechecks so the one-share queue can advance.
                         .thenComparingInt(code -> entries.containsKey(code) ? 1 : 0)
                         .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
@@ -364,6 +375,11 @@ final class JpxAutomaticFinance {
         return List.copyOf(result);
     }
 
+    private static boolean staleParserHold(Entry entry) {
+        return entry != null && entry.parserVersion() < ANNUAL_PARSER_VERSION
+                && ANNUAL_PARSE_HOLD.equals(entry.hold());
+    }
+
     private static boolean urgent(Entry entry, String code, LocalDate day,
                                   Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
         if (entry == null) return false;
@@ -413,7 +429,7 @@ final class JpxAutomaticFinance {
                 && filing.day().equals(old.annual().released()) ? old.annual()
                 : JpxAnnualSummary.read(sources.financial(filing), code, filing.day(), source, filing.corrected());
         if (annual == null || !annual.usable(followingDay)
-                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return held(through, old, "通期EPS・BPSを照合できなかった");
+                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return held(through, old, ANNUAL_PARSE_HOLD);
         JpxAnnualSummary.Annual previous = null;
         if (old != null) {
             // A session must only be valued with a filing that was already public.
@@ -493,7 +509,8 @@ final class JpxAutomaticFinance {
             var annual = decodeAnnual(json, code);
             var previous = json.optJSONObject("previous");
             return new Entry(checked, annual, hold, previous == null ? null : decodeAnnual(previous, code),
-                    JpxDisclosureEvidence.decode(code, json.optJSONArray("events"), checked));
+                    JpxDisclosureEvidence.decode(code, json.optJSONArray("events"), checked),
+                    json.optInt("parser_version"));
         } catch (JSONException | IllegalArgumentException | java.time.DateTimeException invalid) {
             return null;
         }
@@ -519,7 +536,7 @@ final class JpxAutomaticFinance {
     private static JSONObject encode(Entry entry) {
         try {
             var json = new JSONObject().put("checked", entry.checkedThrough().toString()).put("hold", entry.hold())
-                    .put("events", JpxDisclosureEvidence.encode(entry.events()));
+                    .put("parser_version", entry.parserVersion()).put("events", JpxDisclosureEvidence.encode(entry.events()));
             if (entry.annual() != null) encodeAnnual(json, entry.annual());
             if (entry.previousAnnual() != null) {
                 json.put("previous", encodeAnnual(new JSONObject(), entry.previousAnnual()));
