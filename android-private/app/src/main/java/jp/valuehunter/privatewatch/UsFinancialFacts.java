@@ -142,6 +142,7 @@ final class UsFinancialFacts {
         var currentEquity = one(equityRows);
         var currentAssets = one(assetRows);
         Integer balanceScore = null;
+        if (currentEquity != null && currentEquity.value.signum() <= 0) balanceScore = 0;
         if (currentEquity != null && currentAssets != null
                 && currentEquity.value.signum() > 0 && currentAssets.value.signum() > 0
                 && currentEquity.value.compareTo(currentAssets.value) <= 0) {
