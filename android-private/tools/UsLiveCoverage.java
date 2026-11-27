@@ -25,14 +25,14 @@ public final class UsLiveCoverage {
 
     public static void main(String[] args) throws Exception {
         var directory = Path.of(args[0]);
-        var report = new JSONObject().put("status", "inputs_unavailable").put("sources", SOURCES);
+        var report = new JSONObject().put("status", "inputs_unavailable").put("stage", "listing_scope").put("sources", SOURCES);
         try {
             assess(directory, report);
         } catch (IOException | org.json.JSONException unavailable) {
             report.put("error", unavailable.getClass().getSimpleName());
         } finally {
             Files.writeString(directory.resolve("us-public-coverage.json"), report.toString(2));
-            System.out.println(new JSONObject(report, new String[]{"status", "trade_date", "scope", "closes", "valuation"}));
+            System.out.println(new JSONObject(report, new String[]{"status", "stage", "error", "trade_date", "scope", "closes", "valuation"}));
         }
     }
 
@@ -49,7 +49,7 @@ public final class UsLiveCoverage {
         }
         var scope = new TreeSet<>(nyse.symbols());
         scope.addAll(nasdaq.symbols());
-        report.put("scope", scope.size());
+        report.put("scope", scope.size()).put("stage", "closing_prices");
         JSONArray closes;
         try {
             closes = UsDoltCloses.fetch(day, url -> new JSONObject(read(url, "")));
@@ -68,13 +68,16 @@ public final class UsLiveCoverage {
             report.put("status", "sec_contact_unconfigured");
             return;
         }
+        report.put("stage", "trade_date_fx");
         var rates = new JSONArray(read(FX + "&from=" + day.minusDays(7) + "&to=" + day, ""));
         var fx = UsScreen.readFx(rates, day);
         if (!day.equals(fx.date())) {
             report.put("status", "trade_date_fx_unavailable");
             return;
         }
+        report.put("stage", "split_verification");
         var splits = UsDoltCloses.allSplits(day.minusMonths(16), day, url -> new JSONObject(read(url, "")));
+        report.put("stage", "sec_facts");
         var registry = new JSONObject(read(UsDeviceFinancials.SEC_DIRECTORY, contact));
         var targets = UsDeviceFinancials.targets(nyse, nasdaq, registry, prices.keySet());
         var rows = new JSONArray();
@@ -114,7 +117,7 @@ public final class UsLiveCoverage {
         }
         var hash = UsReferenceAlerts.sha256(closes.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var measured = UsDeviceFinancials.scopedAssessment(day, UsDoltCloses.SOURCE, hash, checkpoint, prices, fx, splits);
-        report.put("status", processed == targets.length() ? "completed_scope" : "partial_financial_pass")
+        report.put("stage", "valuation").put("status", processed == targets.length() ? "completed_scope" : "partial_financial_pass")
                 .put("financial_targets", targets.length()).put("financial_processed", processed)
                 .put("valuation", measured);
     }

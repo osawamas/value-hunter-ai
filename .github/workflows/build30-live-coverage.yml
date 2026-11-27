@@ -37,7 +37,7 @@ jobs:
       - name: Collect public JPX and US inputs
         id: acquire
         run: |
-          python -m pip install openpyxl pymupdf
+          python -m pip install openpyxl pymupdf xlrd
           python android-private/tools/build30_public_sources.py coverage-results
           python android-private/tools/probe_jpx_archive.py coverage-results
           if [ -s coverage-results/jpx-session.pdf ]; then
@@ -48,7 +48,9 @@ jobs:
       - name: Measure the free alternative JPX annual input
         if: steps.acquire.outputs.jpx == 'true'
         run: |
-          if timeout 145 python android-private/tools/jpx_hachiquant_coverage.py             coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf             > coverage-results/jpx-alternative-input.json; then
+          if timeout 145 python android-private/tools/jpx_hachiquant_coverage.py \
+            coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf \
+            > coverage-results/jpx-alternative-input.json; then
             python -m json.tool coverage-results/jpx-alternative-input.json
           else
             printf '{"status":"alternative_input_unavailable"}\n' > coverage-results/jpx-alternative-input.json
