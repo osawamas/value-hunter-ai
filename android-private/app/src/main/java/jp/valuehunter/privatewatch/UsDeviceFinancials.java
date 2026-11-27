@@ -145,7 +145,8 @@ final class UsDeviceFinancials {
         try {
             var period = LocalDate.parse(row.getString("equity_date"));
             var filed = LocalDate.parse(row.getString("filed"));
-            return !period.isBefore(day.minusDays(150)) && filed.isBefore(day);
+            var earliest = row.optBoolean("partial_value") ? day.minusMonths(16) : day.minusDays(150);
+            return !period.isBefore(earliest) && !period.isAfter(filed) && filed.isBefore(day);
         } catch (JSONException | DateTimeParseException invalid) {
             return false;
         }
