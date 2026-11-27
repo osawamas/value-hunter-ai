@@ -94,10 +94,14 @@ final class DiagnosticLog {
     }
 
     static String classify(String event) {
-        if (event.contains("再試行") || event.contains("待ち") || event.contains("タイムアウト")) return "RETRY";
+        // Counts in a completed screen are not worker retries (including nonzero holds).
+        if (event.startsWith("東証の条件入り:") || event.startsWith("割安判定の除外理由を集計")) return "INFO";
+        // A finance phase is not evidence of a failed write.
+        if (event.equals("保存状態: 財務・株数などの照合待ち")) return "INFO";
         if (event.contains("失敗") || event.contains("例外") || event.contains("エラー")
                 || event.contains("保存できず") || event.contains("取得できず")
                 || event.contains("読み込めなかった")) return "ERROR";
+        if (event.contains("再試行") || event.contains("待ち") || event.contains("タイムアウト")) return "RETRY";
         return "INFO";
     }
 
