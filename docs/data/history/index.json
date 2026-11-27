@@ -1,8 +1,8 @@
 {
   "schema_version": "value_hunter_history_v34",
   "note": "Daily snapshots without interpolated prices. Ranked rows are flagged individually.",
-  "retained_days": 11,
-  "latest_date_utc": "2026-11-26",
+  "retained_days": 12,
+  "latest_date_utc": "2026-11-27",
   "entries": [
     {
       "date_utc": "2026-11-13",
@@ -1078,6 +1078,109 @@
           "pbr_reference_unverified": 10.4476,
           "market_cap_sgd": 26888408996.56,
           "quote_timestamp_utc": "2026-11-26T09:04:59+00:00",
+          "quote_freshness": "RECENT",
+          "shares_as_of_date": "2026-06-30",
+          "quality_flags": []
+        },
+        {
+          "symbol": "D05",
+          "price_sgd": null,
+          "per_reference": null,
+          "pbr_reference_unverified": null,
+          "market_cap_sgd": null,
+          "quote_timestamp_utc": null,
+          "quote_freshness": "MISSING",
+          "shares_as_of_date": null,
+          "quality_flags": [
+            "QUOTE_NOT_AVAILABLE",
+            "QUOTE_TIMESTAMP_MISSING",
+            "SHARES_NOT_AVAILABLE",
+            "SHARES_DATE_MISSING",
+            "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+          ]
+        },
+        {
+          "symbol": "O39",
+          "price_sgd": null,
+          "per_reference": null,
+          "pbr_reference_unverified": null,
+          "market_cap_sgd": null,
+          "quote_timestamp_utc": null,
+          "quote_freshness": "MISSING",
+          "shares_as_of_date": null,
+          "quality_flags": [
+            "QUOTE_NOT_AVAILABLE",
+            "QUOTE_TIMESTAMP_MISSING",
+            "SHARES_NOT_AVAILABLE",
+            "SHARES_DATE_MISSING",
+            "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+          ]
+        },
+        {
+          "symbol": "U11",
+          "price_sgd": null,
+          "per_reference": null,
+          "pbr_reference_unverified": null,
+          "market_cap_sgd": null,
+          "quote_timestamp_utc": null,
+          "quote_freshness": "MISSING",
+          "shares_as_of_date": null,
+          "quality_flags": [
+            "QUOTE_NOT_AVAILABLE",
+            "QUOTE_TIMESTAMP_MISSING",
+            "SHARES_NOT_AVAILABLE",
+            "SHARES_DATE_MISSING",
+            "VALUATIONS_SUPPRESSED_STALE_OR_UNDATED_SOURCE"
+          ]
+        }
+      ],
+      "quote_count": 4,
+      "source": "VALUE_HUNTER_AI_PUBLIC_FEED_UNVERIFIED_QUOTES"
+    },
+    {
+      "date_utc": "2026-11-27",
+      "source_updated_at_utc": "2026-11-27T12:25:45.700412+00:00",
+      "records": [
+        {
+          "symbol": "S68",
+          "price_sgd": 20.09,
+          "per_reference": 30.8031,
+          "pbr_reference_unverified": 9.1043,
+          "market_cap_sgd": 21513245593.56,
+          "quote_timestamp_utc": "2026-11-27T09:07:20+00:00",
+          "quote_freshness": "RECENT",
+          "shares_as_of_date": "2026-09-01",
+          "quality_flags": []
+        },
+        {
+          "symbol": "G13",
+          "price_sgd": 0.535,
+          "per_reference": 16.5342,
+          "pbr_reference_unverified": 0.7866,
+          "market_cap_sgd": 6454048616.59,
+          "quote_timestamp_utc": "2026-11-27T09:04:10+00:00",
+          "quote_freshness": "RECENT",
+          "shares_as_of_date": "2026-06-30",
+          "quality_flags": []
+        },
+        {
+          "symbol": "S20",
+          "price_sgd": 1.39,
+          "per_reference": null,
+          "pbr_reference_unverified": 0.5398,
+          "market_cap_sgd": 673903728.14,
+          "quote_timestamp_utc": "2026-11-27T09:04:11+00:00",
+          "quote_freshness": "RECENT",
+          "shares_as_of_date": "2026-06-30",
+          "quality_flags": []
+        },
+        {
+          "symbol": "S63",
+          "price_sgd": 8.73,
+          "per_reference": 58.8446,
+          "pbr_reference_unverified": 10.5809,
+          "market_cap_sgd": 27231532545.24,
+          "quote_timestamp_utc": "2026-11-27T09:14:21+00:00",
           "quote_freshness": "RECENT",
           "shares_as_of_date": "2026-06-30",
           "quality_flags": []
