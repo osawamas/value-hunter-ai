@@ -241,14 +241,37 @@ final class JpxDailyCheck {
 
         JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
-            return meterRows(latest, screen.assessedCodes(), finance, rights);
+            return withPartialRows(latest,screen.assessedCodes(),finance,rights,
+                    meterRows(latest, screen.assessedCodes(), finance, rights));
         }
 
         JSONObject previousMeterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
             var comparable = new HashSet<>(screen.assessedCodes());
             for (var held : screen.holds()) comparable.remove(held.code());
-            return meterRows(previous, comparable, finance, rights);
+            return withPartialRows(previous,comparable,finance,rights,
+                    meterRows(previous, comparable, finance, rights));
+        }
+
+        private JSONObject withPartialRows(Report report, Set<String> strict, JpxAutomaticFinance.Batch finance,
+                                           JpxShareRights rights, JSONObject rows) throws JSONException {
+            if (report==null) return rows;
+            var day=report.date();
+            for (var item:finance.entries().entrySet()) {
+                var code=item.getKey();
+                if(strict.contains(code) || rows.has(code)) continue;
+                var entry=item.getValue();
+                var annual=entry.annualFor(day);
+                var close=report.close(code);
+                if(entry.annual()==null || annual==null || annual.bps()!=null || close==null
+                    || !entry.failure(code,day,finance.updates()).isEmpty()
+                    || !rights.adjustments().containsAll(annual.adjustments())
+                    || rights.firstUnadjustedChange(code,annual.end(),day,annual.adjustments())!=null) continue;
+                var eps=recentEps(code,entry,annual,day,rights);
+                var score=FlexibleValueMeter.assess(close,eps,null,null);
+                if(score.confirmed()>=2) rows.put(code,ValueAlertPreview.encode(score,budgetQuantity(close)));
+            }
+            return rows;
         }
 
         private JSONObject meterRows(Report report, Set<String> codes, JpxAutomaticFinance.Batch finance,
