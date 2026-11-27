@@ -266,15 +266,15 @@ public final class UsSecFinanceWorker extends Worker {
                     || (!UsDeviceFinancials.currentScreenVersion(ledger)
                     && scan.optJSONObject("valuation_evidence") != null)) {
                 var evidence = scan.optJSONObject("valuation_evidence");
-                if (evidence == null) {
+                if (evidence == null || evidence.optInt("split_window_version",0)!=2) {
                     var rates = new JSONArray(download.get(
                             FX + "&from=" + day.minusDays(UsScreen.FX_LOOKBACK_DAYS) + "&to=" + day));
                     var fx = tradeDateFx(rates, day);
-                    var splits = UsDoltCloses.allSplits(day.minusDays(150), day,
+                    var splits = UsDoltCloses.allSplits(day.minusMonths(16), day,
                             url -> new JSONObject(download.get(url)));
                     var dates = new JSONObject();
                     for (var entry : splits.entrySet()) dates.put(entry.getKey(), entry.getValue().toString());
-                    evidence = new JSONObject().put("fx_rate", fx.yenPerDollar()).put("splits", dates);
+                    evidence = new JSONObject().put("fx_rate", fx.yenPerDollar()).put("splits", dates).put("split_window_version",2);
                     scan.put("valuation_evidence", evidence);
                 }
                 var fx = new UsScreen.Fx(day, evidence.getDouble("fx_rate"));
