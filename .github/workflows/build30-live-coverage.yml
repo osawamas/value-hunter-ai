@@ -6,6 +6,7 @@ on:
       - '.github/workflows/build30-live-coverage.yml'
       - 'android-private/tools/build30_public_sources.py'
       - 'android-private/tools/UsLiveCoverage.java'
+      - 'android-private/app/src/androidTest/java/jp/valuehunter/privatewatch/JpxPdfGeometryProbe.java'
   workflow_dispatch:
 
 permissions:

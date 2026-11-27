@@ -45,7 +45,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 return;
             }
             if (coverageDay != null) {
-                result.putString("stream", "\n" + replayCoverage(LocalDate.parse(coverageDay)) + "\n");
+                result.putString("stream", "\n" + runCoverage(LocalDate.parse(coverageDay)) + "\n");
                 finish(Activity.RESULT_OK, result);
                 return;
             }
@@ -77,6 +77,18 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         } catch (Exception | AssertionError error) {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
             finish(Activity.RESULT_CANCELED, result);
+        }
+    }
+
+    private JSONObject runCoverage(LocalDate day) throws Exception {
+        if (!liveCoverage) return replayCoverage(day);
+        var context = getTargetContext();
+        boolean wasRequested = MarketNetwork.requested();
+        if (!MarketNetwork.setAllowed(context, true)) throw new IOException("Could not start live probe networking");
+        try {
+            return replayCoverage(day);
+        } finally {
+            MarketNetwork.setAllowed(context, wasRequested);
         }
     }
 
