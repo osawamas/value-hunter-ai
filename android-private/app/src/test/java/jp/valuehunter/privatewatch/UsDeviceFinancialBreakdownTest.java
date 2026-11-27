@@ -59,6 +59,28 @@ public class UsDeviceFinancialBreakdownTest {
         assertEquals(1,diag.getInt("outside_budget"));
     }
 
+    @Test public void strictAndPartialCoverageAreSeparateAndBudgetFiltered() throws Exception {
+        var day=LocalDate.parse("2026-11-23");
+        var rows=new JSONArray().put(financial("AAA",1,1000,5000,6000));
+        for(String code:java.util.List.of("PART","OVER","SPLIT")) {
+            rows.put(new JSONObject().put("symbol",code).put("exchange","NYSE").put("cik",rows.length()+1)
+                .put("partial_value",true).put("share_date","2026-09-30")
+                .put("meter_eps",new JSONArray().put("2").put("1.9").put("1.8"))
+                .put("meter_cash",100).put("meter_balance",100));
+        }
+        var d=UsDeviceFinancials.screen(day,UsDoltCloses.SOURCE,"a".repeat(64),rows,
+            Map.of("AAA",new BigDecimal("5"),"PART",new BigDecimal("10"),
+                "OVER",new BigDecimal("1000"),"SPLIT",new BigDecimal("10")),
+            new UsScreen.Fx(day,150),Map.of("SPLIT",day))
+            .getJSONObject("reference_screen").getJSONObject("diagnostics");
+        assertEquals(1,d.getInt("strict_assessed"));
+        assertEquals(2,d.getInt("partial_assessed"));
+        assertEquals(3,d.getInt("total_assessed"));
+        assertEquals(1,d.getInt("partial_eligible_default"));
+        assertEquals(1,d.getJSONArray("flexible_tiers").getInt(2));
+        assertEquals(1,d.getInt("split_hold"));
+    }
+
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
                 .put("shares",String.valueOf(shares)).put("profit",String.valueOf(profit))
