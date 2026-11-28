@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 import unittest
 
-from us_alpaca_close_probe import audit, collect, replay_history
+from us_alpaca_close_probe import audit, collect, replay_history, split_audit
 from unittest.mock import patch
 
 
@@ -43,3 +43,21 @@ class AlpacaCloseProbeTest(unittest.TestCase):
         result = replay_history(rows)
         self.assertEqual((result["qualified_signals"], result["positive_forward_windows"], result["relative_wins"]),
                          (1, 1, 1))
+
+    def test_split_audit_keeps_ex_dates_in_scope_and_rejects_bad_pagination(self):
+        def fetch(path, params, *_):
+            self.assertEqual(path, "/v1/corporate-actions")
+            if "page_token" not in params:
+                return {"corporate_actions": {"forward_splits": [
+                    {"id": "first", "symbol": "AAPL", "ex_date": "2026-10-02"},
+                    {"id": "future", "symbol": "AAPL", "ex_date": "2026-12-02"}]},
+                        "next_page_token": "second-page"}
+            return {"corporate_actions": {"reverse_splits": [
+                {"id": "last", "symbol": "AAPL", "ex_date": "2026-11-02"},
+                {"id": "other", "symbol": "IBM", "ex_date": "2026-11-03"}]},
+                    "next_page_token": None}
+
+        with patch("us_alpaca_close_probe.time.sleep"):
+            report, splits = split_audit(date(2026, 11, 27), {"AAPL"}, "key", "secret", fetch)
+        self.assertEqual(report["status"], "verified")
+        self.assertEqual(splits, {"AAPL": "2026-11-02"})

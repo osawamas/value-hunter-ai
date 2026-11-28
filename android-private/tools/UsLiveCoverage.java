@@ -57,7 +57,8 @@ public final class UsLiveCoverage {
         var scope = new TreeSet<>(nyse.symbols());
         scope.addAll(nasdaq.symbols());
         report.put("scope", scope.size()).put("stage", "closing_prices");
-        var closes = useAlpaca ? alpacaCloses(day, scope, report) : null;
+        var alpacaSplits = new java.util.HashMap<String, java.time.LocalDate>();
+        var closes = useAlpaca ? alpacaCloses(day, scope, report, alpacaSplits) : null;
         String closeSource = closes == null ? UsDoltCloses.SOURCE : "alpaca_delayed_sip_raw";
         if (closes != null) report.put("quote_path", closeSource);
         UsDoltCloses.Download download = url -> new JSONObject(read(url, ""));
@@ -120,7 +121,9 @@ public final class UsLiveCoverage {
             return;
         }
         report.put("stage", "split_verification");
-        var splits = UsDoltCloses.allSplits(day.minusMonths(16), day, url -> new JSONObject(read(url, "")));
+        var splits = alpacaSplits.isEmpty()
+                ? UsDoltCloses.allSplits(day.minusMonths(16), day, url -> new JSONObject(read(url, ""))) : alpacaSplits;
+        report.put("split_source", alpacaSplits.isEmpty() ? UsDoltCloses.SOURCE : "alpaca_corporate_actions");
         report.put("stage", "sec_facts");
         var registry = new JSONObject(read(UsDeviceFinancials.SEC_DIRECTORY, contact));
         var targets = UsDeviceFinancials.targets(nyse, nasdaq, registry, prices.keySet());
@@ -206,7 +209,8 @@ public final class UsLiveCoverage {
         }
     }
 
-    private static JSONArray alpacaCloses(java.time.LocalDate day, TreeSet<String> scope, JSONObject report)
+    private static JSONArray alpacaCloses(java.time.LocalDate day, TreeSet<String> scope, JSONObject report,
+            java.util.Map<String, java.time.LocalDate> splits)
             throws IOException, InterruptedException {
         var scratch = Files.createTempDirectory("us-alpaca-");
         var scopeFile = scratch.resolve("scope.json");
@@ -239,6 +243,16 @@ public final class UsLiveCoverage {
                     || daily.getInt("scope") != scope.size() || daily.getInt("closes") != rows.length()
                     || !scope.containsAll(UsDeviceFinancials.prices(rows).keySet())) {
                 throw new JSONException("Unverified Alpaca listing scope");
+            }
+            var datedSplits = input.optJSONObject("splits");
+            if (datedSplits != null && summary.getJSONObject("splits").getInt("scoped_symbols") == datedSplits.length()) {
+                for (String symbol : datedSplits.keySet()) {
+                    var effective = java.time.LocalDate.parse(datedSplits.getString(symbol));
+                    if (!scope.contains(symbol) || effective.isAfter(day)) {
+                        throw new JSONException("Unverified Alpaca corporate action");
+                    }
+                    splits.put(symbol, effective);
+                }
             }
             report.put("quote_symbols_queried", daily.getInt("queried"))
                     .put("quote_pass_timed_out", !"complete_request_pass".equals(daily.optString("status")));

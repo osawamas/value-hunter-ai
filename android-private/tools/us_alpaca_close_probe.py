@@ -1,6 +1,6 @@
 """Verify dated raw SIP daily bars through Alpaca's historical endpoint."""
 import argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import json
 import os
@@ -30,7 +30,11 @@ def request_bars(start, end, symbols, adjustment, limit, key, secret, token=None
               "feed": "sip", "asof": end.isoformat()}
     if token:
         params["page_token"] = token
-    request = Request("https://data.alpaca.markets/v2/stocks/bars?" + urlencode(params),
+    return alpaca_json("/v2/stocks/bars", params, key, secret)
+
+
+def alpaca_json(path, params, key, secret):
+    request = Request("https://data.alpaca.markets" + path + "?" + urlencode(params),
                       headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
     with build_opener(NoRedirect()).open(request, timeout=12) as response:
         body = response.read(2_000_001)
@@ -101,6 +105,49 @@ def collect(day, symbols, key, secret, download=request_bars):
     return {"scope": len(symbols), "queried": queried, "closes": len(closes),
             "status": "complete_request_pass" if queried == len(symbols) else "partial_request_pass",
             **failure}, [{"symbol": symbol, "close_usd": str(close)} for (symbol, _), close in sorted(closes.items())]
+
+
+def split_audit(day, scope, key, secret, fetch=alpaca_json):
+    # Use a wider process-date range, then filter by ex-date.
+    lower = day - timedelta(days=520)
+    params = {"types": "forward_split,reverse_split", "start": (lower - timedelta(days=60)).isoformat(),
+              "end": datetime.now(timezone.utc).date().isoformat(), "limit": 1000}
+    dates = {}
+    seen_actions = set()
+    seen_tokens = set()
+    try:
+        for _ in range(8):
+            payload = fetch("/v1/corporate-actions", params, key, secret)
+            actions = payload["corporate_actions"]
+            if not isinstance(actions, dict) or actions.keys() - {"forward_splits", "reverse_splits"}:
+                raise ValueError("Unexpected corporate action type")
+            for entries in actions.values():
+                for row in entries:
+                    action = row["id"]
+                    symbol = row["symbol"]
+                    effective = date.fromisoformat(row["ex_date"])
+                    if not action or action in seen_actions or not isinstance(symbol, str):
+                        raise ValueError("Invalid corporate action identity")
+                    seen_actions.add(action)
+                    if symbol in scope and lower <= effective <= day:
+                        dates[symbol] = max(dates.get(symbol, effective), effective)
+            token = payload["next_page_token"]
+            if token is None:
+                if not seen_actions or not dates:
+                    raise ValueError("Empty corporate actions coverage")
+                return {"status": "verified", "scoped_symbols": len(dates)}, {
+                    symbol: effective.isoformat() for symbol, effective in dates.items()}
+            if not isinstance(token, str) or not token or len(token) > 2048 or token in seen_tokens:
+                raise ValueError("Invalid corporate actions page token")
+            seen_tokens.add(token)
+            params["page_token"] = token
+            time.sleep(0.35)
+    except HTTPError as error:
+        error.close()
+        return {"status": "unavailable", "http_status": error.code}, None
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        return {"status": "response_unverified", "error": type(error).__name__}, None
+    return {"status": "pagination_budget_reached"}, None
 
 
 def replay_history(rows):
@@ -188,7 +235,9 @@ if __name__ == "__main__":
     if args.scope and report["status"] == "sample_verified":
         report["daily"], closes = collect(day, sorted(symbols), key, secret)
         if closes:
-            args.close_output.write_text(json.dumps({"trade_date": day.isoformat(), "closes": closes}),
+            report["splits"], splits = split_audit(day, set(symbols), key, secret)
+            args.close_output.write_text(json.dumps({"trade_date": day.isoformat(), "closes": closes,
+                                                        "splits": splits}),
                                          encoding="utf-8")
         report["five_year_history_probe"] = history_sample(day, key, secret)
     print(json.dumps(report))
