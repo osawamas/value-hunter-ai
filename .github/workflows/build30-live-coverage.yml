@@ -65,9 +65,9 @@ jobs:
           for report in "$RUNNER_TEMP"/build30-rights/*.xls; do
             if [[ -s "$report" ]]; then reports+=(--daily-rights "$report"); fi
           done
-          if timeout 145 python android-private/tools/jpx_hachiquant_coverage.py \
+          if timeout 230 python android-private/tools/jpx_hachiquant_coverage.py \
             coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf --budget-samples-per-market 2 \
-            --valuation-output "$RUNNER_TEMP/jpx-alternative-valuation.json" \
+            --batch-index "$GITHUB_RUN_NUMBER" --valuation-output "$RUNNER_TEMP/jpx-alternative-valuation.json" \
             "${reports[@]}" > coverage-results/jpx-alternative-input.json; then
             python -m json.tool coverage-results/jpx-alternative-input.json
           else

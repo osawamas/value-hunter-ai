@@ -231,7 +231,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         if (!day.toString().equals(input.getString("day")) || report.universe() == null)
             throw new IllegalArgumentException("Cross-checked finance date or scope mismatch");
         var rows = input.getJSONObject("rows");
-        if (rows.length() > 12) throw new IllegalArgumentException("Too many cross-checked finance rows");
+        if (rows.length() > 40) throw new IllegalArgumentException("Too many cross-checked finance rows");
         int added = 0;
         for (var keys = rows.keys(); keys.hasNext();) {
             String code = keys.next();

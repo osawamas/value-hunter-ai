@@ -5,6 +5,8 @@ from decimal import Decimal, InvalidOperation
 import io
 import json
 import re
+import time
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zipfile import BadZipFile, ZipFile
@@ -94,6 +96,12 @@ class EdinetAudit:
     def __init__(self, key):
         self.key = key
         self.days = {}
+        self.next_request = 0.0
+
+    def request(self, path, query, limit):
+        time.sleep(max(0, self.next_request - time.monotonic()))
+        self.next_request = time.monotonic() + 1.25
+        return download(path, query, self.key, limit)
 
     def check(self, filing, row):
         filed_on = filing["actual_filing_date"]
@@ -102,8 +110,7 @@ class EdinetAudit:
         if not re.fullmatch(r"S[0-9A-Z]{7}", doc_id):
             raise ValueError("Unexpected EDINET document identifier")
         if filed_on not in self.days:
-            listing = json.loads(download(".json", {"date": filed_on, "type": 2},
-                                          self.key, 4_000_000))
+            listing = json.loads(self.request(".json", {"date": filed_on, "type": 2}, 4_000_000))
             self.days[filed_on] = listing["results"]
         if not metadata_matches(self.days[filed_on], code, doc_id, row["period_end"], filed_on):
             return {"filing_metadata_match": False}
@@ -113,8 +120,12 @@ class EdinetAudit:
         except (KeyError, TypeError, ValueError):
             duration = 0
         try:
-            facts = facts_from_csv(download("/" + doc_id, {"type": 5}, self.key, 8_000_000))
+            facts = facts_from_csv(self.request("/" + doc_id, {"type": 5}, 8_000_000))
             return {"filing_metadata_match": True, "full_year_verified": 350 <= duration <= 380,
                     **compare(row["metrics"], facts)}
+        except HTTPError as error:
+            if error.code in (401, 403, 429, 503):
+                raise
+            return {"filing_metadata_match": True, "original_csv_unverified": True}
         except (ValueError, InvalidOperation, OSError, KeyError, BadZipFile):
             return {"filing_metadata_match": True, "original_csv_unverified": True}
