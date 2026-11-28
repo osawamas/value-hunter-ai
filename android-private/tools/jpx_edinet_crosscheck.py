@@ -15,6 +15,7 @@ BASE = "https://api.edinet-fsa.go.jp/api/v2/documents"
 SUMMARY = "jpcrp_cor:"
 EPS = SUMMARY + "BasicEarningsLossPerShareSummaryOfBusinessResults"
 BPS = SUMMARY + "NetAssetsPerShareSummaryOfBusinessResults"
+REPORT_PERIOD_END = "jpdei_cor:CurrentPeriodEndDateDEI"
 SHARES = SUMMARY + "TotalNumberOfIssuedSharesSummaryOfBusinessResults"
 PER_SHARE_PAIRS = (
     (EPS, BPS),
@@ -76,6 +77,11 @@ def facts_from_csv(body, interim=False):
                 raise ValueError("EDINET annual CSV lacks required columns")
             for row in rows:
                 tag, context = row["要素ID"], row["コンテキストID"]
+                if interim and tag == REPORT_PERIOD_END and context == "FilingDateInstant":
+                    value = row["値"]
+                    if value and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
+                        facts.setdefault((tag, context), set()).add(value)
+                    continue
                 duration = tag in EPS_TAGS and context in (
                     "CurrentYearDuration", "CurrentYearDuration_NonConsolidatedMember")
                 instant = (tag in BPS_TAGS or tag == SHARES) and context in (
@@ -162,7 +168,7 @@ class EdinetAudit:
         if not re.fullmatch(r"S[0-9A-Z]{7}", doc):
             return {**result, "status": "latest_interim_document_id_unverified"}
         result["doc_id"] = doc
-        if not period or not annual_period < period < filed_on:
+        if not period or not annual_period < period:
             return {**result, "status": "latest_interim_period_unverified"}
         if item.get("csvFlag") != "1":
             return {**result, "status": "latest_interim_csv_not_offered", "csv_flag": item.get("csvFlag"),
@@ -172,6 +178,18 @@ class EdinetAudit:
             facts = facts_from_csv(self.request("/" + doc, {"type": 5}, 8_000_000), interim=True)
         except (ValueError, KeyError, BadZipFile):
             return {**result, "status": "latest_interim_csv_unverified"}
+        period_dates = facts.get((REPORT_PERIOD_END, "FilingDateInstant"), set())
+        if len(period_dates) != 1:
+            return {**result, "status": "latest_interim_report_period_unverified"}
+        observed_period = next(iter(period_dates))
+        try:
+            ordered = date.fromisoformat(annual_period) < date.fromisoformat(observed_period) < date.fromisoformat(filed_on)
+            within_fiscal_year = date.fromisoformat(observed_period) <= date.fromisoformat(period)
+        except ValueError:
+            ordered = within_fiscal_year = False
+        if not ordered or not within_fiscal_year:
+            return {**result, "status": "latest_interim_report_period_unverified"}
+        result["report_period_end"] = observed_period
         shares = set().union(*(values for (tag, _), values in facts.items() if tag == SHARES))
         book_values = set().union(*(values for (tag, _), values in facts.items() if tag in BPS_TAGS))
         result["shares"] = compare_latest(shares, annual_shares)

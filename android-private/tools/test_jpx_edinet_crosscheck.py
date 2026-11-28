@@ -5,7 +5,7 @@ from unittest.mock import patch
 from decimal import Decimal
 from zipfile import ZipFile
 
-from jpx_edinet_crosscheck import BPS, EPS, SHARES, PER_SHARE_PAIRS, EdinetAudit, compare, download, facts_from_csv, metadata_matches
+from jpx_edinet_crosscheck import BPS, EPS, SHARES, REPORT_PERIOD_END, PER_SHARE_PAIRS, EdinetAudit, compare, download, facts_from_csv, metadata_matches
 
 
 class CrossCheckTest(unittest.TestCase):
@@ -54,21 +54,26 @@ class CrossCheckTest(unittest.TestCase):
         args = ("1301", filed, "2026-03-31", Decimal("100"), Decimal("20000"))
         audit.days[filed] = []
         self.assertEqual(audit.review_newer(*args)["status"], "latest_no_edinet_filing_on_hint_date")
-        row = dict(docID="S100AB12", secCode="13010", periodEnd="2026-09-30",
+        row = dict(docID="S100AB12", secCode="13010", periodEnd="2027-03-31",
                    submitDateTime=filed + " 10:12", withdrawalStatus="0", disclosureStatus="0", csvFlag="1")
         audit.days[filed] = [dict(row, docTypeCode="160"), dict(row, docTypeCode="180")]
-        facts = {(SHARES, "CurrentInterimInstant"): {Decimal("20000")},
+        facts = {(REPORT_PERIOD_END, "FilingDateInstant"): {"2026-09-30"},
+                 (SHARES, "CurrentInterimInstant"): {Decimal("20000")},
                  (BPS, "CurrentInterimInstant"): {Decimal("110")}}
         with patch.object(audit, "request", return_value=b"csv"), patch(
                 "jpx_edinet_crosscheck.facts_from_csv", return_value=facts):
             result = audit.review_newer(*args)
         self.assertEqual((result["status"], result["shares"], result["bps"]),
                          ("latest_interim_reviewed", "unchanged", "changed"))
+        self.assertEqual(result["report_period_end"], "2026-09-30")
+        with patch.object(audit, "request", return_value=b"csv"), patch(
+                "jpx_edinet_crosscheck.facts_from_csv", return_value={}):
+            self.assertEqual(audit.review_newer(*args)["status"], "latest_interim_report_period_unverified")
         audit.days[filed] = [dict(row, docTypeCode="160", csvFlag="0", xbrlFlag="1")]
         denied = audit.review_newer(*args)
         self.assertEqual(denied["status"], "latest_interim_csv_not_offered")
         self.assertEqual((denied["doc_id"], denied["period_end"], denied["xbrl_flag"]),
-                         ("S100AB12", "2026-09-30", "1"))
+                         ("S100AB12", "2027-03-31", "1"))
         audit.days[filed].append(dict(row, docTypeCode="170"))
         self.assertEqual(audit.review_newer(*args)["status"], "latest_annual_or_amendment_requires_review")
 
