@@ -36,10 +36,10 @@ class AlpacaCloseProbeTest(unittest.TestCase):
     def test_replay_excludes_unavailable_forward_windows(self):
         first = date(2020, 1, 1)
         rows = {(symbol, first + timedelta(days=n)): (100 + n if symbol == "AAPL" else 100)
-                for symbol in ("AAPL", "IBM") for n in range(272)}
+                for symbol in ("AAPL", "IBM") for n in range(273)}
         self.assertEqual(replay_history(rows)["test_windows"], 0)
         for symbol in ("AAPL", "IBM"):
-            rows[symbol, first + timedelta(days=272)] = 372 if symbol == "AAPL" else 100
+            rows[symbol, first + timedelta(days=273)] = 373 if symbol == "AAPL" else 100
         result = replay_history(rows)
         self.assertEqual((result["qualified_signals"], result["positive_forward_windows"], result["relative_wins"]),
                          (1, 1, 1))

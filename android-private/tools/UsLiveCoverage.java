@@ -137,6 +137,7 @@ public final class UsLiveCoverage {
         int identityRecovered = 0;
         boolean identityRetryStopped = false;
         var retriedIssuers = new java.util.HashSet<Integer>();
+        var identityOutcomes = new JSONObject();
         var factsByIssuer = new java.util.HashMap<Integer, JSONObject>();
         try (var archive = companyFactsArchive(report)) {
             for (; processed < targets.length() && Instant.now().isBefore(deadline); processed++) {
@@ -151,19 +152,25 @@ public final class UsLiveCoverage {
                                     : archiveFacts(archive, cik);
                         } catch (InvalidCompanyFacts rejected) {
                             if (!"sec_archive_cik_mismatch".equals(rejected.reason)
-                                    || identityRetryStopped || identityRetries >= 40
+                                    || identityRetryStopped || identityRetries >= 20
                                     || Duration.between(Instant.now(), deadline).toSeconds() < 100
                                     || !retriedIssuers.add(cik)) throw rejected;
                             identityRetries++;
                             try {
                                 payload = new JSONObject(read(String.format(Locale.ROOT, FACTS, cik), contact,
                                         Duration.ofSeconds(6)));
-                                if (!UsFinancialFacts.matchesIssuer(payload, cik)) throw rejected;
+                                if (!UsFinancialFacts.matchesIssuer(payload, cik)) {
+                                    identityOutcomes.put(Integer.toString(cik), "response_cik_mismatch");
+                                    throw rejected;
+                                }
+                                identityOutcomes.put(Integer.toString(cik), "recovered");
                                 identityRecovered++;
                             } catch (HttpFailure denied) {
+                                identityOutcomes.put(Integer.toString(cik), "http_" + denied.status);
                                 if (denied.status != 404) identityRetryStopped = true;
                                 throw rejected;
                             } catch (IOException unverified) {
+                                identityOutcomes.put(Integer.toString(cik), "transport_unavailable");
                                 identityRetryStopped = true;
                                 throw rejected;
                             } finally {
@@ -209,7 +216,8 @@ public final class UsLiveCoverage {
         }
         var hash = UsReferenceAlerts.sha256(closes.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         report.put("stage", "valuation_join").put("sec_evidence_rows", rows.length())
-                .put("sec_identity_retries", identityRetries).put("sec_identity_recovered", identityRecovered);
+                .put("sec_identity_retries", identityRetries).put("sec_identity_recovered", identityRecovered)
+                .put("sec_identity_retry_outcomes", identityOutcomes);
         var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits);
         String status = processed != targets.length() ? "partial_financial_pass"
                 : report.optBoolean("quote_pass_timed_out") ? "partial_quote_pass" : "completed_scope";

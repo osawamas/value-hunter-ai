@@ -150,47 +150,58 @@ def split_audit(day, scope, key, secret, fetch=alpaca_json):
     return {"status": "pagination_budget_reached"}, None
 
 
-def replay_history(rows):
-    """Compare matched sessions without letting a forward return enter a signal."""
+def replay_history(rows, symbols=SYMBOLS, benchmark=None):
+    """Evaluate signals at close, enter at the next common session's close."""
+    universe = (*symbols, benchmark) if benchmark else symbols
     by_symbol = [{day: value for (code, day), value in rows.items() if code == symbol}
-                 for symbol in SYMBOLS]
-    dates = sorted(by_symbol[0].keys() & by_symbol[1].keys())
+                 for symbol in universe]
+    dates = sorted(set.intersection(*(set(series) for series in by_symbol)))
     prices = [[series[day] for day in dates] for series in by_symbol]
-    first_signal, forward_sessions = 252, 20
-    windows = eligible = positive = relative_wins = 0
-    for i in range(first_signal, len(dates) - forward_sessions, forward_sessions):
+    lookback, trend, holding = 252, 200, 20
+    windows = eligible = positive = relative_wins = benchmark_wins = 0
+    for i in range(lookback, len(dates) - holding - 1, holding):
         windows += 1
-        trailing = [series[i] / series[i - 252] for series in prices]
-        if trailing[0] == trailing[1]:
+        trailing = [series[i] / series[i - lookback] for series in prices[:len(symbols)]]
+        best = max(trailing)
+        if trailing.count(best) != 1:
             continue
-        leader = 0 if trailing[0] > trailing[1] else 1
+        leader = trailing.index(best)
         series = prices[leader]
-        if series[i] * 200 <= sum(series[i - 199:i + 1]):
+        if series[i] * trend <= sum(series[i + 1 - trend:i + 1]):
             continue
         eligible += 1
-        returns = [series[i + forward_sessions] / series[i] for series in prices]
+        entry, exit_index = i + 1, i + 1 + holding
+        returns = [series[exit_index] / series[entry] for series in prices]
         positive += returns[leader] > 1
-        relative_wins += returns[leader] > returns[1 - leader]
-    return {"matched_sessions": len(dates), "test_windows": windows, "qualified_signals": eligible,
-            "positive_forward_windows": positive, "relative_wins": relative_wins,
-            "lookback_sessions": 252, "trend_sessions": 200, "forward_sessions": forward_sessions}
+        relative_wins += returns[leader] > max(value for j, value in enumerate(returns[:len(symbols)]) if j != leader)
+        if benchmark:
+            benchmark_wins += returns[leader] > returns[-1]
+    report = {"matched_sessions": len(dates), "test_windows": windows, "qualified_signals": eligible,
+              "positive_forward_windows": positive, "relative_wins": relative_wins,
+              "lookback_sessions": lookback, "trend_sessions": trend, "forward_sessions": holding}
+    if benchmark:
+        report.update(benchmark=benchmark, benchmark_wins=benchmark_wins,
+                      benchmark_kind="russell_3000_tracking_etf_price")
+    return report
 
 
 def history_sample(day, key, secret):
     start = day.replace(year=day.year - 5, day=min(day.day, 28) if day.month == 2 else day.day)
+    candidates = (*SYMBOLS, "DAC", "DSWL", "ESEA", "GASS", "RYN", "VITL")
+    universe = (*candidates, "IWV")
     rows = {}
     token = None
     try:
-        for _ in range(8):
-            payload = request_bars(start, day, SYMBOLS, "split", 500, key, secret, token)
-            page = read_bars(payload, SYMBOLS, start, day)
+        for _ in range(9):
+            payload = request_bars(start, day, universe, "split", 1500, key, secret, token)
+            page = read_bars(payload, universe, start, day)
             if rows.keys() & page.keys():
                 raise ValueError("Overlapping history pages")
             rows.update(page)
             next_token = payload.get("next_page_token")
             if not next_token:
                 counts = {}
-                for symbol in SYMBOLS:
+                for symbol in universe:
                     dates = sorted(session for code, session in rows if code == symbol)
                     counts[symbol] = {"sessions": len(dates)}
                     if dates:
@@ -200,7 +211,7 @@ def history_sample(day, key, secret):
                                      and date.fromisoformat(value["last"]) >= day - timedelta(days=7)
                                      for value in counts.values())
                 return {"status": "five_year_span_verified" if five_year_span else "sample_incomplete",
-                        "symbols": counts, **({"technical_replay": replay_history(rows)} if five_year_span else {})}
+                        "symbols": counts, **({"technical_replay": replay_history(rows, candidates, "IWV")} if five_year_span else {})}
             if not isinstance(next_token, str) or len(next_token) > 2048 or next_token == token:
                 raise ValueError("Invalid history page token")
             token = next_token
