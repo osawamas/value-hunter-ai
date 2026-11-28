@@ -88,3 +88,9 @@ Hachiquantの抽出サンプルを金融庁EDINETの提出記録と原本CSVに�
 米国の監査ではDoltHubの一括取得のほか、同一リビジョンで上場監視対象を100件ずつ照会する経路を追加した。別提供元として調べたMarketParquetの無料データは分割調整済み。ROICの全銘柄一括取得は有料条件がある。11月27日の保存済み公式上場ペアは5,080銘柄で、Codexから終値取得を試したが通信段階で終了した。推定値による補完はしていない。[MarketParquet 無料サンプル仕様](https://marketparquet.com/guides/free-historical-stock-data) · [ROIC一括取得仕様](https://www.roic.ai/api/docs/bulk/stock-prices)
 
 5年間の価格、業種内相対評価、開示原文からの受注・特許等の独立した加点、Hachiquantの全銘柄照合と本番利用は未完。UI、ブランド、通知の配信処理に変更はない。
+
+## 2026-11-28 再開時点
+
+[PR #162](https://github.com/osawamas/value-hunter-ai/pull/162) の統合ブランチを継続。[30dcf061 の実測](https://github.com/osawamas/value-hunter-ai/actions/runs/46113439673) は11月26日東証3,689銘柄中1,356（36.76%）、厳格1,202、柔軟追加154、三段階397・5・0。未判定の内訳は財務根拠不足2,155、株式異動未確認144、終値欠落34。Hachiquantと照合した年次原本は39件。新しい資料の確認は旧処理で38件が一律に曖昧扱いとなったため、EDINET側の該当書類なし・訂正・半期書類の競合を切り分ける。
+
+[米国5,080銘柄のスコープを確認した実行](https://github.com/osawamas/value-hunter-ai/actions/runs/46061801303) ではDoltHubのHTTP応答は200、当日終値は0件。最新上場一覧は時刻検証を通らず、全銘柄の判定可能率は未計測。監査ではNasdaqの公式終値をAAPLについて別途照合する。これは一次市場の公式終値のため、全米統合終値として扱わない。再生の取得・タイムアウトの結果も別のJSONに出力する。

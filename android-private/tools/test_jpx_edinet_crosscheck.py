@@ -48,6 +48,25 @@ class CrossCheckTest(unittest.TestCase):
                 audit.check(dict(code="1301", annual_source_id="S100AB12", actual_filing_date="2026-06-24"),
                             {"period_end": "2026-03-31"})
 
+    def test_later_filing_distinguishes_no_match_and_amendment_from_interim(self):
+        audit = EdinetAudit("test-key")
+        filed = "2026-11-06"
+        args = ("1301", filed, "2026-03-31", Decimal("100"), Decimal("20000"))
+        audit.days[filed] = []
+        self.assertEqual(audit.review_newer(*args)["status"], "latest_no_edinet_filing_on_hint_date")
+        row = dict(docID="S100AB12", secCode="13010", periodEnd="2026-09-30",
+                   submitDateTime=filed + " 10:12", withdrawalStatus="0", disclosureStatus="0", csvFlag="1")
+        audit.days[filed] = [dict(row, docTypeCode="160"), dict(row, docTypeCode="180")]
+        facts = {(SHARES, "CurrentInterimInstant"): {Decimal("20000")},
+                 (BPS, "CurrentInterimInstant"): {Decimal("110")}}
+        with patch.object(audit, "request", return_value=b"csv"), patch(
+                "jpx_edinet_crosscheck.facts_from_csv", return_value=facts):
+            result = audit.review_newer(*args)
+        self.assertEqual((result["status"], result["shares"], result["bps"]),
+                         ("latest_interim_reviewed", "unchanged", "changed"))
+        audit.days[filed].append(dict(row, docTypeCode="170"))
+        self.assertEqual(audit.review_newer(*args)["status"], "latest_annual_or_amendment_requires_review")
+
     def test_matches_standard_pairs_without_combining_accounting_standards(self):
         ifrs_eps, ifrs_bps = PER_SHARE_PAIRS[1]
         facts = {(ifrs_eps, "CurrentYearDuration"): {Decimal("10")},

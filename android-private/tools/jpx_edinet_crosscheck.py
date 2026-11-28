@@ -131,26 +131,37 @@ class EdinetAudit:
         self.next_request = time.monotonic() + 1.25
         return download(path, query, self.key, limit)
 
+    def filings(self, filed_on):
+        if filed_on not in self.days:
+            listing = json.loads(self.request(".json", {"date": filed_on, "type": 2}, 4_000_000))
+            status = str(listing.get("metadata", {}).get("status", ""))
+            if status in ("401", "403", "429", "503"):
+                raise HTTPError(BASE, int(status), "EDINET request failed", None, None)
+            self.days[filed_on] = listing["results"]
+        return self.days[filed_on]
+
     def review_newer(self, code, filed_on, annual_period, annual_bps, annual_shares):
-        listing = self.days.get(filed_on)
-        if listing is None:
-            listing = json.loads(self.request(".json", {"date": filed_on, "type": 2}, 4_000_000))["results"]
-            self.days[filed_on] = listing
-        matches = [row for row in listing if row.get("secCode") == code + "0"
+        issuer_filings = [row for row in self.filings(filed_on) if row.get("secCode") == code + "0"
                    and row.get("withdrawalStatus") == "0" and row.get("disclosureStatus") == "0"
                    and str(row.get("submitDateTime", ""))[:10] == filed_on]
-        if len(matches) != 1:
-            return {"status": "latest_filing_ambiguous"}
-        item = matches[0]
-        kind = item.get("docTypeCode")
-        if kind not in ("140", "160"):
-            return {"status": "latest_non_interim_or_amendment"}
+        types = sorted({str(row.get("docTypeCode", "")) for row in issuer_filings})
+        evidence = {"issuer_filing_types": types, "issuer_filing_count": len(issuer_filings)}
+        if not issuer_filings:
+            return {**evidence, "status": "latest_no_edinet_filing_on_hint_date"}
+        if any(kind in types for kind in ("120", "130", "150", "170")):
+            return {**evidence, "status": "latest_annual_or_amendment_requires_review"}
+        interim = [row for row in issuer_filings if row.get("docTypeCode") in ("140", "160")]
+        if len(interim) != 1:
+            status = "latest_interim_ambiguous" if interim else "latest_non_interim_requires_review"
+            return {**evidence, "status": status}
+        item = interim[0]
+        kind = item["docTypeCode"]
         doc = item.get("docID", "")
         period = item.get("periodEnd")
         if (not re.fullmatch(r"S[0-9A-Z]{7}", doc) or item.get("csvFlag") != "1"
                 or not period or not annual_period < period < filed_on):
-            return {"status": "latest_interim_unverified"}
-        result = {"status": "latest_interim_reviewed", "doc_id": doc, "doc_type": kind, "period_end": period}
+            return {**evidence, "status": "latest_interim_unverified"}
+        result = {**evidence, "status": "latest_interim_reviewed", "doc_id": doc, "doc_type": kind, "period_end": period}
         try:
             facts = facts_from_csv(self.request("/" + doc, {"type": 5}, 8_000_000), interim=True)
         except (ValueError, KeyError, BadZipFile):
@@ -167,15 +178,10 @@ class EdinetAudit:
         doc_id = filing["annual_source_id"]
         if not re.fullmatch(r"S[0-9A-Z]{7}", doc_id):
             raise ValueError("Unexpected EDINET document identifier")
-        if filed_on not in self.days:
-            listing = json.loads(self.request(".json", {"date": filed_on, "type": 2}, 4_000_000))
-            status = str(listing.get("metadata", {}).get("status", ""))
-            if status in ("401", "403", "429", "503"):
-                raise HTTPError(BASE, int(status), "EDINET request failed", None, None)
-            self.days[filed_on] = listing["results"]
-        if not metadata_matches(self.days[filed_on], code, doc_id, row["period_end"], filed_on):
+        filings = self.filings(filed_on)
+        if not metadata_matches(filings, code, doc_id, row["period_end"], filed_on):
             return {"filing_metadata_match": False}
-        matched = next(item for item in self.days[filed_on] if item.get("docID") == doc_id)
+        matched = next(item for item in filings if item.get("docID") == doc_id)
         try:
             duration = (date.fromisoformat(row["period_end"]) - date.fromisoformat(matched["periodStart"])).days + 1
         except (KeyError, TypeError, ValueError):

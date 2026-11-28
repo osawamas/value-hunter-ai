@@ -27,7 +27,7 @@ public final class UsLiveCoverage {
         var directory = Path.of(args[0]);
         var report = new JSONObject().put("status", "inputs_unavailable").put("stage", "listing_scope").put("sources", SOURCES);
         try {
-            assess(directory, report);
+            assess(directory, report, args.length == 2 && "--probe-nasdaq-close".equals(args[1]));
         } catch (HttpFailure denied) {
             report.put("error", "HttpFailure").put("http_status", denied.status);
         } catch (IOException | org.json.JSONException unavailable) {
@@ -38,13 +38,14 @@ public final class UsLiveCoverage {
         }
     }
 
-    private static void assess(Path directory, JSONObject report) throws Exception {
+    private static void assess(Path directory, JSONObject report, boolean probeNasdaq) throws Exception {
         var nyse = UsMarketCoverage.directory(Files.readString(directory.resolve("otherlisted.txt")), false);
         var nasdaq = UsMarketCoverage.directory(Files.readString(directory.resolve("nasdaqlisted.txt")), true);
         var day = nyse.date();
         report.put("trade_date", day.toString()).put("listing_inputs", new JSONObject()
                 .put("nyse_date", nyse.date().toString()).put("nyse_time", String.valueOf(nyse.timestamp()))
                 .put("nasdaq_date", nasdaq.date().toString()).put("nasdaq_time", String.valueOf(nasdaq.timestamp())));
+        if (probeNasdaq && UsDailyCloses.tradingDay(day)) report.put("nasdaq_official_preview", probeNasdaqClose(day));
         if (!day.equals(nasdaq.date()) || !UsDailyCloses.tradingDay(day)
                 || !UsMarketCoverage.sessionSnapshot(nyse.timestamp())
                 || !UsMarketCoverage.sessionSnapshot(nasdaq.timestamp())) {
@@ -142,8 +143,27 @@ public final class UsLiveCoverage {
                 .put("valuation", measured);
     }
 
+    private static JSONObject probeNasdaqClose(java.time.LocalDate day) {
+        var result = new JSONObject().put("symbol", "AAPL").put("trade_date", day.toString());
+        var previous = UsDailyCloses.onOrBeforeTradingDay(day.minusDays(1));
+        try {
+            var pair = UsNasdaqOfficialClose.read(
+                    new JSONObject(read(UsNasdaqOfficialClose.url("AAPL"), "", Duration.ofSeconds(8))),
+                    "AAPL", previous, day);
+            return result.put("status", pair == null ? "requested_dates_unavailable" : "dated_sample_verified");
+        } catch (HttpFailure denied) {
+            return result.put("status", "http_failure").put("http_status", denied.status);
+        } catch (IOException | org.json.JSONException unverified) {
+            return result.put("status", "unverified").put("error", unverified.getClass().getSimpleName());
+        }
+    }
+
     private static String read(String url, String contact) throws IOException {
-        var request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(25))
+        return read(url, contact, Duration.ofSeconds(25));
+    }
+
+    private static String read(String url, String contact, Duration timeout) throws IOException {
+        var request = HttpRequest.newBuilder(URI.create(url)).timeout(timeout)
                 .header("User-Agent", contact.isEmpty() ? "ValueHunter-public-market-audit/1.0" : contact).build();
         try {
             var response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());

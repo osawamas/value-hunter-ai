@@ -82,8 +82,9 @@ jobs:
           dir="$(mktemp -d)"
           curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
           bash android-private/tools/compile_us_replay.sh "$dir"
-          java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results
+          java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results --probe-nasdaq-close
       - name: Retrieve the verified historical US listing pair
+        id: archived_listings
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
@@ -101,10 +102,15 @@ jobs:
             curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
             bash android-private/tools/compile_us_replay.sh "$dir"
             rm -f "$data/us-public-coverage.json"
-            timeout 100 java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" || true
+            result=0
+            timeout 100 java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" || result=$?
             if [ -s "$data/us-public-coverage.json" ]; then
               cp "$data/us-public-coverage.json" coverage-results/us-archived-coverage.json
+            else
+              printf '{"status":"replay_incomplete","exit_code":%s,"listing_artifact_run":46061801303}\n' "$result" > coverage-results/us-archived-coverage.json
             fi
+          else
+            printf '{"status":"archived_listing_pair_unavailable","download_outcome":"%s","listing_artifact_run":46061801303}\n' "${{ steps.archived_listings.outcome }}" > coverage-results/us-archived-coverage.json
           fi
       - name: Check independent free US close providers
         env:
