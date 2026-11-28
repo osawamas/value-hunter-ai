@@ -10,6 +10,7 @@ on:
       - 'android-private/tools/jpx_edinet_crosscheck.py'
       - 'android-private/tools/UsLiveCoverage.java'
       - 'android-private/tools/us_market_history_probe.py'
+      - 'android-private/tools/us_finzdata_probe.py'
       - 'android-private/tools/check_jpx_live_emulator.sh'
       - 'android-private/app/src/androidTest/java/jp/valuehunter/privatewatch/JpxPdfGeometryProbe.java'
   workflow_dispatch:
@@ -81,12 +82,15 @@ jobs:
           curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
           bash android-private/tools/compile_us_replay.sh "$dir"
           java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results
-      - name: Check the independent free US close preview
+      - name: Check independent free US close providers
+        env:
+          FINZDATA_API_KEY: ${{ secrets.FINZDATA_API_KEY }}
         run: |
           if [ -s coverage-results/us-public-coverage.json ]; then
             day=$(python -c 'import json; print(json.load(open("coverage-results/us-public-coverage.json")).get("trade_date", ""))')
             if [ -n "$day" ]; then
               python android-private/tools/us_market_history_probe.py "$day" > coverage-results/us-alternative-close-probe.json
+              python android-private/tools/us_finzdata_probe.py "$day" > coverage-results/us-finzdata-close-probe.json
             fi
           fi
       - uses: gradle/actions/setup-gradle@v4
