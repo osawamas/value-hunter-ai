@@ -1,6 +1,7 @@
 """Exercise the compiled offline replay with the saved audit and a complete input pair."""
 
 from collections import Counter
+from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
@@ -21,6 +22,39 @@ class DatedReplayTests(unittest.TestCase):
         return subprocess.check_output([
             "java", "-cp", CLASSPATH, "jp.valuehunter.privatewatch.UsDatedRetryReplay", audit, *inputs
         ], text=True)
+
+    def test_coverage_replays_against_the_fixed_listing_scope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            quote = Path(temp) / "closes.json"
+            scan = Path(temp) / "scan.json"
+            quote.write_text(json.dumps({
+                "trading_date_et": DAY, "source": "dolthub-post-no-preference-stocks",
+                "closes": [{"symbol": s, "close_usd": "5"} for s in ["FLEX", "WEAK", "EXTRA"]],
+            }))
+            partial = {"exchange": "NYSE", "partial_value": True, "share_date": "2026-09-30"}
+            scan.write_text(json.dumps({
+                "day": DAY, "hash": sha256(quote.read_bytes()).hexdigest(), "cursor": 0, "targets": [],
+                "coverage_listing_date": DAY, "coverage_symbols": ["FLEX", "WEAK", "MISSING"],
+                "valuation_evidence": {"split_window_version": 2, "fx_rate": 150, "splits": {}},
+                "results": [
+                    dict(partial, symbol="FLEX", cik=1, meter_eps=["2", "1.9"]),
+                    dict(partial, symbol="WEAK", cik=2, meter_eps=["2"]),
+                ],
+            }))
+            command = ["java", "-cp", CLASSPATH, "jp.valuehunter.privatewatch.UsRetryReplay",
+                       "--coverage", quote, scan]
+            result = json.loads(subprocess.check_output(command, text=True))
+            self.assertEqual(result["scope"], 3)
+            self.assertEqual(result["closes"], 2)
+            self.assertEqual(result["partial_assessed"], 1)
+            self.assertEqual(result["unassessed_reasons"], {
+                "missing_close": 1, "insufficient_valuation_evidence": 1,
+            })
+            self.assertEqual(result["budget_assessed_percent"], 50)
+            quote.write_text(quote.read_text() + " ")
+            rejected = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("Expected matching closes", rejected.stderr)
 
     def test_single_session_keeps_saved_audit_on_hold_without_trade_date_listings(self):
         audit = ROOT / "docs/us-dated-listing-audit-20261117.json"

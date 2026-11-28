@@ -29,7 +29,13 @@ final class UsDoltCloses {
 
     static JSONArray fetch(LocalDate day, Download download) throws IOException, JSONException {
         String filter = " FROM ohlcv WHERE date = '" + day + "' AND close > 0";
-        JSONArray manifest = query(download, "SELECT DOLT_HASHOF('HEAD') AS revision, COUNT(*) AS n" + filter);
+        String manifestQuery = "SELECT DOLT_HASHOF('HEAD') AS revision, COUNT(*) AS n" + filter;
+        JSONArray manifest;
+        try {
+            manifest = query(download, manifestQuery);
+        } catch (SocketTimeoutException timeout) {
+            manifest = query(download, manifestQuery);
+        }
         if (manifest.length() != 1) {
             throw new JSONException("Unexpected Dolt close manifest");
         }
@@ -46,14 +52,31 @@ final class UsDoltCloses {
         var closes = new JSONArray();
         var seen = new HashSet<String>();
         String select = "SELECT act_symbol AS symbol, date AS trading_date, close" + pinnedFilter;
-        for (int offset = 0; offset < total; offset += PAGE_SIZE) {
-            int expected = Math.min(PAGE_SIZE, total - offset);
+        int pageSize = PAGE_SIZE;
+        String lastSymbol = null;
+        boolean useCursor = false;
+        for (int offset = 0; offset < total;) {
+            int expected = Math.min(pageSize, total - offset);
             JSONArray rows;
             try {
-                rows = query(download, select + " ORDER BY act_symbol LIMIT " + PAGE_SIZE + " OFFSET " + offset);
+                String cursor = useCursor && lastSymbol != null ? " AND act_symbol > '" + lastSymbol + "'" : "";
+                String position = useCursor ? "" : " OFFSET " + offset;
+                rows = query(download, select + cursor + " ORDER BY act_symbol LIMIT " + pageSize + position);
             } catch (SocketTimeoutException timeout) {
-                if (offset == 0 || total - offset > PAGE_SIZE) throw timeout;
-                rows = recoverLastPage(download, select, closes, day, expected);
+                if (!useCursor && offset > 0 && total - offset <= PAGE_SIZE) {
+                    try {
+                        rows = recoverLastPage(download, select, closes, day, expected);
+                    } catch (SocketTimeoutException reverseTimeout) {
+                        useCursor = true;
+                        pageSize = PAGE_SIZE / 2;
+                        continue;
+                    }
+                } else {
+                    if (pageSize <= 125) throw timeout;
+                    useCursor = true;
+                    pageSize /= 2;
+                    continue;
+                }
             }
             if (rows.length() != expected) {
                 throw new JSONException("Incomplete Dolt close page");
@@ -63,17 +86,50 @@ final class UsDoltCloses {
                 String symbol = row.getString("symbol");
                 double price = row.getDouble("close");
                 if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}") || !seen.add(symbol)
+                        || (useCursor && lastSymbol != null && symbol.compareTo(lastSymbol) <= 0)
                         || !day.toString().equals(row.getString("trading_date"))
                         || !Double.isFinite(price) || price <= 0) {
                     throw new JSONException("Invalid or duplicate Dolt close");
                 }
                 closes.put(new JSONObject().put("symbol", symbol).put("close_usd", price));
+                lastSymbol = symbol;
             }
+            offset += rows.length();
         }
         return closes;
     }
 
+    record ScopedCloses(JSONArray rows, int queriedSymbols, boolean timedOut) {}
+
+    static ScopedCloses fetchScoped(LocalDate day, Set<String> scope, Download download)
+            throws IOException, JSONException {
+        if (scope.isEmpty() || scope.size() > 12_000) throw new JSONException("Invalid Dolt listing scope");
+        var manifest = query(download, "SELECT DOLT_HASHOF('HEAD') AS revision");
+        if (manifest.length() != 1) throw new JSONException("Unexpected Dolt revision response");
+        String revision = manifest.getJSONObject(0).getString("revision");
+        if (!revision.matches("[0-9a-v]{32}")) throw new JSONException("Invalid Dolt revision");
+        var symbols = new java.util.ArrayList<>(new java.util.TreeSet<>(scope));
+        var all = new JSONArray();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(2);
+        for (int offset = 0; offset < symbols.size(); offset += 100) {
+            if (System.nanoTime() - deadline >= 0) return new ScopedCloses(all, offset, true);
+            int end = Math.min(offset + 100, symbols.size());
+            try {
+                var rows = supplement(day, Set.copyOf(symbols.subList(offset, end)), revision, download);
+                for (int i = 0; i < rows.length(); i++) all.put(rows.getJSONObject(i));
+            } catch (SocketTimeoutException timedOut) {
+                return new ScopedCloses(all, offset, true);
+            }
+        }
+        return new ScopedCloses(all, symbols.size(), false);
+    }
+
     static JSONArray supplement(LocalDate day, Set<String> symbols, Download download)
+            throws IOException, JSONException {
+        return supplement(day, symbols, "", download);
+    }
+
+    private static JSONArray supplement(LocalDate day, Set<String> symbols, String revision, Download download)
             throws IOException, JSONException {
         if (symbols.isEmpty() || symbols.size() > 100) throw new JSONException("Invalid quote repair size");
         var codes = new java.util.ArrayList<String>();
@@ -81,7 +137,8 @@ final class UsDoltCloses {
             if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}")) throw new JSONException("Invalid quote repair ticker");
             codes.add("'" + symbol + "'");
         }
-        var rows = query(download, "SELECT act_symbol AS symbol, date AS trading_date, close FROM ohlcv"
+        String asOf = revision.isEmpty() ? "" : " AS OF '" + revision + "'";
+        var rows = query(download, "SELECT act_symbol AS symbol, date AS trading_date, close FROM ohlcv" + asOf
                 + " WHERE date = '" + day + "' AND close > 0 AND act_symbol IN (" + String.join(",", codes) + ")");
         var closes = new JSONArray();
         var remaining = new HashSet<>(symbols);

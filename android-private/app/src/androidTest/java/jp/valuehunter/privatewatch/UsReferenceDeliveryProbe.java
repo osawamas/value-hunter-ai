@@ -43,11 +43,11 @@ final class UsReferenceDeliveryProbe {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
                 if (!name.equals(UsSecFinanceWorker.class.getName())) return null;
                 return new UsSecFinanceWorker(app, parameters, url -> {
-                    if (wifi && url.endsWith("/CIK0000043210.json")) {
+                    if (wifi && url.endsWith("/companyfacts/CIK0000043210.json")) {
                         extraRequests.incrementAndGet();
                         return facts().replace("12345", "43210");
                     }
-                    if (wifi && url.endsWith("/CIK0000012345.json") && factRequests.get() == 0) {
+                    if (wifi && url.endsWith("/companyfacts/CIK0000012345.json") && factRequests.get() == 0) {
                         disconnect.run();
                     }
                     String data = payload(url, factRequests, indexRequests);
@@ -156,11 +156,11 @@ final class UsReferenceDeliveryProbe {
                 || UsDailyWorker.hasPendingFinancialAlert(state)) {
             throw new AssertionError("Retry did not acknowledge delivery");
         }
-        verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄",
+        verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の発掘・昇格 1銘柄",
                 "METER · 100株 · かなり割安 · 84点");
         var receipts = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis());
         if (receipts.stream().noneMatch(row -> row.title().contains("かなり割安")
-                && row.detail().contains("METER · 100株 · かなり割安 · 84点"))) {
+                && includesExpectedIssuer(row.detail(), "METER · 100株 · かなり割安 · 84点"))) {
             throw new AssertionError("US notification did not use the saved meter band");
         }
         var pilot = AlertOutcomes.report(context, AlertOutcomes.Market.US);
@@ -848,7 +848,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Could not reconcile the posted alert");
         }
         var posted = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
-                .stream().filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 81点"))
+                .stream().filter(row -> includesExpectedIssuer(row.detail(), "METER · 100株 · かなり割安 · 81点"))
                 .findFirst().orElseThrow(() -> new AssertionError("Original receipt missing"));
         var outcomeFile = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(),
                 "us-alert-outcomes-v1.json"));
@@ -877,7 +877,7 @@ final class UsReferenceDeliveryProbe {
                     || !UsDailyWorker.hasPendingFinancialAlert(state)) {
                 throw new AssertionError("History write failure was acknowledged prematurely");
             }
-            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄", "METER · 100株 · かなり割安 · 80点");
+            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の発掘・昇格 1銘柄", "METER · 100株 · かなり割安 · 80点");
         } finally {
             notifications.cancelAll();
             blocker.delete();
@@ -890,7 +890,7 @@ final class UsReferenceDeliveryProbe {
             throw new AssertionError("Next session did not reconcile the original delivery");
         }
         var original = NotificationHistory.recent(history, System.currentTimeMillis()).stream()
-                .filter(row -> row.detail().contains("METER · 100株 · かなり割安 · 80点"))
+                .filter(row -> includesExpectedIssuer(row.detail(), "METER · 100株 · かなり割安 · 80点"))
                 .collect(java.util.stream.Collectors.toList());
         if (original.size() != 1) throw new AssertionError("The original notification history was not restored exactly once");
         var file = new android.util.AtomicFile(new java.io.File(context.getNoBackupFilesDir(), "us-alert-outcomes-v1.json"));
@@ -932,7 +932,7 @@ final class UsReferenceDeliveryProbe {
                     || !UsDailyWorker.hasPendingFinancialAlert(state)) {
                 throw new AssertionError("Posted alert was acknowledged even though both outcome stores failed");
             }
-            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の新規・昇格 1銘柄", detail);
+            verifySilentNotice(notifications, SECOND, "米国株 · かなり割安 · 割安度の発掘・昇格 1銘柄", detail);
             notifications.cancelAll();
             if (UsDailyWorker.applyFinancialScreen(context, state, current, SECOND, PROVIDER, hash, () -> false,
                     (app, id, title, message) -> { throw new AssertionError("Failed storage repeated the alert"); })
@@ -1061,7 +1061,8 @@ final class UsReferenceDeliveryProbe {
             var row = UsDeviceFinancials.financialRow(target, payload, day);
             if (row == null) throw new AssertionError("SEC fixture did not qualify for financial screening: " + ticker);
             financials.put(row);
-            prices.put(ticker, java.math.BigDecimal.valueOf(close));
+            // The other two rows exercise changed listing identities outside this alert's band.
+            prices.put(ticker, java.math.BigDecimal.valueOf(ticker.equals("METER") ? close : 15));
         }
         // Exercise the same persisted composite keys as the SEC finance worker.
         var ledger = UsDeviceFinancials.screen(day, PROVIDER, hash, financials, prices,
@@ -1214,6 +1215,11 @@ final class UsReferenceDeliveryProbe {
             return "{\"fields\":[\"cik\",\"name\",\"ticker\",\"exchange\"],"
                     + "\"data\":[[12345,\"Test Corp\",\"TEST\",\"NYSE\"]]}";
         }
+        if (url.equals(UsDisclosureEvidence.url(12345)) || url.equals(UsDisclosureEvidence.url(43210))) {
+            int cik = url.equals(UsDisclosureEvidence.url(12345)) ? 12345 : 43210;
+            return "{\"cik\":" + cik + ",\"filings\":{\"recent\":{"
+                    + "\"form\":[],\"filingDate\":[],\"items\":[],\"accessionNumber\":[]}}}";
+        }
         if (url.endsWith("/CIK0000012345.json")) {
             if (factRequests.incrementAndGet() == 1) throw new IOException("Simulated connection loss");
             return facts();
@@ -1259,6 +1265,21 @@ final class UsReferenceDeliveryProbe {
         verifySilentNotice(manager, day, "米国株の参考条件入り 1銘柄", ticker + " · 100株 · 優先候補");
     }
 
+    static boolean includesExpectedIssuer(String detail, String expected) {
+        if (detail.contains(expected)) return true;
+        int delimiter = expected.indexOf(" · ");
+        if (delimiter <= 0) return false;
+        String ticker = expected.substring(0, delimiter);
+        String metrics = expected.substring(delimiter);
+        for (String line : detail.split("\\n")) {
+            int separator = line.indexOf(" · ");
+            if (separator <= 0 || !line.substring(separator).equals(metrics)) continue;
+            String issuer = line.substring(0, separator);
+            if (issuer.startsWith(ticker + " (") && issuer.endsWith(")")) return true;
+        }
+        return false;
+    }
+
     private static void verifySilentNotice(NotificationManager manager, LocalDate day, String expectedTitle,
                                            String expectedDetail)
             throws InterruptedException {
@@ -1267,18 +1288,22 @@ final class UsReferenceDeliveryProbe {
                 || channel.getSound() != null || channel.shouldVibrate()) {
             throw new AssertionError("US reference notification channel is not silent");
         }
-        for (int attempt = 0; attempt < 30; attempt++) {
+        var observed = new java.util.LinkedHashSet<String>();
+        long deadline = android.os.SystemClock.elapsedRealtime() + 8_000;
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
             for (var active : manager.getActiveNotifications()) {
                 var note = active.getNotification();
                 String title = note.extras.getCharSequence(Notification.EXTRA_TITLE, "").toString();
                 String detail = note.extras.getCharSequence(Notification.EXTRA_BIG_TEXT, "").toString();
-                if (title.equals(expectedTitle) && detail.contains(expectedDetail)
+                observed.add(title + " [" + detail.replace('\n', ' ') + "]");
+                if (title.equals(expectedTitle) && includesExpectedIssuer(detail, expectedDetail)
                         && detail.contains(day.toString()) && ScanWorker.CHANNEL.equals(note.getChannelId())) {
                     return;
                 }
             }
             Thread.sleep(100);
         }
-        throw new AssertionError("Android did not receive the US reference notification: " + expectedDetail);
+        throw new AssertionError("Android did not receive the US reference notification: " + expectedDetail
+                + "; observed: " + observed);
     }
 }

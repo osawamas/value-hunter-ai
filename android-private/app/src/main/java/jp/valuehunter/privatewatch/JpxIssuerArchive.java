@@ -50,6 +50,10 @@ final class JpxIssuerArchive {
         }
     }
 
+    static String archiveEndpoint() {
+        return DETAIL.toString();
+    }
+
     private JpxIssuerArchive() {}
 
     record Disclosure(LocalDate day, String title, URI annualLink, URI pdfLink, boolean results) {
@@ -145,6 +149,12 @@ final class JpxIssuerArchive {
         return page != null && page.clearSince(since);
     }
 
+    static boolean dilutiveEvent(String title) {
+        return title.contains("増資") || title.contains("新株式発行") || title.contains("新株の発行")
+                || title.contains("新株予約権の行使") || title.contains("自己株式の処分")
+                || title.contains("株式交換") || title.contains("株式交付") || title.contains("吸収合併");
+    }
+
     static boolean shareChange(String title) {
         return SHARE_CHANGE.matcher(title).find();
     }
@@ -196,7 +206,7 @@ final class JpxIssuerArchive {
                 }
             }
             URI pdfLink = null;
-            if (shareChange(title)) {
+            if (shareChange(title) || JpxDisclosureEvidence.relevant(title)) {
                 var pdfs = PDF_LINK.matcher(rows.group(4));
                 if (pdfs.find()) {
                     URI link = HOME.resolve(pdfs.group(1));

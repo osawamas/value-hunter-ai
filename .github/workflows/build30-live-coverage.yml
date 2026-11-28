@@ -1,0 +1,259 @@
+name: Build30 public market coverage
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/build30-live-coverage.yml'
+      - 'android-private/tools/build30_public_sources.py'
+      - 'android-private/tools/probe_jpx_archive.py'
+      - 'android-private/tools/jpx_hachiquant_coverage.py'
+      - 'android-private/tools/jpx_monthly_close_history.py'
+      - 'android-private/tools/jpx_adjust_monthly_history.py'
+      - 'android-private/tools/jpx_edinet_crosscheck.py'
+      - 'android-private/tools/UsLiveCoverage.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsFinancialFacts.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxOperatingValuation.java'
+      - 'android-private/tools/us_market_history_probe.py'
+      - 'android-private/tools/us_finzdata_probe.py'
+      - 'android-private/tools/us_alpaca_close_probe.py'
+      - 'android-private/tools/us_alpaca_history.py'
+      - 'android-private/tools/check_jpx_live_emulator.sh'
+      - 'android-private/app/src/androidTest/java/jp/valuehunter/privatewatch/JpxPdfGeometryProbe.java'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: build30-live-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-data:
+    if: github.event.repository.private == false && (github.event_name != 'pull_request' || github.head_ref == 'integration/valuehunter-flexible-coverage')
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    outputs:
+      results: ${{ steps.results.outputs.labels }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Collect public JPX and US inputs
+        id: acquire
+        run: |
+          python -m pip install openpyxl pymupdf xlrd
+          python android-private/tools/build30_public_sources.py coverage-results
+          python android-private/tools/probe_jpx_archive.py coverage-results
+          if [ -s coverage-results/jpx-session.pdf ]; then
+            echo 'jpx=true' >> "$GITHUB_OUTPUT"
+            day=$(python -c 'import json; print(json.load(open("coverage-results/jpx-public-coverage.json"))["trade_date"])')
+            echo "jpx_day=$day" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Measure the free alternative JPX annual input
+        env:
+          EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
+          day="${{ steps.acquire.outputs.jpx_day }}"
+          year="${day:0:4}"
+          month="${day:5:2}"
+          reports=()
+          timeout 60 python android-private/tools/jpx_rights_sources.py \
+            --year "$year" --start-month "$((year - 1))-01" --cutoff-month "$((10#$month))" \
+            --output "$RUNNER_TEMP/build30-rights" > coverage-results/jpx-rights-sources.json || true
+          for report in "$RUNNER_TEMP"/build30-rights/rights-*.pdf; do
+            if [[ -s "$report" ]]; then reports+=(--rights-report "$report"); fi
+          done
+          for report in "$RUNNER_TEMP"/build30-rights/*.xls; do
+            if [[ -s "$report" ]]; then reports+=(--daily-rights "$report"); fi
+          done
+          if timeout 230 python android-private/tools/jpx_hachiquant_coverage.py \
+            coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf --budget-samples-per-market 2 \
+            --batch-index "${{ github.run_number }}" --later-filings-output coverage-results/jpx-later-filings.json --valuation-output "$RUNNER_TEMP/jpx-alternative-valuation.json" \
+            "${reports[@]}" > coverage-results/jpx-alternative-input.json; then
+            python -m json.tool coverage-results/jpx-alternative-input.json
+          else
+            printf '{"status":"alternative_input_unavailable"}\n' > coverage-results/jpx-alternative-input.json
+          fi
+      - name: Run Android US valuation engine against acquired data
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          dir="$(mktemp -d)"
+          curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
+          bash android-private/tools/compile_us_replay.sh "$dir"
+          java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results --probe-nasdaq-close
+      - name: Retrieve the verified historical US listing pair
+        id: archived_listings
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: build30-coverage
+          path: ${{ runner.temp }}/us-archived-listings
+          run-id: 46061801303
+          github-token: ${{ github.token }}
+      - name: Replay the historical US listing pair
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          ALPACA_PAPER_KEY_ID: ${{ secrets.ALPACA_PAPER_KEY_ID }}
+          ALPACA_PAPER_SECRET_KEY: ${{ secrets.ALPACA_PAPER_SECRET_KEY }}
+        run: |
+          data="$RUNNER_TEMP/us-archived-listings"
+          if [ -s "$data/otherlisted.txt" ] && [ -s "$data/nasdaqlisted.txt" ]; then
+            dir="$(mktemp -d)"
+            curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
+            bash android-private/tools/compile_us_replay.sh "$dir"
+            java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" --export-scope
+            if [ -s "$data/verified-scope.json" ]; then
+              python android-private/tools/us_alpaca_history.py --scope "$data/verified-scope.json" \
+                --database "$RUNNER_TEMP/alpaca-history.sqlite3" --history-output "$data/verified-history.json" \
+                --time-budget 1080 > coverage-results/us-five-year-coverage.json
+            fi
+            rm -f "$data/us-public-coverage.json"
+            result=0
+            bulk="$RUNNER_TEMP/sec-companyfacts.zip"
+            if [[ -n "$SEC_USER_AGENT" && "$SEC_USER_AGENT" != *$'\n'* && "$SEC_USER_AGENT" != *$'\r'* ]]; then
+              if curl -fsS --connect-timeout 12 --max-time 95 --max-filesize 2500000000 \
+                --user-agent "$SEC_USER_AGENT" https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip -o "$bulk"; then
+                export SEC_COMPANYFACTS_ZIP="$bulk"
+              else
+                rm -f "$bulk"
+              fi
+            fi
+            timeout 510 java -Xmx1500m -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" --alpaca || result=$?
+            if [ -s "$data/us-public-coverage.json" ]; then
+              cp "$data/us-public-coverage.json" coverage-results/us-archived-coverage.json
+            else
+              printf '{"status":"replay_incomplete","exit_code":%s,"listing_artifact_run":46061801303}\n' "$result" > coverage-results/us-archived-coverage.json
+            fi
+          else
+            printf '{"status":"archived_listing_pair_unavailable","download_outcome":"%s","listing_artifact_run":46061801303}\n' "${{ steps.archived_listings.outcome }}" > coverage-results/us-archived-coverage.json
+          fi
+      - name: Check independent free US close providers
+        env:
+          FINZDATA_API_KEY: ${{ secrets.FINZDATA_API_KEY }}
+          ALPACA_PAPER_KEY_ID: ${{ secrets.ALPACA_PAPER_KEY_ID }}
+          ALPACA_PAPER_SECRET_KEY: ${{ secrets.ALPACA_PAPER_SECRET_KEY }}
+        run: |
+          if [ -s coverage-results/us-public-coverage.json ]; then
+            day=$(python -c 'import json; print(json.load(open("coverage-results/us-public-coverage.json")).get("trade_date", ""))')
+            if [ -n "$day" ]; then
+              python android-private/tools/us_market_history_probe.py "$day" > coverage-results/us-alternative-close-probe.json
+              python android-private/tools/us_finzdata_probe.py "$day" > coverage-results/us-finzdata-close-probe.json
+              python android-private/tools/us_alpaca_close_probe.py "$day" > coverage-results/us-alpaca-close-probe.json
+            fi
+          fi
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.acquire.outputs.jpx == 'true'
+        with:
+          gradle-version: '8.9'
+          cache-read-only: true
+      - name: Acquire five years of official JPX monthly history
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
+          day="${{ steps.acquire.outputs.jpx_day }}"
+          month=$(python -c 'from datetime import date,timedelta; import sys; print((date.fromisoformat(sys.argv[1]).replace(day=1)-timedelta(days=1)).strftime("%Y-%m"))' "$day")
+          prices="$RUNNER_TEMP/jpx-monthly-prices.json"
+          history="$RUNNER_TEMP/jpx-history.json"
+          sectors="$RUNNER_TEMP/jpx-sectors.json"
+          if ! command -v pdftotext >/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+          fi
+          if timeout 390 python android-private/tools/jpx_monthly_close_history.py "$month" \
+              --universe-xlsx coverage-results/jpx-list.xlsx --sector-output "$sectors" --cache-dir "$RUNNER_TEMP/jpx-monthly" --include-prices > "$prices" &&
+            timeout 160 python android-private/tools/jpx_adjust_monthly_history.py "$prices" \
+              --rights-cache "$RUNNER_TEMP/jpx-history-rights" --include-range > "$history"; then
+            python -c 'import collections,json,sys; a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[2])); print(json.dumps({"scope":len(b["by_code"]), "months_read":a["months_read"], "rights_months_verified":b["rights_months_verified"], "by_status":collections.Counter(v["status"] for v in b["by_code"].values()), "full_history":sum(v["status"]=="split_adjusted" and v["months_with_close"]==60 for v in b["by_code"].values())}))' "$prices" "$history" > coverage-results/jpx-five-year-coverage.json
+          else
+            rm -f "$history"
+            python - "$prices" > coverage-results/jpx-five-year-coverage.json <<'PY_HISTORY'
+          import json
+          import sys
+          from collections import Counter
+          report = {"status": "history_acquisition_unavailable"}
+          try:
+              data = json.load(open(sys.argv[1]))
+              report.update(months_read=data["months_read"], month_results=Counter(
+                  (item.get("reason") or item["status"]) for item in data["months"].values()))
+          except (OSError, ValueError, KeyError):
+              pass
+          print(json.dumps(report))
+          PY_HISTORY
+          fi
+          if [ -s "$sectors" ]; then
+            python -c 'import json,pathlib,sys; file=pathlib.Path(sys.argv[1]); history=json.loads(file.read_text()) if file.is_file() else {"by_code":{}}; history.update(json.load(open(sys.argv[2]))); file.write_text(json.dumps(history), encoding="utf-8")' "$history" "$sectors"
+          fi
+      - name: Build JPX instrumentation
+        id: jpx_build
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
+          set -o pipefail
+          history=()
+          if [ -s "$RUNNER_TEMP/jpx-history.json" ]; then
+            history+=("-PjpxHistoryFile=$RUNNER_TEMP/jpx-history.json")
+          fi
+          (cd android-private && gradle --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx2g "${history[@]}" :app:assembleDebug :app:assembleDebugAndroidTest) 2>&1 | tee coverage-results/jpx-build.log
+      - name: Enable JPX emulator KVM
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/cache/restore@v4
+        if: steps.acquire.outputs.jpx == 'true'
+        with:
+          path: coverage-jpx-cache
+          key: build30-jpx-v2-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            build30-jpx-v2-${{ steps.acquire.outputs.jpx_day }}-
+            build30-jpx-v2-
+      - name: Run bounded JPX financial acquisition and Android valuation
+        if: steps.acquire.outputs.jpx == 'true'
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: bash android-private/tools/check_jpx_live_emulator.sh
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('coverage-jpx-cache/jpx-automatic-finance-v1.xml') != ''
+        with:
+          path: coverage-jpx-cache
+          key: build30-jpx-v2-${{ steps.acquire.outputs.jpx_day }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Summarize source and valuation outcomes
+        if: always()
+        id: results
+        run: |
+          JPX_BUILD_OUTCOME="${{ steps.jpx_build.outcome }}" python android-private/tools/build30_public_sources.py --summary coverage-results
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build30-coverage
+          path: |
+            coverage-results/*.json
+            coverage-results/jpx-probe.log
+            coverage-results/jpx-build.log
+            coverage-results/jpx-parser.log
+            coverage-results/*listed.txt
+            coverage-results/jpx-*.html
+          retention-days: 3
+  publish-results:
+    if: always() && needs.public-data.outputs.results != ''
+    needs: public-data
+    strategy:
+      matrix:
+        result: ${{ fromJSON(needs.public-data.outputs.results) }}
+    name: ${{ matrix.result }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo 'Coverage details are attached to the public-data job.'

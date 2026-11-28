@@ -520,7 +520,8 @@ public final class UsDailyWorker extends Worker {
                 int distinct = reasons.optInt("missing_close") + reasons.optInt("split_hold")
                         + reasons.optInt("unusable_financials") + reasons.optInt("outside_budget")
                         + reasons.optInt("outside_valuation") + reasons.optInt("reference")
-                        + reasons.optInt("priority");
+                        + reasons.optInt("priority") + reasons.optInt("partial_insufficient")
+                        + reasons.optInt("partial_within_budget");
                 if (distinct != total) throw new JSONException("Financial screen counts do not reconcile");
                 String breakdown = "判定内訳（SEC有効財務 " + total + "件）"
                         + "\n財務・純資産が判定不可 " + reasons.optInt("unusable_financials") + "件"
@@ -532,6 +533,22 @@ public final class UsDailyWorker extends Worker {
                         + " · 優先候補 " + reasons.optInt("priority") + "件"
                         + "\n100株で10万円以内 " + reasons.optInt("affordable_100") + "件"
                         + " · 1株購入枠 " + reasons.optInt("single_share") + "件";
+                if (reasons.has("non_positive_profit_only")) {
+                    int profitOnly = reasons.optInt("non_positive_profit_only");
+                    int equityOnly = reasons.optInt("non_positive_equity_only");
+                    int both = reasons.optInt("non_positive_both");
+                    int other = reasons.optInt("other_financial_hold");
+                    if (profitOnly + equityOnly + both + other != reasons.optInt("unusable_financials"))
+                        throw new JSONException("Financial hold counts do not reconcile");
+                    breakdown += "\n財務判定不可の内訳: 利益のみ非正値 " + profitOnly
+                            + "件・純資産のみ非正値 " + equityOnly
+                            + "件・両方非正値 " + both + "件・その他 " + other + "件";
+                }
+                if (reasons.optInt("assessment_count_version") == UsDeviceFinancials.ASSESSMENT_COUNT_VERSION)
+                    breakdown += "\n判定可能数: 厳格 " + reasons.optInt("strict_assessed")
+                            + "件・柔軟追加 " + reasons.optInt("partial_assessed")
+                            + "件・合計 " + reasons.optInt("total_assessed")
+                            + "件・予算内三段階該当（標準設定） " + reasons.optInt("total_eligible_default") + "件";
                 status += "\n" + breakdown;
                 DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                         "割安判定の除外理由を集計 · " + breakdown.replace('\n', ' '));
@@ -551,11 +568,21 @@ public final class UsDailyWorker extends Worker {
             var anchor = sameDay ? readPrivateScreen(state, PRIVATE_PRIOR_BASELINE) : previous;
             var meter = reference.optJSONObject("meter_rows");
             boolean useMeter = state.getBoolean(ValueAlertPreview.LIVE, true);
-            var ranks = useMeter && meter != null && anchor != null
-                    && UsPriceOnlyBudget.previousSession(day).equals(anchor.day()) && provider.equals(anchor.provider())
-                    ? ValueAlertPreview.entries(state, ValueAlertPreview.Market.US, day, provider, meter, sent,
-                            UsReferenceAlerts.comparableMeterSymbols(anchor, screen)::get) : java.util.Map.<String, ValueAlertPreview.Entry>of();
+            var meterHistory = ValueAlertPreview.history(state, ValueAlertPreview.Market.US);
+            var meterPrior = meterHistory.latest();
+            if (meterPrior != null && day.equals(meterPrior.day())) meterPrior = meterHistory.previous();
+            if (meterPrior != null && (!provider.equals(meterPrior.source())
+                    || !UsPriceOnlyBudget.previousSession(day).equals(meterPrior.day()))) meterPrior = null;
+            var verifiedSymbols = new java.util.HashMap<String,String>();
+            screen.rows().forEach((symbol, observation) -> verifiedSymbols.put(
+                    UsReferenceAlerts.meterKey(observation.exchange(), observation.cik(), symbol),symbol));
+            var ranks = useMeter && meter != null
+                    ? ValueAlertPreview.discoveries(state, day, provider, meter, meterPrior, sent, verifiedSymbols::get)
+                    : java.util.Map.<String, ValueAlertPreview.Entry>of();
             var entrants = useMeter ? java.util.Map.<String, String>of() : UsReferenceAlerts.entrantRows(anchor, screen, ValueAlertPreview.previouslyNotified(sent));
+            if (useMeter && meter != null) DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    "米国株 · " + ValueAlertPreview.discoveryDiagnostics(state, day, provider, meter,
+                            meterPrior, sent, verifiedSymbols::get));
             String notificationState = ScanWorker.alertBlockReason(context);
             DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "米国株の財務条件入り "
                     + (entrants.size() + ranks.size()) + "件 · " + (notificationState.isEmpty() ? "通知許可あり" : notificationState));
@@ -569,7 +596,7 @@ public final class UsDailyWorker extends Worker {
                     entrants.keySet().forEach(symbol -> queued.put(symbol, "priority".equals(screen.rows().get(symbol).status())
                             ? "優先候補" : "参考候補"));
                 } else if (!ranks.isEmpty()) {
-                    pending = ValueAlertPreview.title("米国株", ranks) + "\n" + day + "の終値（参考）\n"
+                    pending = ValueAlertPreview.title("米国株", ranks).replace("新規・昇格", "発掘・昇格") + "\n" + day + "の終値（参考）\n"
                             + ranks.values().stream().map(ValueAlertPreview.Entry::summary)
                                     .map(row -> UsCompanyNames.decorate(row, issuerNames))
                                     .collect(java.util.stream.Collectors.joining("\n"));

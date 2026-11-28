@@ -54,7 +54,9 @@ final class ArchivedRepairProbe {
         var beforeFacts = new AtomicInteger();
         var stableFacts = new AtomicInteger();
         verifyFinance(context, beforeFacts, stableFacts);
-        require(beforeFacts.get() == 1 && stableFacts.get() == 1, "The baseline was not acquired");
+        require(beforeFacts.get() == 1 && stableFacts.get() == 1,
+                "The baseline was not acquired (FIX=" + beforeFacts.get() + ", AAA=" + stableFacts.get()
+                        + ")\n" + DiagnosticLog.read(context));
         UsReferenceDeliveryProbe.expectQuiet(manager);
 
         writeClose(context, DAY, false);
@@ -106,12 +108,17 @@ final class ArchivedRepairProbe {
         require(UsDailyWorker.repairStatus(state, DAY.toString()).contains(EXPECTED_SCREEN_PROGRESS),
                 "The recovered issuer did not complete screening");
         var manager = context.getSystemService(NotificationManager.class);
-        UsReferenceDeliveryProbe.verifySilentNotice(manager, TICKER, DAY);
+        try {
+            UsReferenceDeliveryProbe.verifySilentNotice(manager, TICKER, DAY);
+        } catch (AssertionError error) {
+            throw new AssertionError(error.getMessage() + "\n" + DiagnosticLog.read(context), error);
+        }
         manager.cancelAll();
         verifyFinance(context, restoredFacts, reusedFacts);
         UsReferenceDeliveryProbe.expectQuiet(manager);
         long delivered = NotificationHistory.recent(NotificationHistory.file(context), System.currentTimeMillis())
-                .stream().filter(row -> row.detail().contains(TICKER + " · ") && row.detail().contains(DAY.toString())).count();
+                .stream().filter(row -> UsReferenceDeliveryProbe.includesExpectedIssuer(
+                        row.detail(), TICKER + " · 100株 · 優先候補") && row.detail().contains(DAY.toString())).count();
         require(delivered == 1 && restoredFacts.get() == 1 && reusedFacts.get() == 0,
                 "The resumed job repeated a financial download or notification");
         return "US_ARCHIVE_REPAIR_AFTER_REBOOT_OK";
@@ -156,11 +163,11 @@ final class ArchivedRepairProbe {
         var factory = new WorkerFactory() {
             @Override public ListenableWorker createWorker(Context app, String name, WorkerParameters parameters) {
                 return new UsSecFinanceWorker(app, parameters, url -> {
-                    if (url.endsWith("/CIK0000043210.json")) {
+                    if (url.endsWith("/companyfacts/CIK0000043210.json")) {
                         stable.incrementAndGet();
                         return UsReferenceDeliveryProbe.facts().replace("12345", "43210");
                     }
-                    if (url.endsWith("/CIK0000012345.json")) {
+                    if (url.endsWith("/companyfacts/CIK0000012345.json")) {
                         missing.incrementAndGet();
                         return UsReferenceDeliveryProbe.facts();
                     }

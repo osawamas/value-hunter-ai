@@ -241,14 +241,142 @@ final class JpxDailyCheck {
 
         JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
-            return meterRows(latest, screen.assessedCodes(), finance, rights);
+            return meterRows(screen, finance, rights, JpxHistoryReference.empty());
+        }
+
+        JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights,
+                             JpxHistoryReference history) throws JSONException {
+            return withPartialRows(latest, screen.assessedCodes(), finance, rights,
+                    meterRows(latest, screen.assessedCodes(), finance, rights), history);
         }
 
         JSONObject previousMeterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
+            return previousMeterRows(screen, finance, rights, JpxHistoryReference.empty());
+        }
+
+        JSONObject previousMeterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights,
+                                     JpxHistoryReference history) throws JSONException {
             var comparable = new HashSet<>(screen.assessedCodes());
             for (var held : screen.holds()) comparable.remove(held.code());
-            return meterRows(previous, comparable, finance, rights);
+            return withPartialRows(previous,comparable,finance,rights,
+                    meterRows(previous, comparable, finance, rights), history);
+        }
+
+        private JSONObject withPartialRows(Report report, Set<String> strict, JpxAutomaticFinance.Batch finance,
+                                           JpxShareRights rights, JSONObject rows, JpxHistoryReference history) throws JSONException {
+            if (report==null) return rows;
+            var day=report.date();
+            for (var item:finance.entries().entrySet()) {
+                var code=item.getKey();
+                if(strict.contains(code) || rows.has(code)) continue;
+                var entry=item.getValue();
+                var annual=entry.annualFor(day);
+                var close=report.close(code);
+                if(entry.annual()==null || annual==null || close==null
+                    || !entry.evidenceFailure(code,day,finance.updates()).isEmpty()
+                    || !rights.adjustments().containsAll(annual.adjustments())
+                    || rights.firstUnadjustedChange(code,annual.end(),day,annual.adjustments())!=null) continue;
+                var score = partialEarningsScore(code, entry, annual, day, rights, close);
+                if (score == null && (annual.bps() == null || annual.bps().signum() <= 0
+                        || annual.eps().signum() <= 0)
+                        && operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())) {
+                    score = JpxOperatingValuation.assess(annual, day, close);
+                }
+                if (score == null && annual.operating() == null && annual.eps().signum() <= 0
+                        && operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())) {
+                    score = recoverableBookScore(code, entry, annual, day, rights, close);
+                }
+                if (score == null && annual.bps() == null && annual.operating() == null) {
+                    var eps = annual.onShareBasis(day, annual.eps(), false)
+                            .divide(annual.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+                    score = history.corroborateEarnings(code, day, close, eps, rights);
+                    var peer = peerEarningsScore(code, annual, report, finance, rights, history, close, eps);
+                    if (peer != null && score == null) score = peer;
+                    else if (peer != null) score = new ValueAlertMeter.Score(78, 2, 3);
+                }
+                if (score != null) {
+                    score = JpxDisclosureEvidence.adjust(score, entry.events(), day);
+                    rows.put(code, ValueAlertPreview.encode(score, budgetQuantity(close)));
+                }
+            }
+            return rows;
+        }
+
+        private static ValueAlertMeter.Score peerEarningsScore(String code, JpxAnnualSummary.Annual annual,
+                Report report, JpxAutomaticFinance.Batch finance, JpxShareRights rights,
+                JpxHistoryReference history, BigDecimal close, BigDecimal eps) {
+            var day = report.date();
+            var sector = history.sector(code, day);
+            if (sector == null || annual.reportingBasis().isEmpty() || eps.signum() <= 0) return null;
+            var multiple = close.divide(eps, java.math.MathContext.DECIMAL64);
+            if (multiple.compareTo(BigDecimal.valueOf(12)) > 0) return null;
+            var peers = new java.util.ArrayList<BigDecimal>();
+            for (var item : finance.entries().entrySet()) {
+                var peer = item.getKey();
+                if (code.equals(peer) || !sector.equals(history.sector(peer, day))) continue;
+                var entry = item.getValue();
+                var facts = entry.annualFor(day);
+                var price = report.close(peer);
+                if (facts == null || price == null || price.signum() <= 0 || facts.eps().signum() <= 0
+                        || facts.bps() == null || facts.bps().signum() <= 0
+                        || !annual.reportingBasis().equals(facts.reportingBasis())
+                        || Math.abs(java.time.temporal.ChronoUnit.DAYS.between(annual.end(), facts.end())) > 92
+                        || !entry.evidenceFailure(peer, day, finance.updates()).isEmpty()
+                        || !rights.adjustments().containsAll(facts.adjustments())
+                        || rights.firstUnadjustedChange(peer, facts.end(), day, facts.adjustments()) != null) continue;
+                peers.add(facts.onShareBasis(day, price, true).divide(
+                        facts.onShareBasis(day, facts.eps(), false), java.math.MathContext.DECIMAL64));
+            }
+            if (peers.size() < 8) return null;
+            peers.sort(BigDecimal::compareTo);
+            int mid = peers.size() / 2;
+            var median = peers.get(mid);
+            if (peers.size() % 2 == 0) median = median.add(peers.get(mid - 1)).divide(BigDecimal.valueOf(2));
+            return multiple.compareTo(median.multiply(new BigDecimal("0.70"))) <= 0
+                    ? new ValueAlertMeter.Score(65, 1, 2) : null;
+        }
+
+        private ValueAlertMeter.Score partialEarningsScore(String code, JpxAutomaticFinance.Entry entry,
+                JpxAnnualSummary.Annual annual, LocalDate day, JpxShareRights rights, BigDecimal close) {
+            if (annual.bps() != null || annual.eps().signum() <= 0) return null;
+            var eps = recentEps(code, entry, annual, day, rights);
+            var prior = entry.previousAnnual();
+            BigDecimal priorBook = null;
+            if (eps.size() == 2 && !annual.reportingBasis().isEmpty()
+                    && annual.reportingBasis().equals(prior.reportingBasis()) && prior.bps() != null) {
+                priorBook = bookPerTradingShare(prior, day);
+            }
+            var score = FlexibleValueMeter.withVerifiedPriorBook(close, eps, priorBook);
+            return score.confirmed() >= 2 ? score : null;
+        }
+
+        private ValueAlertMeter.Score recoverableBookScore(String code, JpxAutomaticFinance.Entry entry,
+                JpxAnnualSummary.Annual current, LocalDate session, JpxShareRights rights, BigDecimal close) {
+            var previous = entry.previousAnnual();
+            var earnings = recentEps(code, entry, current, session, rights);
+            if (earnings.size() != 2 || current.reportingBasis().isEmpty()
+                    || !current.reportingBasis().equals(previous.reportingBasis())
+                    || current.bps() == null || previous.bps() == null
+                    || previous.bps().signum() <= 0 || current.bps().signum() <= 0) return null;
+            var currentBook = bookPerTradingShare(current, session);
+            var priorBook = bookPerTradingShare(previous, session);
+            return JpxOperatingValuation.assessRecoverableBook(close, currentBook, priorBook,
+                    earnings.get(0), earnings.get(1));
+        }
+
+        private static BigDecimal bookPerTradingShare(JpxAnnualSummary.Annual annual, LocalDate day) {
+            return annual.onShareBasis(day, annual.bps(), false)
+                    .divide(annual.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+        }
+
+        private static boolean operatingShareCountVerified(String code, LocalDate through, LocalDate day,
+                Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
+            for (LocalDate next = through.plusDays(1); !next.isAfter(day); next = next.plusDays(1)) {
+                var update = updates.get(next);
+                if (update == null || update.dilution() == null || update.dilution().contains(code)) return false;
+            }
+            return true;
         }
 
         private JSONObject meterRows(Report report, Set<String> codes, JpxAutomaticFinance.Batch finance,
@@ -264,6 +392,7 @@ final class JpxDailyCheck {
                         : ValueAlertMeter.assessJpx(annual.onShareBasis(day, close, true),
                         annual.onShareBasis(day, annual.eps(), false), annual.onShareBasis(day, annual.bps(), false),
                         recentEps(code, entry, annual, day, rights));
+                if (entry != null) score = JpxDisclosureEvidence.adjust(score, entry.events(), day);
                 if (score != null && score.confirmed() > 0) rows.put(code, ValueAlertPreview.encode(score, shares));
             }
             return rows;
@@ -272,9 +401,11 @@ final class JpxDailyCheck {
         private List<BigDecimal> recentEps(String code, JpxAutomaticFinance.Entry entry,
                                            JpxAnnualSummary.Annual annual, LocalDate day, JpxShareRights rights) {
             var prior = entry.previousAnnual();
-            if (prior == null || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
+            if (prior == null || !prior.released().isBefore(day) || !prior.end().isBefore(annual.end())) return List.of(annual.eps());
             long gap = java.time.temporal.ChronoUnit.DAYS.between(prior.end(), annual.end());
-            if (gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())
+            boolean distinctBasis = !prior.reportingBasis().isEmpty() && !annual.reportingBasis().isEmpty()
+                    && !prior.reportingBasis().equals(annual.reportingBasis());
+            if (distinctBasis || gap < 350 || gap > 380 || !rights.adjustments().containsAll(prior.adjustments())
                     || rights.firstUnadjustedChange(code, prior.end(), day, prior.adjustments()) != null) {
                 return List.of(annual.eps());
             }
@@ -314,6 +445,7 @@ final class JpxDailyCheck {
             String reason = entry.failure(code, latest.date(), finance.updates());
             if (!reason.isEmpty()) return new ReferenceChange(held, held, reason);
             var annual = entry.annualFor(latest.date());
+            if (annual.bps()==null) return new ReferenceChange(held,held,"BPS未取得・柔軟判定経路");
             if (!rights.adjustments().containsAll(annual.adjustments())) {
                 return new ReferenceChange(held, held, "JPX分割比率の再確認待ち");
             }

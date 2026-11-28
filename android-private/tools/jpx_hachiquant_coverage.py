@@ -4,7 +4,9 @@ from collections import Counter
 from datetime import date
 from decimal import Decimal
 import json
+import os
 import re
+from pathlib import Path
 import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -13,6 +15,7 @@ from jpx_daily_probe import CODE, MARKETS, ordinary_stocks, read_quotes
 from jpx_valuation_probe import trading_date
 from jpx_share_basis import load_rights_reports, missing_rights_months, share_basis_status
 from jpx_daily_rights import load_daily_rights
+from jpx_edinet_crosscheck import EdinetAudit
 
 BASE = "https://hachiquant.com/api/v1"
 PAGE_SIZE = 200
@@ -126,7 +129,7 @@ def verify_filing_sample(code, row):
     return {"code": code, "annual_source_id": doc_id, "actual_filing_date": filed_on.isoformat()}
 
 
-def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, rights, daily_rights):
+def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, rights, daily_rights, edinet=None):
     affordable = Counter()
     preliminary = {market: [] for market in MARKETS.values()}
     for code, market in stocks.items():
@@ -146,6 +149,7 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
     results = {}
     missing_by_month = Counter()
     missing_combinations = Counter()
+    original_counts = Counter()
     for market, candidates in preliminary.items():
         counts = Counter()
         ordered = sorted(candidates)
@@ -171,6 +175,12 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             filed_on = date.fromisoformat(filing["actual_filing_date"])
             if filed_on < day:
                 counts["filed_before_quote"] += 1
+                if edinet is not None:
+                    try:
+                        original_counts["attempted"] += 1
+                        original_counts.update(key for key, verified in edinet.check(filing, row).items() if verified)
+                    except (OSError, ValueError, KeyError):
+                        original_counts["original_source_unavailable"] += 1
                 period_end = date.fromisoformat(row["period_end"])
                 status = share_basis_status(code, period_end, day, rights, daily_rights.get(code, ()))
                 counts[status] += 1
@@ -197,11 +207,116 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
         }
     return {
         "quote_date": day.isoformat(),
+        "edinet_original_audit": (dict(original_counts) if edinet is not None
+                                  else {"status": "edinet_api_key_unconfigured"}),
         "share_basis_verified": False,
         "by_market": results,
         "gap_counts_by_month": dict(sorted(missing_by_month.items())),
         "gap_combinations": dict(sorted(missing_combinations.items())),
     }
+
+
+MAX_CROSSCHECK_ROWS = 40
+
+
+def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, limit, batch=0, reviews=None):
+    """Measure filing accuracy independently of eligibility for trading-day valuation."""
+    if edinet is None:
+        return {}, {"key_unconfigured": 1}
+    candidates = []
+    for code in set(stocks) & set(rows):
+        row = rows[code]
+        metrics = row.get("metrics", {})
+        source = row.get("source_doc_id")
+        if (row.get("currency") != "JPY" or row.get("span") != "FY"
+                or not isinstance(source, str) or not DOC_ID.fullmatch(source)
+                or not numeric(metrics.get("eps")) or not numeric(metrics.get("bvps"))):
+            continue
+        try:
+            period = date.fromisoformat(row["period_end"])
+            hint = date.fromisoformat(row["latest_filing_date"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 < (day - period).days <= 365 and period < hint < day:
+            candidates.append((hint, code, period))
+    candidates.sort()
+    pages = (len(candidates) + limit - 1) // limit
+    start = (batch % pages) * limit if pages else 0
+    verified = {}
+    counts = Counter({"eligible_finance_rows": len(candidates), "batch_offset": start})
+    deadline = time.monotonic() + 155
+    for hint, code, period in candidates[start:start + limit]:
+        if time.monotonic() >= deadline:
+            counts["time_budget_reached"] += 1
+            break
+        row = rows[code]
+        metrics = row["metrics"]
+        source = row["source_doc_id"]
+        counts["attempted"] += 1
+        try:
+            filing = {"code": code, "annual_source_id": source, "actual_filing_date": hint.isoformat()}
+            original = edinet.check(filing, row)
+            if not original.get("filing_metadata_match"):
+                # A quarterly filing can make the latest date differ from the annual source date.
+                filing = verify_filing_sample(code, row)
+                if date.fromisoformat(filing["actual_filing_date"]) >= day:
+                    counts["publication_unverified"] += 1
+                    continue
+                original = edinet.check(filing, row)
+            for field, confirmed in original.items():
+                if confirmed is True:
+                    counts[field] += 1
+            if not all(original.get(field) is True for field in (
+                    "filing_metadata_match", "full_year_verified", "per_share_facts_match",
+                    "original_period_end_share_count_present")):
+                counts["original_unverified"] += 1
+                continue
+        except HTTPError as error:
+            counts[f"http_{error.code}"] += 1
+            if error.code in (401, 403, 429, 503):
+                break
+            continue
+        except (ValueError, OSError, KeyError, TypeError):
+            counts["source_unverified"] += 1
+            continue
+        counts["original_rows_verified"] += 1
+        published = date.fromisoformat(filing["actual_filing_date"])
+        if hint != published:
+            counts["newer_filing_requires_review"] += 1
+            later_confirmed = False
+            if time.monotonic() < deadline:
+                details = {"status": "latest_source_unavailable"}
+                stopped = False
+                try:
+                    details = edinet.review_newer(code, hint.isoformat(), period.isoformat(),
+                                                  metrics["bvps"], original.get("annual_shares"))
+                except HTTPError as error:
+                    details = {"status": f"http_{error.code}"}
+                    stopped = error.code in (401, 403, 429, 503)
+                except (ValueError, OSError, KeyError, TypeError):
+                    pass
+                if reviews is not None:
+                    reviews[code] = {"annual_doc_id": source, "later_date": hint.isoformat(), **details}
+                later_confirmed = (details.get("status") == "latest_interim_reviewed"
+                                   and details.get("shares") == "unchanged" and details.get("bps") == "unchanged")
+                counts[details["status"]] += 1
+                if details.get("bps_source") == "derived_from_ordinary_equity_and_bps_share_count":
+                    counts["interim_bps_derived"] += 1
+                if stopped:
+                    break
+            if not later_confirmed:
+                continue
+            counts["newer_filing_share_and_book_unchanged"] += 1
+        if share_basis_status(code, period, day, rights, daily_rights.get(code, ())) != "no_share_change_in_supplied_reports":
+            counts["share_basis_unverified"] += 1
+            continue
+        eps, bps = metrics["eps"], metrics["bvps"]
+        if eps <= 0 or bps <= 0:
+            counts["nonpositive_facts"] += 1
+            continue
+        verified[code] = {"eps": str(eps), "bps": str(bps), "filed": published.isoformat(),
+                          "period_end": period.isoformat(), "edinet_doc": source}
+    return verified, dict(counts)
 
 
 def main():
@@ -212,6 +327,9 @@ def main():
     parser.add_argument("--budget-samples-per-market", type=int, choices=range(11), default=0)
     parser.add_argument("--rights-report", action="append", default=[], help="Local JPX monthly rights PDF")
     parser.add_argument("--daily-rights", action="append", default=[], help="Local JPX daily rights XLS")
+    parser.add_argument("--valuation-output", type=Path, help="Private runner input to the Android audit")
+    parser.add_argument("--batch-index", type=int, default=0)
+    parser.add_argument("--later-filings-output", type=Path)
     args = parser.parse_args()
     stocks = ordinary_stocks(args.universe)
     rows, as_of, pages = annual_rows()
@@ -236,12 +354,25 @@ def main():
         "reports": reports,
         "sampled_annual_filings": [verify_filing_sample(code, rows[code]) for code in args.check_filing],
     }
+    edinet_key = os.getenv("EDINET_API_KEY", "").strip()
+    edinet = EdinetAudit(edinet_key) if edinet_key else None
     if args.budget_samples_per_market:
         day, prices, duplicates = latest
         result["budget_filing_audit"] = audit_budget(
             day, stocks, prices, duplicates, rows, args.budget_samples_per_market,
             load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
+            None if args.valuation_output else edinet,
         )
+    if args.valuation_output:
+        day, _, _ = latest
+        reviews = {} if args.later_filings_output else None
+        verified, counts = verified_valuation_rows(
+            day, stocks, rows, load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
+            edinet, MAX_CROSSCHECK_ROWS, args.batch_index, reviews)
+        args.valuation_output.write_text(json.dumps({"day": day.isoformat(), "rows": verified}), encoding="utf-8")
+        if args.later_filings_output:
+            args.later_filings_output.write_text(json.dumps(reviews, indent=2), encoding="utf-8")
+        result["valuation_input_audit"] = {"verified_rows": len(verified), **counts}
     print(json.dumps(result, indent=2))
 
 

@@ -19,8 +19,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 final class JpxHistoryReference {
     private static final String ASSET = "jpx-history.json";
-    private static final int MAX_BYTES = 65_536;
-    private static final JpxHistoryReference EMPTY = new JpxHistoryReference(Map.of());
+    private static final int MAX_BYTES = 2_097_152;
+    private static final JpxHistoryReference EMPTY = new JpxHistoryReference(Map.of(), null, Map.of());
 
     private record Bounds(BigDecimal low, BigDecimal high) {}
 
@@ -28,8 +28,22 @@ final class JpxHistoryReference {
 
     private final Map<String, Range> byCode;
 
-    private JpxHistoryReference(Map<String, Range> byCode) {
+    private final LocalDate sectorDate;
+    private final Map<String, String> sectors;
+
+    private JpxHistoryReference(Map<String, Range> byCode, LocalDate sectorDate, Map<String, String> sectors) {
         this.byCode = byCode;
+        this.sectorDate = sectorDate;
+        this.sectors = sectors;
+    }
+
+    String sector(String code, LocalDate session) {
+        return sectorDate == null || sectorDate.isAfter(session) || sectorDate.isBefore(session.minusDays(45))
+                ? null : sectors.get(code);
+    }
+
+    JpxHistoryReference pricesOnly() {
+        return new JpxHistoryReference(byCode, null, Map.of());
     }
 
     static JpxHistoryReference empty() {
@@ -46,7 +60,8 @@ final class JpxHistoryReference {
     }
 
     static JpxHistoryReference parse(String json) throws JSONException {
-        var records = new JSONObject(json).getJSONObject("by_code");
+        var input = new JSONObject(json);
+        var records = input.getJSONObject("by_code");
         var ranges = new HashMap<String, Range>();
         var codes = records.keys();
         while (codes.hasNext()) {
@@ -70,7 +85,23 @@ final class JpxHistoryReference {
                 // A malformed series leaves the other symbols and the daily screen usable.
             }
         }
-        return new JpxHistoryReference(Map.copyOf(ranges));
+        var sectors = new HashMap<String, String>();
+        LocalDate sectorDate = null;
+        var source = input.optJSONObject("sectors");
+        if (source != null) {
+            try {
+                sectorDate = LocalDate.parse(input.getString("sector_date"));
+                for (var names = source.keys(); names.hasNext();) {
+                    var code = names.next();
+                    var sector = source.optString(code);
+                    if (code.matches("[0-9][0-9A-Z]{3}") && sector.matches("[0-9]{4}") && !sector.equals("9999"))
+                        sectors.put(code, sector);
+                }
+            } catch (JSONException | DateTimeException invalid) {
+                sectors.clear();
+            }
+        }
+        return new JpxHistoryReference(Map.copyOf(ranges), sectorDate, Map.copyOf(sectors));
     }
 
     private static Bounds bounds(JSONObject row) {
@@ -81,6 +112,22 @@ final class JpxHistoryReference {
         var low = new BigDecimal(lowText);
         var high = new BigDecimal(highText);
         return low.signum() > 0 && low.compareTo(high) < 0 ? new Bounds(low, high) : null;
+    }
+
+    ValueAlertMeter.Score corroborateEarnings(String code, LocalDate session, BigDecimal close,
+            BigDecimal earningsPerShare, JpxShareRights rights) {
+        var range = byCode.get(code);
+        if (range == null || range.bounds() == null || range.months() != 60
+                || !range.last().isBefore(session) || range.last().isBefore(session.minusDays(45))
+                || !rights.holdReason(code, range.last(), session).isEmpty()
+                || earningsPerShare.signum() <= 0 || close.signum() <= 0) return null;
+        var bounds = range.bounds();
+        var span = bounds.high().subtract(bounds.low());
+        var reboundFloor = bounds.low().add(span.multiply(range.position().add(new BigDecimal("0.02"))));
+        var lowerThird = bounds.low().add(span.multiply(new BigDecimal("0.33")));
+        boolean supported = close.compareTo(reboundFloor) >= 0 && close.compareTo(lowerThird) <= 0
+                && close.compareTo(earningsPerShare.multiply(BigDecimal.valueOf(10))) <= 0;
+        return supported ? new ValueAlertMeter.Score(65, 1, 2) : null;
     }
 
     void appendHtml(StringBuilder message, String code, LocalDate session,

@@ -242,4 +242,23 @@ public class NotificationHistoryTest {
         assertEquals(1, posts.get());
     }
 
+    @Test public void historyWriteFailureStillWakesOnceAndRecoveryDoesNotRepost() throws Exception {
+        var file = history();
+        var blockedTemp = new File(file.getParentFile(), file.getName() + ".tmp");
+        assertTrue(blockedTemp.mkdir());
+        var posts = new AtomicInteger();
+        var wakes = new AtomicInteger();
+        try {
+            NotificationHistory.deliver(file, "save-failed", "候補", "1001", NOW,
+                    () -> 0, posts::incrementAndGet, wakes::incrementAndGet);
+            fail("Expected history write failure");
+        } catch (java.io.IOException expected) {
+            assertEquals(1, posts.get());
+            assertEquals(1, wakes.get());
+        }
+        assertFalse(blockedTemp.exists());
+        assertTrue(NotificationHistory.deliver(file, "save-failed", "候補", "1001", NOW + 1,
+                () -> NOW, UNEXPECTED, UNEXPECTED));
+        assertEquals(1, NotificationHistory.recent(file, NOW + 1).size());
+    }
 }

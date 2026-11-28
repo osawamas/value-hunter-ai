@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 final class UsReferenceAlerts {
-    private static final Set<String> SCREENED = Set.of("priority", "reference", "outside_budget", "outside_valuation");
+    private static final Set<String> SCREENED = Set.of("priority", "reference", "outside_budget", "outside_valuation", "partial_assessed");
 
     record Observation(int cik, String exchange, String status, int quantity) {
         boolean candidate() {
@@ -25,7 +25,7 @@ final class UsReferenceAlerts {
         }
 
         boolean enteredFrom(Observation previous) {
-            return candidate() && sameSecurity(previous) && (!previous.candidate() || ("priority".equals(status) && "reference".equals(previous.status)));
+            return candidate() && sameSecurity(previous) && !"partial_assessed".equals(previous.status) && (!previous.candidate() || ("priority".equals(status) && "reference".equals(previous.status)));
         }
     }
 
@@ -53,6 +53,10 @@ final class UsReferenceAlerts {
     }
 
     static Screen read(JSONObject ledger) throws JSONException {
+        return read(ledger, Set.of(UsDoltCloses.SOURCE, UsDailyCloses.MASSIVE_SOURCE));
+    }
+
+    static Screen read(JSONObject ledger, Set<String> acceptedProviders) throws JSONException {
         try {
             var day = LocalDate.parse(ledger.getString("trading_date_et"));
             var screen = ledger.getJSONObject("reference_screen");
@@ -60,7 +64,7 @@ final class UsReferenceAlerts {
             var hash = screen.getString("close_sha256");
             var observations = screen.getJSONArray("observations");
             if (!hasTradeDateFx(ledger, day) || !hash.matches("[a-f0-9]{64}")
-                    || !Set.of(UsDoltCloses.SOURCE, UsDailyCloses.MASSIVE_SOURCE).contains(provider)
+                    || !acceptedProviders.contains(provider)
                     || observations.length() > 12_000) throw new JSONException("Invalid US reference screen");
             var rows = new HashMap<String, Observation>();
             for (int i = 0; i < observations.length(); i++) {

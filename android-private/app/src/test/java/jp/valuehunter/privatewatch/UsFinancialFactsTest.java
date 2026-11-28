@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import org.json.JSONException;
 
@@ -18,6 +19,59 @@ public class UsFinancialFactsTest {
     private static final String K = "0000000001-26-000002";
     private static final LocalDate SESSION = LocalDate.parse("2026-11-17");
 
+    @Test public void operatingRouteRequiresSameFilingAssetsLiabilitiesAndShares() throws Exception {
+        var document = payload();
+        var facts = document.getJSONObject("facts");
+        var gaap = facts.getJSONObject("us-gaap");
+        gaap.remove("StockholdersEquity");
+        String filed = "2026-02-15";
+        String end = "2025-12-31";
+        gaap.put("Assets", units("USD", new JSONArray().put(row(null, end, filed, K, "10-K", 1000))));
+        gaap.put("Liabilities", units("USD", new JSONArray().put(row(null, end, filed, K, "10-K", 500))));
+        gaap.put("Revenues", units("USD", new JSONArray()
+                .put(row("2025-01-01", end, filed, K, "10-K", 800))
+                .put(row("2024-01-01", "2024-12-31", filed, K, "10-K", 700))));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", end, filed, K, "10-K", 100))
+                .put(row("2024-01-01", "2024-12-31", filed, K, "10-K", 80))));
+        facts.getJSONObject("dei").put("EntityCommonStockSharesOutstanding",
+                units("shares", new JSONArray().put(row(null, end, filed, K, "10-K", 40))));
+        var target = new JSONObject().put("symbol", "ABC").put("exchange", "NYSE").put("cik", 1);
+        var assessed = UsDeviceFinancials.assessFetch(target, document, SESSION);
+        assertTrue(assessed.row().getBoolean("operating_only"));
+        assertFalse(assessed.row().has("equity"));
+        gaap.put("Liabilities", units("USD", new JSONArray().put(row(null, end, filed, Q, "10-K", 500))));
+        assertNull(UsFinancialFacts.operatingWithoutParentEquity(document, 1, SESSION));
+    }
+
+    @Test public void usesIndependentIfrsOperatingEvidenceForForeignFilers() throws Exception {
+        var date = "2025-12-31";
+        var filed = "2026-02-15";
+        var ifrs = new JSONObject()
+                .put("Assets", units("USD", new JSONArray().put(row(null, date, filed, K, "20-F", 1000))))
+                .put("Liabilities", units("USD", new JSONArray().put(row(null, date, filed, K, "20-F", 500))))
+                .put("Revenue", units("USD", new JSONArray()
+                        .put(row("2025-01-01", date, filed, K, "20-F", 800))
+                        .put(row("2024-01-01", "2024-12-31", filed, K, "20-F", 700))))
+                .put("CashFlowsFromUsedInOperatingActivities", units("USD", new JSONArray()
+                        .put(row("2025-01-01", date, filed, K, "20-F", 100))
+                        .put(row("2024-01-01", "2024-12-31", filed, K, "20-F", 80))));
+        var cover = new JSONObject().put("EntityCommonStockSharesOutstanding",
+                units("shares", new JSONArray().put(row(null, date, filed, K, "20-F", 40))));
+        var payload = new JSONObject().put("cik", 1)
+                .put("facts", new JSONObject().put("ifrs-full", ifrs).put("dei", cover));
+        var operating = UsFinancialFacts.operatingWithoutParentEquity(payload, 1, SESSION);
+        assertEquals(new BigDecimal("800"), operating.evidence().salesNow());
+        ifrs.put("PreferenceShares", units("USD", new JSONArray().put(row(null, date, filed, K, "20-F", 5))));
+        assertNull(UsFinancialFacts.operatingWithoutParentEquity(payload, 1, SESSION));
+    }
+
+    @Test public void issuerIdentityAcceptsPaddedDecimalWithoutCoercingDifferentIssuers() throws Exception {
+        assertTrue(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000123"), 123));
+        assertFalse(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000124"), 123));
+        assertFalse(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "123.0"), 123));
+    }
+
     @Test public void usesMatchingFiscalYearToDateWindowsAndCoverShares() throws Exception {
         var facts = UsFinancialFacts.read(payload(), 1, SESSION);
         assertEquals(new BigDecimal("110"), facts.profit());
@@ -25,6 +79,16 @@ public class UsFinancialFactsTest {
         assertEquals(new BigDecimal("40"), facts.shares());
         assertEquals(LocalDate.parse("2026-10-13"), facts.shareDate());
         assertEquals(Q, facts.accession());
+    }
+
+    @Test public void usesLatestCoverDateWithoutMixingConflictingShareClasses() throws Exception {
+        var document = payload();
+        var cover = document.getJSONObject("facts").getJSONObject("dei").getJSONObject("EntityCommonStockSharesOutstanding")
+                .getJSONObject("units").getJSONArray("shares");
+        cover.put(row(null, "2026-10-01", "2026-10-20", Q, "10-Q", 39));
+        assertEquals(new BigDecimal("40"), UsFinancialFacts.read(document, 1, SESSION).shares());
+        cover.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
     }
 
     @Test public void sameDayFilingAndDuplicateShareCountsHold() throws Exception {
@@ -171,6 +235,87 @@ public class UsFinancialFactsTest {
         assertEquals(new BigDecimal("100"), UsFinancialFacts.read(document, 1, SESSION).profit());
         quarters.getJSONObject(1).put("start", "2025-01-02");
         assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void numericallyIdenticalRepeatedSharesDoNotBlockFinancials() throws Exception {
+        var document = payload();
+        var shares = document.getJSONObject("facts").getJSONObject("dei")
+                .getJSONObject("EntityCommonStockSharesOutstanding").getJSONObject("units").getJSONArray("shares");
+        shares.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 40)
+                .put("val", new BigDecimal("40.00")));
+        assertEquals(0, new BigDecimal("40").compareTo(UsFinancialFacts.read(document, 1, SESSION).shares()));
+        shares.put(row(null, "2026-10-13", "2026-10-20", Q, "10-Q", 41));
+        assertNull(UsFinancialFacts.read(document, 1, SESSION));
+    }
+
+    @Test public void independentCashAndBalanceEvidenceSurvivesMissingEps() throws Exception {
+        var document = payload();
+        var gaap = document.getJSONObject("facts").getJSONObject("us-gaap");
+        gaap.put("StockholdersEquity", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "10-K", 350))));
+        gaap.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "10-K", 700))));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "10-K", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "10-K", 40))));
+        var history = UsFinancialFacts.meterHistory(document, SESSION);
+        assertTrue(history.annualEps().isEmpty());
+        assertEquals(Integer.valueOf(100), history.cash());
+        assertEquals(Integer.valueOf(100), history.balance());
+        gaap.remove("Assets");
+        assertNull(UsFinancialFacts.meterHistory(document, SESSION).balance());
+    }
+
+    @Test public void foreignAnnualMeterUsesOnlyMatchingDollarEvidence() throws Exception {
+        var document = new JSONObject().put("cik", 1).put("facts", new JSONObject());
+        var gaap = new JSONObject();
+        document.getJSONObject("facts").put("us-gaap", gaap);
+        var eps = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 5))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 4))
+                .put(row("2023-01-01", "2023-12-31", "2026-02-01", K, "20-F", 3));
+        gaap.put("EarningsPerShareBasic", units("USD/shares", eps));
+        gaap.put("StockholdersEquity", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 350))));
+        gaap.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 700))));
+        var cash = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 40));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", cash));
+        var result = UsFinancialFacts.meterHistory(document, SESSION);
+        assertEquals(3, result.annualEps().size());
+        assertEquals(Integer.valueOf(100), result.cash());
+        assertEquals(Integer.valueOf(100), result.balance());
+        cash.getJSONObject(1).put("form", "10-K");
+        assertNull(UsFinancialFacts.meterHistory(document, SESSION).cash());
+        assertTrue(UsFinancialFacts.meterHistory(document, LocalDate.parse("2026-02-01")).annualEps().isEmpty());
+    }
+
+    @Test public void independentIfrsAnnualEvidenceCanReachTheHighestFlexibleTier() throws Exception {
+        var document = new JSONObject().put("cik", 1).put("facts", new JSONObject());
+        var ifrs = new JSONObject();
+        document.getJSONObject("facts").put("ifrs-full", ifrs);
+        var eps = new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 5))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 4))
+                .put(row("2023-01-01", "2023-12-31", "2026-02-01", K, "20-F", 3));
+        ifrs.put("BasicEarningsLossPerShare", units("USD/shares", eps));
+        ifrs.put("CashFlowsFromUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", "2025-12-31", "2026-02-01", K, "20-F", 50))
+                .put(row("2024-01-01", "2024-12-31", "2026-02-01", K, "20-F", 40))));
+        ifrs.put("Assets", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 700))));
+        ifrs.put("EquityAttributableToOwnersOfParent", units("USD", new JSONArray()
+                .put(row(null, "2025-12-31", "2026-02-01", K, "20-F", 350))));
+        var result = UsFinancialFacts.partialValue(document, 1, SESSION);
+        org.junit.Assert.assertNotNull(result);
+        assertEquals(3, FlexibleValueMeter.assess(java.math.BigDecimal.TEN,
+                result.eps(), result.cash(), result.balance()).level(ValueAlertMeter.DEFAULT));
+        assertNull(UsFinancialFacts.partialValue(document, 2, SESSION));
+        assertNull(UsFinancialFacts.partialValue(document, 1, LocalDate.parse("2026-02-01")));
+        ifrs.put("BasicEarningsLossPerShare", units("EUR/shares", eps));
+        assertNull(UsFinancialFacts.partialValue(document, 1, SESSION));
     }
 
     private static JSONObject payload() throws JSONException {

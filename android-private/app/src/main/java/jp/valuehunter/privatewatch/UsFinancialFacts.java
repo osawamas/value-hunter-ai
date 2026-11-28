@@ -43,23 +43,120 @@ final class UsFinancialFacts {
         var primary = assess(document, session, false, false);
         if (primary.facts() != null) return primary;
         var domestic = assess(document, session, true, false);
-        if (!"parent_equity_missing".equals(domestic.hold())) return domestic;
-        // Some foreign issuers list ordinary shares and report annual US-GAAP figures in 20-F/40-F.
+        if (domestic.facts() != null) return domestic;
+        // A foreign annual report can supply a complete independent set even when
+        // domestic facts exist but lack compatible shares or profit. Never mix regimes.
         var foreign = assess(document, session, true, true);
         return foreign.facts() == null ? domestic : foreign;
     }
 
-    record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {}
+    record PartialValue(LocalDate end, LocalDate filed, String accession, List<BigDecimal> eps,
+                        Integer cash, Integer balance) {}
+
+    // Directly reported annual EPS is independent of the market-cap/share-count join.
+    static PartialValue partialValue(JSONObject payload, int cik, LocalDate day) {
+        if (!matchesIssuer(payload,cik)) return null;
+        var document=payload.optJSONObject("facts");
+        var gaap=document==null?null:document.optJSONObject("us-gaap");
+        var domestic = partialAnnual(gaap, day, false, false);
+        if (domestic != null) return domestic;
+        var foreign = partialAnnual(gaap, day, true, false);
+        if (foreign != null || !annualEpsFacts(gaap, day, false, false).isEmpty()
+                || !annualEpsFacts(gaap, day, true, false).isEmpty()) return foreign;
+        return partialAnnual(document == null ? null : document.optJSONObject("ifrs-full"), day, true, true);
+    }
+
+    private static PartialValue partialAnnual(JSONObject namespace, LocalDate day, boolean foreign, boolean ifrs) {
+        var rows = annualEpsFacts(namespace, day, foreign, ifrs);
+        var anchor = latest(rows, true);
+        if (anchor == null || anchor.end.isBefore(day.minusMonths(16))) return null;
+        var history = annualHistory(namespace, day, anchor, annualSeries(rows, anchor), foreign, ifrs);
+        return new PartialValue(anchor.end, anchor.filed, anchor.accession,
+                history.annualEps(), history.cash(), history.balance());
+    }
+
+    record OperatingEvidence(BigDecimal cashNow, BigDecimal cashPrior, BigDecimal salesNow,
+                             BigDecimal salesPrior, LocalDate end) {}
+    record OperatingOnly(OperatingEvidence evidence, BigDecimal shares, LocalDate shareDate,
+                         LocalDate filed, String accession, int balance) {}
+
+    static OperatingOnly operatingWithoutParentEquity(JSONObject payload, int cik, LocalDate day) {
+        if (!matchesIssuer(payload, cik)) return null;
+        var document = payload.optJSONObject("facts");
+        if (document == null) return null;
+        var domestic = operatingWithoutParentEquity(document, day, false, false);
+        if (domestic != null) return domestic;
+        var foreign = operatingWithoutParentEquity(document, day, true, false);
+        return foreign != null ? foreign : operatingWithoutParentEquity(document, day, true, true);
+    }
+
+    private static OperatingOnly operatingWithoutParentEquity(JSONObject document, LocalDate day,
+                                                               boolean foreign, boolean ifrs) {
+        var gaap = document.optJSONObject(ifrs ? "ifrs-full" : "us-gaap");
+        var anchor = latest(facts(gaap, "Assets", "USD", day, foreign).stream()
+                .filter(row -> annualForm(row.form) && row.start == null).collect(Collectors.toList()), false);
+        if (anchor == null || anchor.end.isBefore(day.minusMonths(13)) || anchor.value.signum() <= 0) return null;
+        var liabilities = one(facts(gaap, "Liabilities", "USD", day, foreign).stream()
+                .filter(row -> samePeriod(row, anchor) && row.start == null).collect(Collectors.toList()));
+        if (liabilities == null || liabilities.value.signum() < 0
+                || liabilities.value.compareTo(anchor.value.multiply(new BigDecimal("0.65"))) > 0) return null;
+        if (facts(gaap, ifrs ? "PreferenceShares" : "PreferredStockValue", "USD", day, foreign).stream()
+                .anyMatch(row -> sameFiling(row, anchor) && row.value.signum() != 0)) return null;
+        var shares = one(facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding",
+                "shares", day, foreign).stream().filter(row -> sameFiling(row, anchor) && row.start == null
+                        && !row.end.isBefore(anchor.end)).collect(Collectors.toList()));
+        if (shares == null || shares.value.signum() <= 0
+                || shares.value.stripTrailingZeros().scale() > 0) return null;
+        var evidence = annualHistory(gaap, day, anchor, List.of(), foreign, ifrs).operating();
+        if (evidence == null) return null;
+        int balance = liabilities.value.compareTo(anchor.value.multiply(new BigDecimal("0.50"))) <= 0 ? 100 : 70;
+        return new OperatingOnly(evidence, shares.value, shares.end, anchor.filed, anchor.accession, balance);
+    }
+
+    record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance, OperatingEvidence operating) {
+        MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {
+            this(annualEps, cash, balance, null);
+        }
+    }
 
     static MeterHistory meterHistory(JSONObject payload, LocalDate day) {
         var document = payload.optJSONObject("facts");
         var gaap = document == null ? null : document.optJSONObject("us-gaap");
-        var eps = facts(gaap, "EarningsPerShareBasic", "USD/shares", day, false).stream()
-                .filter(row -> "10-K".equals(row.form) && fullYear(row)).collect(Collectors.toList());
+        var domestic = annualMeterHistory(gaap, day, false);
+        // Only fall back to foreign annual reports when domestic evidence is absent.
+        // Do not combine EPS or cash observations from different reporting regimes.
+        if (!domestic.annualEps().isEmpty() || domestic.cash() != null || domestic.balance() != null)
+            return domestic;
+        return annualMeterHistory(gaap, day, true);
+    }
+
+    private static List<Fact> annualEpsFacts(JSONObject gaap, LocalDate day, boolean foreign, boolean ifrs) {
+        var basic=facts(gaap, ifrs ? "BasicEarningsLossPerShare" : "EarningsPerShareBasic", "USD/shares", day, foreign).stream()
+                .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
+        // Diluted EPS is a separately reported valuation denominator. Never mix
+        // basic and diluted observations in a comparison or bypass ambiguous basic facts.
+        if (!basic.isEmpty()) return basic;
+        return facts(gaap, ifrs ? "DilutedEarningsLossPerShare" : "EarningsPerShareDiluted", "USD/shares", day, foreign).stream()
+                .filter(row -> annualForm(row.form) && fullYear(row)).collect(Collectors.toList());
+    }
+
+    private static MeterHistory annualMeterHistory(JSONObject gaap, LocalDate day, boolean foreign) {
+        var eps = annualEpsFacts(gaap, day, foreign, false);
         var latest = latest(eps, true);
         if (latest == null || latest.end.isBefore(day.minusMonths(16))) {
-            return new MeterHistory(List.of(), null, null);
+            // EPS is still required for the profit-continuity score. Independently
+            // available annual cash and balance evidence must not be discarded.
+            var annualEquity = latest(facts(gaap, "StockholdersEquity", "USD", day, foreign).stream()
+                    .filter(row -> annualForm(row.form) && row.start == null)
+                    .collect(Collectors.toList()), false);
+            if (annualEquity == null || annualEquity.end.isBefore(day.minusMonths(16)))
+                return new MeterHistory(List.of(), null, null);
+            return annualHistory(gaap, day, annualEquity, List.of(), foreign, false);
         }
+        return annualHistory(gaap, day, latest, annualSeries(eps, latest), foreign, false);
+    }
+
+    private static List<BigDecimal> annualSeries(List<Fact> eps, Fact latest) {
         // The same filing reports prior per-share values on the current share basis.
         var series = new ArrayList<BigDecimal>();
         series.add(latest.value);
@@ -70,7 +167,12 @@ final class UsFinancialFacts {
             series.add(prior.value);
             end = prior.end;
         }
-        var cash = facts(gaap, "NetCashProvidedByUsedInOperatingActivities", "USD", day, false).stream()
+        return List.copyOf(series);
+    }
+
+    private static MeterHistory annualHistory(JSONObject gaap, LocalDate day, Fact latest, List<BigDecimal> series, boolean foreign, boolean ifrs) {
+        var cash = facts(gaap, ifrs ? "CashFlowsFromUsedInOperatingActivities"
+                : "NetCashProvidedByUsedInOperatingActivities", "USD", day, foreign).stream()
                 .filter(row -> sameFiling(row, latest) && fullYear(row)).collect(Collectors.toList());
         var cashNow = one(cash.stream().filter(row -> row.end.equals(latest.end))
                 .collect(Collectors.toList()));
@@ -82,15 +184,17 @@ final class UsFinancialFacts {
         }
         // Verify balance-sheet evidence from the same filing and fiscal period as the EPS
         // comparison. Missing/ambiguous assets are unknown, never treated as positive.
-        var equityRows = facts(gaap, "StockholdersEquity", "USD", day, false).stream()
+        var equityRows = facts(gaap, ifrs ? "EquityAttributableToOwnersOfParent"
+                : "StockholdersEquity", "USD", day, foreign).stream()
                 .filter(row -> sameFiling(row, latest) && row.start == null
                         && row.end.equals(latest.end)).collect(Collectors.toList());
-        var assetRows = facts(gaap, "Assets", "USD", day, false).stream()
+        var assetRows = facts(gaap, "Assets", "USD", day, foreign).stream()
                 .filter(row -> sameFiling(row, latest) && row.start == null
                         && row.end.equals(latest.end)).collect(Collectors.toList());
         var currentEquity = one(equityRows);
         var currentAssets = one(assetRows);
         Integer balanceScore = null;
+        if (currentEquity != null && currentEquity.value.signum() <= 0) balanceScore = 0;
         if (currentEquity != null && currentAssets != null
                 && currentEquity.value.signum() > 0 && currentAssets.value.signum() > 0
                 && currentEquity.value.compareTo(currentAssets.value) <= 0) {
@@ -99,7 +203,23 @@ final class UsFinancialFacts {
                     java.math.MathContext.DECIMAL64).doubleValue();
             balanceScore = ratio >= 0.40 ? 100 : ratio >= 0.25 ? 70 : ratio >= 0.15 ? 50 : 0;
         }
-        return new MeterHistory(List.copyOf(series), cashScore, balanceScore);
+        OperatingEvidence operating = null;
+        if (cashScore != null && cashScore == 100) {
+            // Use one revenue concept for both years; conflicting candidates are excluded by one().
+            for (String tag : ifrs ? List.of("Revenue") : List.of(
+                    "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet")) {
+                var revenue = facts(gaap, tag, "USD", day, foreign).stream()
+                        .filter(row -> sameFiling(row, latest) && fullYear(row)).collect(Collectors.toList());
+                if (revenue.isEmpty()) continue;
+                var now = one(revenue.stream().filter(row -> row.end.equals(latest.end)).collect(Collectors.toList()));
+                var prior = precedingAnnual(revenue, latest, latest.end);
+                if (now != null && prior != null && now.value.signum() > 0 && prior.value.signum() > 0) {
+                    operating = new OperatingEvidence(cashNow.value, cashPrior.value, now.value, prior.value, latest.end);
+                }
+                break;
+            }
+        }
+        return new MeterHistory(List.copyOf(series), cashScore, balanceScore, operating);
     }
 
     private static Fact precedingAnnual(List<Fact> rows, Fact filing, LocalDate end) {
@@ -125,7 +245,10 @@ final class UsFinancialFacts {
         var shareRows = facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding", "shares", session, foreignAnnual);
         var cover = shareRows.stream().filter(f -> sameFiling(f, equity)
                 && f.start == null && !f.end.isBefore(equity.end)).collect(Collectors.toList());
-        var shares = one(cover);
+        // One filing may contain several as-of dates. Select the most recent
+        // cover date, retaining the strict rejection of conflicting same-date values.
+        var coverDay = cover.stream().map(Fact::end).max(LocalDate::compareTo).orElse(null);
+        var shares = one(cover.stream().filter(row -> row.end.equals(coverDay)).collect(Collectors.toList()));
         String sharesBasis = "cover";
         if (supplementary && cover.isEmpty()) {
             var balanceSheet = facts(gaap, "CommonStockSharesOutstanding", "shares", session, foreignAnnual).stream()
@@ -304,6 +427,10 @@ final class UsFinancialFacts {
         return output;
     }
 
+    private static boolean annualForm(String form) {
+        return "10-K".equals(form) || foreignAnnualForm(form);
+    }
+
     private static boolean foreignAnnualForm(String form) {
         return "20-F".equals(form) || "40-F".equals(form);
     }
@@ -314,7 +441,7 @@ final class UsFinancialFacts {
         if (latest == null) return null;
         var tied = facts.stream().filter(f -> order.compare(f, latest) == 0).collect(Collectors.toList());
         if (allowRepeatedAnnual) {
-            if (tied.stream().anyMatch(f -> !f.start.equals(latest.start) || f.value.compareTo(latest.value) != 0)) return null;
+            if (tied.stream().anyMatch(f -> !Objects.equals(f.start, latest.start) || f.value.compareTo(latest.value) != 0)) return null;
             return latest;
         }
         return one(tied);
@@ -323,7 +450,11 @@ final class UsFinancialFacts {
     private static Fact one(List<Fact> facts) {
         if (facts.isEmpty()) return null;
         var first = facts.get(0);
-        return facts.stream().allMatch(first::equals) ? first : null;
+        // SEC may repeat the same numeric fact with a different decimal scale.
+        // Preserve all period and filing identity checks; conflicting values stay held.
+        return facts.stream().allMatch(f -> samePeriod(first, f)
+                && first.value.compareTo(f.value) == 0
+                && first.reconciled == f.reconciled) ? first : null;
     }
 
     private static boolean sameFiling(Fact left, Fact right) {

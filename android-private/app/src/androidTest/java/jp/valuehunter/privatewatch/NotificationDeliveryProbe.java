@@ -3,7 +3,6 @@ package jp.valuehunter.privatewatch;
 import android.app.Instrumentation;
 import android.app.Notification;
 import android.app.NotificationManager;
-import android.content.Intent;
 import android.os.ParcelFileDescriptor;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -46,6 +45,21 @@ final class NotificationDeliveryProbe {
         if ("archive_repair_resume".equals(phase)) return ArchivedRepairProbe.resume(context);
         if ("interrupted_prepare".equals(phase)) return prepareInterruptedDelivery(context, manager, history);
         if ("interrupted_resume".equals(phase)) return resumeInterruptedDelivery(context, manager, history);
+        if ("delivery_core_restore".equals(phase)) {
+            var saved = NotificationHistory.recent(history, System.currentTimeMillis());
+            require(saved.size() == 2 && saved.stream().anyMatch(row -> row.detail().equals(JP_DETAIL))
+                    && saved.stream().anyMatch(row -> row.detail().equals(US_DETAIL)),
+                    "Core delivery history should survive restart");
+            require(prefs.edit().putBoolean(NotificationScreenWake.ENABLED, true).commit(),
+                    "Cannot enable wake for replay check");
+            sleep(instrumentation, power);
+            require(ScanWorker.postNotification(context, JAPAN, JP_TITLE, JP_DETAIL),
+                    "Saved JPX receipt was not acknowledged");
+            SystemClock.sleep(350);
+            require(active(manager, JAPAN) == null && !power.isInteractive(),
+                    "Saved receipt allowed a duplicate or a second screen wake");
+            return "ALERT_CORE_RESTART_OK";
+        }
         if ("restore".equals(phase)) {
             require("60,75,90".equals(ScanWorker.prefs(context).getString(ValueAlertPreview.SETTINGS, "")),
                     "Saved alert thresholds did not survive reboot");
@@ -74,8 +88,15 @@ final class NotificationDeliveryProbe {
             ListingArchiveProbe.checkAfterReboot(context);
             return "ALERT_HISTORY_AFTER_REBOOT_OK\nUS_LISTING_ARCHIVE_AFTER_REBOOT_OK";
         }
-        if (!"post".equals(phase)) throw new IllegalArgumentException("Unknown alert probe phase");
-        exerciseCommunicationNotice(instrumentation, power);
+        boolean coreOnly = "delivery_core".equals(phase);
+        if (!coreOnly && !"post".equals(phase)) throw new IllegalArgumentException("Unknown alert probe phase");
+        if (coreOnly) {
+            require(MarketNetwork.setAllowed(context, true), "Cannot enable communication for core delivery");
+        } else {
+            progress(instrumentation, "communication_notice");
+            exerciseCommunicationNotice(instrumentation, power);
+        }
+        progress(instrumentation, "silent_post_and_wake");
         manager.cancelAll();
         if (history.exists() && !history.delete()) throw new IOException("Cannot clear alert probe state");
         require(prefs.edit().putBoolean(NotificationScreenWake.ENABLED, true).commit(), "Cannot enable wake");
@@ -117,6 +138,8 @@ final class NotificationDeliveryProbe {
                 "Diagnostic notification ignored disabled wake or changed real history");
         manager.cancel(ScanWorker.TEST_NOTIFICATION_ID);
 
+        if (coreOnly) return "ALERT_CORE_DELIVERY_OK";
+        progress(instrumentation, "settings_and_wifi");
         var disconnected = new CountDownLatch(1);
         var connection = MarketNetwork.open(openUntilStopped(disconnected));
         var input = MarketNetwork.input(connection);
@@ -141,6 +164,12 @@ final class NotificationDeliveryProbe {
         exerciseWifiOnly(instrumentation, power);
         ListingArchiveProbe.prepare(context);
         return "ALERT_SILENT_WAKE_AND_HISTORY_OK\nMARKET_WIFI_SWITCH_OK";
+    }
+
+    private static void progress(Instrumentation instrumentation, String phase) {
+        var status = new android.os.Bundle();
+        status.putString("stream", "\nALERT_PROBE_PHASE " + phase + "\n");
+        instrumentation.sendStatus(1, status);
     }
 
     private static final int INTERRUPTED_ID = 54;
@@ -205,8 +234,7 @@ final class NotificationDeliveryProbe {
         shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
         shell(instrumentation, "wm dismiss-keyguard");
         shell(instrumentation, "svc data enable");
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         Runnable disconnect = () -> changeWifi(instrumentation, false);
         Runnable reconnect = () -> changeWifi(instrumentation, true);
         try {
@@ -240,7 +268,6 @@ final class NotificationDeliveryProbe {
             shell(instrumentation, "svc wifi enable");
             shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
         }
     }
 
@@ -248,6 +275,9 @@ final class NotificationDeliveryProbe {
         try {
             if (connected) {
                 shell(instrumentation, "svc wifi enable");
+                if (android.os.Build.VERSION.SDK_INT >= 30 && !await(MarketNetwork::allowed, 5_000)) {
+                    shell(instrumentation, "cmd wifi connect-network AndroidWifi open");
+                }
                 if (!await(MarketNetwork::allowed, 10_000)) {
                     // Some emulator images prefer their cellular transport after reconnecting.
                     // Force route selection for the fixture, then require the normal Wi-Fi gate to open.
@@ -273,8 +303,7 @@ final class NotificationDeliveryProbe {
         shell(instrumentation, "svc data enable");
         shell(instrumentation, "svc wifi disable");
         require(await(power::isInteractive), "Screen could not turn on for the Wi-Fi test");
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
@@ -306,9 +335,14 @@ final class NotificationDeliveryProbe {
             }
 
             changeWifi(instrumentation, true);
-            require(!androidx.work.WorkManager.getInstance(context)
-                            .getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS).isEmpty(),
-                    "Restoring Wi-Fi did not queue the US update");
+            var work = androidx.work.WorkManager.getInstance(context);
+            long enqueueDeadline = SystemClock.elapsedRealtime() + 10_000;
+            var queued = work.getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS);
+            while (queued.isEmpty() && SystemClock.elapsedRealtime() < enqueueDeadline) {
+                SystemClock.sleep(100);
+                queued = work.getWorkInfosForUniqueWork(UsDailyWorker.ON_WIFI).get(5, TimeUnit.SECONDS);
+            }
+            require(!queued.isEmpty(), "Restoring Wi-Fi did not queue the US update");
             instrumentation.runOnMainSync(() -> {
                 var network = control(activity.getWindow().getDecorView(), "相場データの通信", Switch.class);
                 require(network.isChecked(), "Wi-Fi loss changed the requested communication state");
@@ -319,7 +353,6 @@ final class NotificationDeliveryProbe {
             shell(instrumentation, "svc wifi enable");
             shell(instrumentation, "svc data enable");
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
         }
     }
 
@@ -370,8 +403,7 @@ final class NotificationDeliveryProbe {
 
     private static void chooseCommunication(Instrumentation instrumentation, String choice) {
         var context = instrumentation.getTargetContext();
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         try {
             require(await(() -> findDialogText(instrumentation, "通信量について") != null, 12_000),
                     "First-open communication notice was not visible for " + choice);
@@ -384,7 +416,24 @@ final class NotificationDeliveryProbe {
             require(await(() -> !MarketNetwork.noticeRequired(context)), "Communication choice was not saved");
         } finally {
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
+        }
+    }
+
+    private static android.app.Activity startMainActivity(Instrumentation instrumentation) {
+        var context = instrumentation.getTargetContext();
+        var monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
+        try {
+            String launch = shell(instrumentation, "am start -W -f 0x10008000 -n "
+                    + context.getPackageName() + "/jp.valuehunter.privatewatch.SplashActivity");
+            var activity = instrumentation.waitForMonitorWithTimeout(monitor, 12_000);
+            require(activity != null, "Main activity did not start: " + launch.trim());
+            require(await(() -> activity.getWindow().getDecorView().getHeight() > 0),
+                    "Main activity did not lay out");
+            return activity;
+        } catch (IOException unavailable) {
+            throw new AssertionError("Could not launch the app from the emulator shell", unavailable);
+        } finally {
+            instrumentation.removeMonitor(monitor);
         }
     }
 
@@ -454,8 +503,7 @@ final class NotificationDeliveryProbe {
         shell(instrumentation, "input keyevent KEYCODE_WAKEUP");
         shell(instrumentation, "wm dismiss-keyguard");
         require(await(power::isInteractive), "Screen could not turn on to inspect settings");
-        var activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        var activity = startMainActivity(instrumentation);
         try {
             instrumentation.runOnMainSync(() -> {
                 var root = activity.getWindow().getDecorView();
@@ -511,7 +559,6 @@ final class NotificationDeliveryProbe {
             requireBlocked();
         } finally {
             instrumentation.runOnMainSync(activity::finish);
-            instrumentation.waitForIdleSync();
         }
     }
 
@@ -651,10 +698,13 @@ final class NotificationDeliveryProbe {
         require(await(() -> !power.isInteractive()), "Emulator could not enter screen-off state");
     }
 
-    private static void shell(Instrumentation instrumentation, String command) throws IOException {
+    private static String shell(Instrumentation instrumentation, String command) throws IOException {
         try (var input = new ParcelFileDescriptor.AutoCloseInputStream(
-                instrumentation.getUiAutomation().executeShellCommand(command))) {
-            while (input.read() >= 0) { /* Wait for the command to finish. */ }
+                instrumentation.getUiAutomation().executeShellCommand(command));
+             var output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            for (int size; (size = input.read(buffer)) != -1;) output.write(buffer, 0, size);
+            return output.toString("UTF-8");
         }
     }
 

@@ -171,8 +171,9 @@ public final class JpxWatchWorker extends Worker {
 
     static long nextFinanceStart(long completed, boolean financePass, boolean periodicFinance,
                                  JpxAutomaticFinance.Batch batch) {
-        boolean scheduled = !financePass || periodicFinance;
-        return scheduled && batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
+        if (financePass && !periodicFinance) return 0;
+        if (batch.archiveResumeAt() > completed) return batch.archiveResumeAt();
+        return batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
     }
 
     private static Constraints connected() {
@@ -279,8 +280,31 @@ public final class JpxWatchWorker extends Worker {
                     comparison.appendCoverage(partial, screen.assessed(), "\n", finance);
                     appendCandidates(partial, screen);
                     var preview = state.edit();
-                    saveMeter(state, preview, comparison, screen, finance, evidence.rights());
-                    preview.apply();
+                    var meter = saveMeter(state, preview, comparison, screen, finance, evidence.rights(), JpxHistoryReference.load(getApplicationContext()));
+                    recordAssessment(comparison.latest(), screen, meter, finance);
+                    MarketCoverage.JPX.track(state, preview, coverage(comparison.latest(), screen,
+                            automaticFinance ? JpxAutomaticFinance.failedAcquisitions(context) : Set.of()), true);
+                    if (automaticFinance && state.getBoolean(ValueAlertPreview.LIVE, true)
+                            && (last == null || !date.isBefore(last))
+                            && (expected == null || !date.isBefore(expected))
+                            && ScanWorker.alertsEnabled(context)) {
+                        var pending = pendingAlerts(state);
+                        var alerted = date.equals(last)
+                                ? new HashSet<>(state.getStringSet(ALERTED, Set.of())) : new HashSet<String>();
+                        queueMeterAlerts(state, pending, date, meter, null, alerted,
+                                state.getLong(ScanWorker.ALERT_GENERATION, 0),
+                                state.getLong(ScanWorker.FINANCIAL_ALERT_GENERATION, 0));
+                        preview.putString(PENDING, pending.toString());
+                        // Anchor successful receipts to this date even before a comparison is available.
+                        if (!date.equals(last) && pending.length() > 0) {
+                            preview.putString(LATEST, date.toString()).putStringSet(ALERTED, alerted);
+                        }
+                        if (!preview.commit()) return Result.retry();
+                        var waiting = deliverPending(context, state, pending, expected);
+                        if (waiting != null) return waiting;
+                    } else {
+                        preview.apply();
+                    }
                     var phase = comparison.comparisonFailed() ? failedPhase() : MarketFreshness.Phase.COMPARISON;
                     return retryReport(state, partial.toString(), phase, priorDay != null ? priorDay : date);
                 }
@@ -304,6 +328,11 @@ public final class JpxWatchWorker extends Worker {
                         + screen.entered().size() + "件・予算 " + priceOnly.entered().size() + "件・急変 "
                         + rapid.size() + "件 · 通知待ち " + (added.size() + budgetAdded.size() + rapidAdded.size())
                         + "件" + (notifyEnabled ? "" : " · " + ScanWorker.alertBlockReason(context)));
+                DiagnosticLog.record(context, DiagnosticLog.Area.JPX, "東証財務判定の内訳: 判定済み "
+                        + screen.assessed() + "件・現在候補 " + screen.candidates().size()
+                        + "件・比較保留 " + screen.held() + "件・自動財務確認 "
+                        + finance.entries().size() + "/" + finance.budget() + "件"
+                        + "・割安度通知方式 " + (useMeter ? "有効" : "無効"));
                 var summary = new StringBuilder(date + " 東証日報を確認 · 比較保留 " + screen.held() + "銘柄");
                 summary.append("\n比較日 ").append(comparison.previous().date());
                 comparison.appendCoverage(summary, screen.assessed(), "\n", finance);
@@ -344,27 +373,14 @@ public final class JpxWatchWorker extends Worker {
                             .collect(Collectors.joining("\n"));
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
-                var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights());
+                var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights(), JpxHistoryReference.load(getApplicationContext()));
+                recordAssessment(comparison.latest(), screen, meter, finance);
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
-                if (useMeter && notifyEnabled && baseline != null && date.isAfter(baseline) && meter != null) {
-                    try {
-                        var entries = ValueAlertPreview.entries(state, ValueAlertPreview.Market.JPX, date, "JPX",
-                                meter.rows(), meter.prior(), alerted, code -> code);
-                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
-                        if (!entries.isEmpty()) {
-                            var detail = new StringBuilder(date + "の東証終値（参考）");
-                            if (entries.values().stream().anyMatch(item -> item.level() == 3)) {
-                                detail.append("\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
-                            }
-                            for (var entry : entries.values()) detail.append("\n").append(entry.summary());
-                            queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries),
-                                    detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった",
-                                    alertGeneration, financialGeneration);
-                        }
-                    } catch (JSONException invalid) {
-                        DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度を比較できず");
-                    }
+                if (useMeter && notifyEnabled) {
+                    queueMeterAlerts(state, pending, date, meter,
+                            baseline == null || date.equals(baseline) || meter == null ? null : meter.prior(),
+                            alerted, alertGeneration, financialGeneration);
                 }
                 String processed = notifyEnabled ? comparison.processedKey(revision) : "";
                 // Commit the alert payload with its comparison before attempting Android delivery.
@@ -395,23 +411,132 @@ public final class JpxWatchWorker extends Worker {
         }
     }
 
+    private void recordAssessment(JpxDailyCheck.Report report, JpxDailyCheck.Screening screen,
+                                  MeterPair meter, JpxAutomaticFinance.Batch finance) {
+        if (meter == null) return;
+        try {
+            var assessment = assessmentCounts(report, screen, meter.rows())
+                    .put("trading_date", report.date().toString()).put("close_source", report.source())
+                    .put("report_edition", report.edition())
+                    .put("quote_snapshot_sha256", report.universe() == null ? JSONObject.NULL
+                            : JpxQuoteCache.encode(report).getString("sha256"))
+                    .put("financial_records", finance.entries().values().stream()
+                            .filter(entry -> entry.annualFor(report.date()) != null).count());
+            var file = new android.util.AtomicFile(new java.io.File(getApplicationContext().getNoBackupFilesDir(),
+                    "jpx-assessment.json"));
+            UsDailyWorker.writeSnapshot(file, assessment);
+            DiagnosticLog.record(getApplicationContext(), DiagnosticLog.Area.JPX,
+                    "東証判定可能数実測 · 取引日 " + report.date() + " · " + assessment);
+        } catch (IOException | JSONException invalid) {
+            DiagnosticLog.record(getApplicationContext(), DiagnosticLog.Area.JPX, "東証判定可能数の集計を保留");
+        }
+    }
+
+    private void queueMeterAlerts(SharedPreferences state, JSONArray pending, LocalDate date, MeterPair meter,
+                                  ValueAlertPreview.Session prior, Set<String> alerted,
+                                  long alertGeneration, long financialGeneration) throws IOException {
+        if (meter == null) return;
+        var context = getApplicationContext();
+        try {
+            var entries = ValueAlertPreview.discoveries(state, date, "JPX",
+                    meter.rows(), prior,
+                    alerted, code -> code);
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT,
+                    "東証 · " + ValueAlertPreview.discoveryDiagnostics(state, date, "JPX", meter.rows(),
+                            prior,
+                            alerted, code -> code));
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度で通知待ち " + entries.size() + "件");
+            if (!entries.isEmpty()) {
+                var detail = new StringBuilder(date + "の東証終値（参考）");
+                detail.append("\n企業開示の補助評価を含む場合あり（見出しベース・財務評価とは別）");
+                if (entries.values().stream().anyMatch(item -> item.level() == 3)) {
+                    detail.append("\n超割安は2期黒字・大幅減益なし・低PER/PBRによる簡易判定。CF・同業比較は未確認。");
+                }
+                for (var entry : entries.values()) detail.append("\n").append(entry.summary());
+                queueAlert(pending, date, NOTIFICATION_ID, ValueAlertPreview.title("東証", entries).replace("新規・昇格", "発掘・昇格"),
+                        detail, List.copyOf(entries.keySet()), "割安度の無音通知を送信できなかった",
+                        alertGeneration, financialGeneration);
+            }
+        } catch (JSONException invalid) {
+            DiagnosticLog.record(context, DiagnosticLog.Area.ALERT, "東証の割安度を比較できず");
+        }
+    }
+
     record MeterPair(JSONObject rows, ValueAlertPreview.Session prior) {}
 
     static MeterPair saveMeter(SharedPreferences state, SharedPreferences.Editor edit, JpxDailyCheck.Comparison comparison,
                                JpxDailyCheck.Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
+        return saveMeter(state, edit, comparison, screen, finance, rights, JpxHistoryReference.empty());
+    }
+
+    private static MeterPair saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
+            JpxDailyCheck.Comparison comparison, JpxDailyCheck.Screening screen,
+            JpxAutomaticFinance.Batch finance, JpxShareRights rights, JpxHistoryReference history) {
         try {
             var date = comparison.latest().date();
             var market = ValueAlertPreview.Market.JPX;
-            var rows = comparison.meterRows(screen, finance, rights);
+            var rows = comparison.meterRows(screen, finance, rights, history);
             var expected = market.expectedPrior(date);
             JSONObject priorRows = comparison.previous() != null && comparison.previous().date().equals(expected)
-                    ? comparison.previousMeterRows(screen, finance, rights) : null;
+                    ? comparison.previousMeterRows(screen, finance, rights, history) : null;
             ValueAlertPreview.save(state, edit, market, date, "JPX", rows, priorRows);
             var prior = priorRows == null ? null : ValueAlertPreview.session(expected, "JPX", priorRows);
             return new MeterPair(rows, prior);
         } catch (JSONException unavailable) {
             return null;
         }
+    }
+
+    static JSONObject assessmentCounts(JpxDailyCheck.Report report, JpxDailyCheck.Screening screen,
+                                       JSONObject meter) throws JSONException {
+        var scope = report.universe() == null ? report.quotes().keySet() : report.universe().codes();
+        int closes = 0, strict = 0, budget = 0, budgetAssessed = 0, assessed = 0, flexible = 0;
+        int[] tiers = new int[4];
+        var holds = new java.util.HashMap<String, String>();
+        for (var hold : screen.holds()) holds.put(hold.code(), hold.reason());
+        var reasons = new java.util.TreeMap<String, Integer>();
+        for (String code : scope) {
+            var close = report.close(code);
+            if (close == null) {
+                reasons.merge("missing_close", 1, Integer::sum);
+                continue;
+            }
+            closes++;
+            boolean isStrict = screen.assessedCodes().contains(code);
+            var row = meter.optJSONArray(code);
+            boolean hasScore = row != null && row.length() == 4 && row.optInt(2, 0) >= (isStrict ? 1 : 2);
+            if (isStrict) strict++;
+            if (hasScore) assessed++;
+            if (hasScore && !isStrict) flexible++;
+            int quantity = JpxDailyCheck.budgetQuantity(close);
+            if (!isStrict && !hasScore) {
+                String hold = holds.getOrDefault(code, "");
+                String reason = hold.contains("分割") || hold.contains("併合") || hold.contains("権利落")
+                        ? "corporate_action_unverified"
+                        : quantity == 0 ? "outside_finance_acquisition_budget" : "insufficient_verified_financials";
+                reasons.merge(reason, 1, Integer::sum);
+            }
+            if (quantity == 0) continue;
+            budget++;
+            if (isStrict || hasScore) budgetAssessed++;
+            if (!hasScore || row.optInt(3, 0) <= 0) continue;
+            var score = new ValueAlertMeter.Score(row.getInt(0), row.getInt(1), row.getInt(2));
+            tiers[score.level(ValueAlertMeter.DEFAULT)]++;
+        }
+        int total = strict + flexible;
+        boolean universeVerified = report.universe() != null;
+        return new JSONObject().put("universe_verified", universeVerified)
+                .put("listing_reference_date", universeVerified ? report.universe().asOf().toString() : JSONObject.NULL)
+                .put("scope", scope.size()).put("closes", closes).put("strict_assessed", strict)
+                .put("meter_assessed", assessed).put("flexible_added", flexible)
+                .put("total_assessed", total).put("unassessed", scope.size() - total)
+                .put("unassessed_reasons", new JSONObject(reasons))
+                .put("full_scope_assessed_percent", universeVerified && !scope.isEmpty()
+                        ? 100.0 * total / scope.size() : JSONObject.NULL)
+                .put("price_budget_only_or_overlap", budget).put("budget_assessed", budgetAssessed)
+                .put("budget_assessed_percent", budget > 0 ? 100.0 * budgetAssessed / budget : JSONObject.NULL)
+                .put("eligible_default", tiers[1] + tiers[2] + tiers[3])
+                .put("tiers", new JSONArray().put(tiers[1]).put(tiers[2]).put(tiers[3]));
     }
 
     private static JSONArray pendingAlerts(SharedPreferences state) throws IOException {

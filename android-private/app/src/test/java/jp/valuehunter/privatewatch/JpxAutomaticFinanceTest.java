@@ -21,6 +21,64 @@ public class JpxAutomaticFinanceTest {
     private static final LocalDate RELEASED = LocalDate.of(2026, 5, 11);
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
 
+    @Test public void sameIndustryPeerComparisonRecoversOnlyWithEnoughPeers() throws Exception {
+        var entries = new HashMap<String, JpxAutomaticFinance.Entry>();
+        var quotes = new HashMap<String, JpxCloseTable.Sessions>();
+        var sectors = new org.json.JSONObject();
+        var end = LocalDate.of(2026, 3, 31);
+        for (int i = 0; i < 9; i++) {
+            String code = i == 0 ? CODE : Integer.toString(1500 + i);
+            var annual = new JpxAnnualSummary.Annual(end, RELEASED, BigDecimal.TEN,
+                    i == 0 ? null : BigDecimal.valueOf(120), "JPX", List.of(), "JGAAP");
+            entries.put(code, new JpxAutomaticFinance.Entry(DAY, annual, ""));
+            quotes.put(code, new JpxCloseTable.Sessions(null, BigDecimal.valueOf(i == 0 ? 80 : 160)));
+            sectors.put(code, "3050");
+        }
+        var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/", quotes, Set.of());
+        var comparison = new JpxDailyCheck.Comparison(report, null);
+        var batch = new JpxAutomaticFinance.Batch(entries, Map.of(), 9, 9);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var screen = comparison.screen(rights, batch);
+        var history = new org.json.JSONObject().put("by_code", new org.json.JSONObject())
+                .put("sector_date", DAY.minusDays(1).toString()).put("sectors", sectors);
+        assertFalse(comparison.meterRows(screen, batch, rights).has(CODE));
+        assertTrue(comparison.meterRows(screen, batch, rights, JpxHistoryReference.parse(history.toString())).has(CODE));
+        sectors.put("1501", "3100");
+        assertFalse(comparison.meterRows(screen, batch, rights, JpxHistoryReference.parse(history.toString())).has(CODE));
+    }
+
+    @Test public void fiveYearHistoryRequiresAReboundPositiveEarningsAndRights() throws Exception {
+        var history = JpxHistoryReference.parse("""
+                {"by_code":{"1420":{"status":"split_adjusted","first_session":"2021-11-30",
+                "last_session":"2026-10-30","months_with_close":60,
+                "range_position":"0.1000","range_low":"100","range_high":"1000"}}}
+                """);
+        var rights = new JpxShareRights(Set.of(CODE), Set.of(java.time.YearMonth.of(2026, 10),
+                java.time.YearMonth.of(2026, 11)), List.of());
+        assertEquals(1, history.corroborateEarnings(CODE, DAY, new BigDecimal("250"),
+                new BigDecimal("30"), rights).level(ValueAlertMeter.DEFAULT));
+        assertNull(history.corroborateEarnings(CODE, DAY, new BigDecimal("180"), new BigDecimal("30"), rights));
+        assertNull(history.corroborateEarnings(CODE, DAY, new BigDecimal("250"), BigDecimal.ZERO, rights));
+        assertNull(history.corroborateEarnings(CODE, DAY, new BigDecimal("250"), new BigDecimal("30"),
+                new JpxShareRights(Set.of(), Set.of(), List.of())));
+    }
+
+    @Test public void bookDiscountRequiresNarrowingLossAndPreservedEquity() {
+        var close = new BigDecimal("400");
+        var book = new BigDecimal("1000");
+        var priorBook = new BigDecimal("1100");
+        var loss = new BigDecimal("-30");
+        var priorLoss = new BigDecimal("-60");
+        assertEquals(1, JpxOperatingValuation.assessRecoverableBook(close, book, priorBook, loss, priorLoss)
+                .level(ValueAlertMeter.DEFAULT));
+        assertEquals(0, JpxOperatingValuation.assessRecoverableBook(new BigDecimal("600"),
+                book, priorBook, loss, priorLoss).level(ValueAlertMeter.DEFAULT));
+        assertNull(JpxOperatingValuation.assessRecoverableBook(close, book, priorBook, priorLoss, loss));
+        assertNull(JpxOperatingValuation.assessRecoverableBook(close, book, new BigDecimal("1200"), loss, priorLoss));
+        assertNull(JpxOperatingValuation.assessRecoverableBook(close, book, priorBook,
+                new BigDecimal("-51"), new BigDecimal("-80")));
+    }
+
     @Test public void correctedTdnetRowsUseTheCurrentTitleAndKeepTheWholePage() throws Exception {
         String day = """
                 <div id="kaiji-date-1">2026年11月17日</div>
@@ -105,6 +163,118 @@ public class JpxAutomaticFinanceTest {
         var gap = new JpxDailyCheck.Comparison(report(DAY, "600"), report(priorDay.minusDays(3), "950"));
         var noPrior = JpxWatchWorker.saveMeter(state, state.edit(), gap, gap.screen(rights, finance), finance, rights);
         assertNull(noPrior.prior());
+    }
+
+    @Test public void missingBookValueDoesNotPreventFlexibleAssessment() throws Exception {
+        var latest=new JpxAnnualSummary.Annual(LocalDate.of(2026,3,31),RELEASED,new BigDecimal("60"),null,"current");
+        var previous=new JpxAnnualSummary.Annual(LocalDate.of(2025,3,31),LocalDate.of(2025,5,12),
+                new BigDecimal("50"),new BigDecimal("940"),"prior");
+        var entry=new JpxAutomaticFinance.Entry(DAY,latest,"",previous);
+        var batch=new JpxAutomaticFinance.Batch(Map.of(CODE,entry),Map.of(),1,1);
+        var rights=new JpxShareRights(Set.of(),Set.of(),List.of());
+        var comparison=new JpxDailyCheck.Comparison(report(DAY,"300"),report(DAY.minusDays(1),"1000"));
+        var screen=comparison.screen(rights,batch);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        var row=comparison.meterRows(screen,batch,rights).getJSONArray(CODE);
+        assertEquals(1,row.getInt(1));
+        assertEquals(2,row.getInt(2));
+        assertEquals(100,row.getInt(3));
+    }
+
+    @Test public void verifiedPriorBookCanSupportSecondFlexibleTier() throws Exception {
+        var latest = new JpxAnnualSummary.Annual(LocalDate.of(2026, 3, 31), RELEASED,
+                new BigDecimal("60"), null, "current", List.of(), "ConsolidatedMember/NetIncomePerShare");
+        var prior = new JpxAnnualSummary.Annual(LocalDate.of(2025, 3, 31), LocalDate.of(2025, 5, 12),
+                new BigDecimal("50"), new BigDecimal("940"), "prior", List.of(), latest.reportingBasis());
+        var entry = new JpxAutomaticFinance.Entry(DAY, latest, "", prior);
+        var batch = new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "300"), null);
+        var screen = comparison.screen(rights, batch);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        var row = comparison.meterRows(screen, batch, rights).getJSONArray(CODE);
+        assertEquals(2, row.getInt(1));
+        assertEquals(3, row.getInt(2));
+    }
+
+    @Test public void operatingFactsRescueALossAndKeepWeakBalanceOutOfCheapTiers() throws Exception {
+        String source = "https://www2.jpx.co.jp/disc/14200/100920260511000001.html";
+        String instant = "CurrentYearInstant_ConsolidatedMember_ResultMember";
+        String duration = "CurrentYearDuration_ConsolidatedMember_ResultMember";
+        String shares = "CurrentYearInstant_NonConsolidatedMember_ResultMember";
+        String prior = "PriorYearDuration_ConsolidatedMember_ResultMember";
+        String details = """
+                <xbrli:unit id="JPY"><xbrli:measure>iso4217:JPY</xbrli:measure></xbrli:unit>
+                <xbrli:unit id="Shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>
+                """ + context("Instant", "<xbrli:instant>2026-03-31</xbrli:instant>")
+                        .replace("ConsolidatedMember", "NonConsolidatedMember")
+                + context("Duration", "<xbrli:startDate>2024-04-01</xbrli:startDate>"
+                        + "<xbrli:endDate>2025-03-31</xbrli:endDate>").replace("CurrentYear", "PriorYear")
+                + operatingFact(duration, "CashFlowsFromOperatingActivities", "JPY", 6, 25)
+                + operatingFact(duration, "NetSales", "JPY", 6, 300)
+                + operatingFact(instant, "TotalAssets", "JPY", 6, 500)
+                + operatingFact(instant, "NetAssets", "JPY", 6, 300)
+                + operatingFact(duration, "OperatingIncome", "JPY", 6, 20)
+                + operatingFact(prior, "OperatingIncome", "JPY", 6, 15)
+                + operatingFact(shares, "NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncludingTreasuryStock",
+                        "Shares", 0, 1_000_000);
+        String xml = filing().replace(">60.00</ix:nonFraction>", " sign=\"-\">60.00</ix:nonFraction>")
+                .replace("</html>", details + "</html>");
+        var annual = JpxAnnualSummary.read(xml, CODE, RELEASED, source, false);
+        assertNotNull(annual);
+        assertNotNull(annual.operating());
+        assertEquals(25_000_000, annual.operating().cashFlow().intValueExact());
+        String cashFact = operatingFact(duration, "CashFlowsFromOperatingActivities", "JPY", 6, 25);
+        var withoutCash = JpxAnnualSummary.read(xml.replace(cashFact, ""), CODE, RELEASED, source, false);
+        assertNotNull(withoutCash.operating());
+        assertNull(withoutCash.operating().cashFlow());
+        assertEquals(1, JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("110")).ceiling());
+        assertNull(JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("150")));
+        assertEquals(2, JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("50"))
+                .level(ValueAlertMeter.DEFAULT));
+
+        var malformedCash = JpxAnnualSummary.read(xml.replace(cashFact, cashFact.replace("JPY", "Shares")),
+                CODE, RELEASED, source, false);
+        assertNull(malformedCash.operating());
+
+        String stable = xml.replace(operatingFact(duration, "OperatingIncome", "JPY", 6, 20),
+                operatingFact(duration, "OperatingIncome", "JPY", 6, 35))
+                .replace(operatingFact(prior, "OperatingIncome", "JPY", 6, 15),
+                        operatingFact(prior, "OperatingIncome", "JPY", 6, 36));
+        String priorCash = operatingFact(prior, "CashFlowsFromOperatingActivities", "JPY", 6, 24);
+        var established = JpxAnnualSummary.read(stable.replace("</html>", priorCash + "</html>"),
+                CODE, RELEASED, source, false);
+        assertEquals(3, JpxOperatingValuation.assess(established, DAY, new BigDecimal("100")).ceiling());
+        var unknownHistory = JpxAnnualSummary.read(stable, CODE, RELEASED, source, false);
+        assertEquals(1, JpxOperatingValuation.assess(unknownHistory, DAY, new BigDecimal("100")).ceiling());
+
+        var tier3 = JpxOperatingValuation.assess(annual, DAY, new BigDecimal("100"));
+        assertEquals(3, tier3.level(ValueAlertMeter.DEFAULT));
+        assertEquals(2, JpxOperatingValuation.assess(annual, DAY, new BigDecimal("150")).ceiling());
+        assertEquals(1, JpxOperatingValuation.assess(annual, DAY, new BigDecimal("220")).ceiling());
+        var weak = JpxAnnualSummary.read(xml.replace(">300</ix:nonFraction>", ">20</ix:nonFraction>"),
+                CODE, RELEASED, source, false);
+        assertEquals(0, JpxOperatingValuation.assess(weak, DAY, new BigDecimal("100")).ceiling());
+
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "100"), null);
+        var entry = new JpxAutomaticFinance.Entry(DAY, annual, "");
+        var batch = new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var screen = comparison.screen(rights, batch);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        assertEquals(3, comparison.meterRows(screen, batch, rights).getJSONArray(CODE).getInt(1));
+        var dilution = new JpxDisclosureCalendar.Day(Set.of(), Set.of(), Set.of(CODE));
+        var dated = new JpxAutomaticFinance.Entry(DAY.minusDays(1), annual, "");
+        var held = new JpxAutomaticFinance.Batch(Map.of(CODE, dated), Map.of(DAY, dilution), 1, 1);
+        assertFalse(comparison.meterRows(comparison.screen(rights, held), held, rights).has(CODE));
+        assertNull(JpxAnnualSummary.read(xml.replace("iso4217:JPY</xbrli:measure></xbrli:unit>",
+                "iso4217:USD</xbrli:measure></xbrli:unit>"), CODE, RELEASED, source, false).operating());
+    }
+
+    private static String operatingFact(String context, String tag, String unit, int scale, long value) {
+        return """
+                <ix:nonFraction contextRef="%s" name="tse-ed-t:%s" unitRef="%s" scale="%d">%d</ix:nonFraction>
+                """.formatted(context, tag, unit, scale, value);
     }
 
     @Test public void twoComparableAnnualFilingsEnableRealJpxUltraValueMeterAndPromotion() throws Exception {
@@ -197,7 +367,8 @@ public class JpxAutomaticFinanceTest {
                         filing().replace(">60.00<", ">20.00<")), () -> false);
         var old = initial.entries().get(CODE);
         cache.put("disclosure-days", """
-                {"2026-11-16":{"rights":[],"annual":["1420"]},"2026-11-17":{"rights":[],"annual":[]}}
+                {"2026-11-16":{"rights":[],"annual":["1420"],"dilution":[]},
+                 "2026-11-17":{"rights":[],"annual":[],"dilution":[]}}
                 """);
         var latestSources = sources(archive("決算短信〔日本基準〕(連結)", PATH)
                 .replace("2026/05/11", "2026/11/16"), filing().replace("2026年５月11日", "2026年11月16日"));
@@ -245,6 +416,43 @@ public class JpxAutomaticFinanceTest {
         assertEquals(budget.entered(), JpxWatchWorker.pendingBudget(before, DAY, DAY, budget.entered(), Set.of()));
         assertTrue(JpxWatchWorker.pendingBudget(before, DAY, DAY, budget.entered(),
                 Set.of("price-budget:" + CODE)).isEmpty());
+    }
+
+    @Test public void missingBookValueCanUseVerifiedPriorAnnualFromTheArchive() throws Exception {
+        String source = "https://www2.jpx.co.jp" + PATH;
+        String earlierSource = source.replace("/140120", "/140119");
+        var earlierDay = RELEASED.minusYears(1);
+        var page = new JpxIssuerArchive.Page(List.of(
+                new JpxIssuerArchive.Disclosure(RELEASED, "2026年3月期決算短信", java.net.URI.create(source), null, true),
+                new JpxIssuerArchive.Disclosure(earlierDay, "2025年3月期決算短信", java.net.URI.create(earlierSource), null, true)));
+        String current = filing().replace("name=\"tse-ed-t:NetAssetsPerShare\"", "name=\"tse-ed-t:AbsentBookValue\"");
+        String prior = filing().replace("2026年５月11日", "2025年5月11日")
+                .replace("2025-04-01", "2024-04-01").replace("2026-03-31", "2025-03-31");
+        var entry = JpxAutomaticFinance.acquire(CODE, DAY, null, new JpxAutomaticFinance.Sources() {
+            @Override public JpxIssuerArchive.Page archive(String code) { return page; }
+            @Override public String financial(JpxIssuerArchive.Disclosure disclosure) {
+                return disclosure.day().equals(RELEASED) ? current : prior;
+            }
+        });
+        assertNotNull(entry.annual());
+        assertNull(entry.annual().bps());
+        assertNotNull(entry.previousAnnual());
+        assertEquals(earlierDay, entry.previousAnnual().released());
+    }
+
+    @Test public void retriesSameDayParserHoldsAfterAnUpgrade() throws Exception {
+        var data = new HashMap<String, Object>();
+        data.put("annual-" + CODE, new org.json.JSONObject().put("checked", DAY.toString())
+                .put("hold", "通期EPS・BPSを照合できなかった").toString());
+        data.put("repair-after-" + CODE, 100L);
+        var state = preferences(data);
+        var report = new JpxDailyCheck.Report(DAY, "", Map.of(CODE,
+                new JpxCloseTable.Sessions(BigDecimal.valueOf(100), null)), Set.of());
+        var source = sources(archive("決算短信〔日本基準〕(連結)", PATH), filing());
+        var recovered = JpxAutomaticFinance.refresh(state, report, DAY, source, () -> false, () -> 1L);
+        assertEquals(1, recovered.fetched());
+        assertNotNull(recovered.entries().get(CODE).annual());
+        assertEquals(0, JpxAutomaticFinance.refresh(state, report, DAY, source, () -> false, () -> 2L).fetched());
     }
 
     @Test public void rejectsExternalXmlEntitiesInPublicAnnualFilings() throws Exception {
@@ -443,11 +651,13 @@ public class JpxAutomaticFinanceTest {
         var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(9, first.fetched());
         assertTrue(first.status().contains("初回確認待ち 3677銘柄"));
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, first));
+        long resumeAt = clock.get() + java.util.concurrent.TimeUnit.HOURS.toMillis(1);
+        assertEquals(resumeAt, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, first));
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, false, first));
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         var pause = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(0, pause.fetched());
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, pause));
+        assertEquals(resumeAt, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, pause));
         assertEquals(10, calls.get());
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         int passes = 1;
@@ -795,5 +1005,15 @@ public class JpxAutomaticFinanceTest {
                    </xbrli:scenario>
                 </xbrli:context>
                 """.formatted(period, dates);
+    }
+    @Test public void explorationKeepsTheRequestSetAndProtectsPriorityEntries() {
+        var ordinary = java.util.stream.IntStream.range(0, 101).mapToObj(Integer::toString).toList();
+        var day = java.time.LocalDate.of(2026, 11, 26);
+        var ordered = JpxAutomaticFinance.explorationOrder(ordinary, day, code -> !code.equals("99"));
+        org.junit.Assert.assertEquals(ordinary.subList(0, 49), ordered.subList(0, 49));
+        org.junit.Assert.assertNotEquals("49", ordered.get(49));
+        org.junit.Assert.assertEquals("99", ordered.get(99));
+        org.junit.Assert.assertEquals(new java.util.HashSet<>(ordinary), new java.util.HashSet<>(ordered));
+        org.junit.Assert.assertEquals(ordered, JpxAutomaticFinance.explorationOrder(ordinary, day, code -> !code.equals("99")));
     }
 }

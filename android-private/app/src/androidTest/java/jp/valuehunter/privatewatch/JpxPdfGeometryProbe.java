@@ -24,10 +24,16 @@ import org.json.JSONObject;
 
 public final class JpxPdfGeometryProbe extends Instrumentation {
     private String alertPhase;
+    private String coverageDay;
+    private boolean liveCoverage;
+    private boolean annualParserProbe;
     @Override
     public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
         alertPhase = arguments == null ? null : arguments.getString("alert_phase");
+        coverageDay = arguments == null ? null : arguments.getString("coverage_day");
+        liveCoverage = arguments != null && "true".equals(arguments.getString("coverage_fetch"));
+        annualParserProbe = arguments != null && "true".equals(arguments.getString("jpx_xml_probe"));
         start();
     }
 
@@ -37,6 +43,17 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         try {
             if (alertPhase != null) {
                 result.putString("stream", "\n" + NotificationDeliveryProbe.run(this, alertPhase) + "\n");
+                finish(Activity.RESULT_OK, result);
+                return;
+            }
+            if (annualParserProbe) {
+                verifyAnnualParser();
+                result.putString("stream", "\nJPX_ANNUAL_PARSER_OK\n");
+                finish(Activity.RESULT_OK, result);
+                return;
+            }
+            if (coverageDay != null) {
+                result.putString("stream", "\n" + runCoverage(LocalDate.parse(coverageDay)) + "\n");
                 finish(Activity.RESULT_OK, result);
                 return;
             }
@@ -69,6 +86,195 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             result.putString("stream", "JPX_PDF_GEOMETRY_FAILED: " + error + "\n");
             finish(Activity.RESULT_CANCELED, result);
         }
+    }
+
+    private void verifyAnnualParser() throws Exception {
+        try (var input = getContext().getAssets().open("jpx-annual-parser-sample.xhtml")) {
+            var bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[2048];
+            for (int size; (size = input.read(buffer)) != -1;) bytes.write(buffer, 0, size);
+            String filing = bytes.toString("UTF-8");
+            var released = LocalDate.of(2026, 5, 11);
+            var annual = JpxAnnualSummary.read(filing, "1420", released, "public-fixture", false);
+            if (annual == null || annual.eps().compareTo(BigDecimal.valueOf(60)) != 0
+                    || annual.bps().compareTo(BigDecimal.valueOf(1000)) != 0) {
+                throw new AssertionError("Android could not parse verified annual EPS and BPS");
+            }
+            if (JpxAnnualSummary.read("<!DOCTYPE html SYSTEM 'file:///untrusted.dtd'>" + filing,
+                    "1420", released, "public-fixture", false) != null) {
+                throw new AssertionError("Android accepted an external DTD");
+            }
+        }
+    }
+
+    private JSONObject runCoverage(LocalDate day) throws Exception {
+        if (!liveCoverage) return replayCoverage(day);
+        var context = getTargetContext();
+        boolean wasRequested = MarketNetwork.requested();
+        if (!MarketNetwork.setAllowed(context, true)) throw new IOException("Could not start live probe networking");
+        try {
+            return replayCoverage(day);
+        } finally {
+            MarketNetwork.setAllowed(context, wasRequested);
+        }
+    }
+
+    private JSONObject replayCoverage(LocalDate day) throws Exception {
+        var context = getTargetContext();
+        var directory = context.getDataDir();
+        var pdf = new File(directory, "jpx-" + day.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + ".pdf");
+        var snapshot = new File(directory, "jpx-coverage-universe.txt");
+        JpxStockUniverse universe;
+        if (liveCoverage) {
+            var base = JpxStockUniverse.load(context);
+            var listingPage = new File(directory, "jpx-listings.html");
+            var delistingPage = new File(directory, "jpx-delistings.html");
+            var listings = listingPage.isFile()
+                    ? JpxStockUniverse.readListings(new String(java.nio.file.Files.readAllBytes(listingPage.toPath()), StandardCharsets.UTF_8))
+                    : JpxStockUniverse.listings();
+            var delistings = delistingPage.isFile()
+                    ? JpxStockUniverse.readDelistings(new String(java.nio.file.Files.readAllBytes(delistingPage.toPath()), StandardCharsets.UTF_8))
+                    : JpxStockUniverse.delistings();
+            if (base.asOf().isAfter(day) || listings.isEmpty() || delistings.isEmpty()) {
+                throw new IOException("Cannot verify listing events for the live JPX scope");
+            }
+            universe = base.forTradingDay(day, listings, delistings);
+        } else {
+            var codes = new HashSet<String>();
+            try (var input = new BufferedReader(new FileReader(snapshot))) {
+                if (!day.toString().equals(input.readLine())) throw new IOException("Expected a same-session listing scope");
+                for (String code; (code = input.readLine()) != null;) {
+                    if (!code.matches("[0-9][0-9A-Z]{3}") || !codes.add(code)) throw new IOException("Invalid JPX listing scope");
+                }
+            }
+            if (codes.size() < 3000) throw new IOException("Incomplete JPX listing scope");
+            universe = new JpxStockUniverse(day, Set.copyOf(codes));
+        }
+        var report = JpxDailyCheck.readReport(context, pdf, day, universe, "");
+        var comparison = new JpxDailyCheck.Comparison(report, null);
+        var rights = liveCoverage ? JpxShareRights.refresh(context).rights() : JpxShareRights.cached(context);
+        var trace = new java.util.TreeMap<String, org.json.JSONArray>();
+        JpxAutomaticFinance.AcquisitionAudit auditTransport = (code, stage, source, outcome) ->
+                trace.computeIfAbsent(code, unused -> new org.json.JSONArray())
+                        .put(new JSONObject(Map.of("stage", stage, "source", source, "outcome", outcome)));
+        long deadline = android.os.SystemClock.elapsedRealtime() + 600_000;
+        java.util.function.BooleanSupplier expired = () -> android.os.SystemClock.elapsedRealtime() >= deadline;
+        var finance = liveCoverage ? JpxAutomaticFinance.refresh(context, comparison, rights, expired, auditTransport)
+                : JpxAutomaticFinance.cached(context, report);
+        int checked = finance.fetched();
+        for (int pass = 1; liveCoverage && pass < 4 && !expired.getAsBoolean()
+                && finance.continueInitial(); pass++) {
+            finance = JpxAutomaticFinance.refresh(context, comparison, rights, expired, auditTransport);
+            checked += finance.fetched();
+        }
+        var screening = comparison.screen(rights, finance);
+        var baseline = comparison.meterRows(screening, finance, rights);
+        var history = JpxHistoryReference.load(context);
+        var historyRows = comparison.meterRows(screening, finance, rights, history.pricesOnly());
+        var rows = comparison.meterRows(screening, finance, rights, history);
+        int historyAdded = historyRows.length() - baseline.length();
+        int peerAdded = rows.length() - historyRows.length();
+        var acquisition = new JSONObject();
+        var holdCounts = new java.util.TreeMap<String, Integer>();
+        var strictExclusionsWithAnnual = new java.util.TreeMap<String, Integer>();
+        for (var item : finance.entries().entrySet()) {
+            String code = item.getKey();
+            var entry = item.getValue();
+            var annual = entry.annualFor(day);
+            String hold = entry.hold();
+            boolean strictAssessed = screening.assessedCodes().contains(code);
+            String datedFinanceHold = entry.failure(code, day, finance.updates());
+            if (annual != null && !strictAssessed) {
+                String reason = report.close(code) == null ? "終値なし" : datedFinanceHold;
+                strictExclusionsWithAnnual.merge(reason.isEmpty() ? "その他" : reason, 1, Integer::sum);
+            }
+            if (!hold.isEmpty()) holdCounts.merge(hold, 1, Integer::sum);
+            acquisition.put(code, new JSONObject().put("entry_present", true).put("hold", hold)
+                    .put("dated_financial", annual != null)
+                    .put("source", annual == null ? JSONObject.NULL : annual.source())
+                    .put("close_present", report.close(code) != null)
+                    .put("dated_finance_hold", datedFinanceHold)
+                    .put("eps_sign", annual == null ? JSONObject.NULL : annual.eps().signum())
+                    .put("bps_sign", annual == null || annual.bps() == null ? JSONObject.NULL : annual.bps().signum())
+                    .put("operating_facts", annual != null && annual.operating() != null)
+                    .put("strict_assessed", strictAssessed)
+                    .put("flexible_assessed", !strictAssessed && rows.has(code))
+                    .put("meter_scored", rows.has(code)));
+        }
+        for (String code : JpxAutomaticFinance.failedAcquisitions(context)) {
+            if (!acquisition.has(code)) acquisition.put(code, new JSONObject().put("transport_retry", true));
+        }
+        var missingClose = new org.json.JSONArray();
+        for (String code : new TreeSet<>(universe.codes())) {
+            if (report.close(code) == null) missingClose.put(code);
+        }
+        var audit = new JSONObject().put("trade_date", day.toString()).put("issuer", acquisition)
+                .put("missing_close_codes", missingClose)
+                .put("hold_counts", new JSONObject(holdCounts))
+                .put("strict_exclusions_with_annual", new JSONObject(strictExclusionsWithAnnual))
+                .put("transport", new JSONObject(trace));
+        if (liveCoverage) java.nio.file.Files.write(new File(directory, "jpx-finance-audit.json").toPath(),
+                audit.toString(2).getBytes(StandardCharsets.UTF_8));
+        int crosschecked = liveCoverage ? applyCrosscheckedFinancials(
+                new File(directory, "jpx-alternative-valuation.json"), day, report, screening, finance, rows) : 0;
+        return JpxWatchWorker.assessmentCounts(report, screening, rows)
+                .put("edinet_crosschecked_added", crosschecked)
+                .put("history_recovery_assessed", historyAdded)
+                .put("peer_recovery_assessed", peerAdded)
+                .put("annual_hold_reasons", new JSONObject(holdCounts))
+                .put("trading_date", day.toString()).put("close_source", report.source())
+                .put("source_pdf_sha256", digest(pdf))
+                .put("listing_scope_sha256", liveCoverage
+                        ? UsReferenceAlerts.sha256(String.join("\n", new TreeSet<>(universe.codes()))
+                                .getBytes(StandardCharsets.UTF_8))
+                        : digest(snapshot))
+                .put("status", liveCoverage ? "bounded_financial_pass" : "cached_financial_pass")
+                .put("annual_acquisition_confirmed", checked)
+                .put("annual_acquisition_pending_retry", JpxAutomaticFinance.failedAcquisitions(context).size())
+                .put("financial_records", finance.entries().values().stream()
+                        .filter(entry -> entry.annualFor(day) != null).count());
+    }
+
+    private static int applyCrosscheckedFinancials(File file, LocalDate day, JpxDailyCheck.Report report,
+            JpxDailyCheck.Screening screening, JpxAutomaticFinance.Batch finance, JSONObject meter) throws Exception {
+        if (!file.isFile()) return 0;
+        if (file.length() > 32_768) throw new IllegalArgumentException("Oversized cross-checked finance input");
+        var input = new JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+        if (!day.toString().equals(input.getString("day")) || report.universe() == null)
+            throw new IllegalArgumentException("Cross-checked finance date or scope mismatch");
+        var rows = input.getJSONObject("rows");
+        if (rows.length() > 40) throw new IllegalArgumentException("Too many cross-checked finance rows");
+        int added = 0;
+        for (var keys = rows.keys(); keys.hasNext();) {
+            String code = keys.next();
+            if (!report.universe().codes().contains(code) || screening.assessedCodes().contains(code)
+                    || meter.has(code) || finance.entries().containsKey(code)) continue;
+            var close = report.close(code);
+            if (close == null) continue;
+            var row = rows.getJSONObject(code);
+            var filed = LocalDate.parse(row.getString("filed"));
+            var end = LocalDate.parse(row.getString("period_end"));
+            var eps = new java.math.BigDecimal(row.getString("eps"));
+            var bps = new java.math.BigDecimal(row.getString("bps"));
+            if (!row.getString("edinet_doc").matches("S[0-9A-Z]{7}") || !filed.isBefore(day)
+                    || !filed.isAfter(end) || end.isBefore(day.minusDays(365))
+                    || eps.signum() <= 0 || bps.signum() <= 0) continue;
+            var score = ValueAlertMeter.assessJpx(close, eps, bps, java.util.List.of(eps));
+            meter.put(code, ValueAlertPreview.encode(score, JpxDailyCheck.budgetQuantity(close)));
+            added++;
+        }
+        return added;
+    }
+
+    private static String digest(File file) throws Exception {
+        var digest = MessageDigest.getInstance("SHA-256");
+        try (var input = new java.io.FileInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            for (int size; (size = input.read(buffer)) != -1;) digest.update(buffer, 0, size);
+        }
+        var hex = new StringBuilder();
+        for (byte value : digest.digest()) hex.append(String.format(Locale.ROOT, "%02x", value & 0xff));
+        return hex.toString();
     }
 
     private static String digestReport(android.content.Context context, File directory,

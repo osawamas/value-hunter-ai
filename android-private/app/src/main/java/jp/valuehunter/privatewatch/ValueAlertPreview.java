@@ -39,6 +39,67 @@ final class ValueAlertPreview {
         }
     }
 
+    // Discovery is separate from a verified price-session promotion.
+    // Missing previous evidence must not hide a currently verified candidate.
+    static Map<String, Entry> discoveries(SharedPreferences state, LocalDate day, String source,
+            JSONObject rows, Session prior, Set<String> sent, Function<String,String> verifiedCode)
+            throws JSONException {
+        var current = session(day, source, rows);
+        if (current == null) return Map.of();
+        var thresholds = ValueAlertMeter.Thresholds.read(state.getString(SETTINGS, ""));
+        var found = new java.util.ArrayList<Entry>();
+        for (var candidate : current.rows().entrySet()) {
+            var row = candidate.getValue();
+            String code = verifiedCode.apply(candidate.getKey());
+            if (code == null || row.shares() == 0 || sent.contains(code)) continue;
+            var before = prior == null ? null : prior.rows().get(candidate.getKey());
+            int level = discoveryLevel(before, row, thresholds);
+            if (level == 0) continue;
+            boolean delivered = false;
+            for (int rank = level; rank <= 3; rank++) delivered |= sent.contains(receiptKey(code,rank));
+            if (!delivered) found.add(new Entry(code,row.shares(),level,row.score().points()));
+        }
+        found.sort(java.util.Comparator.comparingInt(Entry::shares).reversed()
+            .thenComparing(java.util.Comparator.comparingInt(Entry::level).reversed()).thenComparing(Entry::code));
+        var result = new LinkedHashMap<String,Entry>();
+        for (var entry : found) result.put(entry.key(),entry);
+        return result;
+    }
+
+    static String discoveryDiagnostics(SharedPreferences state, LocalDate day, String source,
+            JSONObject rows, Session prior, Set<String> sent, Function<String,String> verifiedCode)
+            throws JSONException {
+        var current = session(day, source, rows);
+        if (current == null) return "割安度の保存形式を確認できず";
+        var thresholds = ValueAlertMeter.Thresholds.read(state.getString(SETTINGS, ""));
+        int identity=0, budget=0, evidence=0, below=0, unchanged=0, delivered=0;
+        int[] eligible=new int[4];
+        for (var candidate:current.rows().entrySet()) {
+            var row=candidate.getValue();
+            String code=verifiedCode.apply(candidate.getKey());
+            if(code==null){identity++;continue;}
+            if(row.shares()==0){budget++;continue;}
+            if(row.score().confirmed()==0){evidence++;continue;}
+            int level=row.score().level(thresholds);
+            if(level==0){below++;continue;}
+            eligible[level]++;
+            var before=prior==null?null:prior.rows().get(candidate.getKey());
+            if(discoveryLevel(before,row,thresholds)==0){unchanged++;continue;}
+            boolean already=sent.contains(code);
+            for(int rank=level;rank<=3;rank++) already |= sent.contains(receiptKey(code,rank));
+            if(already) delivered++;
+        }
+        return "割安度の判定内訳 "+current.rows().size()+"銘柄 · 割安 "+eligible[1]
+            +" · かなり割安 "+eligible[2]+" · 超割安 "+eligible[3]
+            +" · 銘柄照合不可 "+identity+" · 予算外 "+budget+" · 根拠不足 "+evidence
+            +" · 閾値未満 "+below+" · 前日から段階不変 "+unchanged+" · 通知済 "+delivered;
+    }
+
+    static int discoveryLevel(Row before, Row current, ValueAlertMeter.Thresholds thresholds) {
+        if (current.shares() == 0 || current.score().confirmed() == 0) return 0;
+        return before == null ? current.score().level(thresholds) : promotion(before,current,thresholds);
+    }
+
     private static String receiptKey(String code, int level) { return "meter:" + level + ":" + code; }
 
     static Map<String, Entry> entries(SharedPreferences state, Market market, LocalDate day, String source,

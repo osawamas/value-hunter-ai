@@ -19,6 +19,43 @@ public class UsDoltClosesTest {
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
     private static final String REVISION = "0123456789abcdefghijklmnopqrstuv";
 
+    @Test public void scopedFallbackPinsRevisionAndQueriesEveryListingBatch() throws Exception {
+        var calls = new AtomicInteger();
+        var scope = new java.util.TreeSet<String>();
+        for (int i = 0; i <= 100; i++) scope.add(String.format(java.util.Locale.ROOT, "S%03d", i));
+        var closes = UsDoltCloses.fetchScoped(DAY, scope, address -> {
+            int call = calls.getAndIncrement();
+            String query = URLDecoder.decode(address, StandardCharsets.UTF_8);
+            if (call == 0) {
+                assertTrue(query.endsWith("SELECT DOLT_HASHOF('HEAD') AS revision"));
+                return response(new JSONArray().put(new JSONObject().put("revision", REVISION)));
+            }
+            assertTrue(query.contains("ohlcv AS OF '" + REVISION + "'"));
+            assertTrue(query.contains("date = '" + DAY + "'"));
+            if (call == 1) assertTrue(query.contains("'S000'") && query.contains("'S099'"));
+            else assertTrue(query.endsWith("IN ('S100')"));
+            return response(new JSONArray().put(row(call == 1 ? "S099" : "S100", DAY)));
+        });
+        assertEquals(3, calls.get());
+        assertEquals(2, closes.rows().length());
+        assertEquals(101, closes.queriedSymbols());
+    }
+
+    @Test public void scopedTimeoutKeepsOnlyCompletedDatedBatches() throws Exception {
+        var calls = new AtomicInteger();
+        var scope = new java.util.TreeSet<String>();
+        for (int i = 0; i <= 100; i++) scope.add(String.format(java.util.Locale.ROOT, "S%03d", i));
+        var closes = UsDoltCloses.fetchScoped(DAY, scope, address -> {
+            int call = calls.getAndIncrement();
+            if (call == 0) return response(new JSONArray().put(new JSONObject().put("revision", REVISION)));
+            if (call == 1) return response(new JSONArray().put(row("S099", DAY)));
+            throw new SocketTimeoutException();
+        });
+        assertTrue(closes.timedOut());
+        assertEquals(100, closes.queriedSymbols());
+        assertEquals("S099", closes.rows().getJSONObject(0).getString("symbol"));
+    }
+
     @Test public void readsAllPagesAtThePinnedRevision() throws Exception {
         var calls = new AtomicInteger();
         var closes = UsDoltCloses.fetch(DAY, address -> {
@@ -48,6 +85,31 @@ public class UsDoltClosesTest {
         assertEquals(1002, closes.length());
         assertEquals("T1000", closes.getJSONObject(1000).getString("symbol"));
         assertEquals("T1001", closes.getJSONObject(1001).getString("symbol"));
+    }
+
+    @Test public void retriesAnEarlyTimeoutWithSmallerPinnedCursorPages() throws Exception {
+        var calls = new AtomicInteger();
+        var closes = UsDoltCloses.fetch(DAY, address -> {
+            int call = calls.getAndIncrement();
+            String query = URLDecoder.decode(address, StandardCharsets.UTF_8);
+            if (call == 0) return manifest(501);
+            assertTrue(query.contains("ohlcv AS OF '" + REVISION + "'"));
+            if (call == 1) throw new SocketTimeoutException("first page timed out");
+            assertTrue(query.endsWith("ORDER BY act_symbol LIMIT 500"));
+            var rows = new JSONArray();
+            if (call == 2) {
+                for (int i = 0; i < 500; i++) {
+                    rows.put(row(String.format(java.util.Locale.ROOT, "T%04d", i), DAY));
+                }
+            } else {
+                assertTrue(query.contains("AND act_symbol > 'T0499'"));
+                rows.put(row("T0500", DAY));
+            }
+            return response(rows);
+        });
+        assertEquals(4, calls.get());
+        assertEquals(501, closes.length());
+        assertEquals("T0500", closes.getJSONObject(500).getString("symbol"));
     }
 
     @Test public void rejectsAReversePageThatDoesNotMatchThePreviouslyReadRows() {

@@ -34,6 +34,8 @@ final class JpxAutomaticFinance {
     private static final long MAX_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(165);
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
+    private static final int ANNUAL_PARSER_VERSION = 3;
+    private static final String ANNUAL_PARSE_HOLD = "通期EPS・BPSを照合できなかった";
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
     private static final String RETRY_PREFIX = "retry-after-";
@@ -42,7 +44,17 @@ final class JpxAutomaticFinance {
     private static final String ARCHIVE_RETRY = "archive-retry-after";
 
     record Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
-                 JpxAnnualSummary.Annual previousAnnual) {
+                 JpxAnnualSummary.Annual previousAnnual, List<JpxDisclosureEvidence.Event> events,
+                 int parserVersion) {
+        Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
+              JpxAnnualSummary.Annual previousAnnual, List<JpxDisclosureEvidence.Event> events) {
+            this(checkedThrough, annual, hold, previousAnnual, events, ANNUAL_PARSER_VERSION);
+        }
+
+        Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold,
+              JpxAnnualSummary.Annual previousAnnual) {
+            this(checkedThrough, annual, hold, previousAnnual, List.of());
+        }
         Entry(LocalDate checkedThrough, JpxAnnualSummary.Annual annual, String hold) {
             this(checkedThrough, annual, hold, null);
         }
@@ -53,10 +65,17 @@ final class JpxAutomaticFinance {
         }
 
         String failure(String code, LocalDate day, Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
-            if (annual == null || !hold.isEmpty()) return hold;
             var asOf = annualFor(day);
-            if (asOf == null) return "立会日時点の通期決算なし";
-            if (asOf.eps().signum() <= 0 || asOf.bps().signum() <= 0) return "実績EPS・BPSのいずれかがゼロ以下";
+            String failure = evidenceFailure(code, day, updates);
+            if (!failure.isEmpty() || asOf == null) return failure;
+            if (asOf.eps().signum() <= 0 || asOf.bps() != null && asOf.bps().signum() <= 0)
+                return "実績EPS・BPSのいずれかがゼロ以下";
+            return "";
+        }
+
+        String evidenceFailure(String code, LocalDate day, Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
+            if (annual == null || !hold.isEmpty()) return hold;
+            if (annualFor(day) == null) return "立会日時点の通期決算なし";
             for (LocalDate next = checkedThrough.plusDays(1); !next.isAfter(day); next = next.plusDays(1)) {
                 var update = updates.get(next);
                 if (update == null) return "TDnet日次開示の確認待ち";
@@ -68,9 +87,13 @@ final class JpxAutomaticFinance {
     }
 
     record Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates,
-                 int budget, int fetched, boolean continueInitial) {
+                 int budget, int fetched, boolean continueInitial, long archiveResumeAt) {
+        Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates,
+              int budget, int fetched, boolean continueInitial) {
+            this(entries, updates, budget, fetched, continueInitial, 0);
+        }
         Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates, int budget, int fetched) {
-            this(entries, updates, budget, fetched, false);
+            this(entries, updates, budget, fetched, false, 0);
         }
         static Batch empty() { return new Batch(Map.of(), Map.of(), 0, 0); }
 
@@ -92,8 +115,18 @@ final class JpxAutomaticFinance {
 
     private JpxAutomaticFinance() {}
 
+    @FunctionalInterface
+    interface AcquisitionAudit {
+        void record(String code, String stage, String source, String result);
+    }
+
     static Batch refresh(Context context, JpxDailyCheck.Comparison comparison, JpxShareRights rights,
                          BooleanSupplier stopped) {
+        return refresh(context, comparison, rights, stopped, null);
+    }
+
+    static Batch refresh(Context context, JpxDailyCheck.Comparison comparison, JpxShareRights rights,
+                         BooleanSupplier stopped, AcquisitionAudit audit) {
         var state = context.getSharedPreferences("jpx-automatic-finance-v1", Context.MODE_PRIVATE);
         var report = comparison.latest();
         var session = new JpxIssuerArchive.Session();
@@ -102,11 +135,30 @@ final class JpxAutomaticFinance {
         LocalDate through = LocalDate.now(TOKYO).minusDays(2);
         return refresh(state, report, through, new Sources() {
             @Override public JpxIssuerArchive.Page archive(String code) throws IOException {
-                return session.archive(code);
+                if (audit == null) return session.archive(code);
+                var source = JpxIssuerArchive.archiveEndpoint();
+                try {
+                    var page = session.archive(code);
+                    audit.record(code, "company_archive", source, page == null ? "archive_parse_rejected" : "parsed");
+                    return page;
+                } catch (IOException failure) {
+                    audit.record(code, "company_archive", source, acquisitionFailure(failure));
+                    throw failure;
+                }
             }
 
             @Override public String financial(JpxIssuerArchive.Disclosure disclosure) throws IOException {
-                return session.annual(disclosure.annualLink());
+                var link = disclosure.annualLink();
+                if (audit == null) return session.annual(link);
+                String code = link.getPath().split("/")[2].substring(0, 4);
+                try {
+                    String body = session.annual(link);
+                    audit.record(code, "inline_xbrl_download", link.toString(), "received");
+                    return body;
+                } catch (IOException failure) {
+                    audit.record(code, "inline_xbrl_download", link.toString(), acquisitionFailure(failure));
+                    throw failure;
+                }
             }
 
             @Override public LocalDate effective(JpxIssuerArchive.Disclosure disclosure) throws IOException {
@@ -147,6 +199,11 @@ final class JpxAutomaticFinance {
             }
         }, stopped, System::currentTimeMillis, System::nanoTime, JpxIssuerArchive::publicPage,
                 comparison.previous() == null ? report.date() : comparison.previous().date());
+    }
+
+    private static String acquisitionFailure(IOException failure) {
+        return failure instanceof JpxIssuerArchive.HttpFailure http ? "http_" + http.status
+                : failure.getClass().getSimpleName();
     }
 
     static Set<String> failedAcquisitions(Context context) {
@@ -200,22 +257,36 @@ final class JpxAutomaticFinance {
         var updates = JpxDisclosureCalendar.refresh(state, report.date(), earliest, stopped,
                 disclosureLoader, recheckFrom);
         long now = clock.getAsLong();
-        if (sources == null || stopped.getAsBoolean() || state.getLong(ARCHIVE_RETRY, 0L) > now) {
+        if (sources == null || stopped.getAsBoolean()) {
             return new Batch(Map.copyOf(entries), updates, eligible.size(), 0);
         }
-        var pending = eligible.stream()
+        long archiveResumeAt = state.getLong(ARCHIVE_RETRY, 0L);
+        if (archiveResumeAt > now) {
+            return new Batch(Map.copyOf(entries), updates, eligible.size(), 0, false, archiveResumeAt);
+        }
+        archiveResumeAt = 0;
+        var ordered = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
-                .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now)
+                .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now
+                        || staleParserHold(entries.get(code)) || needsOperatingUpgrade(entries.get(code)))
                 .filter(code -> due(entries.get(code), code, through, report.date(), updates)
+                        || staleParserHold(entries.get(code)) || needsOperatingUpgrade(entries.get(code))
                         || state.getLong(RETRY_PREFIX + code, Long.MAX_VALUE) <= now
                         || state.getLong(MISSING_RETRY_PREFIX + code, Long.MAX_VALUE) <= now)
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
+                        .thenComparingInt(code -> staleParserHold(entries.get(code)) || needsOperatingUpgrade(entries.get(code)) ? 0 : 1)
                         // Finish first-time coverage before routine rechecks so the one-share queue can advance.
                         .thenComparingInt(code -> entries.containsKey(code) ? 1 : 0)
                         .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
                         .thenComparing(code -> entries.containsKey(code) ? entries.get(code).checkedThrough() : LocalDate.MIN)
                         .thenComparing(Comparator.naturalOrder()))
                 .collect(Collectors.toUnmodifiableList());
+
+        var pending = explorationOrder(ordered, report.date(), code -> {
+            var entry = entries.get(code);
+            return !urgent(entry, code, report.date(), updates)
+                    && (entry == null || entry.annual() == null || needsOperatingUpgrade(entry));
+        });
 
         int checked = 0;
         int attempted = 0;
@@ -264,7 +335,8 @@ final class JpxAutomaticFinance {
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
                         && (http.status == 429 || http.status == 503)) {
                     long retryAt = archiveRetryAt(clock.getAsLong(), http.retryAfter);
-                    state.edit().putLong(ARCHIVE_RETRY, retryAt).putLong(RETRY_PREFIX + code, retryAt).commit();
+                    if (state.edit().putLong(ARCHIVE_RETRY, retryAt)
+                            .putLong(RETRY_PREFIX + code, retryAt).commit()) archiveResumeAt = retryAt;
                     limited = true;
                     break;
                 }
@@ -283,11 +355,12 @@ final class JpxAutomaticFinance {
         }
         boolean interrupted = stopped.getAsBoolean();
         boolean more = checked > 0 && !limited && consecutiveFailures < 3 && !interrupted
-                && pending.subList(attempted, pending.size()).stream().anyMatch(code -> !entries.containsKey(code));
+                && pending.subList(attempted, pending.size()).stream()
+                        .anyMatch(code -> !entries.containsKey(code) || needsOperatingUpgrade(entries.get(code)));
         // Flush acquired issuers before the next run, even if this run ended on a lost connection.
         boolean saved = !(more || (interrupted && checked > 0)) || state.edit().commit();
         boolean continueInitial = more && saved;
-        return new Batch(Map.copyOf(entries), updates, eligible.size(), checked, continueInitial);
+        return new Batch(Map.copyOf(entries), updates, eligible.size(), checked, continueInitial, archiveResumeAt);
     }
 
     static long archiveRetryAt(long now, String retryAfter) {
@@ -303,6 +376,37 @@ final class JpxAutomaticFinance {
         } catch (java.time.DateTimeException | IllegalArgumentException | ArithmeticException invalid) {
             return fallback;
         }
+    }
+
+    // Reserve one existing request slot per fifty for eligible, unverified names.
+    // Use the trading date as seed. Retries and urgent filings keep their own priority.
+    static List<String> explorationOrder(List<String> ordered, LocalDate day,
+                                         java.util.function.Predicate<String> mayExplore) {
+        if (ordered.size() < 50) return ordered;
+        var result = new ArrayList<>(ordered);
+        var random = new java.util.Random(day.toEpochDay());
+        for (int slot = 49; slot < result.size(); slot += 50) {
+            if (!mayExplore.test(result.get(slot))) continue;
+            int selected = -1;
+            int candidates = 0;
+            for (int index = slot + 1; index < result.size(); index++) {
+                if (mayExplore.test(result.get(index)) && random.nextInt(++candidates) == 0) selected = index;
+            }
+            if (selected >= 0) java.util.Collections.swap(result, slot, selected);
+        }
+        return List.copyOf(result);
+    }
+
+    private static boolean staleParserHold(Entry entry) {
+        return entry != null && entry.parserVersion() < 1
+                && ANNUAL_PARSE_HOLD.equals(entry.hold());
+    }
+
+    private static boolean needsOperatingUpgrade(Entry entry) {
+        if (entry == null || entry.parserVersion() >= ANNUAL_PARSER_VERSION || !entry.hold().isEmpty()) return false;
+        var annual = entry.annual();
+        return annual != null && annual.operating() == null && annual.reportingBasis().endsWith("/NetIncomePerShare")
+                && (annual.eps().signum() <= 0 || annual.bps() == null || annual.bps().signum() <= 0);
     }
 
     private static boolean urgent(Entry entry, String code, LocalDate day,
@@ -335,6 +439,13 @@ final class JpxAutomaticFinance {
     private static Entry fromPublicFiling(String code, LocalDate through, Entry old, Sources sources) throws IOException {
         var page = sources.archive(code);
         if (page == null) return held(through, old, "東証の決算開示一覧を確認できなかった");
+        var events = JpxDisclosureEvidence.extract(code, through, page);
+        var result = fromArchive(code, through, old, sources, page);
+        return new Entry(result.checkedThrough(), result.annual(), result.hold(), result.previousAnnual(), events);
+    }
+
+    private static Entry fromArchive(String code, LocalDate through, Entry old, Sources sources,
+                                     JpxIssuerArchive.Page page) throws IOException {
         LocalDate followingDay = through.plusDays(1);
         var filing = page.annualOn(followingDay);
         if (filing == null) return held(through, old, "通期決算の開示を特定できなかった");
@@ -343,11 +454,12 @@ final class JpxAutomaticFinance {
             return held(through, old, reason);
         }
         String source = filing.annualLink().toString();
-        var annual = old != null && old.annual() != null && source.equals(old.annual().source())
+        var annual = old != null && old.annual() != null && !needsOperatingUpgrade(old)
+                && source.equals(old.annual().source())
                 && filing.day().equals(old.annual().released()) ? old.annual()
                 : JpxAnnualSummary.read(sources.financial(filing), code, filing.day(), source, filing.corrected());
         if (annual == null || !annual.usable(followingDay)
-                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return held(through, old, "通期EPS・BPSを照合できなかった");
+                || filing.fiscalMonth() != null && !filing.fiscalMonth().equals(java.time.YearMonth.from(annual.end()))) return held(through, old, ANNUAL_PARSE_HOLD);
         JpxAnnualSummary.Annual previous = null;
         if (old != null) {
             // A session must only be valued with a filing that was already public.
@@ -356,15 +468,39 @@ final class JpxAutomaticFinance {
             if (previous != null && (!previous.released().isBefore(annual.released())
                     || !previous.usable(annual.released()))) previous = null;
         }
+        if (previous == null && annual.bps() == null) {
+            previous = archivedPreviousAnnual(code, annual, page, sources);
+        }
         var resolved = withShareBasis(code, page, annual, sources);
         if (previous != null) previous = withShareBasis(code, page, previous, sources);
         return resolved == null ? new Entry(through, annual, "株式分割・併合等の開示を確認中", previous)
                 : new Entry(through, resolved, "", previous);
     }
 
+    private static JpxAnnualSummary.Annual archivedPreviousAnnual(String code, JpxAnnualSummary.Annual annual,
+                                                                  JpxIssuerArchive.Page page, Sources sources)
+            throws IOException {
+        var filing = page.annualOn(annual.released());
+        if (filing == null || filing.annualLink() == null || filing.fiscalMonth() == null) return null;
+        var expected = java.time.YearMonth.from(annual.end()).minusYears(1);
+        if (!expected.equals(filing.fiscalMonth())) return null;
+        JpxAnnualSummary.Annual previous;
+        try {
+            previous = JpxAnnualSummary.read(sources.financial(filing), code, filing.day(),
+                    filing.annualLink().toString(), filing.corrected());
+        } catch (JpxIssuerArchive.HttpFailure unavailable) {
+            if (unavailable.status == 404 || unavailable.status == 410) return null;
+            throw unavailable;
+        }
+        if (previous == null || !expected.equals(java.time.YearMonth.from(previous.end()))
+                || !previous.reportingBasis().equals(annual.reportingBasis())
+                || !previous.usable(annual.released())) return null;
+        return previous;
+    }
+
     private static Entry held(LocalDate through, Entry old, String reason) {
         var previous = old == null ? null : old.annual() != null ? old.annual() : old.previousAnnual();
-        return new Entry(through, null, reason, previous);
+        return new Entry(through, null, reason, previous, old == null ? List.of() : old.events());
     }
 
     private static JpxAnnualSummary.Annual withShareBasis(String code, JpxIssuerArchive.Page page,
@@ -389,7 +525,9 @@ final class JpxAutomaticFinance {
             }
         }
         return new JpxAnnualSummary.Annual(annual.end(), annual.released(), annual.eps(), annual.bps(),
-                annual.source(), List.copyOf(adjustments));
+                annual.source(), List.copyOf(adjustments), annual.reportingBasis(),
+                page.disclosures().stream().anyMatch(d -> d.day().isAfter(annual.end())
+                        && JpxIssuerArchive.dilutiveEvent(d.title())) ? null : annual.operating());
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {
@@ -402,7 +540,9 @@ final class JpxAutomaticFinance {
             String hold = json.getString("hold");
             var annual = decodeAnnual(json, code);
             var previous = json.optJSONObject("previous");
-            return new Entry(checked, annual, hold, previous == null ? null : decodeAnnual(previous, code));
+            return new Entry(checked, annual, hold, previous == null ? null : decodeAnnual(previous, code),
+                    JpxDisclosureEvidence.decode(code, json.optJSONArray("events"), checked),
+                    json.optInt("parser_version"));
         } catch (JSONException | IllegalArgumentException | java.time.DateTimeException invalid) {
             return null;
         }
@@ -422,12 +562,38 @@ final class JpxAutomaticFinance {
         }
         return new JpxAnnualSummary.Annual(LocalDate.parse(object.getString("end")),
                 LocalDate.parse(object.getString("released")), new BigDecimal(object.getString("eps")),
-                new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments));
+                object.isNull("bps") ? null : new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments),
+                object.optString("reporting_basis"), decodeOperating(object.optJSONArray("operating")));
+    }
+
+    private static JpxAnnualSummary.OperatingFacts decodeOperating(JSONArray row) {
+        if (row == null || (row.length() != 7 && row.length() != 8)) return null;
+        try {
+            var facts = new JpxAnnualSummary.OperatingFacts(decimal(row, 0), decimal(row, 1),
+                    decimal(row, 2), decimal(row, 3), decimal(row, 4), decimal(row, 5), decimal(row, 6),
+                    row.length() == 8 ? decimal(row, 7) : null);
+            return facts.revenue() != null && facts.revenue().signum() > 0
+                    && facts.assets() != null && facts.assets().signum() > 0 && facts.netAssets() != null
+                    && facts.netAssets().compareTo(facts.assets()) <= 0 && facts.issuedShares() != null
+                    && facts.issuedShares().signum() > 0 && facts.issuedShares().stripTrailingZeros().scale() <= 0
+                    ? facts : null;
+        } catch (JSONException | IllegalArgumentException invalid) {
+            return null;
+        }
+    }
+
+    private static BigDecimal decimal(JSONArray row, int index) throws JSONException {
+        if (row.isNull(index)) return null;
+        String value = row.getString(index);
+        if (value.length() > 45 || !value.matches("-?[0-9]+(?:[.][0-9]+)?"))
+            throw new IllegalArgumentException("Invalid cached operating fact");
+        return new BigDecimal(value);
     }
 
     private static JSONObject encode(Entry entry) {
         try {
-            var json = new JSONObject().put("checked", entry.checkedThrough().toString()).put("hold", entry.hold());
+            var json = new JSONObject().put("checked", entry.checkedThrough().toString()).put("hold", entry.hold())
+                    .put("parser_version", entry.parserVersion()).put("events", JpxDisclosureEvidence.encode(entry.events()));
             if (entry.annual() != null) encodeAnnual(json, entry.annual());
             if (entry.previousAnnual() != null) {
                 json.put("previous", encodeAnnual(new JSONObject(), entry.previousAnnual()));
@@ -447,8 +613,18 @@ final class JpxAutomaticFinance {
             }
             destination.put("basis", rows);
         }
+        var facts = annual.operating();
+        if (facts != null) {
+            var row = new JSONArray();
+            for (var value : new BigDecimal[]{facts.cashFlow(), facts.revenue(), facts.assets(),
+                    facts.netAssets(), facts.issuedShares(), facts.operatingProfit(), facts.priorProfit(), facts.priorCashFlow()}) {
+                row.put(value == null ? JSONObject.NULL : value.toPlainString());
+            }
+            destination.put("operating", row);
+        }
+        if (!annual.reportingBasis().isEmpty()) destination.put("reporting_basis", annual.reportingBasis());
         return destination.put("end", annual.end().toString()).put("released", annual.released().toString())
-                .put("eps", annual.eps().toPlainString()).put("bps", annual.bps().toPlainString())
+                .put("eps", annual.eps().toPlainString()).put("bps", annual.bps()==null ? JSONObject.NULL : annual.bps().toPlainString())
                 .put("source", annual.source());
     }
 }
