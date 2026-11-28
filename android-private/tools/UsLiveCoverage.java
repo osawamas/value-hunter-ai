@@ -127,6 +127,7 @@ public final class UsLiveCoverage {
         report.put("stage", "sec_facts");
         var registry = new JSONObject(read(UsDeviceFinancials.SEC_DIRECTORY, contact));
         var targets = UsDeviceFinancials.targets(nyse, nasdaq, registry, prices.keySet());
+        report.put("financial_targets", targets.length()).put("financial_processed", 0);
         var rows = new JSONArray();
         var checkpoint = new JSONObject().put("coverage_listing_date", day.toString())
                 .put("coverage_symbols", new JSONArray(scope)).put("results", rows);
@@ -166,12 +167,19 @@ public final class UsLiveCoverage {
                     }
                     if (archive == null) Thread.sleep(350);
                 }
-                var result = UsDeviceFinancials.assessFetch(target, payload, day);
+                UsDeviceFinancials.FetchAssessment result;
+                try {
+                    result = UsDeviceFinancials.assessFetch(target, payload, day);
+                } catch (JSONException malformedIssuer) {
+                    result = new UsDeviceFinancials.FetchAssessment(null, "sec_unusable_financial_row");
+                }
                 if (result.row() != null) rows.put(result.row());
                 UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"), result);
+                report.put("financial_processed", processed + 1);
             }
         }
         var hash = UsReferenceAlerts.sha256(closes.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        report.put("stage", "valuation_join").put("sec_evidence_rows", rows.length());
         var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits);
         String status = processed != targets.length() ? "partial_financial_pass"
                 : report.optBoolean("quote_pass_timed_out") ? "partial_quote_pass" : "completed_scope";
