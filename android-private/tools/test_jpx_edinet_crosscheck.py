@@ -112,6 +112,19 @@ class CrossCheckTest(unittest.TestCase):
                          dict(per_share_facts_match=True, original_period_end_share_count_present=True))
         self.assertFalse(compare(dict(eps=Decimal("-20.25"), bvps=410), facts)["per_share_facts_match"])
 
+    def test_derives_book_only_from_the_disclosed_same_context_ordinary_share_basis(self):
+        from jpx_edinet_crosscheck import derived_interim_book
+        output = io.BytesIO()
+        with ZipFile(output, "w") as archive:
+            rows = ["要素ID\tコンテキストID\tユニットID\t値\t項目名",
+                    "issuer_cor:OrdinaryEquity\tInterimInstant\tJPY\t1000000\t普通株式に係る純資産額",
+                    "issuer_cor:BookDenominator\tInterimInstant\tshares\t9000\t１株当たり純資産額の算定に用いられた中間期末の普通株式の数"]
+            archive.writestr("XBRL_TO_CSV/jpcrp040300-ssr-test.csv", "\n".join(rows).encode("utf-16"))
+        facts = facts_from_csv(output.getvalue(), interim=True)
+        self.assertEqual(derived_interim_book(facts, {Decimal("10000")}), Decimal("111.11"))
+        self.assertIsNone(derived_interim_book(facts, {Decimal("8000")}))
+        self.assertIsNone(derived_interim_book(facts, set()))
+
 
 if __name__ == "__main__":
     unittest.main()

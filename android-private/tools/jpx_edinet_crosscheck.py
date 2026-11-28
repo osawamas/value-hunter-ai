@@ -1,11 +1,12 @@
 """Cross-check Hachiquant annual inputs against FSA EDINET filing records and CSV."""
 import csv
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import io
 import json
 import re
 import time
+import unicodedata
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -27,6 +28,20 @@ PER_SHARE_PAIRS = (
 )
 EPS_TAGS = {eps for eps, _ in PER_SHARE_PAIRS}
 BPS_TAGS = {bps for _, bps in PER_SHARE_PAIRS}
+
+INTERIM_CONTEXTS = (
+    "CurrentInterimInstant", "CurrentInterimInstant_NonConsolidatedMember",
+    "CurrentQuarterInstant", "CurrentQuarterInstant_NonConsolidatedMember",
+    "InterimInstant", "InterimInstant_NonConsolidatedMember",
+)
+COMMON_EQUITY = "disclosed_common_equity"
+BPS_SHARE_COUNT = "disclosed_bps_share_count"
+BPS_NOTE_LABELS = {
+    "普通株式に係る純資産額": (COMMON_EQUITY, "JPY"),
+    "普通株式に係る親会社の所有者に帰属する持分": (COMMON_EQUITY, "JPY"),
+    "1株当たり純資産額の算定に用いられた期末の普通株式の数": (BPS_SHARE_COUNT, "shares"),
+    "1株当たり純資産額の算定に用いられた中間期末の普通株式の数": (BPS_SHARE_COUNT, "shares"),
+}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -98,9 +113,15 @@ def facts_from_csv(body, interim=False, interim_schema=None):
                         "CurrentQuarterInstant", "CurrentQuarterInstant_NonConsolidatedMember",
                         "InterimInstant", "InterimInstant_NonConsolidatedMember")
                     instant = instant or (tag == INTERIM_ISSUED_SHARES and context == "InterimInstant")
-                if not duration and not instant:
-                    continue
                 expected = "shares" if tag in (SHARES, INTERIM_ISSUED_SHARES) else "JPYPerShares"
+                if not duration and not instant:
+                    if not interim or context not in INTERIM_CONTEXTS:
+                        continue
+                    label = "".join(unicodedata.normalize("NFKC", row.get("項目名") or "").split())
+                    note = BPS_NOTE_LABELS.get(label)
+                    if note is None:
+                        continue
+                    tag, expected = note
                 if row["ユニットID"] != expected:
                     continue
                 value = row["値"]
@@ -125,6 +146,27 @@ def compare(metrics, facts):
         "original_period_end_share_count_present": len(shares) == 1 and all(
             value > 0 and value == value.to_integral_value() for value in shares),
     }
+
+
+def derived_interim_book(facts, issued):
+    # The explicitly disclosed BPS share basis already accounts for treasury
+    # shares; an issued share total alone cannot substitute for it.
+    if len(issued) != 1:
+        return None
+    total = next(iter(issued))
+    candidates = set()
+    for context in INTERIM_CONTEXTS:
+        equity = facts.get((COMMON_EQUITY, context), set())
+        denominator = facts.get((BPS_SHARE_COUNT, context), set())
+        if not equity and not denominator:
+            continue
+        if len(equity) != 1 or len(denominator) != 1:
+            return None
+        shares = next(iter(denominator))
+        if shares <= 0 or shares > total or shares != shares.to_integral_value():
+            return None
+        candidates.add((next(iter(equity)) / shares).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    return next(iter(candidates)) if len(candidates) == 1 else None
 
 
 def compare_latest(values, previous):
@@ -205,6 +247,12 @@ class EdinetAudit:
             shares.clear()
         book_values = set().union(*(values for (tag, _), values in facts.items() if tag in BPS_TAGS))
         result["shares"] = compare_latest(shares, annual_shares)
+        result["bps_source"] = "reported" if book_values else "unverified"
+        if not book_values:
+            calculated = derived_interim_book(facts, shares)
+            if calculated is not None:
+                book_values = {calculated}
+                result["bps_source"] = "derived_from_ordinary_equity_and_bps_share_count"
         result["bps"] = compare_latest(book_values, annual_bps)
         if result["shares"] == "unverified" or result["bps"] == "unverified":
             result["observed_schema"] = sorted(schema)

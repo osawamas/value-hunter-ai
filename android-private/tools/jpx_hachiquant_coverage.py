@@ -300,6 +300,8 @@ def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, lim
                 later_confirmed = (details.get("status") == "latest_interim_reviewed"
                                    and details.get("shares") == "unchanged" and details.get("bps") == "unchanged")
                 counts[details["status"]] += 1
+                if details.get("bps_source") == "derived_from_ordinary_equity_and_bps_share_count":
+                    counts["interim_bps_derived"] += 1
                 if stopped:
                     break
             if not later_confirmed:
