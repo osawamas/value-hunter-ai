@@ -44,6 +44,28 @@ public class UsFinancialFactsTest {
         assertNull(UsFinancialFacts.operatingWithoutParentEquity(document, 1, SESSION));
     }
 
+    @Test public void usesIndependentIfrsOperatingEvidenceForForeignFilers() throws Exception {
+        var date = "2025-12-31";
+        var filed = "2026-02-15";
+        var ifrs = new JSONObject()
+                .put("Assets", units("USD", new JSONArray().put(row(null, date, filed, K, "20-F", 1000))))
+                .put("Liabilities", units("USD", new JSONArray().put(row(null, date, filed, K, "20-F", 500))))
+                .put("Revenue", units("USD", new JSONArray()
+                        .put(row("2025-01-01", date, filed, K, "20-F", 800))
+                        .put(row("2024-01-01", "2024-12-31", filed, K, "20-F", 700))))
+                .put("CashFlowsFromUsedInOperatingActivities", units("USD", new JSONArray()
+                        .put(row("2025-01-01", date, filed, K, "20-F", 100))
+                        .put(row("2024-01-01", "2024-12-31", filed, K, "20-F", 80))));
+        var cover = new JSONObject().put("EntityCommonStockSharesOutstanding",
+                units("shares", new JSONArray().put(row(null, date, filed, K, "20-F", 40))));
+        var payload = new JSONObject().put("cik", 1)
+                .put("facts", new JSONObject().put("ifrs-full", ifrs).put("dei", cover));
+        var operating = UsFinancialFacts.operatingWithoutParentEquity(payload, 1, SESSION);
+        assertEquals(new BigDecimal("800"), operating.evidence().salesNow());
+        ifrs.put("PreferenceShares", units("USD", new JSONArray().put(row(null, date, filed, K, "20-F", 5))));
+        assertNull(UsFinancialFacts.operatingWithoutParentEquity(payload, 1, SESSION));
+    }
+
     @Test public void issuerIdentityAcceptsPaddedDecimalWithoutCoercingDifferentIssuers() throws Exception {
         assertTrue(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000123"), 123));
         assertFalse(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000124"), 123));

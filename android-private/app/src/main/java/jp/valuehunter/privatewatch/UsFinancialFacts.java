@@ -84,12 +84,15 @@ final class UsFinancialFacts {
         if (!matchesIssuer(payload, cik)) return null;
         var document = payload.optJSONObject("facts");
         if (document == null) return null;
-        return operatingWithoutParentEquity(document, day);
+        var domestic = operatingWithoutParentEquity(document, day, false, false);
+        if (domestic != null) return domestic;
+        var foreign = operatingWithoutParentEquity(document, day, true, false);
+        return foreign != null ? foreign : operatingWithoutParentEquity(document, day, true, true);
     }
 
-    private static OperatingOnly operatingWithoutParentEquity(JSONObject document, LocalDate day) {
-        var gaap = document.optJSONObject("us-gaap");
-        boolean foreign = false;
+    private static OperatingOnly operatingWithoutParentEquity(JSONObject document, LocalDate day,
+                                                               boolean foreign, boolean ifrs) {
+        var gaap = document.optJSONObject(ifrs ? "ifrs-full" : "us-gaap");
         var anchor = latest(facts(gaap, "Assets", "USD", day, foreign).stream()
                 .filter(row -> annualForm(row.form) && row.start == null).collect(Collectors.toList()), false);
         if (anchor == null || anchor.end.isBefore(day.minusMonths(13)) || anchor.value.signum() <= 0) return null;
@@ -97,14 +100,14 @@ final class UsFinancialFacts {
                 .filter(row -> samePeriod(row, anchor) && row.start == null).collect(Collectors.toList()));
         if (liabilities == null || liabilities.value.signum() < 0
                 || liabilities.value.compareTo(anchor.value.multiply(new BigDecimal("0.65"))) > 0) return null;
-        if (facts(gaap, "PreferredStockValue", "USD", day, foreign).stream()
+        if (facts(gaap, ifrs ? "PreferenceShares" : "PreferredStockValue", "USD", day, foreign).stream()
                 .anyMatch(row -> sameFiling(row, anchor) && row.value.signum() != 0)) return null;
         var shares = one(facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding",
                 "shares", day, foreign).stream().filter(row -> sameFiling(row, anchor) && row.start == null
                         && !row.end.isBefore(anchor.end)).collect(Collectors.toList()));
         if (shares == null || shares.value.signum() <= 0
                 || shares.value.stripTrailingZeros().scale() > 0) return null;
-        var evidence = annualHistory(gaap, day, anchor, List.of(), foreign, false).operating();
+        var evidence = annualHistory(gaap, day, anchor, List.of(), foreign, ifrs).operating();
         if (evidence == null) return null;
         int balance = liabilities.value.compareTo(anchor.value.multiply(new BigDecimal("0.50"))) <= 0 ? 100 : 70;
         return new OperatingOnly(evidence, shares.value, shares.end, anchor.filed, anchor.accession, balance);
