@@ -280,7 +280,7 @@ public final class JpxWatchWorker extends Worker {
                     comparison.appendCoverage(partial, screen.assessed(), "\n", finance);
                     appendCandidates(partial, screen);
                     var preview = state.edit();
-                    var meter = saveMeter(state, preview, comparison, screen, finance, evidence.rights());
+                    var meter = saveMeter(state, preview, comparison, screen, finance, evidence.rights(), JpxHistoryReference.load(getApplicationContext()));
                     recordAssessment(comparison.latest(), screen, meter, finance);
                     MarketCoverage.JPX.track(state, preview, coverage(comparison.latest(), screen,
                             automaticFinance ? JpxAutomaticFinance.failedAcquisitions(context) : Set.of()), true);
@@ -373,7 +373,7 @@ public final class JpxWatchWorker extends Worker {
                             .collect(Collectors.joining("\n"));
                     MarketFreshness.JPX.verified(update, date, screen.assessed(), screen.candidates().size(), candidates);
                 }
-                var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights());
+                var meter = saveMeter(state, update, comparison, screen, finance, evidence.rights(), JpxHistoryReference.load(getApplicationContext()));
                 recordAssessment(comparison.latest(), screen, meter, finance);
                 var pending = pendingAlerts(state);
                 queueAlerts(pending, date, added, budgetAdded, rapidAdded, alertGeneration, financialGeneration);
@@ -466,13 +466,19 @@ public final class JpxWatchWorker extends Worker {
 
     static MeterPair saveMeter(SharedPreferences state, SharedPreferences.Editor edit, JpxDailyCheck.Comparison comparison,
                                JpxDailyCheck.Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights) {
+        return saveMeter(state, edit, comparison, screen, finance, rights, JpxHistoryReference.empty());
+    }
+
+    private static MeterPair saveMeter(SharedPreferences state, SharedPreferences.Editor edit,
+            JpxDailyCheck.Comparison comparison, JpxDailyCheck.Screening screen,
+            JpxAutomaticFinance.Batch finance, JpxShareRights rights, JpxHistoryReference history) {
         try {
             var date = comparison.latest().date();
             var market = ValueAlertPreview.Market.JPX;
-            var rows = comparison.meterRows(screen, finance, rights);
+            var rows = comparison.meterRows(screen, finance, rights, history);
             var expected = market.expectedPrior(date);
             JSONObject priorRows = comparison.previous() != null && comparison.previous().date().equals(expected)
-                    ? comparison.previousMeterRows(screen, finance, rights) : null;
+                    ? comparison.previousMeterRows(screen, finance, rights, history) : null;
             ValueAlertPreview.save(state, edit, market, date, "JPX", rows, priorRows);
             var prior = priorRows == null ? null : ValueAlertPreview.session(expected, "JPX", priorRows);
             return new MeterPair(rows, prior);

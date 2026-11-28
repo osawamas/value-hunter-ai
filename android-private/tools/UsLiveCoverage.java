@@ -58,7 +58,8 @@ public final class UsLiveCoverage {
         scope.addAll(nasdaq.symbols());
         report.put("scope", scope.size()).put("stage", "closing_prices");
         var alpacaSplits = new java.util.HashMap<String, java.time.LocalDate>();
-        var closes = useAlpaca ? alpacaCloses(day, scope, report, alpacaSplits) : null;
+        var priceHistory = new JSONObject();
+        var closes = useAlpaca ? alpacaCloses(day, scope, report, alpacaSplits, priceHistory) : null;
         String closeSource = closes == null ? UsDoltCloses.SOURCE : "alpaca_delayed_sip_raw";
         if (closes != null) report.put("quote_path", closeSource);
         UsDoltCloses.Download download = url -> new JSONObject(read(url, ""));
@@ -218,7 +219,7 @@ public final class UsLiveCoverage {
         report.put("stage", "valuation_join").put("sec_evidence_rows", rows.length())
                 .put("sec_identity_retries", identityRetries).put("sec_identity_recovered", identityRecovered)
                 .put("sec_identity_retry_outcomes", identityOutcomes);
-        var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits);
+        var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits, priceHistory);
         String status = processed != targets.length() ? "partial_financial_pass"
                 : report.optBoolean("quote_pass_timed_out") ? "partial_quote_pass" : "completed_scope";
         report.put("ultra_value_audit", UsDeviceFinancials.ultraAudit(day, closeSource, hash, rows, prices, fx, splits));
@@ -272,7 +273,7 @@ public final class UsLiveCoverage {
     }
 
     private static JSONArray alpacaCloses(java.time.LocalDate day, TreeSet<String> scope, JSONObject report,
-            java.util.Map<String, java.time.LocalDate> splits)
+            java.util.Map<String, java.time.LocalDate> splits, JSONObject history)
             throws IOException, InterruptedException {
         var scratch = Files.createTempDirectory("us-alpaca-");
         var scopeFile = scratch.resolve("scope.json");
@@ -305,6 +306,10 @@ public final class UsLiveCoverage {
                     || daily.getInt("scope") != scope.size() || daily.getInt("closes") != rows.length()
                     || !scope.containsAll(UsDeviceFinancials.prices(rows).keySet())) {
                 throw new JSONException("Unverified Alpaca listing scope");
+            }
+            var historyInput = input.optJSONObject("history");
+            if (historyInput != null) {
+                for (String field : historyInput.keySet()) history.put(field, historyInput.get(field));
             }
             var datedSplits = input.optJSONObject("splits");
             if (datedSplits != null && summary.getJSONObject("splits").getInt("scoped_symbols") == datedSplits.length()) {

@@ -156,6 +156,24 @@ public class UsDeviceFinancialBreakdownTest {
                 .getJSONObject("reference_screen").getJSONObject("diagnostics").getInt("operating_recovery_assessed"));
     }
 
+    @Test public void historyRecoversOnlyMatchedDatedPriceWithPositiveEarnings() throws Exception {
+        var day = LocalDate.parse("2026-11-27");
+        var row = new JSONObject().put("symbol", "ABC").put("exchange", "NYSE").put("cik", 1)
+                .put("partial_value", true).put("share_date", "2025-12-31").put("meter_eps", new JSONArray().put("2"));
+        var history = new JSONObject().put("date", day.toString()).put("benchmark", "IWV")
+                .put("confirmed", new JSONObject().put("ABC", "10"));
+        var prices = Map.of("ABC", new BigDecimal("10"));
+        var records = new JSONArray().put(row);
+        var fx = new UsScreen.Fx(day, 150);
+        var assessment = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64), records, prices, fx,
+                Map.of(), history).getJSONObject("reference_screen").getJSONObject("diagnostics");
+        assertEquals(1, assessment.getInt("history_recovery_assessed"));
+        history.put("date", day.minusDays(1).toString());
+        assessment = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64), records, prices, fx,
+                Map.of(), history).getJSONObject("reference_screen").getJSONObject("diagnostics");
+        assertEquals(0, assessment.getInt("history_recovery_assessed"));
+    }
+
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
                 .put("shares",String.valueOf(shares)).put("profit",String.valueOf(profit))

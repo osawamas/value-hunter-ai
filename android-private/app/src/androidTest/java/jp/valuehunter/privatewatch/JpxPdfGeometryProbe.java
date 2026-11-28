@@ -168,7 +168,9 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
             checked += finance.fetched();
         }
         var screening = comparison.screen(rights, finance);
-        var rows = comparison.meterRows(screening, finance, rights);
+        var baseline = comparison.meterRows(screening, finance, rights);
+        var rows = comparison.meterRows(screening, finance, rights, JpxHistoryReference.load(context));
+        int historyAdded = rows.length() - baseline.length();
         var acquisition = new JSONObject();
         var holdCounts = new java.util.TreeMap<String, Integer>();
         var strictExclusionsWithAnnual = new java.util.TreeMap<String, Integer>();
@@ -214,6 +216,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 new File(directory, "jpx-alternative-valuation.json"), day, report, screening, finance, rows) : 0;
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
                 .put("edinet_crosschecked_added", crosschecked)
+                .put("history_recovery_assessed", historyAdded)
                 .put("annual_hold_reasons", new JSONObject(holdCounts))
                 .put("trading_date", day.toString()).put("close_source", report.source())
                 .put("source_pdf_sha256", digest(pdf))

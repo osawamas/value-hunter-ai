@@ -260,6 +260,12 @@ final class UsDeviceFinancials {
     static JSONObject screen(LocalDate day, String provider, String hash, JSONArray records,
                              Map<String, BigDecimal> prices, UsScreen.Fx fx, Map<String, LocalDate> splits)
             throws JSONException {
+        return screen(day, provider, hash, records, prices, fx, splits, new JSONObject());
+    }
+
+    static JSONObject screen(LocalDate day, String provider, String hash, JSONArray records,
+                             Map<String, BigDecimal> prices, UsScreen.Fx fx, Map<String, LocalDate> splits,
+                             JSONObject history) throws JSONException {
         int nyse = 0;
         int nasdaq = 0;
         var observations = new JSONArray();
@@ -270,6 +276,7 @@ final class UsDeviceFinancials {
         int affordable100 = 0, singleShare = 0;
         int partialInsufficient = 0, partialWithinBudget = 0;
         int partialAssessed = 0, partialEligible = 0, strictAssessed = 0, strictEligible = 0;
+        int historyAssessed = 0;
         int operatingRecoveryAssessed = 0, bookRecoveryAssessed = 0, missingEquityOperatingAssessed = 0;
         int[] flexibleTiers = new int[4], strictTiers = new int[4];
         var seen = new HashSet<String>();
@@ -301,6 +308,14 @@ final class UsDeviceFinancials {
                 var score = operatingRecovery != null ? operatingRecovery : operatingOnly
                         ? new ValueAlertMeter.Score(0, 0, 0)
                         : partial ? flexibleUsScore(row, close, day) : recovery;
+                if (partial && !operatingOnly && score.confirmed() == 1
+                        && historySupports(history, symbol, day, close)) {
+                    var earnings = meterEps(row);
+                    if (close.compareTo(earnings.get(0).multiply(BigDecimal.valueOf(10))) <= 0) {
+                        score = new ValueAlertMeter.Score(65, 1, 2);
+                        historyAssessed++;
+                    }
+                }
                 score=UsDisclosureEvidence.adjust(score,row,day);
                 var yen=close.multiply(rate);
                 int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
@@ -375,6 +390,7 @@ final class UsDeviceFinancials {
                 .put("other_financial_hold", otherFinancialHold)
                 .put("assessment_count_version", ASSESSMENT_COUNT_VERSION)
                 .put("partial_insufficient", partialInsufficient)
+                .put("history_recovery_assessed", historyAssessed)
                 .put("operating_recovery_assessed", operatingRecoveryAssessed)
                 .put("book_recovery_assessed", bookRecoveryAssessed)
                 .put("missing_equity_operating_assessed", missingEquityOperatingAssessed)
@@ -403,6 +419,12 @@ final class UsDeviceFinancials {
     static JSONObject scopedAssessment(LocalDate day, String source, String hash, JSONObject checkpoint,
                                        Map<String, BigDecimal> allPrices, UsScreen.Fx fx,
                                        Map<String, LocalDate> splits) throws JSONException {
+        return scopedAssessment(day, source, hash, checkpoint, allPrices, fx, splits, new JSONObject());
+    }
+
+    static JSONObject scopedAssessment(LocalDate day, String source, String hash, JSONObject checkpoint,
+                                       Map<String, BigDecimal> allPrices, UsScreen.Fx fx,
+                                       Map<String, LocalDate> splits, JSONObject history) throws JSONException {
         var listingDay = LocalDate.parse(checkpoint.getString("coverage_listing_date"));
         if (!listingDay.equals(day)) throw new JSONException("Expected a same-session listing scope");
         var symbols = checkpoint.getJSONArray("coverage_symbols");
@@ -424,7 +446,7 @@ final class UsDeviceFinancials {
                 recordsBySymbol.put(symbol, row);
             }
         }
-        var ledger = screen(day, source, hash, records, prices, fx, splits);
+        var ledger = screen(day, source, hash, records, prices, fx, splits, history);
         var assessed = UsReferenceAlerts.read(ledger, Set.of(source)).rows();
         var diagnostics = ledger.getJSONObject("reference_screen").getJSONObject("diagnostics");
         int budget = 0, budgetAssessed = 0;
@@ -458,6 +480,17 @@ final class UsDeviceFinancials {
                 .put("budget", budget).put("budget_assessed", budgetAssessed)
                 .put("budget_assessed_percent", budget == 0 ? JSONObject.NULL : 100.0 * budgetAssessed / budget)
                 .put("unassessed_reasons", new JSONObject(reasonCounts));
+    }
+
+    private static boolean historySupports(JSONObject history, String symbol, LocalDate day, BigDecimal close) {
+        var verified = history.optJSONObject("confirmed");
+        if (verified == null || !day.toString().equals(history.optString("date"))
+                || !"IWV".equals(history.optString("benchmark"))) return false;
+        try {
+            return close.compareTo(new BigDecimal(verified.optString(symbol))) == 0;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
     }
 
     static ValueAlertMeter.Score flexibleUsScore(JSONObject row, BigDecimal close, LocalDate day) {

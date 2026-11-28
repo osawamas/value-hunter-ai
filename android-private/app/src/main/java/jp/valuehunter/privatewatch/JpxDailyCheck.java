@@ -241,20 +241,30 @@ final class JpxDailyCheck {
 
         JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
-            return withPartialRows(latest,screen.assessedCodes(),finance,rights,
-                    meterRows(latest, screen.assessedCodes(), finance, rights));
+            return meterRows(screen, finance, rights, JpxHistoryReference.empty());
+        }
+
+        JSONObject meterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights,
+                             JpxHistoryReference history) throws JSONException {
+            return withPartialRows(latest, screen.assessedCodes(), finance, rights,
+                    meterRows(latest, screen.assessedCodes(), finance, rights), history);
         }
 
         JSONObject previousMeterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights)
                 throws JSONException {
+            return previousMeterRows(screen, finance, rights, JpxHistoryReference.empty());
+        }
+
+        JSONObject previousMeterRows(Screening screen, JpxAutomaticFinance.Batch finance, JpxShareRights rights,
+                                     JpxHistoryReference history) throws JSONException {
             var comparable = new HashSet<>(screen.assessedCodes());
             for (var held : screen.holds()) comparable.remove(held.code());
             return withPartialRows(previous,comparable,finance,rights,
-                    meterRows(previous, comparable, finance, rights));
+                    meterRows(previous, comparable, finance, rights), history);
         }
 
         private JSONObject withPartialRows(Report report, Set<String> strict, JpxAutomaticFinance.Batch finance,
-                                           JpxShareRights rights, JSONObject rows) throws JSONException {
+                                           JpxShareRights rights, JSONObject rows, JpxHistoryReference history) throws JSONException {
             if (report==null) return rows;
             var day=report.date();
             for (var item:finance.entries().entrySet()) {
@@ -276,6 +286,11 @@ final class JpxDailyCheck {
                 if (score == null && annual.operating() == null && annual.eps().signum() <= 0
                         && operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())) {
                     score = recoverableBookScore(code, entry, annual, day, rights, close);
+                }
+                if (score == null && annual.bps() == null && annual.operating() == null) {
+                    var eps = annual.onShareBasis(day, annual.eps(), false)
+                            .divide(annual.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+                    score = history.corroborateEarnings(code, day, close, eps, rights);
                 }
                 if (score != null) {
                     score = JpxDisclosureEvidence.adjust(score, entry.events(), day);

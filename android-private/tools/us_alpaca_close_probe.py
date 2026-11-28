@@ -185,7 +185,23 @@ def replay_history(rows, symbols=SYMBOLS, benchmark=None):
     return report
 
 
-def history_sample(day, key, secret):
+def valuation_history(rows, candidates, benchmark, day):
+    market = {session: value for (symbol, session), value in rows.items() if symbol == benchmark}
+    result = {}
+    for code in candidates:
+        series = {session: value for (symbol, session), value in rows.items() if symbol == code}
+        days = sorted(series.keys() & market.keys())
+        if len(days) < 1200 or days[-1] != day:
+            continue
+        values = [series[session] for session in days]
+        current, low, high = values[-1], min(values), max(values)
+        relative = current * market[days[-64]] >= values[-64] * market[day]
+        if high > low and current <= low + (high - low) / 3 and current > values[-22] and relative:
+            result[code] = str(current)
+    return {"date": day.isoformat(), "benchmark": benchmark, "confirmed": result}
+
+
+def history_sample(day, key, secret, valuation=None):
     start = day.replace(year=day.year - 5, day=min(day.day, 28) if day.month == 2 else day.day)
     candidates = (*SYMBOLS, "DAC", "DSWL", "ESEA", "GASS", "RYN", "VITL")
     universe = (*candidates, "IWV")
@@ -210,6 +226,8 @@ def history_sample(day, key, secret):
                                      and date.fromisoformat(value["first"]) <= start + timedelta(days=7)
                                      and date.fromisoformat(value["last"]) >= day - timedelta(days=7)
                                      for value in counts.values())
+                if five_year_span and valuation is not None:
+                    valuation.update(valuation_history(rows, candidates, "IWV", day))
                 return {"status": "five_year_span_verified" if five_year_span else "sample_incomplete",
                         "symbols": counts, **({"technical_replay": replay_history(rows, candidates, "IWV")} if five_year_span else {})}
             if not isinstance(next_token, str) or len(next_token) > 2048 or next_token == token:
@@ -229,6 +247,7 @@ if __name__ == "__main__":
     parser.add_argument("session", type=date.fromisoformat, nargs="?")
     parser.add_argument("--scope", type=Path)
     parser.add_argument("--close-output", type=Path)
+    parser.add_argument("--history-output", type=Path)
     args = parser.parse_args()
     key = os.getenv("ALPACA_PAPER_KEY_ID", "").strip()
     secret = os.getenv("ALPACA_PAPER_SECRET_KEY", "").strip()
@@ -245,10 +264,13 @@ if __name__ == "__main__":
     report = audit(day, key, secret)
     if args.scope and report["status"] == "sample_verified":
         report["daily"], closes = collect(day, sorted(symbols), key, secret)
+        valuation = {}
+        report["five_year_history_probe"] = history_sample(day, key, secret, valuation)
+        if args.history_output and valuation:
+            args.history_output.write_text(json.dumps(valuation), encoding="utf-8")
         if closes:
             report["splits"], splits = split_audit(day, set(symbols), key, secret)
             args.close_output.write_text(json.dumps({"trade_date": day.isoformat(), "closes": closes,
-                                                        "splits": splits}),
+                                                        "splits": splits, "history": valuation}),
                                          encoding="utf-8")
-        report["five_year_history_probe"] = history_sample(day, key, secret)
     print(json.dumps(report))

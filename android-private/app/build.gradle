@@ -4,6 +4,7 @@ plugins {
 
 def privateAssets = layout.buildDirectory.dir('generated/privateAssets')
 def historyPath = providers.gradleProperty('jpxHistoryFile').orNull
+def usHistoryPath = providers.gradleProperty('usHistoryFile').orNull
 def usMonitorPath = providers.gradleProperty('usMonitorFile').orNull
 def massiveKeyPath = providers.gradleProperty('massiveKeyFile').orNull
 def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
@@ -15,6 +16,15 @@ def syncPrivateAssets = tasks.register('syncPrivateAssets', Sync) {
         }
         from(historyFile) {
             rename { 'jpx-history.json' }
+        }
+    }
+    if (usHistoryPath != null) {
+        def historyFile = rootProject.file(usHistoryPath)
+        if (!historyFile.isFile()) {
+            throw new GradleException('usHistoryFile must point to a local history JSON file')
+        }
+        from(historyFile) {
+            rename { 'us-valuation-history.json' }
         }
     }
     if (massiveKeyPath != null) {

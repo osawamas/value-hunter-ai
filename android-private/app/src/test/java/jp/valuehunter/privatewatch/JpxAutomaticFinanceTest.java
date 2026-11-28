@@ -21,6 +21,22 @@ public class JpxAutomaticFinanceTest {
     private static final LocalDate RELEASED = LocalDate.of(2026, 5, 11);
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
 
+    @Test public void fiveYearHistoryRequiresAReboundPositiveEarningsAndRights() throws Exception {
+        var history = JpxHistoryReference.parse("""
+                {"by_code":{"1420":{"status":"split_adjusted","first_session":"2021-11-30",
+                "last_session":"2026-10-30","months_with_close":60,
+                "range_position":"0.1000","range_low":"100","range_high":"1000"}}}
+                """);
+        var rights = new JpxShareRights(Set.of(CODE), Set.of(java.time.YearMonth.of(2026, 10),
+                java.time.YearMonth.of(2026, 11)), List.of());
+        assertEquals(1, history.corroborateEarnings(CODE, DAY, new BigDecimal("250"),
+                new BigDecimal("30"), rights).level(ValueAlertMeter.DEFAULT));
+        assertNull(history.corroborateEarnings(CODE, DAY, new BigDecimal("180"), new BigDecimal("30"), rights));
+        assertNull(history.corroborateEarnings(CODE, DAY, new BigDecimal("250"), BigDecimal.ZERO, rights));
+        assertNull(history.corroborateEarnings(CODE, DAY, new BigDecimal("250"), new BigDecimal("30"),
+                new JpxShareRights(Set.of(), Set.of(), List.of())));
+    }
+
     @Test public void bookDiscountRequiresNarrowingLossAndPreservedEquity() {
         var close = new BigDecimal("400");
         var book = new BigDecimal("1000");

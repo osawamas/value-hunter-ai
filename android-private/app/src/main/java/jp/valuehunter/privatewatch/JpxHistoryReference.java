@@ -83,6 +83,22 @@ final class JpxHistoryReference {
         return low.signum() > 0 && low.compareTo(high) < 0 ? new Bounds(low, high) : null;
     }
 
+    ValueAlertMeter.Score corroborateEarnings(String code, LocalDate session, BigDecimal close,
+            BigDecimal earningsPerShare, JpxShareRights rights) {
+        var range = byCode.get(code);
+        if (range == null || range.bounds() == null || range.months() != 60
+                || !range.last().isBefore(session) || range.last().isBefore(session.minusDays(45))
+                || !rights.holdReason(code, range.last(), session).isEmpty()
+                || earningsPerShare.signum() <= 0 || close.signum() <= 0) return null;
+        var bounds = range.bounds();
+        var span = bounds.high().subtract(bounds.low());
+        var reboundFloor = bounds.low().add(span.multiply(range.position().add(new BigDecimal("0.02"))));
+        var lowerThird = bounds.low().add(span.multiply(new BigDecimal("0.33")));
+        boolean supported = close.compareTo(reboundFloor) >= 0 && close.compareTo(lowerThird) <= 0
+                && close.compareTo(earningsPerShare.multiply(BigDecimal.valueOf(10))) <= 0;
+        return supported ? new ValueAlertMeter.Score(65, 1, 2) : null;
+    }
+
     void appendHtml(StringBuilder message, String code, LocalDate session,
                     BigDecimal close, JpxShareRights rights) {
         var range = byCode.get(code);

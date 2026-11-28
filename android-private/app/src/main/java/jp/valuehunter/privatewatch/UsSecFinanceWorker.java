@@ -291,11 +291,12 @@ public final class UsSecFinanceWorker extends Worker {
                     var symbol = symbols.next();
                     splits.put(symbol, LocalDate.parse(splitDates.getString(symbol)));
                 }
-                ledger = UsDeviceFinancials.screen(day, provider, hash, results, prices, fx, splits);
+                var priceHistory = priceHistory(context);
+                ledger = UsDeviceFinancials.screen(day, provider, hash, results, prices, fx, splits, priceHistory);
                 scan.put("ledger", ledger).remove("retained_ledger");
                 if (day.toString().equals(scan.optString("coverage_listing_date"))) {
                     try {
-                        var summary = UsDeviceFinancials.scopedAssessment(day, provider, hash, scan, prices, fx, splits);
+                        var summary = UsDeviceFinancials.scopedAssessment(day, provider, hash, scan, prices, fx, splits, priceHistory);
                         UsDailyWorker.writeSnapshot(new AtomicFile(new File(directory, "us-assessment.json")), summary);
                         DiagnosticLog.record(context, DiagnosticLog.Area.US_FINANCE,
                                 "米国株全監視対象の判定集計 · " + summary);
@@ -782,6 +783,16 @@ public final class UsSecFinanceWorker extends Worker {
             // A missing or damaged local checkpoint starts a fresh scan.
         }
         return null;
+    }
+
+    private static JSONObject priceHistory(Context context) {
+        try (var input = context.getAssets().open("us-valuation-history.json")) {
+            var raw = input.readNBytes(65_537);
+            if (raw.length <= 65_536) return new JSONObject(new String(raw, java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException | JSONException unavailable) {
+            // The audited auxiliary asset is optional.
+        }
+        return new JSONObject();
     }
 
     private Set<Integer> changedIssuers(LocalDate since, LocalDate until) {
