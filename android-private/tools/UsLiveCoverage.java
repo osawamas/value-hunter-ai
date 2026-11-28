@@ -28,6 +28,8 @@ public final class UsLiveCoverage {
         var report = new JSONObject().put("status", "inputs_unavailable").put("stage", "listing_scope").put("sources", SOURCES);
         try {
             assess(directory, report);
+        } catch (HttpFailure denied) {
+            report.put("error", "HttpFailure").put("http_status", denied.status);
         } catch (IOException | org.json.JSONException unavailable) {
             report.put("error", unavailable.getClass().getSimpleName());
         } finally {
@@ -40,7 +42,9 @@ public final class UsLiveCoverage {
         var nyse = UsMarketCoverage.directory(Files.readString(directory.resolve("otherlisted.txt")), false);
         var nasdaq = UsMarketCoverage.directory(Files.readString(directory.resolve("nasdaqlisted.txt")), true);
         var day = nyse.date();
-        report.put("trade_date", day.toString());
+        report.put("trade_date", day.toString()).put("listing_inputs", new JSONObject()
+                .put("nyse_date", nyse.date().toString()).put("nyse_time", String.valueOf(nyse.timestamp()))
+                .put("nasdaq_date", nasdaq.date().toString()).put("nasdaq_time", String.valueOf(nasdaq.timestamp())));
         if (!day.equals(nasdaq.date()) || !UsDailyCloses.tradingDay(day)
                 || !UsMarketCoverage.sessionSnapshot(nyse.timestamp())
                 || !UsMarketCoverage.sessionSnapshot(nasdaq.timestamp())) {

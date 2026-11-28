@@ -219,7 +219,7 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
 MAX_CROSSCHECK_ROWS = 40
 
 
-def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, limit, batch=0):
+def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, limit, batch=0, reviews=None):
     """Measure filing accuracy independently of eligibility for trading-day valuation."""
     if edinet is None:
         return {}, {"key_unconfigured": 1}
@@ -283,6 +283,21 @@ def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, lim
         published = date.fromisoformat(filing["actual_filing_date"])
         if hint != published:
             counts["newer_filing_requires_review"] += 1
+            if reviews is not None and time.monotonic() < deadline:
+                details = {"status": "latest_source_unavailable"}
+                stopped = False
+                try:
+                    details = edinet.review_newer(code, hint.isoformat(), period.isoformat(),
+                                                  metrics["bvps"], original.get("annual_shares"))
+                except HTTPError as error:
+                    details = {"status": f"http_{error.code}"}
+                    stopped = error.code in (401, 403, 429, 503)
+                except (ValueError, OSError, KeyError, TypeError):
+                    pass
+                reviews[code] = {"annual_doc_id": source, "later_date": hint.isoformat(), **details}
+                counts[details["status"]] += 1
+                if stopped:
+                    break
             continue
         if share_basis_status(code, period, day, rights, daily_rights.get(code, ())) != "no_share_change_in_supplied_reports":
             counts["share_basis_unverified"] += 1
@@ -306,6 +321,7 @@ def main():
     parser.add_argument("--daily-rights", action="append", default=[], help="Local JPX daily rights XLS")
     parser.add_argument("--valuation-output", type=Path, help="Private runner input to the Android audit")
     parser.add_argument("--batch-index", type=int, default=0)
+    parser.add_argument("--later-filings-output", type=Path)
     args = parser.parse_args()
     stocks = ordinary_stocks(args.universe)
     rows, as_of, pages = annual_rows()
@@ -341,10 +357,13 @@ def main():
         )
     if args.valuation_output:
         day, _, _ = latest
+        reviews = {} if args.later_filings_output else None
         verified, counts = verified_valuation_rows(
             day, stocks, rows, load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
-            edinet, MAX_CROSSCHECK_ROWS, args.batch_index)
+            edinet, MAX_CROSSCHECK_ROWS, args.batch_index, reviews)
         args.valuation_output.write_text(json.dumps({"day": day.isoformat(), "rows": verified}), encoding="utf-8")
+        if args.later_filings_output:
+            args.later_filings_output.write_text(json.dumps(reviews, indent=2), encoding="utf-8")
         result["valuation_input_audit"] = {"verified_rows": len(verified), **counts}
     print(json.dumps(result, indent=2))
 

@@ -62,11 +62,12 @@ def metadata_matches(rows, code, doc_id, period_end, filed_on):
             and row.get("csvFlag") == "1")
 
 
-def facts_from_csv(body):
+def facts_from_csv(body, interim=False):
     facts = {}
     with ZipFile(io.BytesIO(body)) as archive:
         files = [item for item in archive.infolist() if re.fullmatch(
-            r"XBRL_TO_CSV/jpcrp030000-asr-[^/]+\.csv", item.filename)]
+            r"XBRL_TO_CSV/jpcrp(?:040300-(?:q[1-4]r|ssr)|040000-ssr|030000-asr)-[^/]+\.csv" if interim
+            else r"XBRL_TO_CSV/jpcrp030000-asr-[^/]+\.csv", item.filename)]
         if len(files) != 1 or files[0].file_size > 16_000_000:
             raise ValueError("EDINET annual CSV is missing or exceeds size limit")
         with archive.open(files[0]) as raw, io.TextIOWrapper(raw, encoding="utf-16", newline="") as stream:
@@ -79,6 +80,11 @@ def facts_from_csv(body):
                     "CurrentYearDuration", "CurrentYearDuration_NonConsolidatedMember")
                 instant = (tag in BPS_TAGS or tag == SHARES) and context in (
                     "CurrentYearInstant", "CurrentYearInstant_NonConsolidatedMember")
+                if interim:
+                    duration = False
+                    instant = (tag in BPS_TAGS or tag == SHARES) and context in (
+                        "CurrentInterimInstant", "CurrentInterimInstant_NonConsolidatedMember",
+                        "CurrentQuarterInstant", "CurrentQuarterInstant_NonConsolidatedMember")
                 if not duration and not instant:
                     continue
                 expected = "shares" if tag == SHARES else "JPYPerShares"
@@ -108,6 +114,12 @@ def compare(metrics, facts):
     }
 
 
+def compare_latest(values, previous):
+    if len(values) != 1 or previous is None:
+        return "unverified"
+    return "unchanged" if values == {previous} else "changed"
+
+
 class EdinetAudit:
     def __init__(self, key):
         self.key = key
@@ -118,6 +130,36 @@ class EdinetAudit:
         time.sleep(max(0, self.next_request - time.monotonic()))
         self.next_request = time.monotonic() + 1.25
         return download(path, query, self.key, limit)
+
+    def review_newer(self, code, filed_on, annual_period, annual_bps, annual_shares):
+        listing = self.days.get(filed_on)
+        if listing is None:
+            listing = json.loads(self.request(".json", {"date": filed_on, "type": 2}, 4_000_000))["results"]
+            self.days[filed_on] = listing
+        matches = [row for row in listing if row.get("secCode") == code + "0"
+                   and row.get("withdrawalStatus") == "0" and row.get("disclosureStatus") == "0"
+                   and str(row.get("submitDateTime", ""))[:10] == filed_on]
+        if len(matches) != 1:
+            return {"status": "latest_filing_ambiguous"}
+        item = matches[0]
+        kind = item.get("docTypeCode")
+        if kind not in ("140", "160"):
+            return {"status": "latest_non_interim_or_amendment"}
+        doc = item.get("docID", "")
+        period = item.get("periodEnd")
+        if (not re.fullmatch(r"S[0-9A-Z]{7}", doc) or item.get("csvFlag") != "1"
+                or not period or not annual_period < period < filed_on):
+            return {"status": "latest_interim_unverified"}
+        result = {"status": "latest_interim_reviewed", "doc_id": doc, "doc_type": kind, "period_end": period}
+        try:
+            facts = facts_from_csv(self.request("/" + doc, {"type": 5}, 8_000_000), interim=True)
+        except (ValueError, KeyError, BadZipFile):
+            return {**result, "status": "latest_interim_csv_unverified"}
+        shares = set().union(*(values for (tag, _), values in facts.items() if tag == SHARES))
+        book_values = set().union(*(values for (tag, _), values in facts.items() if tag in BPS_TAGS))
+        result["shares"] = compare_latest(shares, annual_shares)
+        result["bps"] = compare_latest(book_values, annual_bps)
+        return result
 
     def check(self, filing, row):
         filed_on = filing["actual_filing_date"]
@@ -140,8 +182,11 @@ class EdinetAudit:
             duration = 0
         try:
             facts = facts_from_csv(self.request("/" + doc_id, {"type": 5}, 8_000_000))
+            checks = compare(row["metrics"], facts)
+            shares = set().union(*(values for (tag, _), values in facts.items() if tag == SHARES))
             return {"filing_metadata_match": True, "full_year_verified": 350 <= duration <= 380,
-                    **compare(row["metrics"], facts)}
+                    **checks, "annual_shares": next(iter(shares))
+                    if checks["original_period_end_share_count_present"] else None}
         except HTTPError as error:
             if error.code in (401, 403, 429, 503):
                 raise

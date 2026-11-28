@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: build30-live-coverage-${{ github.ref }}
   cancel-in-progress: true
@@ -68,7 +69,7 @@ jobs:
           done
           if timeout 230 python android-private/tools/jpx_hachiquant_coverage.py \
             coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf --budget-samples-per-market 2 \
-            --batch-index "$GITHUB_RUN_NUMBER" --valuation-output "$RUNNER_TEMP/jpx-alternative-valuation.json" \
+            --batch-index 32 --later-filings-output coverage-results/jpx-later-filings.json --valuation-output "$RUNNER_TEMP/jpx-alternative-valuation.json" \
             "${reports[@]}" > coverage-results/jpx-alternative-input.json; then
             python -m json.tool coverage-results/jpx-alternative-input.json
           else
@@ -82,6 +83,29 @@ jobs:
           curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
           bash android-private/tools/compile_us_replay.sh "$dir"
           java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage coverage-results
+      - name: Retrieve the verified historical US listing pair
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: build30-coverage
+          path: ${{ runner.temp }}/us-archived-listings
+          run-id: 46061801303
+          github-token: ${{ github.token }}
+      - name: Replay the historical US listing pair
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          data="$RUNNER_TEMP/us-archived-listings"
+          if [ -s "$data/otherlisted.txt" ] && [ -s "$data/nasdaqlisted.txt" ]; then
+            dir="$(mktemp -d)"
+            curl -fsSL --max-time 30 https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$dir/json.jar"
+            bash android-private/tools/compile_us_replay.sh "$dir"
+            rm -f "$data/us-public-coverage.json"
+            timeout 100 java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" || true
+            if [ -s "$data/us-public-coverage.json" ]; then
+              cp "$data/us-public-coverage.json" coverage-results/us-archived-coverage.json
+            fi
+          fi
       - name: Check independent free US close providers
         env:
           FINZDATA_API_KEY: ${{ secrets.FINZDATA_API_KEY }}
