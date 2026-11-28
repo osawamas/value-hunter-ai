@@ -276,7 +276,7 @@ final class UsDeviceFinancials {
         int affordable100 = 0, singleShare = 0;
         int partialInsufficient = 0, partialWithinBudget = 0;
         int partialAssessed = 0, partialEligible = 0, strictAssessed = 0, strictEligible = 0;
-        int historyAssessed = 0;
+        int historyAssessed = 0, operatingHistoryAssessed = 0;
         int operatingRecoveryAssessed = 0, bookRecoveryAssessed = 0, missingEquityOperatingAssessed = 0;
         int[] flexibleTiers = new int[4], strictTiers = new int[4];
         var seen = new HashSet<String>();
@@ -302,14 +302,20 @@ final class UsDeviceFinancials {
             boolean partial = row.optBoolean("partial_value");
             var recovery = partial ? null : recoverNonPositiveProfit(row, close);
             boolean operatingOnly = row.optBoolean("operating_only");
+            boolean verifiedHistory = historySupports(history, symbol, day, close);
             var operatingRecovery = (!partial || operatingOnly) && recovery == null
-                    ? recoverFromCashAndSales(row, close, day) : null;
+                    ? recoverFromCashAndSales(row, close, day, false) : null;
+            boolean usesOperatingHistory = operatingRecovery == null && verifiedHistory
+                    && (!partial || operatingOnly) && recovery == null;
+            if (usesOperatingHistory) {
+                operatingRecovery = recoverFromCashAndSales(row, close, day, true);
+            }
             if (partial || recovery != null || operatingRecovery != null) {
                 var score = operatingRecovery != null ? operatingRecovery : operatingOnly
                         ? new ValueAlertMeter.Score(0, 0, 0)
                         : partial ? flexibleUsScore(row, close, day) : recovery;
                 if (partial && !operatingOnly && score.confirmed() == 1
-                        && historySupports(history, symbol, day, close)) {
+                        && verifiedHistory) {
                     var earnings = meterEps(row);
                     if (close.compareTo(earnings.get(0).multiply(BigDecimal.valueOf(10))) <= 0) {
                         score = new ValueAlertMeter.Score(65, 1, 2);
@@ -325,7 +331,8 @@ final class UsDeviceFinancials {
                     continue;
                 }
                 partialAssessed++;
-                if (operatingRecovery != null && operatingOnly) missingEquityOperatingAssessed++;
+                if (operatingRecovery != null && usesOperatingHistory) operatingHistoryAssessed++;
+                else if (operatingRecovery != null && operatingOnly) missingEquityOperatingAssessed++;
                 else if (operatingRecovery != null) operatingRecoveryAssessed++;
                 if (recovery != null) bookRecoveryAssessed++;
                 if(quantity>0 && score.level(ValueAlertMeter.DEFAULT)>0) {
@@ -391,6 +398,7 @@ final class UsDeviceFinancials {
                 .put("assessment_count_version", ASSESSMENT_COUNT_VERSION)
                 .put("partial_insufficient", partialInsufficient)
                 .put("history_recovery_assessed", historyAssessed)
+                .put("operating_history_recovery_assessed", operatingHistoryAssessed)
                 .put("operating_recovery_assessed", operatingRecoveryAssessed)
                 .put("book_recovery_assessed", bookRecoveryAssessed)
                 .put("missing_equity_operating_assessed", missingEquityOperatingAssessed)
@@ -529,7 +537,8 @@ final class UsDeviceFinancials {
                 ? new ValueAlertMeter.Score(65, 1, 3) : new ValueAlertMeter.Score(0, 0, 3);
     }
 
-    private static ValueAlertMeter.Score recoverFromCashAndSales(JSONObject row, BigDecimal close, LocalDate day)
+    private static ValueAlertMeter.Score recoverFromCashAndSales(JSONObject row, BigDecimal close, LocalDate day,
+            boolean supportedByHistory)
             throws JSONException {
         var facts = row.optJSONObject("operating_recovery");
         Integer balance = meterBalance(row);
@@ -543,8 +552,17 @@ final class UsDeviceFinancials {
         var sales = new BigDecimal(facts.getString("sales"));
         var priorSales = new BigDecimal(facts.getString("prior_sales"));
         var cap = close.multiply(new BigDecimal(row.getString("shares")));
-        if (cash.signum() <= 0 || priorCash.signum() <= 0 || priorSales.signum() <= 0 || cap.signum() <= 0
-                || cash.compareTo(priorCash) < 0 || sales.compareTo(priorSales) < 0) return null;
+        if (cash.signum() <= 0 || priorCash.signum() <= 0 || priorSales.signum() <= 0 || cap.signum() <= 0) return null;
+        if (supportedByHistory) {
+            // Consider limited softness only with cash generation in both periods,
+            // stable revenue and a large discount to cash flow as well as price evidence.
+            if (cash.compareTo(priorCash.multiply(new BigDecimal("0.90"))) < 0
+                    || sales.compareTo(priorSales) < 0
+                    || cash.multiply(BigDecimal.valueOf(6)).compareTo(cap) < 0
+                    || sales.compareTo(cap.multiply(BigDecimal.valueOf(2))) < 0) return null;
+            return new ValueAlertMeter.Score(78, 2, 5);
+        }
+        if (cash.compareTo(priorCash) < 0 || sales.compareTo(priorSales) < 0) return null;
         boolean lowPrice = cash.multiply(BigDecimal.TEN).compareTo(cap) >= 0 && sales.compareTo(cap) >= 0;
         boolean strongDiscount = cash.multiply(BigDecimal.valueOf(5)).compareTo(cap) >= 0
                 && sales.compareTo(cap.multiply(BigDecimal.valueOf(2))) >= 0 && balance == 100;

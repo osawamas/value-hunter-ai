@@ -29,7 +29,21 @@ public final class UsLiveCoverage {
         var report = new JSONObject().put("status", "inputs_unavailable").put("stage", "listing_scope").put("sources", SOURCES);
         try {
             var options = java.util.Arrays.asList(args).subList(1, args.length);
-            assess(directory, report, options.contains("--probe-nasdaq-close"), options.contains("--alpaca"));
+            if (options.contains("--export-scope")) {
+                var nyse = UsMarketCoverage.directory(Files.readString(directory.resolve("otherlisted.txt")), false);
+                var nasdaq = UsMarketCoverage.directory(Files.readString(directory.resolve("nasdaqlisted.txt")), true);
+                if (!nyse.date().equals(nasdaq.date()) || !UsDailyCloses.tradingDay(nyse.date())
+                        || !UsMarketCoverage.sessionSnapshot(nyse.timestamp())
+                        || !UsMarketCoverage.sessionSnapshot(nasdaq.timestamp()))
+                    throw new IOException("Unverified listing scope");
+                var scope = new TreeSet<>(nyse.symbols());
+                scope.addAll(nasdaq.symbols());
+                Files.writeString(directory.resolve("verified-scope.json"), new JSONObject()
+                        .put("trade_date", nyse.date().toString()).put("symbols", new JSONArray(scope)).toString());
+                report.put("status", "scope_exported").put("scope", scope.size());
+            } else {
+                assess(directory, report, options.contains("--probe-nasdaq-close"), options.contains("--alpaca"));
+            }
         } catch (HttpFailure denied) {
             report.put("error", "HttpFailure").put("http_status", denied.status);
         } catch (IOException | org.json.JSONException unavailable) {
@@ -60,6 +74,15 @@ public final class UsLiveCoverage {
         var alpacaSplits = new java.util.HashMap<String, java.time.LocalDate>();
         var priceHistory = new JSONObject();
         var closes = useAlpaca ? alpacaCloses(day, scope, report, alpacaSplits, priceHistory) : null;
+        var expandedHistory = directory.resolve("verified-history.json");
+        if (useAlpaca && Files.isRegularFile(expandedHistory) && Files.size(expandedHistory) <= 250_000) {
+            var imported = new JSONObject(Files.readString(expandedHistory));
+            if (day.toString().equals(imported.optString("date")) && "IWV".equals(imported.optString("benchmark"))) {
+                for (String field : imported.keySet()) priceHistory.put(field, imported.get(field));
+                var confirmed = imported.optJSONObject("confirmed");
+                report.put("batch_history_confirmed", confirmed == null ? 0 : confirmed.length());
+            }
+        }
         String closeSource = closes == null ? UsDoltCloses.SOURCE : "alpaca_delayed_sip_raw";
         if (closes != null) report.put("quote_path", closeSource);
         UsDoltCloses.Download download = url -> new JSONObject(read(url, ""));
