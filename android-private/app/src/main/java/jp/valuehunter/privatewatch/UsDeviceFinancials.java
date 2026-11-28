@@ -88,7 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
-    static final int METER_EVIDENCE_VERSION = 7;
+    static final int METER_EVIDENCE_VERSION = 8;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {
@@ -165,6 +165,21 @@ final class UsDeviceFinancials {
         if (figures == null) {
             // Preserve a separate alternative evidence row; never invent missing aggregate figures.
             var partial = UsFinancialFacts.partialValue(payload,cik,day);
+            if ("parent_equity_missing".equals(assessed.hold())
+                    && (partial == null || partial.eps().isEmpty() || partial.eps().get(0).signum() <= 0)) {
+                var operating = UsFinancialFacts.operatingWithoutParentEquity(payload, cik, day);
+                if (operating != null) {
+                    var evidence = operating.evidence();
+                    var alternative = new JSONObject().put("partial_value", true).put("operating_only", true)
+                            .put("symbol", target.getString("symbol")).put("exchange", target.getString("exchange"))
+                            .put("cik", cik).put("meter_evidence_version", METER_EVIDENCE_VERSION)
+                            .put("share_date", operating.shareDate().toString()).put("equity_date", evidence.end().toString())
+                            .put("filed", operating.filed().toString()).put("accession", operating.accession())
+                            .put("shares", operating.shares().toPlainString()).put("meter_balance", operating.balance())
+                            .put("operating_recovery", operatingJson(evidence)).put("strict_hold", assessed.hold());
+                    return new FetchAssessment(alternative, assessed.hold());
+                }
+            }
             if (partial == null || !List.of("parent_equity_missing","shares_for_filing_missing",
                     "annual_profit_unconfirmed","previous_annual_profit_unconfirmed","parent_equity_stale",
                     "current_ytd_profit_unconfirmed","prior_ytd_profit_unconfirmed").contains(assessed.hold()))
@@ -195,11 +210,15 @@ final class UsDeviceFinancials {
                 .put("equity", figures.equity().toPlainString());
         var operating = history.operating();
         if (operating != null && figures.profit().signum() <= 0) {
-            row.put("operating_recovery", new JSONObject().put("end", operating.end().toString())
-                    .put("cash", operating.cashNow().toPlainString()).put("prior_cash", operating.cashPrior().toPlainString())
-                    .put("sales", operating.salesNow().toPlainString()).put("prior_sales", operating.salesPrior().toPlainString()));
+            row.put("operating_recovery", operatingJson(operating));
         }
         return new FetchAssessment(row, "");
+    }
+
+    private static JSONObject operatingJson(UsFinancialFacts.OperatingEvidence operating) throws JSONException {
+        return new JSONObject().put("end", operating.end().toString())
+                .put("cash", operating.cashNow().toPlainString()).put("prior_cash", operating.cashPrior().toPlainString())
+                .put("sales", operating.salesNow().toPlainString()).put("prior_sales", operating.salesPrior().toPlainString());
     }
 
     static void recordFetchOutcome(JSONObject scan, String symbol, FetchAssessment result) throws JSONException {
@@ -219,7 +238,7 @@ final class UsDeviceFinancials {
         return counts;
     }
 
-    static final int ASSESSMENT_COUNT_VERSION = 4;
+    static final int ASSESSMENT_COUNT_VERSION = 5;
 
     static boolean currentScreenVersion(JSONObject ledger) {
         var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");
@@ -251,7 +270,7 @@ final class UsDeviceFinancials {
         int affordable100 = 0, singleShare = 0;
         int partialInsufficient = 0, partialWithinBudget = 0;
         int partialAssessed = 0, partialEligible = 0, strictAssessed = 0, strictEligible = 0;
-        int operatingRecoveryAssessed = 0, bookRecoveryAssessed = 0;
+        int operatingRecoveryAssessed = 0, bookRecoveryAssessed = 0, missingEquityOperatingAssessed = 0;
         int[] flexibleTiers = new int[4], strictTiers = new int[4];
         var seen = new HashSet<String>();
         int nonPositiveProfit = 0, nonPositiveEquity = 0, nonPositiveBoth = 0, otherFinancialHold = 0;
@@ -275,10 +294,13 @@ final class UsDeviceFinancials {
             }
             boolean partial = row.optBoolean("partial_value");
             var recovery = partial ? null : recoverNonPositiveProfit(row, close);
-            var operatingRecovery = partial || recovery != null ? null : recoverFromCashAndSales(row, close, day);
+            boolean operatingOnly = row.optBoolean("operating_only");
+            var operatingRecovery = (!partial || operatingOnly) && recovery == null
+                    ? recoverFromCashAndSales(row, close, day) : null;
             if (partial || recovery != null || operatingRecovery != null) {
-                var score = partial ? flexibleUsScore(row, close, day)
-                        : recovery != null ? recovery : operatingRecovery;
+                var score = operatingRecovery != null ? operatingRecovery : operatingOnly
+                        ? new ValueAlertMeter.Score(0, 0, 0)
+                        : partial ? flexibleUsScore(row, close, day) : recovery;
                 score=UsDisclosureEvidence.adjust(score,row,day);
                 var yen=close.multiply(rate);
                 int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
@@ -288,7 +310,8 @@ final class UsDeviceFinancials {
                     continue;
                 }
                 partialAssessed++;
-                if (operatingRecovery != null) operatingRecoveryAssessed++;
+                if (operatingRecovery != null && operatingOnly) missingEquityOperatingAssessed++;
+                else if (operatingRecovery != null) operatingRecoveryAssessed++;
                 if (recovery != null) bookRecoveryAssessed++;
                 if(quantity>0 && score.level(ValueAlertMeter.DEFAULT)>0) {
                     partialEligible++; flexibleTiers[score.level(ValueAlertMeter.DEFAULT)]++;
@@ -354,6 +377,7 @@ final class UsDeviceFinancials {
                 .put("partial_insufficient", partialInsufficient)
                 .put("operating_recovery_assessed", operatingRecoveryAssessed)
                 .put("book_recovery_assessed", bookRecoveryAssessed)
+                .put("missing_equity_operating_assessed", missingEquityOperatingAssessed)
                 .put("partial_within_budget", partialWithinBudget)
                 .put("strict_assessed",strictAssessed).put("strict_eligible_default",strictEligible)
                 .put("partial_assessed",partialAssessed).put("partial_eligible_default",partialEligible)
@@ -476,9 +500,9 @@ final class UsDeviceFinancials {
             throws JSONException {
         var facts = row.optJSONObject("operating_recovery");
         Integer balance = meterBalance(row);
-        if (facts == null || balance == null || balance < 70
-                || new BigDecimal(row.getString("profit")).signum() > 0
-                || new BigDecimal(row.getString("equity")).signum() <= 0) return null;
+        if (facts == null || balance == null || balance < 70) return null;
+        if (!row.optBoolean("operating_only") && (new BigDecimal(row.getString("profit")).signum() > 0
+                || new BigDecimal(row.getString("equity")).signum() <= 0)) return null;
         var end = LocalDate.parse(facts.getString("end"));
         if (!end.isBefore(day) || end.isBefore(day.minusMonths(13))) return null;
         var cash = new BigDecimal(facts.getString("cash"));

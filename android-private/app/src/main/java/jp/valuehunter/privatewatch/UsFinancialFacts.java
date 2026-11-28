@@ -77,6 +77,38 @@ final class UsFinancialFacts {
 
     record OperatingEvidence(BigDecimal cashNow, BigDecimal cashPrior, BigDecimal salesNow,
                              BigDecimal salesPrior, LocalDate end) {}
+    record OperatingOnly(OperatingEvidence evidence, BigDecimal shares, LocalDate shareDate,
+                         LocalDate filed, String accession, int balance) {}
+
+    static OperatingOnly operatingWithoutParentEquity(JSONObject payload, int cik, LocalDate day) {
+        if (!matchesIssuer(payload, cik)) return null;
+        var document = payload.optJSONObject("facts");
+        if (document == null) return null;
+        return operatingWithoutParentEquity(document, day);
+    }
+
+    private static OperatingOnly operatingWithoutParentEquity(JSONObject document, LocalDate day) {
+        var gaap = document.optJSONObject("us-gaap");
+        boolean foreign = false;
+        var anchor = latest(facts(gaap, "Assets", "USD", day, foreign).stream()
+                .filter(row -> annualForm(row.form) && row.start == null).collect(Collectors.toList()), false);
+        if (anchor == null || anchor.end.isBefore(day.minusMonths(13)) || anchor.value.signum() <= 0) return null;
+        var liabilities = one(facts(gaap, "Liabilities", "USD", day, foreign).stream()
+                .filter(row -> samePeriod(row, anchor) && row.start == null).collect(Collectors.toList()));
+        if (liabilities == null || liabilities.value.signum() < 0
+                || liabilities.value.compareTo(anchor.value.multiply(new BigDecimal("0.65"))) > 0) return null;
+        if (facts(gaap, "PreferredStockValue", "USD", day, foreign).stream()
+                .anyMatch(row -> sameFiling(row, anchor) && row.value.signum() != 0)) return null;
+        var shares = one(facts(document.optJSONObject("dei"), "EntityCommonStockSharesOutstanding",
+                "shares", day, foreign).stream().filter(row -> sameFiling(row, anchor) && row.start == null
+                        && !row.end.isBefore(anchor.end)).collect(Collectors.toList()));
+        if (shares == null || shares.value.signum() <= 0
+                || shares.value.stripTrailingZeros().scale() > 0) return null;
+        var evidence = annualHistory(gaap, day, anchor, List.of(), foreign, false).operating();
+        if (evidence == null) return null;
+        int balance = liabilities.value.compareTo(anchor.value.multiply(new BigDecimal("0.50"))) <= 0 ? 100 : 70;
+        return new OperatingOnly(evidence, shares.value, shares.end, anchor.filed, anchor.accession, balance);
+    }
 
     record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance, OperatingEvidence operating) {
         MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {

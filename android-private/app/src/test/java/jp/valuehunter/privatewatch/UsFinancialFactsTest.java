@@ -19,6 +19,31 @@ public class UsFinancialFactsTest {
     private static final String K = "0000000001-26-000002";
     private static final LocalDate SESSION = LocalDate.parse("2026-11-17");
 
+    @Test public void operatingRouteRequiresSameFilingAssetsLiabilitiesAndShares() throws Exception {
+        var document = payload();
+        var facts = document.getJSONObject("facts");
+        var gaap = facts.getJSONObject("us-gaap");
+        gaap.remove("StockholdersEquity");
+        String filed = "2026-02-15";
+        String end = "2025-12-31";
+        gaap.put("Assets", units("USD", new JSONArray().put(row(null, end, filed, K, "10-K", 1000))));
+        gaap.put("Liabilities", units("USD", new JSONArray().put(row(null, end, filed, K, "10-K", 500))));
+        gaap.put("Revenues", units("USD", new JSONArray()
+                .put(row("2025-01-01", end, filed, K, "10-K", 800))
+                .put(row("2024-01-01", "2024-12-31", filed, K, "10-K", 700))));
+        gaap.put("NetCashProvidedByUsedInOperatingActivities", units("USD", new JSONArray()
+                .put(row("2025-01-01", end, filed, K, "10-K", 100))
+                .put(row("2024-01-01", "2024-12-31", filed, K, "10-K", 80))));
+        facts.getJSONObject("dei").put("EntityCommonStockSharesOutstanding",
+                units("shares", new JSONArray().put(row(null, end, filed, K, "10-K", 40))));
+        var target = new JSONObject().put("symbol", "ABC").put("exchange", "NYSE").put("cik", 1);
+        var assessed = UsDeviceFinancials.assessFetch(target, document, SESSION);
+        assertTrue(assessed.row().getBoolean("operating_only"));
+        assertFalse(assessed.row().has("equity"));
+        gaap.put("Liabilities", units("USD", new JSONArray().put(row(null, end, filed, Q, "10-K", 500))));
+        assertNull(UsFinancialFacts.operatingWithoutParentEquity(document, 1, SESSION));
+    }
+
     @Test public void issuerIdentityAcceptsPaddedDecimalWithoutCoercingDifferentIssuers() throws Exception {
         assertTrue(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000123"), 123));
         assertFalse(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000124"), 123));
