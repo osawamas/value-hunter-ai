@@ -87,9 +87,13 @@ final class JpxAutomaticFinance {
     }
 
     record Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates,
-                 int budget, int fetched, boolean continueInitial) {
+                 int budget, int fetched, boolean continueInitial, long archiveResumeAt) {
+        Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates,
+              int budget, int fetched, boolean continueInitial) {
+            this(entries, updates, budget, fetched, continueInitial, 0);
+        }
         Batch(Map<String, Entry> entries, Map<LocalDate, JpxDisclosureCalendar.Day> updates, int budget, int fetched) {
-            this(entries, updates, budget, fetched, false);
+            this(entries, updates, budget, fetched, false, 0);
         }
         static Batch empty() { return new Batch(Map.of(), Map.of(), 0, 0); }
 
@@ -253,9 +257,14 @@ final class JpxAutomaticFinance {
         var updates = JpxDisclosureCalendar.refresh(state, report.date(), earliest, stopped,
                 disclosureLoader, recheckFrom);
         long now = clock.getAsLong();
-        if (sources == null || stopped.getAsBoolean() || state.getLong(ARCHIVE_RETRY, 0L) > now) {
+        if (sources == null || stopped.getAsBoolean()) {
             return new Batch(Map.copyOf(entries), updates, eligible.size(), 0);
         }
+        long archiveResumeAt = state.getLong(ARCHIVE_RETRY, 0L);
+        if (archiveResumeAt > now) {
+            return new Batch(Map.copyOf(entries), updates, eligible.size(), 0, false, archiveResumeAt);
+        }
+        archiveResumeAt = 0;
         var ordered = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
                 .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now
@@ -326,7 +335,8 @@ final class JpxAutomaticFinance {
                 if (unavailable instanceof JpxIssuerArchive.HttpFailure http
                         && (http.status == 429 || http.status == 503)) {
                     long retryAt = archiveRetryAt(clock.getAsLong(), http.retryAfter);
-                    state.edit().putLong(ARCHIVE_RETRY, retryAt).putLong(RETRY_PREFIX + code, retryAt).commit();
+                    if (state.edit().putLong(ARCHIVE_RETRY, retryAt)
+                            .putLong(RETRY_PREFIX + code, retryAt).commit()) archiveResumeAt = retryAt;
                     limited = true;
                     break;
                 }
@@ -350,7 +360,7 @@ final class JpxAutomaticFinance {
         // Flush acquired issuers before the next run, even if this run ended on a lost connection.
         boolean saved = !(more || (interrupted && checked > 0)) || state.edit().commit();
         boolean continueInitial = more && saved;
-        return new Batch(Map.copyOf(entries), updates, eligible.size(), checked, continueInitial);
+        return new Batch(Map.copyOf(entries), updates, eligible.size(), checked, continueInitial, archiveResumeAt);
     }
 
     static long archiveRetryAt(long now, String retryAfter) {

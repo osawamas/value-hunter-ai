@@ -171,8 +171,9 @@ public final class JpxWatchWorker extends Worker {
 
     static long nextFinanceStart(long completed, boolean financePass, boolean periodicFinance,
                                  JpxAutomaticFinance.Batch batch) {
-        boolean scheduled = !financePass || periodicFinance;
-        return scheduled && batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
+        if (financePass && !periodicFinance) return 0;
+        if (batch.archiveResumeAt() > completed) return batch.archiveResumeAt();
+        return batch.continueInitial() ? completed + TimeUnit.MINUTES.toMillis(15) : 0;
     }
 
     private static Constraints connected() {

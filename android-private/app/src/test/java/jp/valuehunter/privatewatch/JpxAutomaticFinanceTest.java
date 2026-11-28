@@ -569,11 +569,13 @@ public class JpxAutomaticFinanceTest {
         var first = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(9, first.fetched());
         assertTrue(first.status().contains("初回確認待ち 3677銘柄"));
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, first));
+        long resumeAt = clock.get() + java.util.concurrent.TimeUnit.HOURS.toMillis(1);
+        assertEquals(resumeAt, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, first));
+        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, false, first));
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         var pause = JpxAutomaticFinance.refresh(preferences(cache), report, DAY, network, () -> false, clock::get);
         assertEquals(0, pause.fetched());
-        assertEquals(0, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, pause));
+        assertEquals(resumeAt, JpxWatchWorker.nextFinanceStart(clock.get(), true, true, pause));
         assertEquals(10, calls.get());
         clock.addAndGet(java.util.concurrent.TimeUnit.MINUTES.toMillis(30));
         int passes = 1;

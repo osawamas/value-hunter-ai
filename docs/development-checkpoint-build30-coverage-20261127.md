@@ -76,3 +76,15 @@ Hachiquantで、月末マスター3,686件中3,623件の終値・円建て通期
 通知CIではAPI 28・34・35で無音、画面点灯、履歴と再起動後の重複防止、Wi-Fi復帰を確認。後続の終値補完テストが、SEC財務と開示の同形URLをどちらも財務取得として数えて失敗したため、計数をcompanyfactsに限定した。実機の動作は未検証。[通知の検証](https://github.com/osawamas/value-hunter-ai/actions/runs/46062488708) · [修正後の通知CI](https://github.com/osawamas/value-hunter-ai/actions/runs/46064200091)
 
 API 28・35は通知計装の全工程に成功。API 34の再起動後は補完した銘柄が優先候補に入り、通知権限が未許可だったことを診断ログで確認した。再起動完了時に計装用の通知権限を再付与するよう変更した。[API 34の診断](https://github.com/osawamas/value-hunter-ai/actions/runs/46064986867/job/140728022839)
+
+## 11月28日（日本時間） 判定経路の拡張
+
+PR #162の `a01fd026` から継続。日本基準の公式決算短信から営業CF・売上高・総資産・純資産・期末発行済普通株式数を抽出する。比較できる前期営業利益がある場合は改善傾向も検証する。PER/PBRを使えない場合に、正の営業CF・売上高と保守的な株数に基づく時価総額、純資産比率を組み合わせて評価する。強い営業CF、健全な資産構成、営業利益の改善で三段階まで到達する。債務超過や営業CF不足など、根拠のある割安対象外も判定結果として記録する。増資・自己株式処分等の開示がある場合や、直近の株数関連開示の確認が欠ける場合はこの経路を保留する。既存の部分EPS経路と厳格経路を維持した。[JPX iXBRL仕様](https://www.jpx.co.jp/equities/listing/disclosure/xbrl/nlsgeu000005vk0b-att/325-001-02_Summary_instance.pdf)
+
+既存キャッシュのうち、日本基準でEPS・BPSに欠損または非正値のある銘柄を新しい財務項目の取得対象にした。日付を種にした探索は、未取得に加えて再照合対象にも適用し、急ぎの開示を保護する。探索順序を判定点に使わない。503・429のバックオフ時刻を保存し、定期取得はその時刻以降に再開する。
+
+Hachiquantの抽出サンプルを金融庁EDINETの提出記録と原本CSVに照合する機能を追加した。公表日・証券コード・書類ID・会計期を一致させ、同じ報告範囲の原本EPS/BPSを比較する。CSV上で期末株数が一意かも記録する。EDINET APIキーは環境変数からのみ読み込む。原本の期末株数と売買日現在の株数基準は別に確認する。[金融庁 EDINET API資料](https://disclosure2dl.edinet-fsa.go.jp/guide/static/disclosure/WZEK0110.html)
+
+米国の監査ではDoltHubの一括取得のほか、同一リビジョンで上場監視対象を100件ずつ照会する経路を追加した。別提供元として調べたMarketParquetの無料データは分割調整済み。ROICの全銘柄一括取得は有料条件がある。11月27日の保存済み公式上場ペアは5,080銘柄で、Codexから終値取得を試したが通信段階で終了した。推定値による補完はしていない。[MarketParquet 無料サンプル仕様](https://marketparquet.com/guides/free-historical-stock-data) · [ROIC一括取得仕様](https://www.roic.ai/api/docs/bulk/stock-prices)
+
+5年間の価格、業種内相対評価、開示原文からの受注・特許等の独立した加点、Hachiquantの全銘柄照合と本番利用は未完。UI、ブランド、通知の配信処理に変更はない。

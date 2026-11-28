@@ -267,28 +267,33 @@ final class JpxDailyCheck {
                     || !entry.evidenceFailure(code,day,finance.updates()).isEmpty()
                     || !rights.adjustments().containsAll(annual.adjustments())
                     || rights.firstUnadjustedChange(code,annual.end(),day,annual.adjustments())!=null) continue;
-                var operating = operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())
-                        ? JpxOperatingValuation.assess(annual, day, close) : null;
-                if (operating != null) {
-                    var score = JpxDisclosureEvidence.adjust(operating, entry.events(), day);
+                var score = partialEarningsScore(code, entry, annual, day, rights, close);
+                if (score == null && (annual.bps() == null || annual.bps().signum() <= 0
+                        || annual.eps().signum() <= 0)
+                        && operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())) {
+                    score = JpxOperatingValuation.assess(annual, day, close);
+                }
+                if (score != null) {
+                    score = JpxDisclosureEvidence.adjust(score, entry.events(), day);
                     rows.put(code, ValueAlertPreview.encode(score, budgetQuantity(close)));
-                    continue;
                 }
-                if (annual.bps() != null || annual.eps().signum() <= 0) continue;
-                var eps=recentEps(code,entry,annual,day,rights);
-                var prior = entry.previousAnnual();
-                BigDecimal priorBook = null;
-                // recentEps establishes comparable annual periods and verified share actions.
-                if (eps.size() == 2 && !annual.reportingBasis().isEmpty()
-                        && annual.reportingBasis().equals(prior.reportingBasis()) && prior.bps() != null) {
-                    priorBook = prior.onShareBasis(day, prior.bps(), false)
-                            .divide(prior.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
-                }
-                var score = JpxDisclosureEvidence.adjust(
-                        FlexibleValueMeter.withVerifiedPriorBook(close, eps, priorBook), entry.events(), day);
-                if(score.confirmed()>=2) rows.put(code,ValueAlertPreview.encode(score,budgetQuantity(close)));
             }
             return rows;
+        }
+
+        private ValueAlertMeter.Score partialEarningsScore(String code, JpxAutomaticFinance.Entry entry,
+                JpxAnnualSummary.Annual annual, LocalDate day, JpxShareRights rights, BigDecimal close) {
+            if (annual.bps() != null || annual.eps().signum() <= 0) return null;
+            var eps = recentEps(code, entry, annual, day, rights);
+            var prior = entry.previousAnnual();
+            BigDecimal priorBook = null;
+            if (eps.size() == 2 && !annual.reportingBasis().isEmpty()
+                    && annual.reportingBasis().equals(prior.reportingBasis()) && prior.bps() != null) {
+                priorBook = prior.onShareBasis(day, prior.bps(), false)
+                        .divide(prior.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+            }
+            var score = FlexibleValueMeter.withVerifiedPriorBook(close, eps, priorBook);
+            return score.confirmed() >= 2 ? score : null;
         }
 
         private static boolean operatingShareCountVerified(String code, LocalDate through, LocalDate day,
