@@ -1,9 +1,11 @@
 import io
 import unittest
+from urllib.error import HTTPError
+from unittest.mock import patch
 from decimal import Decimal
 from zipfile import ZipFile
 
-from jpx_edinet_crosscheck import BPS, EPS, SHARES, compare, facts_from_csv, metadata_matches
+from jpx_edinet_crosscheck import BPS, EPS, SHARES, EdinetAudit, compare, download, facts_from_csv, metadata_matches
 
 
 class CrossCheckTest(unittest.TestCase):
@@ -16,6 +18,35 @@ class CrossCheckTest(unittest.TestCase):
         self.assertFalse(metadata_matches([row, row], *args))
         self.assertFalse(metadata_matches([dict(row, withdrawalStatus="1")], *args))
         self.assertFalse(metadata_matches([row], *args[:-1], "2026-06-25"))
+
+    def test_download_does_not_expose_authenticated_url_on_error(self):
+        key = "sample-key-that-must-not-appear"
+        with patch("jpx_edinet_crosscheck.build_opener") as opener:
+            opener.return_value.open.side_effect = HTTPError(
+                "https://edinet.invalid/?Subscription-Key=" + key, 429, key, None, None)
+            with self.assertRaises(HTTPError) as captured:
+                download(".json", {"date": "2026-06-24", "type": 2}, key, 100)
+        self.assertEqual(captured.exception.code, 429)
+        self.assertNotIn(key, str(captured.exception))
+        self.assertNotIn(key, captured.exception.url)
+
+    def test_reuses_a_day_listing_and_propagates_document_throttling(self):
+        listing = b'{"results":[]}'
+        audit = EdinetAudit("test-key")
+        with patch.object(audit, "request", return_value=listing) as request:
+            for code in ("1301", "1302"):
+                self.assertFalse(audit.check(
+                    dict(code=code, annual_source_id="S100AB12", actual_filing_date="2026-06-24"),
+                    {"period_end": "2026-03-31"})["filing_metadata_match"])
+            self.assertEqual(request.call_count, 1)
+        audit.days["2026-06-24"] = [dict(
+            docID="S100AB12", secCode="13010", periodEnd="2026-03-31", periodStart="2025-04-01",
+            submitDateTime="2026-06-24 10:12", docTypeCode="120", withdrawalStatus="0",
+            disclosureStatus="0", csvFlag="1")]
+        with patch.object(audit, "request", side_effect=HTTPError("https://edinet.invalid", 503, "", None, None)):
+            with self.assertRaises(HTTPError):
+                audit.check(dict(code="1301", annual_source_id="S100AB12", actual_filing_date="2026-06-24"),
+                            {"period_end": "2026-03-31"})
 
     def test_requires_same_scope_and_ignores_wrong_currency(self):
         output = io.BytesIO()

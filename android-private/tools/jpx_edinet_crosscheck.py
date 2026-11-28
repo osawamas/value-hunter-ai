@@ -24,12 +24,18 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def download(path, query, key, limit):
-    request = Request(BASE + path + "?" + urlencode(query),
-                      headers={"Subscription-Key": key})
-    with build_opener(NoRedirect()).open(request, timeout=10) as response:
-        if response.geturl() != request.full_url:
-            raise ValueError("EDINET changed the source URL")
-        body = response.read(limit + 1)
+    url = BASE + path
+    request = Request(url + "?" + urlencode({**query, "Subscription-Key": key}))
+    try:
+        with build_opener(NoRedirect()).open(request, timeout=10) as response:
+            if response.geturl() != request.full_url:
+                raise ValueError("EDINET changed the source URL")
+            body = response.read(limit + 1)
+    except HTTPError as error:
+        error.close()
+        raise HTTPError(url, error.code, "EDINET request failed", None, None) from None
+    except (OSError, ValueError):
+        raise OSError("EDINET connection failed") from None
     if len(body) > limit:
         raise ValueError("EDINET response exceeds size limit")
     return body
@@ -111,6 +117,9 @@ class EdinetAudit:
             raise ValueError("Unexpected EDINET document identifier")
         if filed_on not in self.days:
             listing = json.loads(self.request(".json", {"date": filed_on, "type": 2}, 4_000_000))
+            status = str(listing.get("metadata", {}).get("status", ""))
+            if status in ("401", "403", "429", "503"):
+                raise HTTPError(BASE, int(status), "EDINET request failed", None, None)
             self.days[filed_on] = listing["results"]
         if not metadata_matches(self.days[filed_on], code, doc_id, row["period_end"], filed_on):
             return {"filing_metadata_match": False}
