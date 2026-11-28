@@ -94,3 +94,9 @@ Hachiquantの抽出サンプルを金融庁EDINETの提出記録と原本CSVに�
 [PR #162](https://github.com/osawamas/value-hunter-ai/pull/162) の統合ブランチを継続。[30dcf061 の実測](https://github.com/osawamas/value-hunter-ai/actions/runs/46113439673) は11月26日東証3,689銘柄中1,356（36.76%）、厳格1,202、柔軟追加154、三段階397・5・0。未判定の内訳は財務根拠不足2,155、株式異動未確認144、終値欠落34。Hachiquantと照合した年次原本は39件。新しい資料の確認は旧処理で38件が一律に曖昧扱いとなったため、EDINET側の該当書類なし・訂正・半期書類の競合を切り分ける。
 
 [米国5,080銘柄のスコープを確認した実行](https://github.com/osawamas/value-hunter-ai/actions/runs/46061801303) ではDoltHubのHTTP応答は200、当日終値は0件。最新上場一覧は時刻検証を通らず、全銘柄の判定可能率は未計測。監査ではNasdaqの公式終値をAAPLについて別途照合する。これは一次市場の公式終値のため、全米統合終値として扱わない。再生の取得・タイムアウトの結果も別のJSONに出力する。
+
+[04ecd19d の市場実測](https://github.com/osawamas/value-hunter-ai/actions/runs/46144366974) では、同じ11月26日の東証3,689銘柄中1,979（53.65%）を判定。厳格1,810、柔軟追加169、三段階570・5・0。公式財務の取得処理で768件を新たに確認し、利用可能な財務記録は2,344銘柄。未判定の内訳は財務根拠不足1,453、株式異動未確認223、終値欠落34。前回から623銘柄増加し、90%にはさらに1,342銘柄の有効な判定が必要。
+
+EDINET原本の年次照合は40件中39件。39件とも後続の半期書類を特定したが、書類の取得・公表日・会計期の確認条件を満たせず、代替経路からの加算は0件。該当39件は同実行の jpx-later-filings.json に記録した。米国は5,080銘柄の保存済みスコープを取得できたが、再生が100秒でタイムアウトし未計測。Nasdaq公式APIはHTTP 200、AAPLの指定された2取引日の組は照合できなかった。Market HistoryはHTTP 403。FinzDataはキー未登録。Codexクラウド内からDoltHub・Nasdaqに接続した際の403は、配信元に到達する前のプロキシ応答。
+
+Android単体236件、JPX照合・評価用Pythonテスト8件、FinzDataテスト2件、Java監査ツールのコンパイルとAPKのビルドを確認。[再起動を含む無音通知・再点灯防止・履歴](https://github.com/osawamas/value-hunter-ai/actions/runs/46144366962) と [ブランドUI](https://github.com/osawamas/value-hunter-ai/actions/runs/46144366960) のエミュレータCIも成功。保留中のSGXの別ワークフローは失敗。
