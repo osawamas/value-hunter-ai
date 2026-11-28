@@ -25,6 +25,19 @@ public final class UsReferenceAlertsTest {
         return new UsReferenceAlerts.Screen(day, provider, "", rows);
     }
 
+    @Test public void scopedAuditCanReadItsOwnProviderWithoutChangingDeviceAllowlist() throws Exception {
+        var provider = "alpaca_delayed_sip_raw";
+        var checkpoint = new JSONObject().put("coverage_listing_date", DAY.toString())
+                .put("coverage_symbols", new JSONArray(List.of("ABC"))).put("results", new JSONArray());
+        var fx = new UsScreen.Fx(DAY, 150);
+        var hash = "a".repeat(64);
+        var audit = UsDeviceFinancials.scopedAssessment(DAY, provider, hash, checkpoint, Map.of(), fx, Map.of());
+        assertEquals(provider, audit.getString("close_provider"));
+        assertEquals(1, audit.getInt("scope"));
+        var ledger = UsDeviceFinancials.screen(DAY, provider, hash, new JSONArray(), Map.of(), fx, Map.of());
+        assertThrows(org.json.JSONException.class, () -> UsReferenceAlerts.read(ledger));
+    }
+
     @Test public void reportsOnlyComparableEntriesAndPrioritizesPurchaseLots() {
         var previous = screen(DAY, SOURCE, Map.of(
                 "AAA", row(1, "reference", 1), "BBB", row(2, "outside_budget", 1),

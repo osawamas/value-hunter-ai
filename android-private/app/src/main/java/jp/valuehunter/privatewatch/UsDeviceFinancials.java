@@ -386,7 +386,7 @@ final class UsDeviceFinancials {
             }
         }
         var ledger = screen(day, source, hash, records, prices, fx, splits);
-        var assessed = UsReferenceAlerts.read(ledger).rows();
+        var assessed = UsReferenceAlerts.read(ledger, Set.of(source)).rows();
         var diagnostics = ledger.getJSONObject("reference_screen").getJSONObject("diagnostics");
         int budget = 0, budgetAssessed = 0;
         var reasonCounts = new java.util.TreeMap<String, Integer>();

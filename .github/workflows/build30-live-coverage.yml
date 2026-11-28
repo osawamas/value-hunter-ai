@@ -116,7 +116,7 @@ jobs:
                 rm -f "$bulk"
               fi
             fi
-            timeout 420 java -Xmx1500m -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" --alpaca || result=$?
+            timeout 510 java -Xmx1500m -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" --alpaca || result=$?
             if [ -s "$data/us-public-coverage.json" ]; then
               cp "$data/us-public-coverage.json" coverage-results/us-archived-coverage.json
             else

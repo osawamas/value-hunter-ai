@@ -53,6 +53,10 @@ final class UsReferenceAlerts {
     }
 
     static Screen read(JSONObject ledger) throws JSONException {
+        return read(ledger, Set.of(UsDoltCloses.SOURCE, UsDailyCloses.MASSIVE_SOURCE));
+    }
+
+    static Screen read(JSONObject ledger, Set<String> acceptedProviders) throws JSONException {
         try {
             var day = LocalDate.parse(ledger.getString("trading_date_et"));
             var screen = ledger.getJSONObject("reference_screen");
@@ -60,7 +64,7 @@ final class UsReferenceAlerts {
             var hash = screen.getString("close_sha256");
             var observations = screen.getJSONArray("observations");
             if (!hasTradeDateFx(ledger, day) || !hash.matches("[a-f0-9]{64}")
-                    || !Set.of(UsDoltCloses.SOURCE, UsDailyCloses.MASSIVE_SOURCE).contains(provider)
+                    || !acceptedProviders.contains(provider)
                     || observations.length() > 12_000) throw new JSONException("Invalid US reference screen");
             var rows = new HashMap<String, Observation>();
             for (int i = 0; i < observations.length(); i++) {

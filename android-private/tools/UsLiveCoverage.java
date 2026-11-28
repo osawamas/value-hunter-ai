@@ -131,7 +131,7 @@ public final class UsLiveCoverage {
         var rows = new JSONArray();
         var checkpoint = new JSONObject().put("coverage_listing_date", day.toString())
                 .put("coverage_symbols", new JSONArray(scope)).put("results", rows);
-        var deadline = Instant.now().plus(Duration.ofMinutes(useAlpaca ? 3 : 7));
+        var deadline = Instant.now().plus(Duration.ofMinutes(useAlpaca ? 5 : 7));
         int processed = 0;
         var factsByIssuer = new java.util.HashMap<Integer, JSONObject>();
         try (var archive = companyFactsArchive(report)) {
