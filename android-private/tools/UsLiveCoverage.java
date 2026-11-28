@@ -51,8 +51,19 @@ public final class UsLiveCoverage {
         scope.addAll(nasdaq.symbols());
         report.put("scope", scope.size()).put("stage", "closing_prices");
         JSONArray closes;
+        UsDoltCloses.Download download = url -> new JSONObject(read(url, ""));
         try {
-            closes = UsDoltCloses.fetch(day, url -> new JSONObject(read(url, "")));
+            try {
+                closes = UsDoltCloses.fetch(day, download);
+            } catch (java.net.SocketTimeoutException timeout) {
+                closes = null;
+            }
+            if (closes == null || closes.length() == 0) {
+                report.put("quote_path", "dolt_scoped_symbol_batches");
+                closes = UsDoltCloses.fetchScoped(day, scope, download);
+            } else {
+                report.put("quote_path", "dolt_date_manifest");
+            }
         } catch (org.json.JSONException invalidCloses) {
             report.put("status", "dated_close_provider_response_unverified");
             return;

@@ -99,7 +99,31 @@ final class UsDoltCloses {
         return closes;
     }
 
+    static JSONArray fetchScoped(LocalDate day, Set<String> scope, Download download)
+            throws IOException, JSONException {
+        if (scope.isEmpty() || scope.size() > 12_000) throw new JSONException("Invalid Dolt listing scope");
+        var manifest = query(download, "SELECT DOLT_HASHOF('HEAD') AS revision");
+        if (manifest.length() != 1) throw new JSONException("Unexpected Dolt revision response");
+        String revision = manifest.getJSONObject(0).getString("revision");
+        if (!revision.matches("[0-9a-v]{32}")) throw new JSONException("Invalid Dolt revision");
+        var symbols = new java.util.ArrayList<>(new java.util.TreeSet<>(scope));
+        var all = new JSONArray();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(2);
+        for (int offset = 0; offset < symbols.size(); offset += 100) {
+            if (System.nanoTime() - deadline >= 0) throw new SocketTimeoutException("Dolt scoped query deadline");
+            int end = Math.min(offset + 100, symbols.size());
+            var rows = supplement(day, Set.copyOf(symbols.subList(offset, end)), revision, download);
+            for (int i = 0; i < rows.length(); i++) all.put(rows.getJSONObject(i));
+        }
+        return all;
+    }
+
     static JSONArray supplement(LocalDate day, Set<String> symbols, Download download)
+            throws IOException, JSONException {
+        return supplement(day, symbols, "", download);
+    }
+
+    private static JSONArray supplement(LocalDate day, Set<String> symbols, String revision, Download download)
             throws IOException, JSONException {
         if (symbols.isEmpty() || symbols.size() > 100) throw new JSONException("Invalid quote repair size");
         var codes = new java.util.ArrayList<String>();
@@ -107,7 +131,8 @@ final class UsDoltCloses {
             if (!symbol.matches("[A-Z0-9.$+^=/_-]{1,24}")) throw new JSONException("Invalid quote repair ticker");
             codes.add("'" + symbol + "'");
         }
-        var rows = query(download, "SELECT act_symbol AS symbol, date AS trading_date, close FROM ohlcv"
+        String asOf = revision.isEmpty() ? "" : " AS OF '" + revision + "'";
+        var rows = query(download, "SELECT act_symbol AS symbol, date AS trading_date, close FROM ohlcv" + asOf
                 + " WHERE date = '" + day + "' AND close > 0 AND act_symbol IN (" + String.join(",", codes) + ")");
         var closes = new JSONArray();
         var remaining = new HashSet<>(symbols);

@@ -7,6 +7,7 @@ on:
       - 'android-private/tools/build30_public_sources.py'
       - 'android-private/tools/probe_jpx_archive.py'
       - 'android-private/tools/jpx_hachiquant_coverage.py'
+      - 'android-private/tools/jpx_edinet_crosscheck.py'
       - 'android-private/tools/UsLiveCoverage.java'
       - 'android-private/tools/check_jpx_live_emulator.sh'
       - 'android-private/app/src/androidTest/java/jp/valuehunter/privatewatch/JpxPdfGeometryProbe.java'
@@ -46,6 +47,8 @@ jobs:
             echo "jpx_day=$day" >> "$GITHUB_OUTPUT"
           fi
       - name: Measure the free alternative JPX annual input
+        env:
+          EDINET_API_KEY: ${{ secrets.EDINET_API_KEY }}
         if: steps.acquire.outputs.jpx == 'true'
         run: |
           day="${{ steps.acquire.outputs.jpx_day }}"

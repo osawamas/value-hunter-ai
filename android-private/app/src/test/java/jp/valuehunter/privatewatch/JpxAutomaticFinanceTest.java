@@ -285,7 +285,8 @@ public class JpxAutomaticFinanceTest {
                         filing().replace(">60.00<", ">20.00<")), () -> false);
         var old = initial.entries().get(CODE);
         cache.put("disclosure-days", """
-                {"2026-11-16":{"rights":[],"annual":["1420"]},"2026-11-17":{"rights":[],"annual":[]}}
+                {"2026-11-16":{"rights":[],"annual":["1420"],"dilution":[]},
+                 "2026-11-17":{"rights":[],"annual":[],"dilution":[]}}
                 """);
         var latestSources = sources(archive("決算短信〔日本基準〕(連結)", PATH)
                 .replace("2026/05/11", "2026/11/16"), filing().replace("2026年５月11日", "2026年11月16日"));

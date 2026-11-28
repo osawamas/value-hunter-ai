@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import date
 from decimal import Decimal
 import json
+import os
 import re
 import time
 from urllib.error import HTTPError
@@ -13,6 +14,7 @@ from jpx_daily_probe import CODE, MARKETS, ordinary_stocks, read_quotes
 from jpx_valuation_probe import trading_date
 from jpx_share_basis import load_rights_reports, missing_rights_months, share_basis_status
 from jpx_daily_rights import load_daily_rights
+from jpx_edinet_crosscheck import EdinetAudit
 
 BASE = "https://hachiquant.com/api/v1"
 PAGE_SIZE = 200
@@ -126,7 +128,7 @@ def verify_filing_sample(code, row):
     return {"code": code, "annual_source_id": doc_id, "actual_filing_date": filed_on.isoformat()}
 
 
-def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, rights, daily_rights):
+def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, rights, daily_rights, edinet=None):
     affordable = Counter()
     preliminary = {market: [] for market in MARKETS.values()}
     for code, market in stocks.items():
@@ -146,6 +148,7 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
     results = {}
     missing_by_month = Counter()
     missing_combinations = Counter()
+    original_counts = Counter()
     for market, candidates in preliminary.items():
         counts = Counter()
         ordered = sorted(candidates)
@@ -171,6 +174,12 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
             filed_on = date.fromisoformat(filing["actual_filing_date"])
             if filed_on < day:
                 counts["filed_before_quote"] += 1
+                if edinet is not None:
+                    try:
+                        original_counts["attempted"] += 1
+                        original_counts.update(key for key, verified in edinet.check(filing, row).items() if verified)
+                    except (OSError, ValueError, KeyError):
+                        original_counts["original_source_unavailable"] += 1
                 period_end = date.fromisoformat(row["period_end"])
                 status = share_basis_status(code, period_end, day, rights, daily_rights.get(code, ()))
                 counts[status] += 1
@@ -197,6 +206,8 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
         }
     return {
         "quote_date": day.isoformat(),
+        "edinet_original_audit": (dict(original_counts) if edinet is not None
+                                  else {"status": "edinet_api_key_unconfigured"}),
         "share_basis_verified": False,
         "by_market": results,
         "gap_counts_by_month": dict(sorted(missing_by_month.items())),
@@ -237,10 +248,12 @@ def main():
         "sampled_annual_filings": [verify_filing_sample(code, rows[code]) for code in args.check_filing],
     }
     if args.budget_samples_per_market:
+        edinet_key = os.getenv("EDINET_API_KEY", "").strip()
         day, prices, duplicates = latest
         result["budget_filing_audit"] = audit_budget(
             day, stocks, prices, duplicates, rows, args.budget_samples_per_market,
             load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
+            EdinetAudit(edinet_key) if edinet_key else None,
         )
     print(json.dumps(result, indent=2))
 

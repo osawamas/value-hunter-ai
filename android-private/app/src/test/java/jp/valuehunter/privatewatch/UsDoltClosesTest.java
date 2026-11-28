@@ -19,6 +19,27 @@ public class UsDoltClosesTest {
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
     private static final String REVISION = "0123456789abcdefghijklmnopqrstuv";
 
+    @Test public void scopedFallbackPinsRevisionAndQueriesEveryListingBatch() throws Exception {
+        var calls = new AtomicInteger();
+        var scope = new java.util.TreeSet<String>();
+        for (int i = 0; i <= 100; i++) scope.add(String.format(java.util.Locale.ROOT, "S%03d", i));
+        var closes = UsDoltCloses.fetchScoped(DAY, scope, address -> {
+            int call = calls.getAndIncrement();
+            String query = URLDecoder.decode(address, StandardCharsets.UTF_8);
+            if (call == 0) {
+                assertTrue(query.endsWith("SELECT DOLT_HASHOF('HEAD') AS revision"));
+                return response(new JSONArray().put(new JSONObject().put("revision", REVISION)));
+            }
+            assertTrue(query.contains("ohlcv AS OF '" + REVISION + "'"));
+            assertTrue(query.contains("date = '" + DAY + "'"));
+            if (call == 1) assertTrue(query.contains("'S000'") && query.contains("'S099'"));
+            else assertTrue(query.endsWith("IN ('S100')"));
+            return response(new JSONArray().put(row(call == 1 ? "S099" : "S100", DAY)));
+        });
+        assertEquals(3, calls.get());
+        assertEquals(2, closes.length());
+    }
+
     @Test public void readsAllPagesAtThePinnedRevision() throws Exception {
         var calls = new AtomicInteger();
         var closes = UsDoltCloses.fetch(DAY, address -> {
