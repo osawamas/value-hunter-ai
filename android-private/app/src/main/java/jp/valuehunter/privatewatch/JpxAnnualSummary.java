@@ -60,7 +60,8 @@ final class JpxAnnualSummary {
     }
 
     record OperatingFacts(BigDecimal cashFlow, BigDecimal revenue, BigDecimal assets, BigDecimal netAssets,
-                          BigDecimal issuedShares, BigDecimal operatingProfit, BigDecimal priorProfit) {}
+                          BigDecimal issuedShares, BigDecimal operatingProfit, BigDecimal priorProfit,
+                          BigDecimal priorCashFlow) {}
 
     private JpxAnnualSummary() {}
 
@@ -146,17 +147,20 @@ final class JpxAnnualSummary {
             var profit = optionalAmount(root, "OperatingIncome", duration);
             String priorId = "PriorYearDuration_" + member + "_ResultMember";
             BigDecimal prior = null;
+            BigDecimal priorCash = null;
             try {
                 var period = context(root, priorId, code, member);
                 var priorStart = LocalDate.parse(only(period, XBRL, "startDate"));
                 var priorEnd = LocalDate.parse(only(period, XBRL, "endDate"));
                 long days = ChronoUnit.DAYS.between(priorStart, priorEnd) + 1;
-                if (priorEnd.plusDays(1).equals(start) && days >= 350 && days <= 380)
+                if (priorEnd.plusDays(1).equals(start) && days >= 350 && days <= 380) {
                     prior = optionalAmount(root, "OperatingIncome", priorId);
+                    priorCash = optionalAmount(root, "CashFlowsFromOperatingActivities", priorId);
+                }
             } catch (IllegalArgumentException | java.time.DateTimeException missingPrior) {
                 // Without a comparable prior year the highest tier stays unavailable.
             }
-            return new OperatingFacts(cash, revenue, assets, netAssets, issued, profit, prior);
+            return new OperatingFacts(cash, revenue, assets, netAssets, issued, profit, prior, priorCash);
         } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
             return null;
         }

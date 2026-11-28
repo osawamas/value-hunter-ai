@@ -567,10 +567,11 @@ final class JpxAutomaticFinance {
     }
 
     private static JpxAnnualSummary.OperatingFacts decodeOperating(JSONArray row) {
-        if (row == null || row.length() != 7) return null;
+        if (row == null || (row.length() != 7 && row.length() != 8)) return null;
         try {
             var facts = new JpxAnnualSummary.OperatingFacts(decimal(row, 0), decimal(row, 1),
-                    decimal(row, 2), decimal(row, 3), decimal(row, 4), decimal(row, 5), decimal(row, 6));
+                    decimal(row, 2), decimal(row, 3), decimal(row, 4), decimal(row, 5), decimal(row, 6),
+                    row.length() == 8 ? decimal(row, 7) : null);
             return facts.revenue() != null && facts.revenue().signum() > 0
                     && facts.assets() != null && facts.assets().signum() > 0 && facts.netAssets() != null
                     && facts.netAssets().compareTo(facts.assets()) <= 0 && facts.issuedShares() != null
@@ -616,7 +617,7 @@ final class JpxAutomaticFinance {
         if (facts != null) {
             var row = new JSONArray();
             for (var value : new BigDecimal[]{facts.cashFlow(), facts.revenue(), facts.assets(),
-                    facts.netAssets(), facts.issuedShares(), facts.operatingProfit(), facts.priorProfit()}) {
+                    facts.netAssets(), facts.issuedShares(), facts.operatingProfit(), facts.priorProfit(), facts.priorCashFlow()}) {
                 row.put(value == null ? JSONObject.NULL : value.toPlainString());
             }
             destination.put("operating", row);

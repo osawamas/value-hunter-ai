@@ -176,6 +176,17 @@ public class JpxAutomaticFinanceTest {
                 CODE, RELEASED, source, false);
         assertNull(malformedCash.operating());
 
+        String stable = xml.replace(operatingFact(duration, "OperatingIncome", "JPY", 6, 20),
+                operatingFact(duration, "OperatingIncome", "JPY", 6, 35))
+                .replace(operatingFact(prior, "OperatingIncome", "JPY", 6, 15),
+                        operatingFact(prior, "OperatingIncome", "JPY", 6, 36));
+        String priorCash = operatingFact(prior, "CashFlowsFromOperatingActivities", "JPY", 6, 24);
+        var established = JpxAnnualSummary.read(stable.replace("</html>", priorCash + "</html>"),
+                CODE, RELEASED, source, false);
+        assertEquals(3, JpxOperatingValuation.assess(established, DAY, new BigDecimal("100")).ceiling());
+        var unknownHistory = JpxAnnualSummary.read(stable, CODE, RELEASED, source, false);
+        assertEquals(1, JpxOperatingValuation.assess(unknownHistory, DAY, new BigDecimal("100")).ceiling());
+
         var tier3 = JpxOperatingValuation.assess(annual, DAY, new BigDecimal("100"));
         assertEquals(3, tier3.level(ValueAlertMeter.DEFAULT));
         assertEquals(2, JpxOperatingValuation.assess(annual, DAY, new BigDecimal("150")).ceiling());

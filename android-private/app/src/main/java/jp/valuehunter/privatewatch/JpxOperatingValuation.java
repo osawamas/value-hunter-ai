@@ -37,7 +37,13 @@ final class JpxOperatingValuation {
         var previous = facts.priorProfit();
         boolean profitable = profit != null && profit.signum() > 0;
         boolean improving = profitable && previous != null && profit.compareTo(previous) > 0;
-        if (improving && atLeast(profit, facts.revenue(), "0.05")
+        var priorCash = annual.onShareBasis(day, facts.priorCashFlow(), false);
+        boolean sustainedCash = profitable && previous != null && previous.signum() > 0
+                && atLeast(profit, previous, "0.95") && priorCash != null
+                && atLeast(priorCash, marketCap, "0.20")
+                && atLeast(profit, facts.revenue(), "0.10")
+                && atLeast(facts.netAssets(), facts.assets(), "0.60");
+        if ((improving || sustainedCash) && atLeast(profit, facts.revenue(), "0.05")
                 && atLeast(facts.netAssets(), facts.assets(), "0.50")
                 && atLeast(cashFlow, marketCap, "0.20") && atLeast(revenue, marketCap, "2.5")) {
             return new ValueAlertMeter.Score(93, 3, 4);
