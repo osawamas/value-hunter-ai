@@ -19,7 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 final class JpxHistoryReference {
     private static final String ASSET = "jpx-history.json";
-    private static final int MAX_BYTES = 65_536;
+    private static final int MAX_BYTES = 2_097_152;
     private static final JpxHistoryReference EMPTY = new JpxHistoryReference(Map.of());
 
     private record Bounds(BigDecimal low, BigDecimal high) {}

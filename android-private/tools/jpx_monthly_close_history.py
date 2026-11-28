@@ -168,12 +168,18 @@ def collect_month(month, source, codes, cache):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("end_month", help="most recent completed month in YYYY-MM")
-    parser.add_argument("codes", nargs="+", type=str.upper)
+    parser.add_argument("codes", nargs="*", type=str.upper)
+    parser.add_argument("--universe-xlsx", type=Path)
     parser.add_argument("--months", type=int, choices=range(1, 61), default=60)
     parser.add_argument("--cache-dir", type=Path)
     parser.add_argument("--include-prices", action="store_true", help="include unadjusted prices in local output")
     args = parser.parse_args()
-    if any(not TICKER.fullmatch(code) for code in args.codes):
+    if args.universe_xlsx:
+        from jpx_daily_probe import ordinary_stocks
+        if args.codes:
+            parser.error("provide either codes or the official listing workbook")
+        args.codes = sorted(ordinary_stocks(args.universe_xlsx))
+    if not args.codes or any(not TICKER.fullmatch(code) for code in args.codes):
         parser.error("expected four-character JPX ticker codes")
     if args.cache_dir is not None:
         args.cache_dir.mkdir(parents=True, exist_ok=True)

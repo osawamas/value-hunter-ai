@@ -7,6 +7,8 @@ on:
       - 'android-private/tools/build30_public_sources.py'
       - 'android-private/tools/probe_jpx_archive.py'
       - 'android-private/tools/jpx_hachiquant_coverage.py'
+      - 'android-private/tools/jpx_monthly_close_history.py'
+      - 'android-private/tools/jpx_adjust_monthly_history.py'
       - 'android-private/tools/jpx_edinet_crosscheck.py'
       - 'android-private/tools/UsLiveCoverage.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
@@ -153,12 +155,32 @@ jobs:
         with:
           gradle-version: '8.9'
           cache-read-only: true
+      - name: Acquire five years of official JPX monthly history
+        if: steps.acquire.outputs.jpx == 'true'
+        run: |
+          day="${{ steps.acquire.outputs.jpx_day }}"
+          month=$(python -c 'from datetime import date,timedelta; import sys; print((date.fromisoformat(sys.argv[1]).replace(day=1)-timedelta(days=1)).strftime("%Y-%m"))' "$day")
+          prices="$RUNNER_TEMP/jpx-monthly-prices.json"
+          history="$RUNNER_TEMP/jpx-history.json"
+          if timeout 390 python android-private/tools/jpx_monthly_close_history.py "$month" \
+              --universe-xlsx coverage-results/jpx-list.xlsx --cache-dir "$RUNNER_TEMP/jpx-monthly" --include-prices > "$prices" &&
+            timeout 160 python android-private/tools/jpx_adjust_monthly_history.py "$prices" \
+              --rights-cache "$RUNNER_TEMP/jpx-history-rights" --include-range > "$history"; then
+            python -c 'import collections,json,sys; a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[2])); print(json.dumps({"scope":len(b["by_code"]), "months_read":a["months_read"], "rights_months_verified":b["rights_months_verified"], "by_status":collections.Counter(v["status"] for v in b["by_code"].values()), "full_history":sum(v["status"]=="split_adjusted" and v["months_with_close"]==60 for v in b["by_code"].values())}))' "$prices" "$history" > coverage-results/jpx-five-year-coverage.json
+          else
+            rm -f "$history"
+            printf '{"status":"history_acquisition_unavailable"}\n' > coverage-results/jpx-five-year-coverage.json
+          fi
       - name: Build JPX instrumentation
         id: jpx_build
         if: steps.acquire.outputs.jpx == 'true'
         run: |
           set -o pipefail
-          (cd android-private && gradle --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx2g :app:assembleDebug :app:assembleDebugAndroidTest) 2>&1 | tee coverage-results/jpx-build.log
+          history=()
+          if [ -s "$RUNNER_TEMP/jpx-history.json" ]; then
+            history+=("-PjpxHistoryFile=$RUNNER_TEMP/jpx-history.json")
+          fi
+          (cd android-private && gradle --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx2g "${history[@]}" :app:assembleDebug :app:assembleDebugAndroidTest) 2>&1 | tee coverage-results/jpx-build.log
       - name: Enable JPX emulator KVM
         if: steps.acquire.outputs.jpx == 'true'
         run: |
