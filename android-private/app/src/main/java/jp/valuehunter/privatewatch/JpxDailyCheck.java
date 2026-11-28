@@ -263,10 +263,18 @@ final class JpxDailyCheck {
                 var entry=item.getValue();
                 var annual=entry.annualFor(day);
                 var close=report.close(code);
-                if(entry.annual()==null || annual==null || annual.bps()!=null || close==null
-                    || !entry.failure(code,day,finance.updates()).isEmpty()
+                if(entry.annual()==null || annual==null || close==null
+                    || !entry.evidenceFailure(code,day,finance.updates()).isEmpty()
                     || !rights.adjustments().containsAll(annual.adjustments())
                     || rights.firstUnadjustedChange(code,annual.end(),day,annual.adjustments())!=null) continue;
+                var operating = operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())
+                        ? JpxOperatingValuation.assess(annual, day, close) : null;
+                if (operating != null) {
+                    var score = JpxDisclosureEvidence.adjust(operating, entry.events(), day);
+                    rows.put(code, ValueAlertPreview.encode(score, budgetQuantity(close)));
+                    continue;
+                }
+                if (annual.bps() != null || annual.eps().signum() <= 0) continue;
                 var eps=recentEps(code,entry,annual,day,rights);
                 var prior = entry.previousAnnual();
                 BigDecimal priorBook = null;
@@ -281,6 +289,15 @@ final class JpxDailyCheck {
                 if(score.confirmed()>=2) rows.put(code,ValueAlertPreview.encode(score,budgetQuantity(close)));
             }
             return rows;
+        }
+
+        private static boolean operatingShareCountVerified(String code, LocalDate through, LocalDate day,
+                Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
+            for (LocalDate next = through.plusDays(1); !next.isAfter(day); next = next.plusDays(1)) {
+                var update = updates.get(next);
+                if (update == null || update.dilution() == null || update.dilution().contains(code)) return false;
+            }
+            return true;
         }
 
         private JSONObject meterRows(Report report, Set<String> codes, JpxAutomaticFinance.Batch finance,

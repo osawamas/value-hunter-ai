@@ -25,7 +25,12 @@ final class JpxAnnualSummary {
     private static final Pattern FORBIDDEN_XML = Pattern.compile("<!\\s*(?:DOCTYPE|ENTITY)", Pattern.CASE_INSENSITIVE);
 
     record Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source,
-                  List<JpxShareRights.Adjustment> adjustments, String reportingBasis) {
+                  List<JpxShareRights.Adjustment> adjustments, String reportingBasis,
+                  OperatingFacts operating) {
+        Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source,
+               List<JpxShareRights.Adjustment> adjustments, String reportingBasis) {
+            this(end, released, eps, bps, source, adjustments, reportingBasis, null);
+        }
         Annual(LocalDate end, LocalDate released, BigDecimal eps, BigDecimal bps, String source) {
             this(end, released, eps, bps, source, List.of(), "");
         }
@@ -53,6 +58,9 @@ final class JpxAnnualSummary {
             return value;
         }
     }
+
+    record OperatingFacts(BigDecimal cashFlow, BigDecimal revenue, BigDecimal assets, BigDecimal netAssets,
+                          BigDecimal issuedShares, BigDecimal operatingProfit, BigDecimal priorProfit) {}
 
     private JpxAnnualSummary() {}
 
@@ -112,11 +120,81 @@ final class JpxAnnualSummary {
                     break;
                 }
             }
-            return new Annual(end, released, eps, bps, source, List.of(), member + "/" + epsTag);
+            var operating = "NetIncomePerShare".equals(epsTag)
+                    ? operatingFacts(root, code, member, duration, instant, start, end) : null;
+            return new Annual(end, released, eps, bps, source, List.of(), member + "/" + epsTag, operating);
         } catch (Exception invalid) {
             // A changed taxonomy, incomplete filing or ambiguous financials cannot enter the screen.
             return null;
         }
+    }
+
+    private static OperatingFacts operatingFacts(Element root, String code, String member,
+                                                 String duration, String instant, LocalDate start, LocalDate end) {
+        try {
+            String shareContext = "CurrentYearInstant_NonConsolidatedMember_ResultMember";
+            var shares = context(root, shareContext, code, "NonConsolidatedMember");
+            if (!end.equals(LocalDate.parse(only(shares, XBRL, "instant")))) return null;
+            var issued = amount(root, "NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncludingTreasuryStock",
+                    shareContext, "xbrli:shares", true);
+            var revenue = amount(root, "NetSales", duration, "iso4217:JPY", false);
+            var cash = amount(root, "CashFlowsFromOperatingActivities", duration, "iso4217:JPY", false);
+            var assets = amount(root, "TotalAssets", instant, "iso4217:JPY", false);
+            var netAssets = amount(root, "NetAssets", instant, "iso4217:JPY", false);
+            if (issued.signum() <= 0 || revenue.signum() <= 0 || assets.signum() <= 0
+                    || netAssets.compareTo(assets) > 0) return null;
+            var profit = optionalAmount(root, "OperatingIncome", duration);
+            String priorId = "PriorYearDuration_" + member + "_ResultMember";
+            BigDecimal prior = null;
+            try {
+                var period = context(root, priorId, code, member);
+                var priorStart = LocalDate.parse(only(period, XBRL, "startDate"));
+                var priorEnd = LocalDate.parse(only(period, XBRL, "endDate"));
+                long days = ChronoUnit.DAYS.between(priorStart, priorEnd) + 1;
+                if (priorEnd.plusDays(1).equals(start) && days >= 350 && days <= 380)
+                    prior = optionalAmount(root, "OperatingIncome", priorId);
+            } catch (IllegalArgumentException | java.time.DateTimeException missingPrior) {
+                // Without a comparable prior year the highest tier stays unavailable.
+            }
+            return new OperatingFacts(cash, revenue, assets, netAssets, issued, profit, prior);
+        } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
+            return null;
+        }
+    }
+
+    private static BigDecimal optionalAmount(Element root, String name, String context) {
+        try {
+            return amount(root, name, context, "iso4217:JPY", false);
+        } catch (IllegalArgumentException unavailable) {
+            return null;
+        }
+    }
+
+    private static BigDecimal amount(Element root, String name, String context, String measure, boolean shares) {
+        var item = fact(root, "nonFraction", name, context);
+        String unitRef = item.getAttribute("unitRef");
+        var units = root.getElementsByTagNameNS(XBRL, "unit");
+        Element found = null;
+        for (int i = 0; i < units.getLength(); i++) {
+            var unit = (Element) units.item(i);
+            if (!unitRef.equals(unit.getAttribute("id"))) continue;
+            if (found != null) throw new IllegalArgumentException("Ambiguous unit");
+            found = unit;
+        }
+        String scale = item.getAttribute("scale");
+        if (unitRef.isEmpty() || found == null || !measure.equals(only(found, XBRL, "measure"))
+                || found.getElementsByTagNameNS(XBRL, "divide").getLength() != 0
+                || !"0".equals(scale) && (shares || !"3".equals(scale) && !"6".equals(scale))
+                || "true".equals(item.getAttributeNS("http://www.w3.org/2001/XMLSchema-instance", "nil"))) {
+            throw new IllegalArgumentException("Invalid operating fact unit");
+        }
+        String magnitude = normalized(item.getTextContent());
+        String sign = item.getAttribute("sign");
+        if (!NUMBER.matcher(magnitude).matches() || magnitude.length() > 24
+                || !sign.isEmpty() && !sign.equals("-") || shares && magnitude.contains(".")) {
+            throw new IllegalArgumentException("Invalid operating fact number");
+        }
+        return new BigDecimal(sign + magnitude.replace(",", "")).scaleByPowerOfTen(Integer.parseInt(scale));
     }
 
     static LocalDate documentDate(String value) {

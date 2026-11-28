@@ -34,7 +34,7 @@ final class JpxAutomaticFinance {
     private static final long MAX_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(165);
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
-    private static final int ANNUAL_PARSER_VERSION = 1;
+    private static final int ANNUAL_PARSER_VERSION = 2;
     private static final String ANNUAL_PARSE_HOLD = "通期EPS・BPSを照合できなかった";
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
@@ -65,10 +65,17 @@ final class JpxAutomaticFinance {
         }
 
         String failure(String code, LocalDate day, Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
-            if (annual == null || !hold.isEmpty()) return hold;
             var asOf = annualFor(day);
-            if (asOf == null) return "立会日時点の通期決算なし";
-            if (asOf.eps().signum() <= 0 || (asOf.bps()!=null && asOf.bps().signum() <= 0)) return "実績EPS・BPSのいずれかがゼロ以下";
+            String failure = evidenceFailure(code, day, updates);
+            if (!failure.isEmpty() || asOf == null) return failure;
+            if (asOf.eps().signum() <= 0 || asOf.bps() != null && asOf.bps().signum() <= 0)
+                return "実績EPS・BPSのいずれかがゼロ以下";
+            return "";
+        }
+
+        String evidenceFailure(String code, LocalDate day, Map<LocalDate, JpxDisclosureCalendar.Day> updates) {
+            if (annual == null || !hold.isEmpty()) return hold;
+            if (annualFor(day) == null) return "立会日時点の通期決算なし";
             for (LocalDate next = checkedThrough.plusDays(1); !next.isAfter(day); next = next.plusDays(1)) {
                 var update = updates.get(next);
                 if (update == null) return "TDnet日次開示の確認待ち";
@@ -252,13 +259,13 @@ final class JpxAutomaticFinance {
         var ordered = eligible.stream()
                 .filter(code -> state.getLong(RETRY_PREFIX + code, 0L) <= now)
                 .filter(code -> state.getLong(MISSING_RETRY_PREFIX + code, 0L) <= now
-                        || staleParserHold(entries.get(code)))
+                        || staleParserHold(entries.get(code)) || needsOperatingUpgrade(entries.get(code)))
                 .filter(code -> due(entries.get(code), code, through, report.date(), updates)
-                        || staleParserHold(entries.get(code))
+                        || staleParserHold(entries.get(code)) || needsOperatingUpgrade(entries.get(code))
                         || state.getLong(RETRY_PREFIX + code, Long.MAX_VALUE) <= now
                         || state.getLong(MISSING_RETRY_PREFIX + code, Long.MAX_VALUE) <= now)
                 .sorted(Comparator.<String>comparingInt(code -> urgent(entries.get(code), code, report.date(), updates) ? 0 : 1)
-                        .thenComparingInt(code -> staleParserHold(entries.get(code)) ? 0 : 1)
+                        .thenComparingInt(code -> staleParserHold(entries.get(code)) || needsOperatingUpgrade(entries.get(code)) ? 0 : 1)
                         // Finish first-time coverage before routine rechecks so the one-share queue can advance.
                         .thenComparingInt(code -> entries.containsKey(code) ? 1 : 0)
                         .thenComparingInt(code -> -JpxDailyCheck.budgetQuantity(report.close(code)))
@@ -266,7 +273,11 @@ final class JpxAutomaticFinance {
                         .thenComparing(Comparator.naturalOrder()))
                 .collect(Collectors.toUnmodifiableList());
 
-        var pending = explorationOrder(ordered, report.date(), code -> !entries.containsKey(code));
+        var pending = explorationOrder(ordered, report.date(), code -> {
+            var entry = entries.get(code);
+            return !urgent(entry, code, report.date(), updates)
+                    && (entry == null || entry.annual() == null || needsOperatingUpgrade(entry));
+        });
 
         int checked = 0;
         int attempted = 0;
@@ -334,7 +345,8 @@ final class JpxAutomaticFinance {
         }
         boolean interrupted = stopped.getAsBoolean();
         boolean more = checked > 0 && !limited && consecutiveFailures < 3 && !interrupted
-                && pending.subList(attempted, pending.size()).stream().anyMatch(code -> !entries.containsKey(code));
+                && pending.subList(attempted, pending.size()).stream()
+                        .anyMatch(code -> !entries.containsKey(code) || needsOperatingUpgrade(entries.get(code)));
         // Flush acquired issuers before the next run, even if this run ended on a lost connection.
         boolean saved = !(more || (interrupted && checked > 0)) || state.edit().commit();
         boolean continueInitial = more && saved;
@@ -376,8 +388,15 @@ final class JpxAutomaticFinance {
     }
 
     private static boolean staleParserHold(Entry entry) {
-        return entry != null && entry.parserVersion() < ANNUAL_PARSER_VERSION
+        return entry != null && entry.parserVersion() < 1
                 && ANNUAL_PARSE_HOLD.equals(entry.hold());
+    }
+
+    private static boolean needsOperatingUpgrade(Entry entry) {
+        if (entry == null || entry.parserVersion() >= ANNUAL_PARSER_VERSION || !entry.hold().isEmpty()) return false;
+        var annual = entry.annual();
+        return annual != null && annual.reportingBasis().endsWith("/NetIncomePerShare")
+                && (annual.eps().signum() <= 0 || annual.bps() == null || annual.bps().signum() <= 0);
     }
 
     private static boolean urgent(Entry entry, String code, LocalDate day,
@@ -425,7 +444,8 @@ final class JpxAutomaticFinance {
             return held(through, old, reason);
         }
         String source = filing.annualLink().toString();
-        var annual = old != null && old.annual() != null && source.equals(old.annual().source())
+        var annual = old != null && old.annual() != null && !needsOperatingUpgrade(old)
+                && source.equals(old.annual().source())
                 && filing.day().equals(old.annual().released()) ? old.annual()
                 : JpxAnnualSummary.read(sources.financial(filing), code, filing.day(), source, filing.corrected());
         if (annual == null || !annual.usable(followingDay)
@@ -495,7 +515,9 @@ final class JpxAutomaticFinance {
             }
         }
         return new JpxAnnualSummary.Annual(annual.end(), annual.released(), annual.eps(), annual.bps(),
-                annual.source(), List.copyOf(adjustments), annual.reportingBasis());
+                annual.source(), List.copyOf(adjustments), annual.reportingBasis(),
+                page.disclosures().stream().anyMatch(d -> d.day().isAfter(annual.end())
+                        && JpxIssuerArchive.dilutiveEvent(d.title())) ? null : annual.operating());
     }
 
     private static Entry read(SharedPreferences state, String code, LocalDate through) {
@@ -530,7 +552,31 @@ final class JpxAutomaticFinance {
         }
         return new JpxAnnualSummary.Annual(LocalDate.parse(object.getString("end")),
                 LocalDate.parse(object.getString("released")), new BigDecimal(object.getString("eps")),
-                object.isNull("bps") ? null : new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments), object.optString("reporting_basis"));
+                object.isNull("bps") ? null : new BigDecimal(object.getString("bps")), source, List.copyOf(adjustments),
+                object.optString("reporting_basis"), decodeOperating(object.optJSONArray("operating")));
+    }
+
+    private static JpxAnnualSummary.OperatingFacts decodeOperating(JSONArray row) {
+        if (row == null || row.length() != 7) return null;
+        try {
+            var facts = new JpxAnnualSummary.OperatingFacts(decimal(row, 0), decimal(row, 1),
+                    decimal(row, 2), decimal(row, 3), decimal(row, 4), decimal(row, 5), decimal(row, 6));
+            return facts.cashFlow() != null && facts.revenue() != null && facts.revenue().signum() > 0
+                    && facts.assets() != null && facts.assets().signum() > 0 && facts.netAssets() != null
+                    && facts.netAssets().compareTo(facts.assets()) <= 0 && facts.issuedShares() != null
+                    && facts.issuedShares().signum() > 0 && facts.issuedShares().stripTrailingZeros().scale() <= 0
+                    ? facts : null;
+        } catch (JSONException | IllegalArgumentException invalid) {
+            return null;
+        }
+    }
+
+    private static BigDecimal decimal(JSONArray row, int index) throws JSONException {
+        if (row.isNull(index)) return null;
+        String value = row.getString(index);
+        if (value.length() > 45 || !value.matches("-?[0-9]+(?:[.][0-9]+)?"))
+            throw new IllegalArgumentException("Invalid cached operating fact");
+        return new BigDecimal(value);
     }
 
     private static JSONObject encode(Entry entry) {
@@ -555,6 +601,15 @@ final class JpxAutomaticFinance {
                         .put(action.oldShares().toPlainString()).put(action.newShares().toPlainString()));
             }
             destination.put("basis", rows);
+        }
+        var facts = annual.operating();
+        if (facts != null) {
+            var row = new JSONArray();
+            for (var value : new BigDecimal[]{facts.cashFlow(), facts.revenue(), facts.assets(),
+                    facts.netAssets(), facts.issuedShares(), facts.operatingProfit(), facts.priorProfit()}) {
+                row.put(value == null ? JSONObject.NULL : value.toPlainString());
+            }
+            destination.put("operating", row);
         }
         if (!annual.reportingBasis().isEmpty()) destination.put("reporting_basis", annual.reportingBasis());
         return destination.put("end", annual.end().toString()).put("released", annual.released().toString())

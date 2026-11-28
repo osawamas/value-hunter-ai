@@ -42,7 +42,9 @@ final class JpxDisclosureCalendar {
     @FunctionalInterface
     interface PageLoader { String fetch(URI uri) throws IOException; }
 
-    record Day(Set<String> rights, Set<String> annual) {}
+    record Day(Set<String> rights, Set<String> annual, Set<String> dilution) {
+        Day(Set<String> rights, Set<String> annual) { this(rights, annual, Set.of()); }
+    }
     private record Page(int total, int first, int last, Day day) {}
 
     private JpxDisclosureCalendar() {}
@@ -50,6 +52,7 @@ final class JpxDisclosureCalendar {
     static Day read(LocalDate day, PageLoader network, BooleanSupplier stopped) throws IOException {
         var rights = new HashSet<String>();
         var annual = new HashSet<String>();
+        var dilution = new HashSet<String>();
         int total = -1;
         for (int page = 1; total < 0 || (page - 1) * PAGE_SIZE < total; page++) {
             if (stopped.getAsBoolean()) throw new IOException("TDnet check interrupted");
@@ -65,8 +68,9 @@ final class JpxDisclosureCalendar {
             total = parsed.total();
             rights.addAll(parsed.day().rights());
             annual.addAll(parsed.day().annual());
+            dilution.addAll(parsed.day().dilution());
         }
-        return new Day(Set.copyOf(rights), Set.copyOf(annual));
+        return new Day(Set.copyOf(rights), Set.copyOf(annual), Set.copyOf(dilution));
     }
 
     private static Page page(String html, LocalDate day) {
@@ -91,6 +95,7 @@ final class JpxDisclosureCalendar {
         if (first < 1 || first > last || last > total || total > MAX_TOTAL) return null;
         var rights = new HashSet<String>();
         var annual = new HashSet<String>();
+        var dilution = new HashSet<String>();
         var rows = ROW.matcher(html);
         int seen = 0;
         while (rows.find()) {
@@ -100,8 +105,9 @@ final class JpxDisclosureCalendar {
             if (title.isEmpty()) return null;
             if (JpxIssuerArchive.shareChange(title)) rights.add(code);
             if (JpxIssuerArchive.annualTitle(title)) annual.add(code);
+            if (JpxIssuerArchive.dilutiveEvent(title)) dilution.add(code);
         }
-        return seen == last - first + 1 ? new Page(total, first, last, new Day(rights, annual)) : null;
+        return seen == last - first + 1 ? new Page(total, first, last, new Day(rights, annual, dilution)) : null;
     }
 
     static Map<LocalDate, Day> refresh(SharedPreferences state, LocalDate latest, LocalDate earliest,
@@ -117,7 +123,9 @@ final class JpxDisclosureCalendar {
                     LocalDate date = LocalDate.parse(key);
                     if (date.isBefore(latest.minusDays(RETAIN_DAYS)) || date.isAfter(latest)) continue;
                     var entry = saved.getJSONObject(key);
-                    days.put(date, new Day(codes(entry.getJSONArray("rights")), codes(entry.getJSONArray("annual"))));
+                    var dilution = entry.optJSONArray("dilution");
+                    days.put(date, new Day(codes(entry.getJSONArray("rights")), codes(entry.getJSONArray("annual")),
+                            dilution == null ? null : codes(dilution)));
                 } catch (JSONException | DateTimeException invalid) {
                     changed = true;
                 }
@@ -130,7 +138,7 @@ final class JpxDisclosureCalendar {
         for (LocalDate day = latest; !day.isBefore(earliest) && !day.isBefore(latest.minusDays(RETAIN_DAYS))
                 && fetched < 8 && !stopped.getAsBoolean(); day = day.minusDays(1)) {
             boolean recheck = recheckFrom != null && !day.isBefore(recheckFrom);
-            if (!recheck && days.containsKey(day)) continue;
+            if (!recheck && days.containsKey(day) && days.get(day).dilution() != null) continue;
             fetched++;
             try {
                 days.put(day, read(day, loader, stopped));
@@ -150,7 +158,9 @@ final class JpxDisclosureCalendar {
                 for (var entry : days.entrySet()) {
                     saved.put(entry.getKey().toString(), new JSONObject()
                             .put("rights", new JSONArray(entry.getValue().rights()))
-                            .put("annual", new JSONArray(entry.getValue().annual())));
+                            .put("annual", new JSONArray(entry.getValue().annual()))
+                            .put("dilution", entry.getValue().dilution() == null ? JSONObject.NULL
+                                    : new JSONArray(entry.getValue().dilution())));
                 }
                 state.edit().putString(CACHE, saved.toString()).apply();
             } catch (JSONException impossible) {

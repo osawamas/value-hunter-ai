@@ -191,7 +191,9 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                     .put("dated_finance_hold", datedFinanceHold)
                     .put("eps_sign", annual == null ? JSONObject.NULL : annual.eps().signum())
                     .put("bps_sign", annual == null || annual.bps() == null ? JSONObject.NULL : annual.bps().signum())
+                    .put("operating_facts", annual != null && annual.operating() != null)
                     .put("strict_assessed", strictAssessed)
+                    .put("flexible_assessed", !strictAssessed && rows.has(code))
                     .put("meter_scored", rows.has(code)));
         }
         for (String code : JpxAutomaticFinance.failedAcquisitions(context)) {

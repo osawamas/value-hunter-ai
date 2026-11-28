@@ -139,6 +139,62 @@ public class JpxAutomaticFinanceTest {
         assertEquals(3, row.getInt(2));
     }
 
+    @Test public void operatingFactsRescueALossAndKeepWeakBalanceOutOfCheapTiers() throws Exception {
+        String source = "https://www2.jpx.co.jp/disc/14200/100920260511000001.html";
+        String instant = "CurrentYearInstant_ConsolidatedMember_ResultMember";
+        String duration = "CurrentYearDuration_ConsolidatedMember_ResultMember";
+        String shares = "CurrentYearInstant_NonConsolidatedMember_ResultMember";
+        String prior = "PriorYearDuration_ConsolidatedMember_ResultMember";
+        String details = """
+                <xbrli:unit id="JPY"><xbrli:measure>iso4217:JPY</xbrli:measure></xbrli:unit>
+                <xbrli:unit id="Shares"><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unit>
+                """ + context("Instant", "<xbrli:instant>2026-03-31</xbrli:instant>")
+                        .replace("ConsolidatedMember", "NonConsolidatedMember")
+                + context("Duration", "<xbrli:startDate>2024-04-01</xbrli:startDate>"
+                        + "<xbrli:endDate>2025-03-31</xbrli:endDate>").replace("CurrentYear", "PriorYear")
+                + operatingFact(duration, "CashFlowsFromOperatingActivities", "JPY", 6, 25)
+                + operatingFact(duration, "NetSales", "JPY", 6, 300)
+                + operatingFact(instant, "TotalAssets", "JPY", 6, 500)
+                + operatingFact(instant, "NetAssets", "JPY", 6, 300)
+                + operatingFact(duration, "OperatingIncome", "JPY", 6, 20)
+                + operatingFact(prior, "OperatingIncome", "JPY", 6, 15)
+                + operatingFact(shares, "NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncludingTreasuryStock",
+                        "Shares", 0, 1_000_000);
+        String xml = filing().replace(">60.00</ix:nonFraction>", " sign=\"-\">60.00</ix:nonFraction>")
+                .replace("</html>", details + "</html>");
+        var annual = JpxAnnualSummary.read(xml, CODE, RELEASED, source, false);
+        assertNotNull(annual);
+        assertNotNull(annual.operating());
+        assertEquals(25_000_000, annual.operating().cashFlow().intValueExact());
+        var tier3 = JpxOperatingValuation.assess(annual, DAY, new BigDecimal("100"));
+        assertEquals(3, tier3.level(ValueAlertMeter.DEFAULT));
+        assertEquals(2, JpxOperatingValuation.assess(annual, DAY, new BigDecimal("150")).ceiling());
+        assertEquals(1, JpxOperatingValuation.assess(annual, DAY, new BigDecimal("220")).ceiling());
+        var weak = JpxAnnualSummary.read(xml.replace(">300</ix:nonFraction>", ">20</ix:nonFraction>"),
+                CODE, RELEASED, source, false);
+        assertEquals(0, JpxOperatingValuation.assess(weak, DAY, new BigDecimal("100")).ceiling());
+
+        var comparison = new JpxDailyCheck.Comparison(report(DAY, "100"), null);
+        var entry = new JpxAutomaticFinance.Entry(DAY, annual, "");
+        var batch = new JpxAutomaticFinance.Batch(Map.of(CODE, entry), Map.of(), 1, 1);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var screen = comparison.screen(rights, batch);
+        assertFalse(screen.assessedCodes().contains(CODE));
+        assertEquals(3, comparison.meterRows(screen, batch, rights).getJSONArray(CODE).getInt(1));
+        var dilution = new JpxDisclosureCalendar.Day(Set.of(), Set.of(), Set.of(CODE));
+        var dated = new JpxAutomaticFinance.Entry(DAY.minusDays(1), annual, "");
+        var held = new JpxAutomaticFinance.Batch(Map.of(CODE, dated), Map.of(DAY, dilution), 1, 1);
+        assertFalse(comparison.meterRows(comparison.screen(rights, held), held, rights).has(CODE));
+        assertNull(JpxAnnualSummary.read(xml.replace("iso4217:JPY</xbrli:measure></xbrli:unit>",
+                "iso4217:USD</xbrli:measure></xbrli:unit>"), CODE, RELEASED, source, false).operating());
+    }
+
+    private static String operatingFact(String context, String tag, String unit, int scale, long value) {
+        return """
+                <ix:nonFraction contextRef="%s" name="tse-ed-t:%s" unitRef="%s" scale="%d">%d</ix:nonFraction>
+                """.formatted(context, tag, unit, scale, value);
+    }
+
     @Test public void twoComparableAnnualFilingsEnableRealJpxUltraValueMeterAndPromotion() throws Exception {
         var latest = new JpxAnnualSummary.Annual(LocalDate.of(2026, 3, 31), RELEASED,
                 new BigDecimal("60"), new BigDecimal("1000"), "current-verified");
