@@ -42,3 +42,25 @@ class ValuationCrosscheckTest(TestCase):
         self.assertEqual(set(verified), {"1302"})
         self.assertEqual(counts["batch_offset"], 2)
         original.check.assert_called_once()
+
+    def test_verified_later_filing_can_reach_valuation_only_with_complete_rights(self):
+        day = date(2026, 11, 26)
+        row = {"currency": "JPY", "span": "FY", "source_doc_id": "S100AB12",
+               "period_end": "2026-03-31", "latest_filing_date": "2026-11-16",
+               "metrics": {"eps": Decimal("10"), "bvps": Decimal("500")}}
+        original = Mock()
+        original.check.side_effect = [
+            {"filing_metadata_match": False},
+            dict(filing_metadata_match=True, full_year_verified=True, per_share_facts_match=True,
+                 original_period_end_share_count_present=True, annual_shares=Decimal("10000")),
+        ]
+        original.review_newer.return_value = dict(
+            status="latest_interim_reviewed", shares="unchanged", bps="unchanged")
+        with patch("jpx_hachiquant_coverage.verify_filing_sample",
+                   return_value={"actual_filing_date": "2026-06-24"}), patch(
+                       "jpx_hachiquant_coverage.share_basis_status",
+                       return_value="no_share_change_in_supplied_reports"):
+            verified, counts = verified_valuation_rows(
+                day, {"1301": "prime"}, {"1301": row}, (set(), {}), {}, original, 40)
+        self.assertEqual(set(verified), {"1301"})
+        self.assertEqual(counts["newer_filing_share_and_book_unchanged"], 1)

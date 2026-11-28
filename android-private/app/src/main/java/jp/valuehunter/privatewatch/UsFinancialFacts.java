@@ -75,7 +75,14 @@ final class UsFinancialFacts {
                 history.annualEps(), history.cash(), history.balance());
     }
 
-    record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {}
+    record OperatingEvidence(BigDecimal cashNow, BigDecimal cashPrior, BigDecimal salesNow,
+                             BigDecimal salesPrior, LocalDate end) {}
+
+    record MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance, OperatingEvidence operating) {
+        MeterHistory(List<BigDecimal> annualEps, Integer cash, Integer balance) {
+            this(annualEps, cash, balance, null);
+        }
+    }
 
     static MeterHistory meterHistory(JSONObject payload, LocalDate day) {
         var document = payload.optJSONObject("facts");
@@ -161,7 +168,23 @@ final class UsFinancialFacts {
                     java.math.MathContext.DECIMAL64).doubleValue();
             balanceScore = ratio >= 0.40 ? 100 : ratio >= 0.25 ? 70 : ratio >= 0.15 ? 50 : 0;
         }
-        return new MeterHistory(List.copyOf(series), cashScore, balanceScore);
+        OperatingEvidence operating = null;
+        if (cashScore != null && cashScore == 100) {
+            // Use one revenue concept for both years; conflicting candidates are excluded by one().
+            for (String tag : ifrs ? List.of("Revenue") : List.of(
+                    "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet")) {
+                var revenue = facts(gaap, tag, "USD", day, foreign).stream()
+                        .filter(row -> sameFiling(row, latest) && fullYear(row)).collect(Collectors.toList());
+                if (revenue.isEmpty()) continue;
+                var now = one(revenue.stream().filter(row -> row.end.equals(latest.end)).collect(Collectors.toList()));
+                var prior = precedingAnnual(revenue, latest, latest.end);
+                if (now != null && prior != null && now.value.signum() > 0 && prior.value.signum() > 0) {
+                    operating = new OperatingEvidence(cashNow.value, cashPrior.value, now.value, prior.value, latest.end);
+                }
+                break;
+            }
+        }
+        return new MeterHistory(List.copyOf(series), cashScore, balanceScore, operating);
     }
 
     private static Fact precedingAnnual(List<Fact> rows, Fact filing, LocalDate end) {

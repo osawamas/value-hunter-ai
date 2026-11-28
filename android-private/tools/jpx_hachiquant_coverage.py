@@ -283,7 +283,8 @@ def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, lim
         published = date.fromisoformat(filing["actual_filing_date"])
         if hint != published:
             counts["newer_filing_requires_review"] += 1
-            if reviews is not None and time.monotonic() < deadline:
+            later_confirmed = False
+            if time.monotonic() < deadline:
                 details = {"status": "latest_source_unavailable"}
                 stopped = False
                 try:
@@ -294,11 +295,16 @@ def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, lim
                     stopped = error.code in (401, 403, 429, 503)
                 except (ValueError, OSError, KeyError, TypeError):
                     pass
-                reviews[code] = {"annual_doc_id": source, "later_date": hint.isoformat(), **details}
+                if reviews is not None:
+                    reviews[code] = {"annual_doc_id": source, "later_date": hint.isoformat(), **details}
+                later_confirmed = (details.get("status") == "latest_interim_reviewed"
+                                   and details.get("shares") == "unchanged" and details.get("bps") == "unchanged")
                 counts[details["status"]] += 1
                 if stopped:
                     break
-            continue
+            if not later_confirmed:
+                continue
+            counts["newer_filing_share_and_book_unchanged"] += 1
         if share_basis_status(code, period, day, rights, daily_rights.get(code, ())) != "no_share_change_in_supplied_reports":
             counts["share_basis_unverified"] += 1
             continue

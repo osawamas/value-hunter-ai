@@ -88,7 +88,7 @@ final class UsDeviceFinancials {
     }
 
     static final int FULL_REFRESH_DAYS = 7;
-    static final int METER_EVIDENCE_VERSION = 6;
+    static final int METER_EVIDENCE_VERSION = 7;
 
     static JSONObject startScan(String hash, LocalDate day, JSONArray targets, JSONObject previous,
                                 Set<Integer> changed) throws JSONException {
@@ -193,6 +193,12 @@ final class UsDeviceFinancials {
                 .put("profit_basis", figures.profitBasis())
                 .put("shares", figures.shares().toPlainString()).put("profit", figures.profit().toPlainString())
                 .put("equity", figures.equity().toPlainString());
+        var operating = history.operating();
+        if (operating != null && figures.profit().signum() <= 0) {
+            row.put("operating_recovery", new JSONObject().put("end", operating.end().toString())
+                    .put("cash", operating.cashNow().toPlainString()).put("prior_cash", operating.cashPrior().toPlainString())
+                    .put("sales", operating.salesNow().toPlainString()).put("prior_sales", operating.salesPrior().toPlainString()));
+        }
         return new FetchAssessment(row, "");
     }
 
@@ -213,7 +219,7 @@ final class UsDeviceFinancials {
         return counts;
     }
 
-    static final int ASSESSMENT_COUNT_VERSION = 3;
+    static final int ASSESSMENT_COUNT_VERSION = 4;
 
     static boolean currentScreenVersion(JSONObject ledger) {
         var screen = ledger == null ? null : ledger.optJSONObject("reference_screen");
@@ -245,6 +251,7 @@ final class UsDeviceFinancials {
         int affordable100 = 0, singleShare = 0;
         int partialInsufficient = 0, partialWithinBudget = 0;
         int partialAssessed = 0, partialEligible = 0, strictAssessed = 0, strictEligible = 0;
+        int operatingRecoveryAssessed = 0, bookRecoveryAssessed = 0;
         int[] flexibleTiers = new int[4], strictTiers = new int[4];
         var seen = new HashSet<String>();
         int nonPositiveProfit = 0, nonPositiveEquity = 0, nonPositiveBoth = 0, otherFinancialHold = 0;
@@ -268,9 +275,10 @@ final class UsDeviceFinancials {
             }
             boolean partial = row.optBoolean("partial_value");
             var recovery = partial ? null : recoverNonPositiveProfit(row, close);
-            if (partial || recovery != null) {
+            var operatingRecovery = partial || recovery != null ? null : recoverFromCashAndSales(row, close, day);
+            if (partial || recovery != null || operatingRecovery != null) {
                 var score = partial ? flexibleUsScore(row, close, day)
-                        : recovery;
+                        : recovery != null ? recovery : operatingRecovery;
                 score=UsDisclosureEvidence.adjust(score,row,day);
                 var yen=close.multiply(rate);
                 int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
@@ -280,6 +288,8 @@ final class UsDeviceFinancials {
                     continue;
                 }
                 partialAssessed++;
+                if (operatingRecovery != null) operatingRecoveryAssessed++;
+                if (recovery != null) bookRecoveryAssessed++;
                 if(quantity>0 && score.level(ValueAlertMeter.DEFAULT)>0) {
                     partialEligible++; flexibleTiers[score.level(ValueAlertMeter.DEFAULT)]++;
                 }
@@ -342,6 +352,8 @@ final class UsDeviceFinancials {
                 .put("other_financial_hold", otherFinancialHold)
                 .put("assessment_count_version", ASSESSMENT_COUNT_VERSION)
                 .put("partial_insufficient", partialInsufficient)
+                .put("operating_recovery_assessed", operatingRecoveryAssessed)
+                .put("book_recovery_assessed", bookRecoveryAssessed)
                 .put("partial_within_budget", partialWithinBudget)
                 .put("strict_assessed",strictAssessed).put("strict_eligible_default",strictEligible)
                 .put("partial_assessed",partialAssessed).put("partial_eligible_default",partialEligible)
@@ -458,6 +470,29 @@ final class UsDeviceFinancials {
         // valuation. Non-positive trailing profit limits this route to the first tier.
         return cap.multiply(BigDecimal.valueOf(2)).compareTo(equity) <= 0
                 ? new ValueAlertMeter.Score(65, 1, 3) : new ValueAlertMeter.Score(0, 0, 3);
+    }
+
+    private static ValueAlertMeter.Score recoverFromCashAndSales(JSONObject row, BigDecimal close, LocalDate day)
+            throws JSONException {
+        var facts = row.optJSONObject("operating_recovery");
+        Integer balance = meterBalance(row);
+        if (facts == null || balance == null || balance < 70
+                || new BigDecimal(row.getString("profit")).signum() > 0
+                || new BigDecimal(row.getString("equity")).signum() <= 0) return null;
+        var end = LocalDate.parse(facts.getString("end"));
+        if (!end.isBefore(day) || end.isBefore(day.minusMonths(13))) return null;
+        var cash = new BigDecimal(facts.getString("cash"));
+        var priorCash = new BigDecimal(facts.getString("prior_cash"));
+        var sales = new BigDecimal(facts.getString("sales"));
+        var priorSales = new BigDecimal(facts.getString("prior_sales"));
+        var cap = close.multiply(new BigDecimal(row.getString("shares")));
+        if (cash.signum() <= 0 || priorCash.signum() <= 0 || priorSales.signum() <= 0 || cap.signum() <= 0
+                || cash.compareTo(priorCash) < 0 || sales.compareTo(priorSales) < 0) return null;
+        boolean lowPrice = cash.multiply(BigDecimal.TEN).compareTo(cap) >= 0 && sales.compareTo(cap) >= 0;
+        boolean strongDiscount = cash.multiply(BigDecimal.valueOf(5)).compareTo(cap) >= 0
+                && sales.compareTo(cap.multiply(BigDecimal.valueOf(2))) >= 0 && balance == 100;
+        return strongDiscount ? new ValueAlertMeter.Score(82, 2, 4)
+                : lowPrice ? new ValueAlertMeter.Score(66, 1, 4) : new ValueAlertMeter.Score(0, 0, 4);
     }
 
     static JSONArray ultraAudit(LocalDate day, String provider, String hash, JSONArray records,

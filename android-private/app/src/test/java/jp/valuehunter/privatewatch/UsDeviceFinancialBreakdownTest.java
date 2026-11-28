@@ -137,6 +137,25 @@ public class UsDeviceFinancialBreakdownTest {
         assertEquals(3, fresh.ceiling());
     }
 
+    @Test public void increasingCashAndSalesRecoverACompanyWithoutPositiveEarnings() throws Exception {
+        var day = LocalDate.parse("2026-11-23");
+        var row = financial("LOSS", 1, 1000, -10, 4000)
+                .put("meter_balance", 100)
+                .put("operating_recovery", new JSONObject().put("end", "2025-12-31")
+                        .put("cash", "250").put("prior_cash", "200").put("sales", "2200").put("prior_sales", "2100"));
+        var prices = Map.of("LOSS", BigDecimal.ONE);
+        var fx = new UsScreen.Fx(day, 150);
+        var ledger = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64),
+                new JSONArray().put(row), prices, fx, Map.of());
+        var screen = ledger.getJSONObject("reference_screen");
+        assertEquals(1, screen.getJSONObject("diagnostics").getInt("operating_recovery_assessed"));
+        assertEquals(2, screen.getJSONObject("meter_rows").getJSONArray(
+                UsReferenceAlerts.meterKey("NYSE", 1, "LOSS")).getInt(1));
+        assertEquals(0, UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64),
+                new JSONArray().put(row), prices, fx, Map.of("LOSS", day))
+                .getJSONObject("reference_screen").getJSONObject("diagnostics").getInt("operating_recovery_assessed"));
+    }
+
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
                 .put("shares",String.valueOf(shares)).put("profit",String.valueOf(profit))

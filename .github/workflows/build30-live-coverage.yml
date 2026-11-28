@@ -9,6 +9,8 @@ on:
       - 'android-private/tools/jpx_hachiquant_coverage.py'
       - 'android-private/tools/jpx_edinet_crosscheck.py'
       - 'android-private/tools/UsLiveCoverage.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsDeviceFinancials.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/UsFinancialFacts.java'
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxOperatingValuation.java'
       - 'android-private/tools/us_market_history_probe.py'
       - 'android-private/tools/us_finzdata_probe.py'
