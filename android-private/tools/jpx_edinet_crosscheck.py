@@ -1,6 +1,6 @@
 """Cross-check Hachiquant annual inputs against FSA EDINET filing records and CSV."""
 import csv
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 import io
 import json
@@ -107,8 +107,14 @@ class EdinetAudit:
             self.days[filed_on] = listing["results"]
         if not metadata_matches(self.days[filed_on], code, doc_id, row["period_end"], filed_on):
             return {"filing_metadata_match": False}
+        matched = next(item for item in self.days[filed_on] if item.get("docID") == doc_id)
+        try:
+            duration = (date.fromisoformat(row["period_end"]) - date.fromisoformat(matched["periodStart"])).days + 1
+        except (KeyError, TypeError, ValueError):
+            duration = 0
         try:
             facts = facts_from_csv(download("/" + doc_id, {"type": 5}, self.key, 8_000_000))
-            return {"filing_metadata_match": True, **compare(row["metrics"], facts)}
+            return {"filing_metadata_match": True, "full_year_verified": 350 <= duration <= 380,
+                    **compare(row["metrics"], facts)}
         except (ValueError, InvalidOperation, OSError, KeyError, BadZipFile):
             return {"filing_metadata_match": True, "original_csv_unverified": True}

@@ -166,6 +166,16 @@ public class JpxAutomaticFinanceTest {
         assertNotNull(annual);
         assertNotNull(annual.operating());
         assertEquals(25_000_000, annual.operating().cashFlow().intValueExact());
+        String cashFact = operatingFact(duration, "CashFlowsFromOperatingActivities", "JPY", 6, 25);
+        var withoutCash = JpxAnnualSummary.read(xml.replace(cashFact, ""), CODE, RELEASED, source, false);
+        assertNotNull(withoutCash.operating());
+        assertNull(withoutCash.operating().cashFlow());
+        assertEquals(1, JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("100")).ceiling());
+        assertNull(JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("150")));
+        var malformedCash = JpxAnnualSummary.read(xml.replace(cashFact, cashFact.replace("JPY", "Shares")),
+                CODE, RELEASED, source, false);
+        assertNull(malformedCash.operating());
+
         var tier3 = JpxOperatingValuation.assess(annual, DAY, new BigDecimal("100"));
         assertEquals(3, tier3.level(ValueAlertMeter.DEFAULT));
         assertEquals(2, JpxOperatingValuation.assess(annual, DAY, new BigDecimal("150")).ceiling());

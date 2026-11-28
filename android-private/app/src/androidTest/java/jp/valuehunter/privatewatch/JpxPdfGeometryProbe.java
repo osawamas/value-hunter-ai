@@ -205,7 +205,10 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 .put("transport", new JSONObject(trace));
         if (liveCoverage) java.nio.file.Files.write(new File(directory, "jpx-finance-audit.json").toPath(),
                 audit.toString(2).getBytes(StandardCharsets.UTF_8));
+        int crosschecked = liveCoverage ? applyCrosscheckedFinancials(
+                new File(directory, "jpx-alternative-valuation.json"), day, report, screening, finance, rows) : 0;
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
+                .put("edinet_crosschecked_added", crosschecked)
                 .put("annual_hold_reasons", new JSONObject(holdCounts))
                 .put("trading_date", day.toString()).put("close_source", report.source())
                 .put("source_pdf_sha256", digest(pdf))
@@ -218,6 +221,37 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
                 .put("annual_acquisition_pending_retry", JpxAutomaticFinance.failedAcquisitions(context).size())
                 .put("financial_records", finance.entries().values().stream()
                         .filter(entry -> entry.annualFor(day) != null).count());
+    }
+
+    private static int applyCrosscheckedFinancials(File file, LocalDate day, JpxDailyCheck.Report report,
+            JpxDailyCheck.Screening screening, JpxAutomaticFinance.Batch finance, JSONObject meter) throws Exception {
+        if (!file.isFile()) return 0;
+        if (file.length() > 32_768) throw new IllegalArgumentException("Oversized cross-checked finance input");
+        var input = new JSONObject(new String(java.nio.file.Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8));
+        if (!day.toString().equals(input.getString("day")) || report.universe() == null)
+            throw new IllegalArgumentException("Cross-checked finance date or scope mismatch");
+        var rows = input.getJSONObject("rows");
+        if (rows.length() > 12) throw new IllegalArgumentException("Too many cross-checked finance rows");
+        int added = 0;
+        for (var keys = rows.keys(); keys.hasNext();) {
+            String code = keys.next();
+            if (!report.universe().codes().contains(code) || screening.assessedCodes().contains(code)
+                    || meter.has(code) || finance.entries().containsKey(code)) continue;
+            var close = report.close(code);
+            if (close == null) continue;
+            var row = rows.getJSONObject(code);
+            var filed = LocalDate.parse(row.getString("filed"));
+            var end = LocalDate.parse(row.getString("period_end"));
+            var eps = new java.math.BigDecimal(row.getString("eps"));
+            var bps = new java.math.BigDecimal(row.getString("bps"));
+            if (!row.getString("edinet_doc").matches("S[0-9A-Z]{7}") || !filed.isBefore(day)
+                    || !filed.isAfter(end) || end.isBefore(day.minusDays(365))
+                    || eps.signum() <= 0 || bps.signum() <= 0) continue;
+            var score = ValueAlertMeter.assessJpx(close, eps, bps, java.util.List.of(eps));
+            meter.put(code, ValueAlertPreview.encode(score, JpxDailyCheck.budgetQuantity(close)));
+            added++;
+        }
+        return added;
     }
 
     private static String digest(File file) throws Exception {

@@ -34,7 +34,7 @@ final class JpxAutomaticFinance {
     private static final long MAX_INITIAL_NANOS = TimeUnit.SECONDS.toNanos(165);
     private static final int RECHECK_DAYS = 21;
     private static final int RETRY_MISSING_DAYS = 7;
-    private static final int ANNUAL_PARSER_VERSION = 2;
+    private static final int ANNUAL_PARSER_VERSION = 3;
     private static final String ANNUAL_PARSE_HOLD = "通期EPS・BPSを照合できなかった";
     private static final ZoneId TOKYO = ZoneId.of("Asia/Tokyo");
     private static final String PREFIX = "annual-";
@@ -405,7 +405,7 @@ final class JpxAutomaticFinance {
     private static boolean needsOperatingUpgrade(Entry entry) {
         if (entry == null || entry.parserVersion() >= ANNUAL_PARSER_VERSION || !entry.hold().isEmpty()) return false;
         var annual = entry.annual();
-        return annual != null && annual.reportingBasis().endsWith("/NetIncomePerShare")
+        return annual != null && annual.operating() == null && annual.reportingBasis().endsWith("/NetIncomePerShare")
                 && (annual.eps().signum() <= 0 || annual.bps() == null || annual.bps().signum() <= 0);
     }
 
@@ -571,7 +571,7 @@ final class JpxAutomaticFinance {
         try {
             var facts = new JpxAnnualSummary.OperatingFacts(decimal(row, 0), decimal(row, 1),
                     decimal(row, 2), decimal(row, 3), decimal(row, 4), decimal(row, 5), decimal(row, 6));
-            return facts.cashFlow() != null && facts.revenue() != null && facts.revenue().signum() > 0
+            return facts.revenue() != null && facts.revenue().signum() > 0
                     && facts.assets() != null && facts.assets().signum() > 0 && facts.netAssets() != null
                     && facts.netAssets().compareTo(facts.assets()) <= 0 && facts.issuedShares() != null
                     && facts.issuedShares().signum() > 0 && facts.issuedShares().stripTrailingZeros().scale() <= 0

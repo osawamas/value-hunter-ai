@@ -66,6 +66,7 @@ jobs:
           done
           if timeout 145 python android-private/tools/jpx_hachiquant_coverage.py \
             coverage-results/jpx-list.xlsx coverage-results/jpx-session.pdf --budget-samples-per-market 2 \
+            --valuation-output "$RUNNER_TEMP/jpx-alternative-valuation.json" \
             "${reports[@]}" > coverage-results/jpx-alternative-input.json; then
             python -m json.tool coverage-results/jpx-alternative-input.json
           else

@@ -138,7 +138,7 @@ final class JpxAnnualSummary {
             var issued = amount(root, "NumberOfIssuedAndOutstandingSharesAtTheEndOfFiscalYearIncludingTreasuryStock",
                     shareContext, "xbrli:shares", true);
             var revenue = amount(root, "NetSales", duration, "iso4217:JPY", false);
-            var cash = amount(root, "CashFlowsFromOperatingActivities", duration, "iso4217:JPY", false);
+            var cash = amountIfPresent(root, "CashFlowsFromOperatingActivities", duration);
             var assets = amount(root, "TotalAssets", instant, "iso4217:JPY", false);
             var netAssets = amount(root, "NetAssets", instant, "iso4217:JPY", false);
             if (issued.signum() <= 0 || revenue.signum() <= 0 || assets.signum() <= 0
@@ -160,6 +160,18 @@ final class JpxAnnualSummary {
         } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
             return null;
         }
+    }
+
+    private static BigDecimal amountIfPresent(Element root, String name, String context) {
+        var facts = root.getElementsByTagNameNS(IX, "nonFraction");
+        for (int i = 0; i < facts.getLength(); i++) {
+            var item = (Element) facts.item(i);
+            if (context.equals(item.getAttribute("contextRef"))
+                    && ("tse-ed-t:" + name).equals(item.getAttribute("name"))) {
+                return amount(root, name, context, "iso4217:JPY", false);
+            }
+        }
+        return null;
     }
 
     private static BigDecimal optionalAmount(Element root, String name, String context) {

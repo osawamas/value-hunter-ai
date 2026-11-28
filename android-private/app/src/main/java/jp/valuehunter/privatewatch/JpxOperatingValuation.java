@@ -16,6 +16,18 @@ final class JpxOperatingValuation {
         var revenue = annual.onShareBasis(day, facts.revenue(), false);
         boolean soundBalance = atLeast(facts.netAssets(), facts.assets(), "0.25");
         boolean weakParentEquity = annual.bps() != null && annual.bps().signum() <= 0;
+        if (cashFlow == null) {
+            var profit = facts.operatingProfit();
+            var prior = facts.priorProfit();
+            // Both periods must show operating profitability. This first-tier route does not
+            // infer cash generation and never substitutes for disclosed weak cash flow.
+            if (profit == null || prior == null || prior.signum() <= 0 || profit.compareTo(prior) <= 0
+                    || annual.bps() == null || weakParentEquity
+                    || !atLeast(facts.netAssets(), facts.assets(), "0.50")
+                    || !atLeast(facts.revenue(), marketCap, "2")
+                    || !atLeast(annual.onShareBasis(day, profit, false), marketCap, "0.15")) return null;
+            return new ValueAlertMeter.Score(65, 1, 4);
+        }
         if (!soundBalance || weakParentEquity || !atLeast(cashFlow, marketCap, "0.08")
                 || !atLeast(revenue, marketCap, "1")) {
             return new ValueAlertMeter.Score(0, 0, 3);

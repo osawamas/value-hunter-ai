@@ -6,6 +6,8 @@ from decimal import Decimal
 import json
 import os
 import re
+import random
+from pathlib import Path
 import time
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -215,6 +217,61 @@ def audit_budget(day, stocks, prices, duplicates, rows, sample_per_market, right
     }
 
 
+def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, limit):
+    """Bound external requests and leave price selection to the Android daily report."""
+    if edinet is None:
+        return {}, {"key_unconfigured": 1}
+    candidates = sorted(set(stocks) & set(rows))
+    random.Random(day.toordinal()).shuffle(candidates)
+    verified = {}
+    counts = Counter()
+    for code in candidates:
+        row = rows[code]
+        metrics = row.get("metrics", {})
+        eps, bps = metrics.get("eps"), metrics.get("bvps")
+        source = row.get("source_doc_id")
+        if (row.get("currency") != "JPY" or row.get("span") != "FY"
+                or not isinstance(source, str) or not DOC_ID.fullmatch(source)
+                or not numeric(eps) or not numeric(bps) or eps <= 0 or bps <= 0):
+            continue
+        try:
+            period = date.fromisoformat(row["period_end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not 0 < (day - period).days <= 365:
+            continue
+        if share_basis_status(code, period, day, rights, daily_rights.get(code, ())) != "no_share_change_in_supplied_reports":
+            counts["share_basis_unverified"] += 1
+            continue
+        if counts["attempted"] >= limit:
+            break
+        counts["attempted"] += 1
+        try:
+            filing = verify_filing_sample(code, row)
+            published = date.fromisoformat(filing["actual_filing_date"])
+            latest = date.fromisoformat(row["latest_filing_date"])
+            if published >= day or latest != published:
+                counts["publication_unverified"] += 1
+                continue
+            original = edinet.check(filing, row)
+            if not all(original.get(field) is True for field in (
+                    "filing_metadata_match", "full_year_verified", "per_share_facts_match",
+                    "original_period_end_share_count_present")):
+                counts["original_unverified"] += 1
+                continue
+        except HTTPError as error:
+            counts[f"http_{error.code}"] += 1
+            if error.code in (401, 403, 429, 503):
+                break
+            continue
+        except (ValueError, OSError, KeyError, TypeError):
+            counts["source_unverified"] += 1
+            continue
+        verified[code] = {"eps": str(eps), "bps": str(bps), "filed": published.isoformat(),
+                          "period_end": period.isoformat(), "edinet_doc": source}
+    return verified, dict(counts)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("universe")
@@ -223,6 +280,7 @@ def main():
     parser.add_argument("--budget-samples-per-market", type=int, choices=range(11), default=0)
     parser.add_argument("--rights-report", action="append", default=[], help="Local JPX monthly rights PDF")
     parser.add_argument("--daily-rights", action="append", default=[], help="Local JPX daily rights XLS")
+    parser.add_argument("--valuation-output", type=Path, help="Private runner input to the Android audit")
     args = parser.parse_args()
     stocks = ordinary_stocks(args.universe)
     rows, as_of, pages = annual_rows()
@@ -255,6 +313,14 @@ def main():
             load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
             EdinetAudit(edinet_key) if edinet_key else None,
         )
+    if args.valuation_output:
+        day, _, _ = latest
+        key = os.getenv("EDINET_API_KEY", "").strip()
+        verified, counts = verified_valuation_rows(
+            day, stocks, rows, load_rights_reports(args.rights_report), load_daily_rights(args.daily_rights),
+            EdinetAudit(key) if key else None, 12)
+        args.valuation_output.write_text(json.dumps({"day": day.isoformat(), "rows": verified}), encoding="utf-8")
+        result["valuation_input_audit"] = {"verified_rows": len(verified), **counts}
     print(json.dumps(result, indent=2))
 
 

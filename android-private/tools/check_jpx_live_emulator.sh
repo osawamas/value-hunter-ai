@@ -15,6 +15,9 @@ for name in listings delistings; do
     adb shell -T "run-as $app sh -c 'cat > $file'" < "coverage-results/$file"
   fi
 done
+if [[ -n "${RUNNER_TEMP:-}" && -s "$RUNNER_TEMP/jpx-alternative-valuation.json" ]]; then
+  adb shell -T "run-as $app sh -c 'cat > jpx-alternative-valuation.json'" < "$RUNNER_TEMP/jpx-alternative-valuation.json"
+fi
 cache_name=jpx-automatic-finance-v1.xml
 cache_dir=coverage-jpx-cache
 if [[ -s "$cache_dir/$cache_name" ]]; then
