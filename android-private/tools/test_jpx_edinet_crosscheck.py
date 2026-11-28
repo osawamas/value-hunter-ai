@@ -5,7 +5,7 @@ from unittest.mock import patch
 from decimal import Decimal
 from zipfile import ZipFile
 
-from jpx_edinet_crosscheck import BPS, EPS, SHARES, EdinetAudit, compare, download, facts_from_csv, metadata_matches
+from jpx_edinet_crosscheck import BPS, EPS, SHARES, PER_SHARE_PAIRS, EdinetAudit, compare, download, facts_from_csv, metadata_matches
 
 
 class CrossCheckTest(unittest.TestCase):
@@ -48,6 +48,14 @@ class CrossCheckTest(unittest.TestCase):
                 audit.check(dict(code="1301", annual_source_id="S100AB12", actual_filing_date="2026-06-24"),
                             {"period_end": "2026-03-31"})
 
+    def test_matches_standard_pairs_without_combining_accounting_standards(self):
+        ifrs_eps, ifrs_bps = PER_SHARE_PAIRS[1]
+        facts = {(ifrs_eps, "CurrentYearDuration"): {Decimal("10")},
+                 (ifrs_bps, "CurrentYearInstant"): {Decimal("100")}}
+        self.assertTrue(compare({"eps": 10, "bvps": 100}, facts)["per_share_facts_match"])
+        facts[(BPS, "CurrentYearInstant")] = facts.pop((ifrs_bps, "CurrentYearInstant"))
+        self.assertFalse(compare({"eps": 10, "bvps": 100}, facts)["per_share_facts_match"])
+
     def test_requires_same_scope_and_ignores_wrong_currency(self):
         output = io.BytesIO()
         with ZipFile(output, "w") as archive:
@@ -56,7 +64,7 @@ class CrossCheckTest(unittest.TestCase):
                     f"{BPS}\tCurrentYearInstant\tJPYPerShares\t401.75",
                     f"{BPS}\tCurrentYearInstant\tUSDPerShares\t40",
                     f"{BPS}\tCurrentYearInstant_NonConsolidatedMember\tJPYPerShares\t410",
-                    f"{SHARES}\tCurrentYearInstant_NonConsolidatedMember\tShares\t200000"]
+                    f"{SHARES}\tCurrentYearInstant_NonConsolidatedMember\tshares\t200000"]
             archive.writestr("XBRL_TO_CSV/jpcrp030000-asr-test.csv", "\n".join(rows).encode("utf-16"))
         facts = facts_from_csv(output.getvalue())
         self.assertEqual(compare(dict(eps=Decimal("-20.25"), bvps=Decimal("401.75")), facts),

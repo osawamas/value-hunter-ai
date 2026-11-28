@@ -16,6 +16,15 @@ SUMMARY = "jpcrp_cor:"
 EPS = SUMMARY + "BasicEarningsLossPerShareSummaryOfBusinessResults"
 BPS = SUMMARY + "NetAssetsPerShareSummaryOfBusinessResults"
 SHARES = SUMMARY + "TotalNumberOfIssuedSharesSummaryOfBusinessResults"
+PER_SHARE_PAIRS = (
+    (EPS, BPS),
+    (SUMMARY + "BasicEarningsLossPerShareIFRSSummaryOfBusinessResults",
+     SUMMARY + "EquityToAssetRatioIFRSSummaryOfBusinessResults"),
+    (SUMMARY + "BasicEarningsLossPerShareUSGAAPSummaryOfBusinessResults",
+     SUMMARY + "EquityAttributableToOwnersOfParentPerShareUSGAAPSummaryOfBusinessResults"),
+)
+EPS_TAGS = {eps for eps, _ in PER_SHARE_PAIRS}
+BPS_TAGS = {bps for _, bps in PER_SHARE_PAIRS}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -66,13 +75,13 @@ def facts_from_csv(body):
                 raise ValueError("EDINET annual CSV lacks required columns")
             for row in rows:
                 tag, context = row["要素ID"], row["コンテキストID"]
-                duration = tag == EPS and context in (
+                duration = tag in EPS_TAGS and context in (
                     "CurrentYearDuration", "CurrentYearDuration_NonConsolidatedMember")
-                instant = tag in (BPS, SHARES) and context in (
+                instant = (tag in BPS_TAGS or tag == SHARES) and context in (
                     "CurrentYearInstant", "CurrentYearInstant_NonConsolidatedMember")
                 if not duration and not instant:
                     continue
-                expected = "Shares" if tag == SHARES else "JPYPerShares"
+                expected = "shares" if tag == SHARES else "JPYPerShares"
                 if row["ユニットID"] != expected:
                     continue
                 value = row["値"]
@@ -84,11 +93,12 @@ def facts_from_csv(body):
 
 def compare(metrics, facts):
     matches = 0
-    for suffix in ("", "_NonConsolidatedMember"):
-        eps = facts.get((EPS, "CurrentYearDuration" + suffix), set())
-        bps = facts.get((BPS, "CurrentYearInstant" + suffix), set())
-        if eps == {metrics.get("eps")} and bps == {metrics.get("bvps")}:
-            matches += 1
+    for eps_tag, bps_tag in PER_SHARE_PAIRS:
+        for suffix in ("", "_NonConsolidatedMember"):
+            eps = facts.get((eps_tag, "CurrentYearDuration" + suffix), set())
+            bps = facts.get((bps_tag, "CurrentYearInstant" + suffix), set())
+            if eps == {metrics.get("eps")} and bps == {metrics.get("bvps")}:
+                matches += 1
     shares = set().union(*(facts.get((SHARES, "CurrentYearInstant" + suffix), set())
                            for suffix in ("", "_NonConsolidatedMember")))
     return {
