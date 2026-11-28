@@ -17,6 +17,7 @@ EPS = SUMMARY + "BasicEarningsLossPerShareSummaryOfBusinessResults"
 BPS = SUMMARY + "NetAssetsPerShareSummaryOfBusinessResults"
 REPORT_PERIOD_END = "jpdei_cor:CurrentPeriodEndDateDEI"
 SHARES = SUMMARY + "TotalNumberOfIssuedSharesSummaryOfBusinessResults"
+INTERIM_ISSUED_SHARES = SUMMARY + "NumberOfSharesIssuedSharesVotingRights"
 PER_SHARE_PAIRS = (
     (EPS, BPS),
     (SUMMARY + "BasicEarningsLossPerShareIFRSSummaryOfBusinessResults",
@@ -94,10 +95,12 @@ def facts_from_csv(body, interim=False, interim_schema=None):
                     duration = False
                     instant = (tag in BPS_TAGS or tag == SHARES) and context in (
                         "CurrentInterimInstant", "CurrentInterimInstant_NonConsolidatedMember",
-                        "CurrentQuarterInstant", "CurrentQuarterInstant_NonConsolidatedMember")
+                        "CurrentQuarterInstant", "CurrentQuarterInstant_NonConsolidatedMember",
+                        "InterimInstant", "InterimInstant_NonConsolidatedMember")
+                    instant = instant or (tag == INTERIM_ISSUED_SHARES and context == "InterimInstant")
                 if not duration and not instant:
                     continue
-                expected = "shares" if tag == SHARES else "JPYPerShares"
+                expected = "shares" if tag in (SHARES, INTERIM_ISSUED_SHARES) else "JPYPerShares"
                 if row["ユニットID"] != expected:
                     continue
                 value = row["値"]
@@ -196,7 +199,10 @@ class EdinetAudit:
         if not ordered or not within_fiscal_year:
             return {**result, "status": "latest_interim_report_period_unverified"}
         result["report_period_end"] = observed_period
-        shares = set().union(*(values for (tag, _), values in facts.items() if tag == SHARES))
+        shares = set().union(*(values for (tag, _), values in facts.items()
+                               if tag in (SHARES, INTERIM_ISSUED_SHARES)))
+        if any(value <= 0 or value != value.to_integral_value() for value in shares):
+            shares.clear()
         book_values = set().union(*(values for (tag, _), values in facts.items() if tag in BPS_TAGS))
         result["shares"] = compare_latest(shares, annual_shares)
         result["bps"] = compare_latest(book_values, annual_bps)

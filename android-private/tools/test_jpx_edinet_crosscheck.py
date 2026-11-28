@@ -5,7 +5,7 @@ from unittest.mock import patch
 from decimal import Decimal
 from zipfile import ZipFile
 
-from jpx_edinet_crosscheck import BPS, EPS, SHARES, REPORT_PERIOD_END, PER_SHARE_PAIRS, EdinetAudit, compare, download, facts_from_csv, metadata_matches
+from jpx_edinet_crosscheck import BPS, EPS, SHARES, INTERIM_ISSUED_SHARES, REPORT_PERIOD_END, PER_SHARE_PAIRS, EdinetAudit, compare, download, facts_from_csv, metadata_matches
 
 
 class CrossCheckTest(unittest.TestCase):
@@ -76,6 +76,18 @@ class CrossCheckTest(unittest.TestCase):
                          ("S100AB12", "2027-03-31", "1"))
         audit.days[filed].append(dict(row, docTypeCode="170"))
         self.assertEqual(audit.review_newer(*args)["status"], "latest_annual_or_amendment_requires_review")
+
+    def test_reads_interim_issued_total_without_voting_rights_breakdown(self):
+        output = io.BytesIO()
+        with ZipFile(output, "w") as archive:
+            rows = ["要素ID\tコンテキストID\tユニットID\t値",
+                    f"{INTERIM_ISSUED_SHARES}\tInterimInstant\tshares\t20000",
+                    f"{INTERIM_ISSUED_SHARES}\tInterimInstant_OrdinaryShareMember\tshares\t19000",
+                    f"{BPS}\tInterimInstant\tJPYPerShares\t110"]
+            archive.writestr("XBRL_TO_CSV/jpcrp040300-ssr-test.csv", "\n".join(rows).encode("utf-16"))
+        self.assertEqual(facts_from_csv(output.getvalue(), interim=True),
+                         {(INTERIM_ISSUED_SHARES, "InterimInstant"): {Decimal("20000")},
+                          (BPS, "InterimInstant"): {Decimal("110")}})
 
     def test_matches_standard_pairs_without_combining_accounting_standards(self):
         ifrs_eps, ifrs_bps = PER_SHARE_PAIRS[1]
