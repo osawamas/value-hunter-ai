@@ -63,7 +63,7 @@ def metadata_matches(rows, code, doc_id, period_end, filed_on):
             and row.get("csvFlag") == "1")
 
 
-def facts_from_csv(body, interim=False):
+def facts_from_csv(body, interim=False, interim_schema=None):
     facts = {}
     with ZipFile(io.BytesIO(body)) as archive:
         files = [item for item in archive.infolist() if re.fullmatch(
@@ -77,6 +77,10 @@ def facts_from_csv(body, interim=False):
                 raise ValueError("EDINET annual CSV lacks required columns")
             for row in rows:
                 tag, context = row["要素ID"], row["コンテキストID"]
+                if interim_schema is not None and len(interim_schema) < 32 and re.fullmatch(
+                        r"jp[a-z]+_cor:[A-Za-z0-9]*(?:IssuedShares|PerShare)[A-Za-z0-9]*", tag):
+                    if re.fullmatch(r"[A-Za-z0-9_]{1,100}", context) and context.startswith("Current"):
+                        interim_schema.add((tag, context))
                 if interim and tag == REPORT_PERIOD_END and context == "FilingDateInstant":
                     value = row["値"]
                     if value and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value):
@@ -174,8 +178,10 @@ class EdinetAudit:
             return {**result, "status": "latest_interim_csv_not_offered", "csv_flag": item.get("csvFlag"),
                     "xbrl_flag": item.get("xbrlFlag")}
         result["status"] = "latest_interim_reviewed"
+        schema = set()
         try:
-            facts = facts_from_csv(self.request("/" + doc, {"type": 5}, 8_000_000), interim=True)
+            facts = facts_from_csv(self.request("/" + doc, {"type": 5}, 8_000_000), interim=True,
+                                   interim_schema=schema)
         except (ValueError, KeyError, BadZipFile):
             return {**result, "status": "latest_interim_csv_unverified"}
         period_dates = facts.get((REPORT_PERIOD_END, "FilingDateInstant"), set())
@@ -194,6 +200,8 @@ class EdinetAudit:
         book_values = set().union(*(values for (tag, _), values in facts.items() if tag in BPS_TAGS))
         result["shares"] = compare_latest(shares, annual_shares)
         result["bps"] = compare_latest(book_values, annual_bps)
+        if result["shares"] == "unverified" or result["bps"] == "unverified":
+            result["observed_schema"] = sorted(schema)
         return result
 
     def check(self, filing, row):

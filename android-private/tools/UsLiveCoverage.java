@@ -65,7 +65,10 @@ public final class UsLiveCoverage {
             }
             if (closes == null || closes.length() == 0) {
                 report.put("quote_path", "dolt_scoped_symbol_batches");
-                closes = UsDoltCloses.fetchScoped(day, scope, download);
+                var scoped = UsDoltCloses.fetchScoped(day, scope, download);
+                closes = scoped.rows();
+                report.put("quote_symbols_queried", scoped.queriedSymbols())
+                        .put("quote_pass_timed_out", scoped.timedOut());
             } else {
                 report.put("quote_path", "dolt_date_manifest");
             }
@@ -74,7 +77,8 @@ public final class UsLiveCoverage {
             return;
         }
         if (closes.length() == 0) {
-            report.put("closes", 0).put("status", "dated_closes_unavailable");
+            report.put("closes", 0).put("status", report.optBoolean("quote_pass_timed_out")
+                    ? "scoped_close_timeout" : "dated_closes_unavailable");
             return;
         }
         var prices = UsDeviceFinancials.prices(closes);
@@ -138,7 +142,9 @@ public final class UsLiveCoverage {
         }
         var hash = UsReferenceAlerts.sha256(closes.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var measured = UsDeviceFinancials.scopedAssessment(day, UsDoltCloses.SOURCE, hash, checkpoint, prices, fx, splits);
-        report.put("stage", "valuation").put("status", processed == targets.length() ? "completed_scope" : "partial_financial_pass")
+        String status = processed != targets.length() ? "partial_financial_pass"
+                : report.optBoolean("quote_pass_timed_out") ? "partial_quote_pass" : "completed_scope";
+        report.put("stage", "valuation").put("status", status)
                 .put("financial_targets", targets.length()).put("financial_processed", processed)
                 .put("valuation", measured);
     }

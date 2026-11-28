@@ -37,7 +37,23 @@ public class UsDoltClosesTest {
             return response(new JSONArray().put(row(call == 1 ? "S099" : "S100", DAY)));
         });
         assertEquals(3, calls.get());
-        assertEquals(2, closes.length());
+        assertEquals(2, closes.rows().length());
+        assertEquals(101, closes.queriedSymbols());
+    }
+
+    @Test public void scopedTimeoutKeepsOnlyCompletedDatedBatches() throws Exception {
+        var calls = new AtomicInteger();
+        var scope = new java.util.TreeSet<String>();
+        for (int i = 0; i <= 100; i++) scope.add(String.format(java.util.Locale.ROOT, "S%03d", i));
+        var closes = UsDoltCloses.fetchScoped(DAY, scope, address -> {
+            int call = calls.getAndIncrement();
+            if (call == 0) return response(new JSONArray().put(new JSONObject().put("revision", REVISION)));
+            if (call == 1) return response(new JSONArray().put(row("S099", DAY)));
+            throw new SocketTimeoutException();
+        });
+        assertTrue(closes.timedOut());
+        assertEquals(100, closes.queriedSymbols());
+        assertEquals("S099", closes.rows().getJSONObject(0).getString("symbol"));
     }
 
     @Test public void readsAllPagesAtThePinnedRevision() throws Exception {

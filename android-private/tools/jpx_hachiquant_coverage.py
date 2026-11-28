@@ -244,7 +244,7 @@ def verified_valuation_rows(day, stocks, rows, rights, daily_rights, edinet, lim
     start = (batch % pages) * limit if pages else 0
     verified = {}
     counts = Counter({"eligible_finance_rows": len(candidates), "batch_offset": start})
-    deadline = time.monotonic() + 125
+    deadline = time.monotonic() + 155
     for hint, code, period in candidates[start:start + limit]:
         if time.monotonic() >= deadline:
             counts["time_budget_reached"] += 1

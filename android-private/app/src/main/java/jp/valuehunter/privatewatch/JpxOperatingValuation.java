@@ -71,6 +71,18 @@ final class JpxOperatingValuation {
         return new ValueAlertMeter.Score(69, 1, improving ? 4 : 3);
     }
 
+    static ValueAlertMeter.Score assessRecoverableBook(BigDecimal close, BigDecimal currentBook,
+            BigDecimal priorBook, BigDecimal currentEps, BigDecimal priorEps) {
+        // Require a narrowing loss and stable book value before interpreting a book discount.
+        if (close.signum() <= 0 || currentBook.signum() <= 0 || priorBook.signum() <= 0
+                || currentEps.signum() > 0 || priorEps.signum() >= 0
+                || !atLeast(currentEps.subtract(priorEps), priorEps.abs(), "0.25")
+                || !atLeast(currentBook, priorBook, "0.90")
+                || !atLeast(currentBook, currentEps.abs(), "20")) return null;
+        if (!atLeast(currentBook, close, "2")) return new ValueAlertMeter.Score(0, 0, 3);
+        return new ValueAlertMeter.Score(65, 1, 3);
+    }
+
     private static boolean atLeast(BigDecimal numerator, BigDecimal denominator, String minimum) {
         return numerator.compareTo(denominator.multiply(new BigDecimal(minimum))) >= 0;
     }

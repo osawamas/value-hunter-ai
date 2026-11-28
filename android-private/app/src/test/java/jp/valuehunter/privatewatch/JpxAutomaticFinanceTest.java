@@ -21,6 +21,22 @@ public class JpxAutomaticFinanceTest {
     private static final LocalDate RELEASED = LocalDate.of(2026, 5, 11);
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
 
+    @Test public void bookDiscountRequiresNarrowingLossAndPreservedEquity() {
+        var close = new BigDecimal("400");
+        var book = new BigDecimal("1000");
+        var priorBook = new BigDecimal("1100");
+        var loss = new BigDecimal("-30");
+        var priorLoss = new BigDecimal("-60");
+        assertEquals(1, JpxOperatingValuation.assessRecoverableBook(close, book, priorBook, loss, priorLoss)
+                .level(ValueAlertMeter.DEFAULT));
+        assertEquals(0, JpxOperatingValuation.assessRecoverableBook(new BigDecimal("600"),
+                book, priorBook, loss, priorLoss).level(ValueAlertMeter.DEFAULT));
+        assertNull(JpxOperatingValuation.assessRecoverableBook(close, book, priorBook, priorLoss, loss));
+        assertNull(JpxOperatingValuation.assessRecoverableBook(close, book, new BigDecimal("1200"), loss, priorLoss));
+        assertNull(JpxOperatingValuation.assessRecoverableBook(close, book, priorBook,
+                new BigDecimal("-51"), new BigDecimal("-80")));
+    }
+
     @Test public void correctedTdnetRowsUseTheCurrentTitleAndKeepTheWholePage() throws Exception {
         String day = """
                 <div id="kaiji-date-1">2026年11月17日</div>

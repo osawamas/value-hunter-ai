@@ -273,6 +273,10 @@ final class JpxDailyCheck {
                         && operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())) {
                     score = JpxOperatingValuation.assess(annual, day, close);
                 }
+                if (score == null && annual.operating() == null && annual.eps().signum() <= 0
+                        && operatingShareCountVerified(code, entry.checkedThrough(), day, finance.updates())) {
+                    score = recoverableBookScore(code, entry, annual, day, rights, close);
+                }
                 if (score != null) {
                     score = JpxDisclosureEvidence.adjust(score, entry.events(), day);
                     rows.put(code, ValueAlertPreview.encode(score, budgetQuantity(close)));
@@ -289,11 +293,29 @@ final class JpxDailyCheck {
             BigDecimal priorBook = null;
             if (eps.size() == 2 && !annual.reportingBasis().isEmpty()
                     && annual.reportingBasis().equals(prior.reportingBasis()) && prior.bps() != null) {
-                priorBook = prior.onShareBasis(day, prior.bps(), false)
-                        .divide(prior.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
+                priorBook = bookPerTradingShare(prior, day);
             }
             var score = FlexibleValueMeter.withVerifiedPriorBook(close, eps, priorBook);
             return score.confirmed() >= 2 ? score : null;
+        }
+
+        private ValueAlertMeter.Score recoverableBookScore(String code, JpxAutomaticFinance.Entry entry,
+                JpxAnnualSummary.Annual current, LocalDate session, JpxShareRights rights, BigDecimal close) {
+            var previous = entry.previousAnnual();
+            var earnings = recentEps(code, entry, current, session, rights);
+            if (earnings.size() != 2 || current.reportingBasis().isEmpty()
+                    || !current.reportingBasis().equals(previous.reportingBasis())
+                    || current.bps() == null || previous.bps() == null
+                    || previous.bps().signum() <= 0 || current.bps().signum() <= 0) return null;
+            var currentBook = bookPerTradingShare(current, session);
+            var priorBook = bookPerTradingShare(previous, session);
+            return JpxOperatingValuation.assessRecoverableBook(close, currentBook, priorBook,
+                    earnings.get(0), earnings.get(1));
+        }
+
+        private static BigDecimal bookPerTradingShare(JpxAnnualSummary.Annual annual, LocalDate day) {
+            return annual.onShareBasis(day, annual.bps(), false)
+                    .divide(annual.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
         }
 
         private static boolean operatingShareCountVerified(String code, LocalDate through, LocalDate day,

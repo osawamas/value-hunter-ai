@@ -99,7 +99,9 @@ final class UsDoltCloses {
         return closes;
     }
 
-    static JSONArray fetchScoped(LocalDate day, Set<String> scope, Download download)
+    record ScopedCloses(JSONArray rows, int queriedSymbols, boolean timedOut) {}
+
+    static ScopedCloses fetchScoped(LocalDate day, Set<String> scope, Download download)
             throws IOException, JSONException {
         if (scope.isEmpty() || scope.size() > 12_000) throw new JSONException("Invalid Dolt listing scope");
         var manifest = query(download, "SELECT DOLT_HASHOF('HEAD') AS revision");
@@ -110,12 +112,16 @@ final class UsDoltCloses {
         var all = new JSONArray();
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(2);
         for (int offset = 0; offset < symbols.size(); offset += 100) {
-            if (System.nanoTime() - deadline >= 0) throw new SocketTimeoutException("Dolt scoped query deadline");
+            if (System.nanoTime() - deadline >= 0) return new ScopedCloses(all, offset, true);
             int end = Math.min(offset + 100, symbols.size());
-            var rows = supplement(day, Set.copyOf(symbols.subList(offset, end)), revision, download);
-            for (int i = 0; i < rows.length(); i++) all.put(rows.getJSONObject(i));
+            try {
+                var rows = supplement(day, Set.copyOf(symbols.subList(offset, end)), revision, download);
+                for (int i = 0; i < rows.length(); i++) all.put(rows.getJSONObject(i));
+            } catch (SocketTimeoutException timedOut) {
+                return new ScopedCloses(all, offset, true);
+            }
         }
-        return all;
+        return new ScopedCloses(all, symbols.size(), false);
     }
 
     static JSONArray supplement(LocalDate day, Set<String> symbols, Download download)
