@@ -107,7 +107,16 @@ jobs:
             bash android-private/tools/compile_us_replay.sh "$dir"
             rm -f "$data/us-public-coverage.json"
             result=0
-            timeout 195 java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" --alpaca || result=$?
+            bulk="$RUNNER_TEMP/sec-companyfacts.zip"
+            if [[ -n "$SEC_USER_AGENT" && "$SEC_USER_AGENT" != *$'\n'* && "$SEC_USER_AGENT" != *$'\r'* ]]; then
+              if curl -fsS --connect-timeout 12 --max-time 95 --max-filesize 2500000000 \
+                --user-agent "$SEC_USER_AGENT" https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip -o "$bulk"; then
+                export SEC_COMPANYFACTS_ZIP="$bulk"
+              else
+                rm -f "$bulk"
+              fi
+            fi
+            timeout 420 java -Xmx1500m -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" --alpaca || result=$?
             if [ -s "$data/us-public-coverage.json" ]; then
               cp "$data/us-public-coverage.json" coverage-results/us-archived-coverage.json
             else

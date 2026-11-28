@@ -88,6 +88,21 @@ public final class UsLiveCoverage {
         var prices = UsDeviceFinancials.prices(closes);
         long matchingCloses = scope.stream().filter(prices::containsKey).count();
         report.put("closes", matchingCloses);
+        var missingClose = new TreeSet<>(scope);
+        missingClose.removeAll(prices.keySet());
+        report.put("missing_close_count", missingClose.size());
+        if (!missingClose.isEmpty() && missingClose.size() <= 100) {
+            report.put("missing_close_symbols", new JSONArray(missingClose));
+            if (useAlpaca && closeSource.equals("alpaca_delayed_sip_raw")) {
+                try {
+                    var repairs = UsDoltCloses.supplement(day, missingClose,
+                            url -> new JSONObject(read(url, "", Duration.ofSeconds(12))));
+                    report.put("dolt_missing_close_candidates", repairs.length());
+                } catch (IOException | JSONException unavailable) {
+                    report.put("dolt_missing_close_error", unavailable.getClass().getSimpleName());
+                }
+            }
+        }
         if (matchingCloses == 0) {
             report.put("status", "no_dated_closes_for_listed_scope");
             return;
@@ -112,37 +127,46 @@ public final class UsLiveCoverage {
         var rows = new JSONArray();
         var checkpoint = new JSONObject().put("coverage_listing_date", day.toString())
                 .put("coverage_symbols", new JSONArray(scope)).put("results", rows);
-        var deadline = Instant.now().plus(Duration.ofMinutes(7));
+        var deadline = Instant.now().plus(Duration.ofMinutes(useAlpaca ? 3 : 7));
         int processed = 0;
         var factsByIssuer = new java.util.HashMap<Integer, JSONObject>();
-        for (; processed < targets.length() && Instant.now().isBefore(deadline); processed++) {
-            var target = targets.getJSONObject(processed);
-            int cik = target.getInt("cik");
-            var payload = factsByIssuer.get(cik);
-            if (payload == null) {
-                try {
-                    payload = new JSONObject(read(String.format(Locale.ROOT, FACTS, cik), contact));
-                    factsByIssuer.put(cik, payload);
-                } catch (HttpFailure denied) {
-                    if (denied.status != 404) break;
-                    UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
-                            new UsDeviceFinancials.FetchAssessment(null, "sec_not_found"));
-                    Thread.sleep(350);
-                    continue;
-                } catch (org.json.JSONException invalidIssuer) {
-                    UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
-                            new UsDeviceFinancials.FetchAssessment(null, "sec_invalid_payload"));
-                    Thread.sleep(350);
-                    continue;
-                } catch (IOException unavailable) {
-                    report.put("financial_stop", unavailable.getClass().getSimpleName());
-                    break;
+        try (var archive = companyFactsArchive(report)) {
+            for (; processed < targets.length() && Instant.now().isBefore(deadline); processed++) {
+                var target = targets.getJSONObject(processed);
+                int cik = target.getInt("cik");
+                var payload = factsByIssuer.get(cik);
+                if (payload == null) {
+                    try {
+                        payload = archive == null
+                                ? new JSONObject(read(String.format(Locale.ROOT, FACTS, cik), contact))
+                                : archiveFacts(archive, cik);
+                        if (payload == null) {
+                            UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
+                                    new UsDeviceFinancials.FetchAssessment(null, "sec_not_in_bulk_archive"));
+                            continue;
+                        }
+                        if (archive == null && factsByIssuer.size() < 64) factsByIssuer.put(cik, payload);
+                    } catch (HttpFailure denied) {
+                        if (denied.status != 404) break;
+                        UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
+                                new UsDeviceFinancials.FetchAssessment(null, "sec_not_found"));
+                        if (archive == null) Thread.sleep(350);
+                        continue;
+                    } catch (org.json.JSONException invalidIssuer) {
+                        UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
+                                new UsDeviceFinancials.FetchAssessment(null, "sec_invalid_payload"));
+                        if (archive == null) Thread.sleep(350);
+                        continue;
+                    } catch (IOException unavailable) {
+                        report.put("financial_stop", unavailable.getClass().getSimpleName());
+                        break;
+                    }
+                    if (archive == null) Thread.sleep(350);
                 }
-                Thread.sleep(350);
+                var result = UsDeviceFinancials.assessFetch(target, payload, day);
+                if (result.row() != null) rows.put(result.row());
+                UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"), result);
             }
-            var result = UsDeviceFinancials.assessFetch(target, payload, day);
-            if (result.row() != null) rows.put(result.row());
-            UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"), result);
         }
         var hash = UsReferenceAlerts.sha256(closes.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits);
@@ -151,6 +175,35 @@ public final class UsLiveCoverage {
         report.put("stage", "valuation").put("status", status)
                 .put("financial_targets", targets.length()).put("financial_processed", processed)
                 .put("valuation", measured);
+    }
+
+    private static java.util.zip.ZipFile companyFactsArchive(JSONObject report) {
+        String path = System.getenv().getOrDefault("SEC_COMPANYFACTS_ZIP", "");
+        if (!path.isEmpty()) {
+            try {
+                var archive = new java.util.zip.ZipFile(path);
+                report.put("financial_source", "sec_nightly_companyfacts_zip");
+                return archive;
+            } catch (IOException invalid) {
+                report.put("financial_archive", "unavailable");
+            }
+        }
+        report.put("financial_source", "sec_companyfacts_per_issuer");
+        return null;
+    }
+
+    private static JSONObject archiveFacts(java.util.zip.ZipFile archive, int cik) throws IOException {
+        var entry = archive.getEntry(String.format(Locale.ROOT, "CIK%010d.json", cik));
+        if (entry == null) return null;
+        final int maxBytes = 16_000_000;
+        if (entry.getSize() > maxBytes) throw new JSONException("SEC company facts entry too large");
+        try (var stream = archive.getInputStream(entry)) {
+            var bytes = stream.readNBytes(maxBytes + 1);
+            if (bytes.length > maxBytes) throw new JSONException("SEC company facts entry too large");
+            var facts = new JSONObject(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            if (facts.optInt("cik") != cik) throw new JSONException("SEC company facts issuer mismatch");
+            return facts;
+        }
     }
 
     private static JSONArray alpacaCloses(java.time.LocalDate day, TreeSet<String> scope, JSONObject report)

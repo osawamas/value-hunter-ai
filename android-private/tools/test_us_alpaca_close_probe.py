@@ -1,7 +1,7 @@
-from datetime import date
+from datetime import date, timedelta
 import unittest
 
-from us_alpaca_close_probe import audit, collect
+from us_alpaca_close_probe import audit, collect, replay_history
 from unittest.mock import patch
 
 
@@ -31,3 +31,15 @@ class AlpacaCloseProbeTest(unittest.TestCase):
             summary, rows = collect(day, symbols, "key", "secret", fetch)
         self.assertEqual((summary["scope"], summary["queried"], summary["closes"]), (101, 100, 1))
         self.assertEqual(rows, [{"symbol": "S000", "close_usd": "100"}])
+
+
+    def test_replay_excludes_unavailable_forward_windows(self):
+        first = date(2020, 1, 1)
+        rows = {(symbol, first + timedelta(days=n)): (100 + n if symbol == "AAPL" else 100)
+                for symbol in ("AAPL", "IBM") for n in range(272)}
+        self.assertEqual(replay_history(rows)["test_windows"], 0)
+        for symbol in ("AAPL", "IBM"):
+            rows[symbol, first + timedelta(days=272)] = 372 if symbol == "AAPL" else 100
+        result = replay_history(rows)
+        self.assertEqual((result["qualified_signals"], result["positive_forward_windows"], result["relative_wins"]),
+                         (1, 1, 1))

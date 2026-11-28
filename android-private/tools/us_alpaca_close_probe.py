@@ -103,6 +103,32 @@ def collect(day, symbols, key, secret, download=request_bars):
             **failure}, [{"symbol": symbol, "close_usd": str(close)} for (symbol, _), close in sorted(closes.items())]
 
 
+def replay_history(rows):
+    """Compare matched sessions without letting a forward return enter a signal."""
+    by_symbol = [{day: value for (code, day), value in rows.items() if code == symbol}
+                 for symbol in SYMBOLS]
+    dates = sorted(by_symbol[0].keys() & by_symbol[1].keys())
+    prices = [[series[day] for day in dates] for series in by_symbol]
+    first_signal, forward_sessions = 252, 20
+    windows = eligible = positive = relative_wins = 0
+    for i in range(first_signal, len(dates) - forward_sessions, forward_sessions):
+        windows += 1
+        trailing = [series[i] / series[i - 252] for series in prices]
+        if trailing[0] == trailing[1]:
+            continue
+        leader = 0 if trailing[0] > trailing[1] else 1
+        series = prices[leader]
+        if series[i] * 200 <= sum(series[i - 199:i + 1]):
+            continue
+        eligible += 1
+        returns = [series[i + forward_sessions] / series[i] for series in prices]
+        positive += returns[leader] > 1
+        relative_wins += returns[leader] > returns[1 - leader]
+    return {"matched_sessions": len(dates), "test_windows": windows, "qualified_signals": eligible,
+            "positive_forward_windows": positive, "relative_wins": relative_wins,
+            "lookback_sessions": 252, "trend_sessions": 200, "forward_sessions": forward_sessions}
+
+
 def history_sample(day, key, secret):
     start = day.replace(year=day.year - 5, day=min(day.day, 28) if day.month == 2 else day.day)
     rows = {}
@@ -127,7 +153,7 @@ def history_sample(day, key, secret):
                                      and date.fromisoformat(value["last"]) >= day - timedelta(days=7)
                                      for value in counts.values())
                 return {"status": "five_year_span_verified" if five_year_span else "sample_incomplete",
-                        "symbols": counts}
+                        "symbols": counts, **({"technical_replay": replay_history(rows)} if five_year_span else {})}
             if not isinstance(next_token, str) or len(next_token) > 2048 or next_token == token:
                 raise ValueError("Invalid history page token")
             token = next_token
