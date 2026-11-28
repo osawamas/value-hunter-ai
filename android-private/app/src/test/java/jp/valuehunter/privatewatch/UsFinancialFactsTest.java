@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import org.json.JSONException;
 
@@ -17,6 +18,12 @@ public class UsFinancialFactsTest {
     private static final String Q = "0000000001-26-000001";
     private static final String K = "0000000001-26-000002";
     private static final LocalDate SESSION = LocalDate.parse("2026-11-17");
+
+    @Test public void issuerIdentityAcceptsPaddedDecimalWithoutCoercingDifferentIssuers() throws Exception {
+        assertTrue(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000123"), 123));
+        assertFalse(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "0000000124"), 123));
+        assertFalse(UsFinancialFacts.matchesIssuer(new JSONObject().put("cik", "123.0"), 123));
+    }
 
     @Test public void usesMatchingFiscalYearToDateWindowsAndCoverShares() throws Exception {
         var facts = UsFinancialFacts.read(payload(), 1, SESSION);

@@ -136,6 +136,7 @@ public final class UsLiveCoverage {
         int identityRetries = 0;
         int identityRecovered = 0;
         boolean identityRetryStopped = false;
+        var retriedIssuers = new java.util.HashSet<Integer>();
         var factsByIssuer = new java.util.HashMap<Integer, JSONObject>();
         try (var archive = companyFactsArchive(report)) {
             for (; processed < targets.length() && Instant.now().isBefore(deadline); processed++) {
@@ -150,13 +151,14 @@ public final class UsLiveCoverage {
                                     : archiveFacts(archive, cik);
                         } catch (InvalidCompanyFacts rejected) {
                             if (!"sec_archive_cik_mismatch".equals(rejected.reason)
-                                    || identityRetryStopped || identityRetries >= 20
-                                    || Duration.between(Instant.now(), deadline).toSeconds() < 100) throw rejected;
+                                    || identityRetryStopped || identityRetries >= 40
+                                    || Duration.between(Instant.now(), deadline).toSeconds() < 100
+                                    || !retriedIssuers.add(cik)) throw rejected;
                             identityRetries++;
                             try {
                                 payload = new JSONObject(read(String.format(Locale.ROOT, FACTS, cik), contact,
                                         Duration.ofSeconds(6)));
-                                if (payload.optInt("cik") != cik) throw rejected;
+                                if (!UsFinancialFacts.matchesIssuer(payload, cik)) throw rejected;
                                 identityRecovered++;
                             } catch (HttpFailure denied) {
                                 if (denied.status != 404) identityRetryStopped = true;
@@ -173,7 +175,8 @@ public final class UsLiveCoverage {
                                     new UsDeviceFinancials.FetchAssessment(null, "sec_not_in_bulk_archive"));
                             continue;
                         }
-                        if (archive == null && factsByIssuer.size() < 64) factsByIssuer.put(cik, payload);
+                        if ((archive == null || retriedIssuers.contains(cik)) && factsByIssuer.size() < 64)
+                            factsByIssuer.put(cik, payload);
                     } catch (HttpFailure denied) {
                         if (denied.status != 404) break;
                         UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
@@ -255,7 +258,7 @@ public final class UsLiveCoverage {
             var bytes = stream.readNBytes(maxBytes + 1);
             if (bytes.length > maxBytes) throw new InvalidCompanyFacts("sec_archive_entry_size_limit");
             var facts = new JSONObject(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-            if (facts.optInt("cik") != cik) throw new InvalidCompanyFacts("sec_archive_cik_mismatch");
+            if (!UsFinancialFacts.matchesIssuer(facts, cik)) throw new InvalidCompanyFacts("sec_archive_cik_mismatch");
             return facts;
         }
     }

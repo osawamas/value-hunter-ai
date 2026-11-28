@@ -269,7 +269,7 @@ final class UsDeviceFinancials {
             boolean partial = row.optBoolean("partial_value");
             var recovery = partial ? null : recoverNonPositiveProfit(row, close);
             if (partial || recovery != null) {
-                var score = partial ? FlexibleValueMeter.assess(close, meterEps(row), meterCash(row), meterBalance(row))
+                var score = partial ? flexibleUsScore(row, close, day)
                         : recovery;
                 score=UsDisclosureEvidence.adjust(score,row,day);
                 var yen=close.multiply(rate);
@@ -422,6 +422,26 @@ final class UsDeviceFinancials {
                 .put("budget", budget).put("budget_assessed", budgetAssessed)
                 .put("budget_assessed_percent", budget == 0 ? JSONObject.NULL : 100.0 * budgetAssessed / budget)
                 .put("unassessed_reasons", new JSONObject(reasonCounts));
+    }
+
+    static ValueAlertMeter.Score flexibleUsScore(JSONObject row, BigDecimal close, LocalDate day) {
+        var earnings = meterEps(row);
+        var score = FlexibleValueMeter.assess(close, earnings, meterCash(row), meterBalance(row));
+        String filedOn = row.optString("filed");
+        if (score.ceiling() != 3 || filedOn.isEmpty()) return score;
+        LocalDate filed;
+        try {
+            filed = LocalDate.parse(filedOn);
+        } catch (DateTimeParseException invalid) {
+            return new ValueAlertMeter.Score(0, 0, 0);
+        }
+        long age = java.time.temporal.ChronoUnit.DAYS.between(filed, day);
+        if (age < 0) return new ValueAlertMeter.Score(0, 0, 0);
+        var multiple = close.divide(earnings.get(0), java.math.MathContext.DECIMAL64);
+        int valuationDiscount = multiple.multiply(BigDecimal.valueOf(0.8)).intValue();
+        int freshnessDiscount = (int) Math.min(6, Math.max(0, age - 120) / 35);
+        return new ValueAlertMeter.Score(score.points() - valuationDiscount - freshnessDiscount,
+                score.ceiling(), score.confirmed());
     }
 
     private static ValueAlertMeter.Score recoverNonPositiveProfit(JSONObject row, BigDecimal close) throws JSONException {

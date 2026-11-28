@@ -126,6 +126,17 @@ public class UsDeviceFinancialBreakdownTest {
         assertEquals(0, ledger.getJSONObject("reference_screen").getJSONArray("observations").length());
     }
 
+    @Test public void deepValueScoreDifferentiatesMultiplesAndFilingAge() throws Exception {
+        var day = LocalDate.parse("2026-11-27");
+        var row = new JSONObject().put("meter_eps", new JSONArray().put("2").put("2").put("2"))
+                .put("meter_cash", 100).put("meter_balance", 100).put("filed", "2026-10-01");
+        var fresh = UsDeviceFinancials.flexibleUsScore(row, new BigDecimal("6"), day);
+        assertTrue(fresh.points() > UsDeviceFinancials.flexibleUsScore(row, new BigDecimal("12"), day).points());
+        row.put("filed", "2026-04-01");
+        assertTrue(fresh.points() > UsDeviceFinancials.flexibleUsScore(row, new BigDecimal("6"), day).points());
+        assertEquals(3, fresh.ceiling());
+    }
+
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
                 .put("shares",String.valueOf(shares)).put("profit",String.valueOf(profit))
