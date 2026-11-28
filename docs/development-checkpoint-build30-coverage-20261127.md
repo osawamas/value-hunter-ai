@@ -122,3 +122,5 @@ Android単体236件、JPX照合・評価用Pythonテスト8件、FinzDataテス�
 日本株では、営業CF・売上などを一式で取得できない銘柄向けに、確認済みの2期のBPSとEPSを使う経路を追加。会計基準、対象期間、株式異動を既存経路で照合し、純資産を保持しながら赤字が縮小している場合に帳簿価値と価格を比較する。候補の上限は第1段階。同じ2期でも純資産が大きく減った銘柄や損失が拡大した銘柄は保留する。
 
 米国株では端末の既存DoltHub経路を維持。端末の MarketNetwork は通信停止・Wi-Fi設定を尊重し、クラウド監査では別のJava HTTPクライアントを使用する。クラウド監査ではDoltHubの固定リビジョンで完了した終値バッチを後続タイムアウト時にも保持する。取得済み銘柄だけで分母を縮小せず、5,080銘柄を分母にする。
+
+米国終値の追加候補として、[Alpaca Basicの過去データ](https://docs.alpaca.markets/us/docs/about-market-data-api) に対して、[複数銘柄の日足API](https://docs.alpaca.markets/us/reference/stockbars) でAAPLとIBMの遅延SIP日足を一度に照合する監査を追加。個人用Paper TradingのAPIキーを使う場合は、GitHub Actionsのリポジトリシークレットに ALPACA_PAPER_KEY_ID と ALPACA_PAPER_SECRET_KEY を登録する。検証は注文を送らず、出力には照合件数だけを含める。無料枠での実応答と全銘柄のカバー率は未確認。

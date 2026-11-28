@@ -12,6 +12,7 @@ on:
       - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxOperatingValuation.java'
       - 'android-private/tools/us_market_history_probe.py'
       - 'android-private/tools/us_finzdata_probe.py'
+      - 'android-private/tools/us_alpaca_close_probe.py'
       - 'android-private/tools/check_jpx_live_emulator.sh'
       - 'android-private/app/src/androidTest/java/jp/valuehunter/privatewatch/JpxPdfGeometryProbe.java'
   workflow_dispatch:
@@ -116,12 +117,15 @@ jobs:
       - name: Check independent free US close providers
         env:
           FINZDATA_API_KEY: ${{ secrets.FINZDATA_API_KEY }}
+          ALPACA_PAPER_KEY_ID: ${{ secrets.ALPACA_PAPER_KEY_ID }}
+          ALPACA_PAPER_SECRET_KEY: ${{ secrets.ALPACA_PAPER_SECRET_KEY }}
         run: |
           if [ -s coverage-results/us-public-coverage.json ]; then
             day=$(python -c 'import json; print(json.load(open("coverage-results/us-public-coverage.json")).get("trade_date", ""))')
             if [ -n "$day" ]; then
               python android-private/tools/us_market_history_probe.py "$day" > coverage-results/us-alternative-close-probe.json
               python android-private/tools/us_finzdata_probe.py "$day" > coverage-results/us-finzdata-close-probe.json
+              python android-private/tools/us_alpaca_close_probe.py "$day" > coverage-results/us-alpaca-close-probe.json
             fi
           fi
       - uses: gradle/actions/setup-gradle@v4
