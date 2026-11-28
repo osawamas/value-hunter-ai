@@ -162,6 +162,9 @@ jobs:
           month=$(python -c 'from datetime import date,timedelta; import sys; print((date.fromisoformat(sys.argv[1]).replace(day=1)-timedelta(days=1)).strftime("%Y-%m"))' "$day")
           prices="$RUNNER_TEMP/jpx-monthly-prices.json"
           history="$RUNNER_TEMP/jpx-history.json"
+          if ! command -v pdftotext >/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+          fi
           if timeout 390 python android-private/tools/jpx_monthly_close_history.py "$month" \
               --universe-xlsx coverage-results/jpx-list.xlsx --cache-dir "$RUNNER_TEMP/jpx-monthly" --include-prices > "$prices" &&
             timeout 160 python android-private/tools/jpx_adjust_monthly_history.py "$prices" \
@@ -169,7 +172,19 @@ jobs:
             python -c 'import collections,json,sys; a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[2])); print(json.dumps({"scope":len(b["by_code"]), "months_read":a["months_read"], "rights_months_verified":b["rights_months_verified"], "by_status":collections.Counter(v["status"] for v in b["by_code"].values()), "full_history":sum(v["status"]=="split_adjusted" and v["months_with_close"]==60 for v in b["by_code"].values())}))' "$prices" "$history" > coverage-results/jpx-five-year-coverage.json
           else
             rm -f "$history"
-            printf '{"status":"history_acquisition_unavailable"}\n' > coverage-results/jpx-five-year-coverage.json
+            python - "$prices" > coverage-results/jpx-five-year-coverage.json <<'PY_HISTORY'
+          import json
+          import sys
+          from collections import Counter
+          report = {"status": "history_acquisition_unavailable"}
+          try:
+              data = json.load(open(sys.argv[1]))
+              report.update(months_read=data["months_read"], month_results=Counter(
+                  (item.get("reason") or item["status"]) for item in data["months"].values()))
+          except (OSError, ValueError, KeyError):
+              pass
+          print(json.dumps(report))
+          PY_HISTORY
           fi
       - name: Build JPX instrumentation
         id: jpx_build
