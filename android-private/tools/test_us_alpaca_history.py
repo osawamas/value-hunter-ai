@@ -1,9 +1,9 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import sqlite3
 import unittest
 
-from us_alpaca_history import DownloadBudget, collect, pages, schema, update_batch
+from us_alpaca_history import DownloadBudget, collect, pages, schema, update_batch, valuation_history
 
 
 class HistoryCollectionTest(unittest.TestCase):
@@ -49,3 +49,15 @@ class HistoryCollectionTest(unittest.TestCase):
         day = date(2026, 11, 27)
         with self.assertRaises(ValueError):
             pages(day, day, ["AAPL"], lambda *_: {"bars": {}, "next_page_token": "repeat"})
+
+    def test_selects_one_year_for_a_recent_listing_but_rejects_gaps(self):
+        day = date(2026, 11, 27)
+        days = sorted(day - timedelta(days=n) for n in range(366)
+                      if (day - timedelta(days=n)).weekday() < 5)
+        rows = {("IWV", session): Decimal("100") for session in days}
+        rows.update({("NEW", session): Decimal("90") for session in days})
+        self.assertEqual(valuation_history(rows, ["NEW"], "IWV", day, adaptive=True)["eligible_horizons"],
+                         {"NEW": 1})
+        for session in days[20:33]:
+            del rows["NEW", session]
+        self.assertEqual(valuation_history(rows, ["NEW"], "IWV", day, adaptive=True)["eligible_horizons"], {})

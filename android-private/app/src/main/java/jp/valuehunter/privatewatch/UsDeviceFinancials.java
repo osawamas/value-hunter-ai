@@ -459,6 +459,14 @@ final class UsDeviceFinancials {
         var diagnostics = ledger.getJSONObject("reference_screen").getJSONObject("diagnostics");
         int budget = 0, budgetAssessed = 0;
         var reasonCounts = new java.util.TreeMap<String, Integer>();
+        var legacyHistoryOutcomes = new java.util.TreeMap<String, Integer>();
+        var adaptiveHistoryOutcomes = new java.util.TreeMap<String, Integer>();
+        var legacyConfirmed = history.optJSONObject("legacy_confirmed");
+        var adaptiveConfirmed = history.optJSONObject("confirmed");
+        boolean datedHistory = day.toString().equals(history.optString("date"))
+                && "IWV".equals(history.optString("benchmark"));
+        var baseline = datedHistory ? UsReferenceAlerts.read(
+                screen(day, source, hash, records, prices, fx, splits), Set.of(source)).rows() : assessed;
         var holds = checkpoint.optJSONObject("fetch_holds");
         var splitHolds = new java.util.HashSet<String>();
         var heldSplits = ledger.getJSONArray("split_holds");
@@ -470,7 +478,6 @@ final class UsDeviceFinancials {
                 budget++;
                 if (assessed.containsKey(symbol)) budgetAssessed++;
             }
-            if (assessed.containsKey(symbol)) continue;
             String reason;
             if (price == null) reason = "missing_close";
             else if (splitHolds.contains(symbol)) reason = "split_hold";
@@ -478,7 +485,15 @@ final class UsDeviceFinancials {
             else if (financial != null) reason = "insufficient_valuation_evidence";
             else reason = holds == null ? "financial_or_identity_unavailable"
                     : holds.optString(symbol, "financial_or_identity_unavailable");
-            reasonCounts.merge(reason, 1, Integer::sum);
+            if (!assessed.containsKey(symbol)) reasonCounts.merge(reason, 1, Integer::sum);
+            if (datedHistory) {
+                if (legacyConfirmed != null && legacyConfirmed.has(symbol)) {
+                    recordHistoryOutcome(legacyHistoryOutcomes, legacyConfirmed, assessed, baseline, symbol, price, reason);
+                }
+                if (adaptiveConfirmed != null && adaptiveConfirmed.has(symbol)) {
+                    recordHistoryOutcome(adaptiveHistoryOutcomes, adaptiveConfirmed, assessed, baseline, symbol, price, reason);
+                }
+            }
         }
         return diagnostics.put("trading_date", day.toString()).put("listing_date", listingDay.toString())
                 .put("close_provider", source).put("close_sha256", hash)
@@ -487,7 +502,25 @@ final class UsDeviceFinancials {
                 .put("full_scope_assessed_percent", 100.0 * assessed.size() / scope.size())
                 .put("budget", budget).put("budget_assessed", budgetAssessed)
                 .put("budget_assessed_percent", budget == 0 ? JSONObject.NULL : 100.0 * budgetAssessed / budget)
-                .put("unassessed_reasons", new JSONObject(reasonCounts));
+                .put("unassessed_reasons", new JSONObject(reasonCounts))
+                .put("legacy_history_outcomes", new JSONObject(legacyHistoryOutcomes))
+                .put("adaptive_history_outcomes", new JSONObject(adaptiveHistoryOutcomes));
+    }
+
+    private static void recordHistoryOutcome(Map<String, Integer> counts, JSONObject confirmed,
+            Map<String, UsReferenceAlerts.Observation> assessed, Map<String, UsReferenceAlerts.Observation> baseline,
+            String symbol, BigDecimal price, String reason) {
+        String outcome = reason;
+        if (baseline.containsKey(symbol)) outcome = "already_assessed_without_history";
+        else if (assessed.containsKey(symbol)) outcome = "newly_assessed_with_history";
+        else if (price != null) {
+            try {
+                if (price.compareTo(new BigDecimal(confirmed.optString(symbol))) != 0) outcome = "close_basis_mismatch";
+            } catch (NumberFormatException invalid) {
+                outcome = "invalid_history_close";
+            }
+        }
+        counts.merge(outcome, 1, Integer::sum);
     }
 
     private static boolean historySupports(JSONObject history, String symbol, LocalDate day, BigDecimal close) {

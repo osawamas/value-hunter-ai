@@ -21,6 +21,32 @@ public class JpxAutomaticFinanceTest {
     private static final LocalDate RELEASED = LocalDate.of(2026, 5, 11);
     private static final LocalDate DAY = LocalDate.of(2026, 11, 17);
 
+    @Test public void sameIndustryPeerComparisonRecoversOnlyWithEnoughPeers() throws Exception {
+        var entries = new HashMap<String, JpxAutomaticFinance.Entry>();
+        var quotes = new HashMap<String, JpxCloseTable.Sessions>();
+        var sectors = new org.json.JSONObject();
+        var end = LocalDate.of(2026, 3, 31);
+        for (int i = 0; i < 9; i++) {
+            String code = i == 0 ? CODE : Integer.toString(1500 + i);
+            var annual = new JpxAnnualSummary.Annual(end, RELEASED, BigDecimal.TEN,
+                    i == 0 ? null : BigDecimal.valueOf(120), "JPX", List.of(), "JGAAP");
+            entries.put(code, new JpxAutomaticFinance.Entry(DAY, annual, ""));
+            quotes.put(code, new JpxCloseTable.Sessions(null, BigDecimal.valueOf(i == 0 ? 80 : 160)));
+            sectors.put(code, "3050");
+        }
+        var report = new JpxDailyCheck.Report(DAY, "https://www.jpx.co.jp/", quotes, Set.of());
+        var comparison = new JpxDailyCheck.Comparison(report, null);
+        var batch = new JpxAutomaticFinance.Batch(entries, Map.of(), 9, 9);
+        var rights = new JpxShareRights(Set.of(), Set.of(), List.of());
+        var screen = comparison.screen(rights, batch);
+        var history = new org.json.JSONObject().put("by_code", new org.json.JSONObject())
+                .put("sector_date", DAY.minusDays(1).toString()).put("sectors", sectors);
+        assertFalse(comparison.meterRows(screen, batch, rights).has(CODE));
+        assertTrue(comparison.meterRows(screen, batch, rights, JpxHistoryReference.parse(history.toString())).has(CODE));
+        sectors.put("1501", "3100");
+        assertFalse(comparison.meterRows(screen, batch, rights, JpxHistoryReference.parse(history.toString())).has(CODE));
+    }
+
     @Test public void fiveYearHistoryRequiresAReboundPositiveEarningsAndRights() throws Exception {
         var history = JpxHistoryReference.parse("""
                 {"by_code":{"1420":{"status":"split_adjusted","first_session":"2021-11-30",

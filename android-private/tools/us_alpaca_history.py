@@ -1,5 +1,6 @@
 """Collect split-adjusted Alpaca SIP history into a private resumable local database."""
 import argparse
+from collections import Counter
 from datetime import date, timedelta
 from decimal import Decimal
 import json
@@ -108,23 +109,33 @@ def collect(db, symbols, day, fetch):
                                             (start.isoformat(), day.isoformat()))}
     benchmark = list(db.execute("SELECT session,value FROM close WHERE symbol='IWV' ORDER BY session"))
     market = {("IWV", date.fromisoformat(session)): Decimal(value) for session, value in benchmark}
-    confirmed, full, final_close, returned = {}, 0, 0, 0
+    confirmed, legacy, horizons = {}, {}, {}
+    eligible = Counter()
+    full = final_close = returned = 0
     for code in finished.intersection(symbols):
         data = {(code, date.fromisoformat(session)): Decimal(value)
                 for session, value in db.execute("SELECT session,value FROM close WHERE symbol=?", (code,))}
         returned += bool(data)
         final_close += (code, day) in data
-        if (len(data) < 1200 or min(key[1] for key in data) > start + timedelta(days=7)
-                or (code, day) not in data):
+        five_year_span = (len(data) >= 1200 and min(key[1] for key in data) <= start + timedelta(days=7)
+                          and (code, day) in data)
+        full += five_year_span
+        if "IWV" not in finished or code == "IWV":
             continue
-        full += 1
-        if "IWV" in finished and code != "IWV":
-            confirmed.update(valuation_history(market | data, (code,), "IWV", day)["confirmed"])
+        values = market | data
+        if five_year_span:
+            legacy.update(valuation_history(values, (code,), "IWV", day)["confirmed"])
+        adaptive = valuation_history(values, (code,), "IWV", day, adaptive=True)
+        eligible.update(adaptive["eligible_horizons"].values())
+        confirmed.update(adaptive["confirmed"])
+        horizons.update(adaptive["horizons"])
     return ({"trade_date": day.isoformat(), "scope": len(symbols),
              "request_complete": len(finished.intersection(symbols)), "symbols_with_bars": returned,
              "symbols_with_session_close": final_close, "five_year_span": full,
-             "valuation_history_confirmed": len(confirmed), "stop": stop},
-            {"date": day.isoformat(), "benchmark": "IWV", "confirmed": confirmed})
+             "valuation_history_confirmed": len(confirmed), "legacy_history_confirmed": len(legacy),
+             "eligible_by_years": eligible, "confirmed_by_years": Counter(horizons.values()), "stop": stop},
+            {"date": day.isoformat(), "benchmark": "IWV", "confirmed": confirmed,
+             "horizons": horizons, "legacy_confirmed": legacy})
 
 
 def main():

@@ -185,20 +185,37 @@ def replay_history(rows, symbols=SYMBOLS, benchmark=None):
     return report
 
 
-def valuation_history(rows, candidates, benchmark, day):
+def valuation_history(rows, candidates, benchmark, day, adaptive=False):
     market = {session: value for (symbol, session), value in rows.items() if symbol == benchmark}
-    result = {}
+    result, horizons, usable = {}, {}, {}
     for code in candidates:
         series = {session: value for (symbol, session), value in rows.items() if symbol == code}
         days = sorted(series.keys() & market.keys())
-        if len(days) < 1200 or days[-1] != day:
+        if not days or days[-1] != day:
             continue
+        horizon = 5 if len(days) >= 1200 else None
+        if adaptive:
+            horizon = None
+            for years in (5, 3, 2, 1):
+                start = day.replace(year=day.year - years, day=min(day.day, 28) if day.month == 2 else day.day)
+                if days[0] > start + timedelta(days=10):
+                    continue
+                window = [session for session in days if session >= start]
+                expected = sum(session >= start for session in market)
+                if len(window) >= years * 235 and len(window) >= 0.97 * expected:
+                    horizon, days = years, window
+                    break
+        if horizon is None:
+            continue
+        usable[code] = horizon
         values = [series[session] for session in days]
         current, low, high = values[-1], min(values), max(values)
         relative = current * market[days[-64]] >= values[-64] * market[day]
         if high > low and current <= low + (high - low) / 3 and current > values[-22] and relative:
             result[code] = str(current)
-    return {"date": day.isoformat(), "benchmark": benchmark, "confirmed": result}
+            horizons[code] = horizon
+    return {"date": day.isoformat(), "benchmark": benchmark, "confirmed": result,
+            "horizons": horizons, "eligible_horizons": usable}
 
 
 def history_sample(day, key, secret, valuation=None):

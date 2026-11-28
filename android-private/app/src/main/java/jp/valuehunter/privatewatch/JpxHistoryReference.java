@@ -20,7 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 final class JpxHistoryReference {
     private static final String ASSET = "jpx-history.json";
     private static final int MAX_BYTES = 2_097_152;
-    private static final JpxHistoryReference EMPTY = new JpxHistoryReference(Map.of());
+    private static final JpxHistoryReference EMPTY = new JpxHistoryReference(Map.of(), null, Map.of());
 
     private record Bounds(BigDecimal low, BigDecimal high) {}
 
@@ -28,8 +28,22 @@ final class JpxHistoryReference {
 
     private final Map<String, Range> byCode;
 
-    private JpxHistoryReference(Map<String, Range> byCode) {
+    private final LocalDate sectorDate;
+    private final Map<String, String> sectors;
+
+    private JpxHistoryReference(Map<String, Range> byCode, LocalDate sectorDate, Map<String, String> sectors) {
         this.byCode = byCode;
+        this.sectorDate = sectorDate;
+        this.sectors = sectors;
+    }
+
+    String sector(String code, LocalDate session) {
+        return sectorDate == null || sectorDate.isAfter(session) || sectorDate.isBefore(session.minusDays(45))
+                ? null : sectors.get(code);
+    }
+
+    JpxHistoryReference pricesOnly() {
+        return new JpxHistoryReference(byCode, null, Map.of());
     }
 
     static JpxHistoryReference empty() {
@@ -46,7 +60,8 @@ final class JpxHistoryReference {
     }
 
     static JpxHistoryReference parse(String json) throws JSONException {
-        var records = new JSONObject(json).getJSONObject("by_code");
+        var input = new JSONObject(json);
+        var records = input.getJSONObject("by_code");
         var ranges = new HashMap<String, Range>();
         var codes = records.keys();
         while (codes.hasNext()) {
@@ -70,7 +85,23 @@ final class JpxHistoryReference {
                 // A malformed series leaves the other symbols and the daily screen usable.
             }
         }
-        return new JpxHistoryReference(Map.copyOf(ranges));
+        var sectors = new HashMap<String, String>();
+        LocalDate sectorDate = null;
+        var source = input.optJSONObject("sectors");
+        if (source != null) {
+            try {
+                sectorDate = LocalDate.parse(input.getString("sector_date"));
+                for (var names = source.keys(); names.hasNext();) {
+                    var code = names.next();
+                    var sector = source.optString(code);
+                    if (code.matches("[0-9][0-9A-Z]{3}") && sector.matches("[0-9]{4}") && !sector.equals("9999"))
+                        sectors.put(code, sector);
+                }
+            } catch (JSONException | DateTimeException invalid) {
+                sectors.clear();
+            }
+        }
+        return new JpxHistoryReference(Map.copyOf(ranges), sectorDate, Map.copyOf(sectors));
     }
 
     private static Bounds bounds(JSONObject row) {

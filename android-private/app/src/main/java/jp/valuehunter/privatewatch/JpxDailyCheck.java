@@ -291,6 +291,9 @@ final class JpxDailyCheck {
                     var eps = annual.onShareBasis(day, annual.eps(), false)
                             .divide(annual.onShareBasis(day, BigDecimal.ONE, true), java.math.MathContext.DECIMAL64);
                     score = history.corroborateEarnings(code, day, close, eps, rights);
+                    var peer = peerEarningsScore(code, annual, report, finance, rights, history, close, eps);
+                    if (peer != null && score == null) score = peer;
+                    else if (peer != null) score = new ValueAlertMeter.Score(78, 2, 3);
                 }
                 if (score != null) {
                     score = JpxDisclosureEvidence.adjust(score, entry.events(), day);
@@ -298,6 +301,40 @@ final class JpxDailyCheck {
                 }
             }
             return rows;
+        }
+
+        private static ValueAlertMeter.Score peerEarningsScore(String code, JpxAnnualSummary.Annual annual,
+                Report report, JpxAutomaticFinance.Batch finance, JpxShareRights rights,
+                JpxHistoryReference history, BigDecimal close, BigDecimal eps) {
+            var day = report.date();
+            var sector = history.sector(code, day);
+            if (sector == null || annual.reportingBasis().isEmpty() || eps.signum() <= 0) return null;
+            var multiple = close.divide(eps, java.math.MathContext.DECIMAL64);
+            if (multiple.compareTo(BigDecimal.valueOf(12)) > 0) return null;
+            var peers = new java.util.ArrayList<BigDecimal>();
+            for (var item : finance.entries().entrySet()) {
+                var peer = item.getKey();
+                if (code.equals(peer) || !sector.equals(history.sector(peer, day))) continue;
+                var entry = item.getValue();
+                var facts = entry.annualFor(day);
+                var price = report.close(peer);
+                if (facts == null || price == null || price.signum() <= 0 || facts.eps().signum() <= 0
+                        || facts.bps() == null || facts.bps().signum() <= 0
+                        || !annual.reportingBasis().equals(facts.reportingBasis())
+                        || Math.abs(java.time.temporal.ChronoUnit.DAYS.between(annual.end(), facts.end())) > 92
+                        || !entry.evidenceFailure(peer, day, finance.updates()).isEmpty()
+                        || !rights.adjustments().containsAll(facts.adjustments())
+                        || rights.firstUnadjustedChange(peer, facts.end(), day, facts.adjustments()) != null) continue;
+                peers.add(facts.onShareBasis(day, price, true).divide(
+                        facts.onShareBasis(day, facts.eps(), false), java.math.MathContext.DECIMAL64));
+            }
+            if (peers.size() < 8) return null;
+            peers.sort(BigDecimal::compareTo);
+            int mid = peers.size() / 2;
+            var median = peers.get(mid);
+            if (peers.size() % 2 == 0) median = median.add(peers.get(mid - 1)).divide(BigDecimal.valueOf(2));
+            return multiple.compareTo(median.multiply(new BigDecimal("0.70"))) <= 0
+                    ? new ValueAlertMeter.Score(65, 1, 2) : null;
         }
 
         private ValueAlertMeter.Score partialEarningsScore(String code, JpxAutomaticFinance.Entry entry,

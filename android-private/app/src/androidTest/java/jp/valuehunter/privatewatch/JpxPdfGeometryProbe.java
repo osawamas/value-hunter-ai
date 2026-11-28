@@ -169,8 +169,11 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         }
         var screening = comparison.screen(rights, finance);
         var baseline = comparison.meterRows(screening, finance, rights);
-        var rows = comparison.meterRows(screening, finance, rights, JpxHistoryReference.load(context));
-        int historyAdded = rows.length() - baseline.length();
+        var history = JpxHistoryReference.load(context);
+        var historyRows = comparison.meterRows(screening, finance, rights, history.pricesOnly());
+        var rows = comparison.meterRows(screening, finance, rights, history);
+        int historyAdded = historyRows.length() - baseline.length();
+        int peerAdded = rows.length() - historyRows.length();
         var acquisition = new JSONObject();
         var holdCounts = new java.util.TreeMap<String, Integer>();
         var strictExclusionsWithAnnual = new java.util.TreeMap<String, Integer>();
@@ -217,6 +220,7 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         return JpxWatchWorker.assessmentCounts(report, screening, rows)
                 .put("edinet_crosschecked_added", crosschecked)
                 .put("history_recovery_assessed", historyAdded)
+                .put("peer_recovery_assessed", peerAdded)
                 .put("annual_hold_reasons", new JSONObject(holdCounts))
                 .put("trading_date", day.toString()).put("close_source", report.source())
                 .put("source_pdf_sha256", digest(pdf))

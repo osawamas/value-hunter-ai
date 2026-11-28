@@ -165,11 +165,37 @@ def collect_month(month, source, codes, cache):
         return {"status": "error", "source": source, "reason": type(error).__name__}
 
 
+def sector_snapshot(path, codes):
+    from openpyxl import load_workbook
+    universe = set(codes)
+    sectors, dates = {}, set()
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        for row in workbook.worksheets[0].iter_rows(min_row=2, values_only=True):
+            code, sector = str(row[1]), str(row[4])
+            if code not in universe or not re.fullmatch(r"[0-9]{4}", sector) or sector == "9999":
+                continue
+            if code in sectors:
+                raise ValueError("Duplicate domestic listing industry")
+            raw_day = row[0]
+            stamp = raw_day.strftime("%Y-%m-%d") if hasattr(raw_day, "strftime") else str(raw_day)
+            if re.fullmatch(r"[0-9]{8}", stamp):
+                stamp = stamp[:4] + "-" + stamp[4:6] + "-" + stamp[6:]
+            dates.add(date.fromisoformat(stamp))
+            sectors[code] = sector
+    finally:
+        workbook.close()
+    if len(dates) != 1 or len(sectors) < 3000:
+        raise ValueError("Incomplete JPX industry snapshot")
+    return {"sector_date": next(iter(dates)).isoformat(), "sectors": sectors}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("end_month", help="most recent completed month in YYYY-MM")
     parser.add_argument("codes", nargs="*", type=str.upper)
     parser.add_argument("--universe-xlsx", type=Path)
+    parser.add_argument("--sector-output", type=Path)
     parser.add_argument("--months", type=int, choices=range(1, 61), default=60)
     parser.add_argument("--cache-dir", type=Path)
     parser.add_argument("--include-prices", action="store_true", help="include unadjusted prices in local output")
@@ -179,6 +205,9 @@ def main():
         if args.codes:
             parser.error("provide either codes or the official listing workbook")
         args.codes = sorted(ordinary_stocks(args.universe_xlsx))
+        if args.sector_output:
+            args.sector_output.write_text(json.dumps(sector_snapshot(args.universe_xlsx, args.codes)),
+                                          encoding="utf-8")
     if not args.codes or any(not TICKER.fullmatch(code) for code in args.codes):
         parser.error("expected four-character JPX ticker codes")
     if args.cache_dir is not None:
