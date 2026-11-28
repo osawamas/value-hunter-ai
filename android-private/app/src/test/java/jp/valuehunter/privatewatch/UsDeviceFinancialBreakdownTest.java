@@ -108,6 +108,24 @@ public class UsDeviceFinancialBreakdownTest {
         assertTrue(UsReferenceAlerts.entrants(prior, UsReferenceAlerts.read(strict)).isEmpty());
     }
 
+    @Test public void currentLossUsesBookAndCashOnlyWithGrowingAnnualEarnings() throws Exception {
+        var day = LocalDate.parse("2026-11-23");
+        var row = financial("LOSS", 1, 1000, -10, 4000)
+                .put("meter_eps", new JSONArray().put("2").put("1"))
+                .put("meter_cash", 100);
+        var prices = Map.of("LOSS", BigDecimal.ONE);
+        var fx = new UsScreen.Fx(day, 150);
+        var records = new JSONArray().put(row);
+        var ledger = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64), records,
+                prices, fx, Map.of());
+        var meter = ledger.getJSONObject("reference_screen").getJSONObject("meter_rows");
+        assertEquals(1, meter.getJSONArray(UsReferenceAlerts.meterKey("NYSE", 1, "LOSS")).getInt(1));
+        row.put("meter_cash", 50);
+        ledger = UsDeviceFinancials.screen(day, UsDoltCloses.SOURCE, "a".repeat(64), records,
+                prices, fx, Map.of());
+        assertEquals(0, ledger.getJSONObject("reference_screen").getJSONArray("observations").length());
+    }
+
     private static JSONObject financial(String symbol,int cik,int shares,int profit,int equity)throws Exception {
         return new JSONObject().put("symbol",symbol).put("exchange","NYSE").put("cik",cik)
                 .put("shares",String.valueOf(shares)).put("profit",String.valueOf(profit))

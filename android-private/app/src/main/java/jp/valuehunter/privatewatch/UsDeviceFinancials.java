@@ -266,8 +266,11 @@ final class UsDeviceFinancials {
                 splitHoldCount++;
                 continue;
             }
-            if (row.optBoolean("partial_value")) {
-                var score=FlexibleValueMeter.assess(close,meterEps(row),meterCash(row),meterBalance(row));
+            boolean partial = row.optBoolean("partial_value");
+            var recovery = partial ? null : recoverNonPositiveProfit(row, close);
+            if (partial || recovery != null) {
+                var score = partial ? FlexibleValueMeter.assess(close, meterEps(row), meterCash(row), meterBalance(row))
+                        : recovery;
                 score=UsDisclosureEvidence.adjust(score,row,day);
                 var yen=close.multiply(rate);
                 int quantity=yen.movePointRight(2).compareTo(BUDGET)<=0?100:yen.compareTo(BUDGET)<=0?1:0;
@@ -419,6 +422,53 @@ final class UsDeviceFinancials {
                 .put("budget", budget).put("budget_assessed", budgetAssessed)
                 .put("budget_assessed_percent", budget == 0 ? JSONObject.NULL : 100.0 * budgetAssessed / budget)
                 .put("unassessed_reasons", new JSONObject(reasonCounts));
+    }
+
+    private static ValueAlertMeter.Score recoverNonPositiveProfit(JSONObject row, BigDecimal close) throws JSONException {
+        var profit = new BigDecimal(row.getString("profit"));
+        var equity = new BigDecimal(row.getString("equity"));
+        if (profit.signum() > 0 || equity.signum() <= 0
+                || !Integer.valueOf(100).equals(meterCash(row))) return null;
+        var earnings = meterEps(row);
+        if (earnings.size() < 2 || earnings.get(1).signum() <= 0
+                || earnings.get(0).compareTo(earnings.get(1)) <= 0) return null;
+        var cap = close.multiply(new BigDecimal(row.getString("shares")));
+        if (cap.signum() <= 0) return null;
+        // Documented strong cash evidence and growing annual EPS corroborate the book
+        // valuation. Non-positive trailing profit limits this route to the first tier.
+        return cap.multiply(BigDecimal.valueOf(2)).compareTo(equity) <= 0
+                ? new ValueAlertMeter.Score(65, 1, 3) : new ValueAlertMeter.Score(0, 0, 3);
+    }
+
+    static JSONArray ultraAudit(LocalDate day, String provider, String hash, JSONArray records,
+            Map<String, BigDecimal> prices, UsScreen.Fx fx, Map<String, LocalDate> splits) throws JSONException {
+        var meter = screen(day, provider, hash, records, prices, fx, splits)
+                .getJSONObject("reference_screen").getJSONObject("meter_rows");
+        var results = new JSONArray();
+        for (int i = 0; i < records.length(); i++) {
+            var row = records.getJSONObject(i);
+            var symbol = row.getString("symbol");
+            var scored = meter.optJSONArray(UsReferenceAlerts.meterKey(row.getString("exchange"),
+                    row.getInt("cik"), symbol));
+            if (scored == null || scored.getInt(3) == 0
+                    || new ValueAlertMeter.Score(scored.getInt(0), scored.getInt(1), scored.getInt(2))
+                            .level(ValueAlertMeter.DEFAULT) != 3) continue;
+            var evidence = new JSONObject().put("symbol", symbol).put("cik", row.getInt("cik"))
+                    .put("route", row.optBoolean("partial_value") ? "flexible" : "strict")
+                    .put("filed", row.getString("filed")).put("share_date", row.getString("share_date"))
+                    .put("accession", row.optString("accession")).put("score", scored.getInt(0))
+                    .put("ceiling", scored.getInt(1)).put("confirmed", scored.getInt(2))
+                    .put("budget_quantity", scored.getInt(3)).put("eps", row.optJSONArray("meter_eps"))
+                    .put("cash_evidence_score", row.opt("meter_cash")).put("balance_evidence_score", row.opt("meter_balance"))
+                    .put("notification_delivery_tested", false);
+            var eps = meterEps(row);
+            if (!eps.isEmpty() && eps.get(0).signum() > 0) {
+                evidence.put("price_to_latest_annual_eps", prices.get(symbol)
+                        .divide(eps.get(0), 2, java.math.RoundingMode.HALF_UP).toPlainString());
+            }
+            results.put(evidence);
+        }
+        return results;
     }
 
     private static List<BigDecimal> meterEps(JSONObject row) {

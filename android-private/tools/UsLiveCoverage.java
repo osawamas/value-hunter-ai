@@ -157,8 +157,10 @@ public final class UsLiveCoverage {
                         if (archive == null) Thread.sleep(350);
                         continue;
                     } catch (org.json.JSONException invalidIssuer) {
+                        String reason = invalidIssuer instanceof InvalidCompanyFacts invalid
+                                ? invalid.reason : jsonRejection(invalidIssuer);
                         UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"),
-                                new UsDeviceFinancials.FetchAssessment(null, "sec_invalid_payload"));
+                                new UsDeviceFinancials.FetchAssessment(null, reason));
                         if (archive == null) Thread.sleep(350);
                         continue;
                     } catch (IOException unavailable) {
@@ -183,6 +185,7 @@ public final class UsLiveCoverage {
         var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits);
         String status = processed != targets.length() ? "partial_financial_pass"
                 : report.optBoolean("quote_pass_timed_out") ? "partial_quote_pass" : "completed_scope";
+        report.put("ultra_value_audit", UsDeviceFinancials.ultraAudit(day, closeSource, hash, rows, prices, fx, splits));
         report.put("stage", "valuation").put("status", status)
                 .put("financial_targets", targets.length()).put("financial_processed", processed)
                 .put("valuation", measured);
@@ -203,16 +206,31 @@ public final class UsLiveCoverage {
         return null;
     }
 
+    private static final class InvalidCompanyFacts extends JSONException {
+        final String reason;
+
+        InvalidCompanyFacts(String reason) {
+            super(reason);
+            this.reason = reason;
+        }
+    }
+
+    private static String jsonRejection(JSONException error) {
+        String message = error.getMessage();
+        if (message != null && message.startsWith("Duplicate key")) return "sec_json_duplicate_key";
+        return "sec_json_malformed";
+    }
+
     private static JSONObject archiveFacts(java.util.zip.ZipFile archive, int cik) throws IOException {
         var entry = archive.getEntry(String.format(Locale.ROOT, "CIK%010d.json", cik));
         if (entry == null) return null;
         final int maxBytes = 16_000_000;
-        if (entry.getSize() > maxBytes) throw new JSONException("SEC company facts entry too large");
+        if (entry.getSize() > maxBytes) throw new InvalidCompanyFacts("sec_archive_entry_size_limit");
         try (var stream = archive.getInputStream(entry)) {
             var bytes = stream.readNBytes(maxBytes + 1);
-            if (bytes.length > maxBytes) throw new JSONException("SEC company facts entry too large");
+            if (bytes.length > maxBytes) throw new InvalidCompanyFacts("sec_archive_entry_size_limit");
             var facts = new JSONObject(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
-            if (facts.optInt("cik") != cik) throw new JSONException("SEC company facts issuer mismatch");
+            if (facts.optInt("cik") != cik) throw new InvalidCompanyFacts("sec_archive_cik_mismatch");
             return facts;
         }
     }
