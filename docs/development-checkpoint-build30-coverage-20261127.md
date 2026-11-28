@@ -124,3 +124,5 @@ Android単体236件、JPX照合・評価用Pythonテスト8件、FinzDataテス�
 米国株では端末の既存DoltHub経路を維持。端末の MarketNetwork は通信停止・Wi-Fi設定を尊重し、クラウド監査では別のJava HTTPクライアントを使用する。クラウド監査ではDoltHubの固定リビジョンで完了した終値バッチを後続タイムアウト時にも保持する。取得済み銘柄だけで分母を縮小せず、5,080銘柄を分母にする。
 
 米国終値の追加候補として、[Alpaca Basicの過去データ](https://docs.alpaca.markets/us/docs/about-market-data-api) に対して、[複数銘柄の日足API](https://docs.alpaca.markets/us/reference/stockbars) でAAPLとIBMの遅延SIP日足を一度に照合する監査を追加。個人用Paper TradingのAPIキーを使う場合は、GitHub Actionsのリポジトリシークレットに ALPACA_PAPER_KEY_ID と ALPACA_PAPER_SECRET_KEY を登録する。検証は注文を送らず、出力には照合件数だけを含める。無料枠での実応答と全銘柄のカバー率は未確認。
+
+[52533bda の市場実測](https://github.com/osawamas/value-hunter-ai/actions/runs/46150190744) では、日本株の判定可能率は57.31%（2,114／3,689、厳格1,944、柔軟170、三段階617・5・0）。今回追加した2期の帳簿価値を使う経路による市場全体の純増は確認できなかった。EDINETの39件すべてで半期末日を確認したが、株数とBPSは未照合で、Hachiquantからの加算は0件。米国の保存済み一覧は5,080銘柄。DoltHubの再生はソケットタイムアウトで、判定可能率は未計測。Alpacaのキーは未登録。
