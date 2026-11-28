@@ -1,6 +1,7 @@
 package jp.valuehunter.privatewatch;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -27,7 +28,8 @@ public final class UsLiveCoverage {
         var directory = Path.of(args[0]);
         var report = new JSONObject().put("status", "inputs_unavailable").put("stage", "listing_scope").put("sources", SOURCES);
         try {
-            assess(directory, report, args.length == 2 && "--probe-nasdaq-close".equals(args[1]));
+            var options = java.util.Arrays.asList(args).subList(1, args.length);
+            assess(directory, report, options.contains("--probe-nasdaq-close"), options.contains("--alpaca"));
         } catch (HttpFailure denied) {
             report.put("error", "HttpFailure").put("http_status", denied.status);
         } catch (IOException | org.json.JSONException unavailable) {
@@ -38,7 +40,7 @@ public final class UsLiveCoverage {
         }
     }
 
-    private static void assess(Path directory, JSONObject report, boolean probeNasdaq) throws Exception {
+    private static void assess(Path directory, JSONObject report, boolean probeNasdaq, boolean useAlpaca) throws Exception {
         var nyse = UsMarketCoverage.directory(Files.readString(directory.resolve("otherlisted.txt")), false);
         var nasdaq = UsMarketCoverage.directory(Files.readString(directory.resolve("nasdaqlisted.txt")), true);
         var day = nyse.date();
@@ -55,9 +57,11 @@ public final class UsLiveCoverage {
         var scope = new TreeSet<>(nyse.symbols());
         scope.addAll(nasdaq.symbols());
         report.put("scope", scope.size()).put("stage", "closing_prices");
-        JSONArray closes;
+        var closes = useAlpaca ? alpacaCloses(day, scope, report) : null;
+        String closeSource = closes == null ? UsDoltCloses.SOURCE : "alpaca_delayed_sip_raw";
+        if (closes != null) report.put("quote_path", closeSource);
         UsDoltCloses.Download download = url -> new JSONObject(read(url, ""));
-        try {
+        if (closes == null) try {
             try {
                 closes = UsDoltCloses.fetch(day, download);
             } catch (java.net.SocketTimeoutException timeout) {
@@ -141,12 +145,57 @@ public final class UsLiveCoverage {
             UsDeviceFinancials.recordFetchOutcome(checkpoint, target.getString("symbol"), result);
         }
         var hash = UsReferenceAlerts.sha256(closes.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        var measured = UsDeviceFinancials.scopedAssessment(day, UsDoltCloses.SOURCE, hash, checkpoint, prices, fx, splits);
+        var measured = UsDeviceFinancials.scopedAssessment(day, closeSource, hash, checkpoint, prices, fx, splits);
         String status = processed != targets.length() ? "partial_financial_pass"
                 : report.optBoolean("quote_pass_timed_out") ? "partial_quote_pass" : "completed_scope";
         report.put("stage", "valuation").put("status", status)
                 .put("financial_targets", targets.length()).put("financial_processed", processed)
                 .put("valuation", measured);
+    }
+
+    private static JSONArray alpacaCloses(java.time.LocalDate day, TreeSet<String> scope, JSONObject report)
+            throws IOException, InterruptedException {
+        var scratch = Files.createTempDirectory("us-alpaca-");
+        var scopeFile = scratch.resolve("scope.json");
+        var closeFile = scratch.resolve("close.json");
+        var summaryFile = scratch.resolve("summary.json");
+        try {
+            Files.writeString(scopeFile, new JSONObject().put("trade_date", day.toString())
+                    .put("symbols", new JSONArray(scope)).toString());
+            var process = new ProcessBuilder("python", "android-private/tools/us_alpaca_close_probe.py",
+                    "--scope", scopeFile.toString(), "--close-output", closeFile.toString())
+                    .redirectOutput(summaryFile.toFile()).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            if (!process.waitFor(100, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly().waitFor();
+                report.put("alpaca", new JSONObject().put("status", "transport_deadline"));
+                return null;
+            }
+            if (process.exitValue() != 0 || Files.size(summaryFile) > 16_384) {
+                report.put("alpaca", new JSONObject().put("status", "probe_incomplete"));
+                return null;
+            }
+            var summary = new JSONObject(Files.readString(summaryFile));
+            report.put("alpaca", summary);
+            if (!"sample_verified".equals(summary.optString("status")) || !Files.isRegularFile(closeFile))
+                return null;
+            if (Files.size(closeFile) > 1_000_000) throw new JSONException("Oversized Alpaca input");
+            var input = new JSONObject(Files.readString(closeFile));
+            var rows = input.getJSONArray("closes");
+            var daily = summary.getJSONObject("daily");
+            if (!day.toString().equals(input.getString("trade_date"))
+                    || daily.getInt("scope") != scope.size() || daily.getInt("closes") != rows.length()
+                    || !scope.containsAll(UsDeviceFinancials.prices(rows).keySet())) {
+                throw new JSONException("Unverified Alpaca listing scope");
+            }
+            report.put("quote_symbols_queried", daily.getInt("queried"))
+                    .put("quote_pass_timed_out", !"complete_request_pass".equals(daily.optString("status")));
+            return rows;
+        } finally {
+            Files.deleteIfExists(closeFile);
+            Files.deleteIfExists(scopeFile);
+            Files.deleteIfExists(summaryFile);
+            Files.deleteIfExists(scratch);
+        }
     }
 
     private static JSONObject probeNasdaqClose(java.time.LocalDate day) {

@@ -79,7 +79,7 @@ def facts_from_csv(body, interim=False, interim_schema=None):
                 tag, context = row["要素ID"], row["コンテキストID"]
                 if interim_schema is not None and len(interim_schema) < 32 and re.fullmatch(
                         r"jp[a-z]+_cor:[A-Za-z0-9]*(?:IssuedShares|PerShare)[A-Za-z0-9]*", tag):
-                    if re.fullmatch(r"[A-Za-z0-9_]{1,100}", context) and context.startswith("Current"):
+                    if re.fullmatch(r"[A-Za-z0-9_]{1,100}", context):
                         interim_schema.add((tag, context))
                 if interim and tag == REPORT_PERIOD_END and context == "FilingDateInstant":
                     value = row["値"]
