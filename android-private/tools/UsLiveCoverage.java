@@ -162,8 +162,8 @@ public final class UsLiveCoverage {
         return read(url, contact, Duration.ofSeconds(25));
     }
 
-    private static String read(String url, String contact, Duration timeout) throws IOException {
-        var request = HttpRequest.newBuilder(URI.create(url)).timeout(timeout)
+    private static String read(String url, String contact, Duration requestTimeout) throws IOException {
+        var request = HttpRequest.newBuilder(URI.create(url)).timeout(requestTimeout)
                 .header("User-Agent", contact.isEmpty() ? "ValueHunter-public-market-audit/1.0" : contact).build();
         try {
             var response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
