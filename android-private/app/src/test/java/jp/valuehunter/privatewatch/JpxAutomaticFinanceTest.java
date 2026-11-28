@@ -170,8 +170,11 @@ public class JpxAutomaticFinanceTest {
         var withoutCash = JpxAnnualSummary.read(xml.replace(cashFact, ""), CODE, RELEASED, source, false);
         assertNotNull(withoutCash.operating());
         assertNull(withoutCash.operating().cashFlow());
-        assertEquals(1, JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("100")).ceiling());
+        assertEquals(1, JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("110")).ceiling());
         assertNull(JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("150")));
+        assertEquals(2, JpxOperatingValuation.assess(withoutCash, DAY, new BigDecimal("50"))
+                .level(ValueAlertMeter.DEFAULT));
+
         var malformedCash = JpxAnnualSummary.read(xml.replace(cashFact, cashFact.replace("JPY", "Shares")),
                 CODE, RELEASED, source, false);
         assertNull(malformedCash.operating());

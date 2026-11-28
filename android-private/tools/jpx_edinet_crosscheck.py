@@ -158,10 +158,16 @@ class EdinetAudit:
         kind = item["docTypeCode"]
         doc = item.get("docID", "")
         period = item.get("periodEnd")
-        if (not re.fullmatch(r"S[0-9A-Z]{7}", doc) or item.get("csvFlag") != "1"
-                or not period or not annual_period < period < filed_on):
-            return {**evidence, "status": "latest_interim_unverified"}
-        result = {**evidence, "status": "latest_interim_reviewed", "doc_id": doc, "doc_type": kind, "period_end": period}
+        result = {**evidence, "doc_type": kind, "period_end": period, "filed_on": filed_on}
+        if not re.fullmatch(r"S[0-9A-Z]{7}", doc):
+            return {**result, "status": "latest_interim_document_id_unverified"}
+        result["doc_id"] = doc
+        if not period or not annual_period < period < filed_on:
+            return {**result, "status": "latest_interim_period_unverified"}
+        if item.get("csvFlag") != "1":
+            return {**result, "status": "latest_interim_csv_not_offered", "csv_flag": item.get("csvFlag"),
+                    "xbrl_flag": item.get("xbrlFlag")}
+        result["status"] = "latest_interim_reviewed"
         try:
             facts = facts_from_csv(self.request("/" + doc, {"type": 5}, 8_000_000), interim=True)
         except (ValueError, KeyError, BadZipFile):

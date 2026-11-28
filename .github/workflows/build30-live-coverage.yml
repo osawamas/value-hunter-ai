@@ -9,6 +9,7 @@ on:
       - 'android-private/tools/jpx_hachiquant_coverage.py'
       - 'android-private/tools/jpx_edinet_crosscheck.py'
       - 'android-private/tools/UsLiveCoverage.java'
+      - 'android-private/app/src/main/java/jp/valuehunter/privatewatch/JpxOperatingValuation.java'
       - 'android-private/tools/us_market_history_probe.py'
       - 'android-private/tools/us_finzdata_probe.py'
       - 'android-private/tools/check_jpx_live_emulator.sh'
@@ -103,7 +104,7 @@ jobs:
             bash android-private/tools/compile_us_replay.sh "$dir"
             rm -f "$data/us-public-coverage.json"
             result=0
-            timeout 100 java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" || result=$?
+            timeout 195 java -cp "$dir/classes:$dir/json.jar" jp.valuehunter.privatewatch.UsLiveCoverage "$data" || result=$?
             if [ -s "$data/us-public-coverage.json" ]; then
               cp "$data/us-public-coverage.json" coverage-results/us-archived-coverage.json
             else

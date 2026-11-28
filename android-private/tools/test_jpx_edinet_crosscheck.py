@@ -64,6 +64,11 @@ class CrossCheckTest(unittest.TestCase):
             result = audit.review_newer(*args)
         self.assertEqual((result["status"], result["shares"], result["bps"]),
                          ("latest_interim_reviewed", "unchanged", "changed"))
+        audit.days[filed] = [dict(row, docTypeCode="160", csvFlag="0", xbrlFlag="1")]
+        denied = audit.review_newer(*args)
+        self.assertEqual(denied["status"], "latest_interim_csv_not_offered")
+        self.assertEqual((denied["doc_id"], denied["period_end"], denied["xbrl_flag"]),
+                         ("S100AB12", "2026-09-30", "1"))
         audit.days[filed].append(dict(row, docTypeCode="170"))
         self.assertEqual(audit.review_newer(*args)["status"], "latest_annual_or_amendment_requires_review")
 

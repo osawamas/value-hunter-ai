@@ -26,6 +26,15 @@ final class JpxOperatingValuation {
                     || !atLeast(facts.netAssets(), facts.assets(), "0.50")
                     || !atLeast(facts.revenue(), marketCap, "2")
                     || !atLeast(annual.onShareBasis(day, profit, false), marketCap, "0.15")) return null;
+            var bookPerShare = annual.onShareBasis(day, annual.bps(), false);
+            // A deep discount to reported parent equity can corroborate two years of
+            // operating earnings when no usable operating cash flow was disclosed.
+            if (atLeast(bookPerShare, close, "2")
+                    && atLeast(facts.netAssets(), facts.assets(), "0.60")
+                    && atLeast(annual.onShareBasis(day, prior, false), marketCap, "0.15")
+                    && atLeast(annual.onShareBasis(day, profit, false), marketCap, "0.20")) {
+                return new ValueAlertMeter.Score(80, 2, 4);
+            }
             return new ValueAlertMeter.Score(65, 1, 4);
         }
         if (!soundBalance || weakParentEquity || !atLeast(cashFlow, marketCap, "0.08")

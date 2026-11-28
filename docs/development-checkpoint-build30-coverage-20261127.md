@@ -100,3 +100,11 @@ Hachiquantの抽出サンプルを金融庁EDINETの提出記録と原本CSVに�
 EDINET原本の年次照合は40件中39件。39件とも後続の半期書類を特定したが、書類の取得・公表日・会計期の確認条件を満たせず、代替経路からの加算は0件。該当39件は同実行の jpx-later-filings.json に記録した。米国は5,080銘柄の保存済みスコープを取得できたが、再生が100秒でタイムアウトし未計測。Nasdaq公式APIはHTTP 200、AAPLの指定された2取引日の組は照合できなかった。Market HistoryはHTTP 403。FinzDataはキー未登録。Codexクラウド内からDoltHub・Nasdaqに接続した際の403は、配信元に到達する前のプロキシ応答。
 
 Android単体236件、JPX照合・評価用Pythonテスト8件、FinzDataテスト2件、Java監査ツールのコンパイルとAPKのビルドを確認。[再起動を含む無音通知・再点灯防止・履歴](https://github.com/osawamas/value-hunter-ai/actions/runs/46144366962) と [ブランドUI](https://github.com/osawamas/value-hunter-ai/actions/runs/46144366960) のエミュレータCIも成功。保留中のSGXの別ワークフローは失敗。
+
+### 米国終値をFinzDataの無料枠で検証する
+
+1. [FinzData公式の登録画面](https://api.finzdata.com/)でアカウントを作成し、カード不要の無料プランでAPIキーを発行する。
+2. [リポジトリのActionsシークレット設定](https://github.com/osawamas/value-hunter-ai/settings/secrets/actions)で **New repository secret** を選ぶ。名前に `FINZDATA_API_KEY`、値に発行したAPIキーを入力し **Add secret** を押す。
+3. 次の **Build30 public market coverage** の実行結果から `us-finzdata-close-probe.json` を確認する。監査はアカウントのプランが無料であることを確認し、日付指定のAAPL終値を1銘柄試す。
+
+[FinzDataの公式料金表](https://finzdata.com/pricing)では、無料枠の日足は直近12か月、1日1,000リクエスト。毎日5,080銘柄を1銘柄1リクエストで更新する用途には枠が足りない。公式のサーバー側バッチジョブと一括ファイルは有料プランの機能。無料枠で利用できる全銘柄一括経路は確認できていない。

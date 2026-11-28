@@ -199,7 +199,12 @@ public final class JpxPdfGeometryProbe extends Instrumentation {
         for (String code : JpxAutomaticFinance.failedAcquisitions(context)) {
             if (!acquisition.has(code)) acquisition.put(code, new JSONObject().put("transport_retry", true));
         }
+        var missingClose = new org.json.JSONArray();
+        for (String code : new TreeSet<>(universe.codes())) {
+            if (report.close(code) == null) missingClose.put(code);
+        }
         var audit = new JSONObject().put("trade_date", day.toString()).put("issuer", acquisition)
+                .put("missing_close_codes", missingClose)
                 .put("hold_counts", new JSONObject(holdCounts))
                 .put("strict_exclusions_with_annual", new JSONObject(strictExclusionsWithAnnual))
                 .put("transport", new JSONObject(trace));
